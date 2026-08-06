@@ -1,0 +1,8 @@
+{
+  "name": "brand-new-start",
+  "private": true,
+  "description": "Brand New Start — Command Center prototype (static)",
+  "scripts": {
+    "vercel-build": "echo 'Static site — no build step'"
+  }
+}
