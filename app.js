@@ -7,12 +7,15 @@ const state = {
   activeOutreach: 0,
   activeProces: 0,
   activeIntel: 0,
+  feedExpanded: false,
   radarFilter: "all",
   nextChoice: {},
   outreachStatuses: {},
   approvals: Object.fromEntries(REGIE.steps.map((s) => [s.id, "pending"])),
   voorstelBody: REGIE.voorstel.body,
 };
+
+const FEED_PREVIEW = 6;
 
 const $ = (id) => document.getElementById(id);
 
@@ -490,7 +493,17 @@ function renderIntel() {
 
   $("btn-intel-pulse")?.addEventListener("click", () => setMode("pulse"));
 
-  $("intel-feed").innerHTML = REGIE.intel.feed
+  const feed = REGIE.intel.feed;
+  const visible = state.feedExpanded ? feed : feed.slice(0, FEED_PREVIEW);
+  const hiddenCount = Math.max(0, feed.length - FEED_PREVIEW);
+
+  if ($("intel-feed-count")) {
+    $("intel-feed-count").textContent = state.feedExpanded
+      ? `${feed.length} signalen · klik een kaart om de bron te openen`
+      : `${Math.min(FEED_PREVIEW, feed.length)} van ${feed.length} · nieuwste bovenaan`;
+  }
+
+  $("intel-feed").innerHTML = visible
     .map((f) => {
       const source = sources.find((s) => s.id === f.source);
       const srcIdx = sources.findIndex((s) => s.id === f.source);
@@ -513,6 +526,19 @@ function renderIntel() {
       </li>`;
     })
     .join("");
+
+  const more = $("intel-feed-more");
+  if (more) {
+    if (hiddenCount > 0) {
+      more.hidden = false;
+      more.innerHTML = state.feedExpanded
+        ? `<button type="button" class="btn btn-ghost btn-sm" data-feed-toggle>Toon minder</button>`
+        : `<button type="button" class="btn btn-ghost btn-sm" data-feed-toggle>Toon ${hiddenCount} oudere signalen</button>`;
+    } else {
+      more.hidden = true;
+      more.innerHTML = "";
+    }
+  }
 }
 
 function leadKandidaat() {
@@ -906,6 +932,12 @@ document.getElementById("intel-feed")?.addEventListener("click", (e) => {
   state.activeIntel = idx;
   renderIntel();
   $("intel-source-detail")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+});
+
+document.getElementById("intel-feed-more")?.addEventListener("click", (e) => {
+  if (!e.target.closest("[data-feed-toggle]")) return;
+  state.feedExpanded = !state.feedExpanded;
+  renderIntel();
 });
 
 document.getElementById("btn-intel-radar-top")?.addEventListener("click", () => setMode("radar"));
