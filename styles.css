@@ -41,6 +41,7 @@ body {
   font-size: 15px;
   line-height: 1.5;
   color: var(--ink);
+  overflow-x: hidden;
   background:
     radial-gradient(ellipse 70% 40% at 0% 0%, #d0e7f5 0%, transparent 50%),
     radial-gradient(ellipse 50% 35% at 100% 0%, #d4efe2 0%, transparent 45%),
@@ -177,6 +178,7 @@ select {
   border: 1px solid var(--line);
   border-radius: var(--radius);
   justify-self: center;
+  max-width: 100%;
 }
 
 .mode-btn {
@@ -3166,18 +3168,43 @@ main {
 /* —— Responsive —— */
 @media (max-width: 960px) {
   .top {
-    grid-template-columns: auto 1fr;
+    grid-template-columns: 1fr auto;
     grid-template-rows: auto auto;
+    gap: 0.55rem 0.75rem;
+    padding: 0.65rem 0.85rem;
   }
 
-  .mode-switch {
-    justify-self: end;
+  .brand {
+    justify-self: start;
+  }
+
+  .brand-text {
+    display: none;
   }
 
   .top-actions {
+    justify-self: end;
+  }
+
+  .mode-switch {
     grid-column: 1 / -1;
     justify-self: stretch;
-    justify-content: space-between;
+    display: flex;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    gap: 0.15rem;
+    padding: 0.2rem;
+  }
+
+  .mode-switch::-webkit-scrollbar {
+    display: none;
+  }
+
+  .mode-btn {
+    flex: 0 0 auto;
+    padding: 0.45rem 0.7rem;
+    font-size: 0.72rem;
   }
 
   .desk-grid,
@@ -3187,22 +3214,178 @@ main {
   .outreach-layout,
   .match,
   .human-item,
-  .field-row {
+  .field-row,
+  .radar-desk,
+  .outreach-desk,
+  .intel-desk,
+  .proces-desk,
+  .delivery-desk,
+  .proces-lanes,
+  .step-gate {
     grid-template-columns: 1fr;
+  }
+
+  .proces-desk .schema,
+  .delivery-desk .steps {
+    position: static;
+  }
+
+  .delivery-desk .steps {
+    grid-template-columns: repeat(4, 1fr);
   }
 
   .steps {
     grid-template-columns: repeat(4, 1fr);
   }
 
+  .opdracht {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
   .opdracht-facts {
     grid-template-columns: repeat(2, auto);
+  }
+
+  .opdracht-story {
+    max-width: none;
+  }
+
+  .section-head {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.55rem;
+  }
+
+  .radar-filters {
+    flex-wrap: wrap;
+  }
+
+  .fb-bar {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+}
+
+@media (max-width: 700px) {
+  main {
+    padding: 0.85rem 0.75rem 2.5rem;
+  }
+
+  .view-explain {
+    font-size: 0.8rem;
+    padding: 0.65rem 0.75rem;
+  }
+
+  .block-panel {
+    padding: 0.85rem 0.8rem;
+  }
+
+  /* Radar: scroll + hide secondary columns */
+  .table-wrap-radar {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    margin: 0 -0.15rem;
+  }
+
+  .radar-table {
+    min-width: 520px;
+  }
+
+  .radar-table th:nth-child(2),
+  .radar-table td:nth-child(2),
+  .radar-table th:nth-child(5),
+  .radar-table td:nth-child(5) {
+    display: none;
+  }
+
+  .radar-table th,
+  .radar-table td {
+    padding: 0.55rem 0.45rem;
+    font-size: 0.78rem;
+  }
+
+  .src-chip {
+    font-size: 0.55rem;
+    padding: 0.12rem 0.3rem;
+  }
+
+  .intel-feed-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .choice-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .approve-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .approve-actions {
+    width: 100%;
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .approve-actions .btn {
+    flex: 1;
+  }
+
+  .tour-backdrop {
+    align-items: flex-end;
+    padding: 0.75rem;
+  }
+
+  .tour-card {
+    width: 100%;
+  }
+
+  .flow-item.is-branch {
+    margin-left: 0.35rem;
+  }
+
+  .flow-badge {
+    display: none;
+  }
+
+  .flow-step {
+    grid-template-columns: 2rem 1fr;
+    gap: 0.55rem;
+    padding: 0.65rem 0.7rem;
+  }
+
+  .pulse-embed {
+    max-width: none;
+  }
+
+  .pulse-page {
+    padding: 1rem 0.85rem 2.5rem;
+  }
+
+  .foot {
+    padding: 0 0.75rem 1.5rem;
+    flex-direction: column;
+    gap: 0.25rem;
   }
 }
 
 @media (max-width: 560px) {
-  .steps {
+  .brand-logo {
+    height: 28px;
+  }
+
+  .steps,
+  .delivery-desk .steps {
     grid-template-columns: repeat(2, 1fr);
+  }
+
+  .delivery-desk .step {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.15rem;
+    min-height: 2.75rem;
   }
 
   .timing-row {
@@ -3215,6 +3398,79 @@ main {
 
   .top-meta {
     display: none;
+  }
+
+  .top-link {
+    font-size: 0.72rem;
+    padding: 0.3rem 0.35rem;
+  }
+
+  .btn-tour {
+    padding: 0.4rem 0.65rem;
+  }
+
+  .opdracht h1 {
+    font-size: 1.15rem;
+  }
+
+  .opdracht-facts {
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem 0.85rem;
+  }
+
+  .radar-table {
+    min-width: 0;
+    width: 100%;
+  }
+
+  /* Card-like denser radar on very small screens */
+  .radar-table thead {
+    display: none;
+  }
+
+  .radar-table,
+  .radar-table tbody,
+  .radar-table tr,
+  .radar-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .radar-table tr {
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 0.65rem 0.7rem;
+    margin-bottom: 0.5rem;
+    background: var(--surface-2);
+  }
+
+  .radar-table tr.is-on {
+    border-color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+  }
+
+  .radar-table td {
+    border: none;
+    padding: 0.15rem 0;
+  }
+
+  .radar-table td:first-child {
+    margin-bottom: 0.25rem;
+  }
+
+  .radar-table th:nth-child(2),
+  .radar-table td:nth-child(2),
+  .radar-table th:nth-child(5),
+  .radar-table td:nth-child(5) {
+    display: none;
+  }
+
+  .radar-table td.kans-cell {
+    margin-top: 0.35rem;
+  }
+
+  .table-wrap-radar {
+    overflow: visible;
   }
 }
 
