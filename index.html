@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Brand New Start — Command Center</title>
+  <link rel="icon" type="image/png" href="assets/bns-logo.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Outfit:wght@400;500;600;700&family=Syne:wght@600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="grain" aria-hidden="true"></div>
+  <div id="tour-root"></div>
+  <div id="tooltip-root" class="tooltip-root" hidden></div>
+
+  <header class="top">
+    <a class="brand" href="index.html">
+      <img class="brand-logo" src="assets/bns-logo.png" alt="Brand New Start" />
+      <span class="brand-text">Command Center</span>
+    </a>
+
+    <nav class="mode-switch" role="tablist" aria-label="Views">
+      <button type="button" class="mode-btn is-on" data-mode="radar" role="tab" aria-selected="true">Radar</button>
+      <button type="button" class="mode-btn" data-mode="intel" role="tab" aria-selected="false">Bronnen</button>
+      <button type="button" class="mode-btn" data-mode="delivery" role="tab" aria-selected="false">Opdracht</button>
+      <button type="button" class="mode-btn" data-mode="demand" role="tab" aria-selected="false">Outreach</button>
+      <button type="button" class="mode-btn" data-mode="pulse" role="tab" aria-selected="false">Pulse</button>
+      <button type="button" class="mode-btn" data-mode="proces" role="tab" aria-selected="false">Proces</button>
+    </nav>
+
+    <div class="top-actions">
+      <a class="top-link" href="pulse.html" target="_blank" rel="noopener">Deel-link</a>
+      <button type="button" class="btn btn-tour" id="btn-tour">Demo</button>
+    </div>
+  </header>
+
+  <main>
+    <!-- RADAR -->
+    <div id="view-radar" data-tour="radar">
+      <p class="view-explain">
+        <strong>Radar</strong> — overzicht van bedrijven waar nu contracting-ruimte lijkt te zijn.
+        Klik een rij: rechts zie je bronnen, waarom de kans hoog is, en kies je de volgende stap (agent of zelf).
+      </p>
+      <div class="desk-grid radar-desk">
+        <section class="block-panel radar-panel" data-tour="radar-table">
+          <div class="section-head">
+            <div class="head-left">
+              <h2>Waar is contracting-ruimte?</h2>
+              <p id="radar-stats"></p>
+            </div>
+            <div class="radar-filters" id="radar-filters" role="group" aria-label="Filter">
+              <button type="button" class="filter-btn is-on" data-filter="all">Alles</button>
+              <button type="button" class="filter-btn" data-filter="hot">Hot</button>
+              <button type="button" class="filter-btn" data-filter="talk">Gesprek gemeld</button>
+              <button type="button" class="filter-btn" data-filter="contract">ZZP/interim</button>
+            </div>
+          </div>
+          <div class="table-wrap table-wrap-radar">
+            <table class="radar-table">
+              <thead>
+                <tr>
+                  <th>Bedrijf</th>
+                  <th>Hiring manager</th>
+                  <th>Rol</th>
+                  <th>Bronnen</th>
+                  <th>
+                    Gesprek gemeld
+                    <button type="button" class="info-dot" id="info-gesprek" aria-label="Uitleg gesprek gemeld" title="">i</button>
+                  </th>
+                  <th>Kans</th>
+                </tr>
+              </thead>
+              <tbody id="radar-body"></tbody>
+            </table>
+          </div>
+          <div class="alert-strip compact" id="alert-strip" data-tour="alerts"></div>
+        </section>
+
+        <aside class="block-panel" id="radar-detail" data-tour="radar-detail" aria-live="polite"></aside>
+      </div>
+    </div>
+
+    <!-- BRONNEN / INTEL -->
+    <div id="view-intel" class="is-hidden" hidden data-tour="intel">
+      <p class="view-explain">
+        <strong>Bronnen</strong> — Demand Agent pikte zojuist signalen op (mock).
+        Bovenaan zie je wat er nú binnenkomt; daaronder welke bronnen dat voeden en waar we ze ophalen.
+      </p>
+
+      <section class="block-panel intel-feed-hero" data-tour="intel-feed">
+        <div class="section-head">
+          <div class="head-left">
+            <h2>Live signalen</h2>
+            <p>Dit landt op de radar · klik een kaart om de bron te openen</p>
+          </div>
+          <button type="button" class="btn btn-primary btn-sm" id="btn-intel-radar-top">Naar radar</button>
+        </div>
+        <ul class="intel-feed-grid" id="intel-feed"></ul>
+      </section>
+
+      <div class="desk-grid intel-desk">
+        <section class="block-panel" data-tour="intel-sources">
+          <div class="section-head">
+            <div class="head-left">
+              <h2>Broncatalogus</h2>
+              <p id="intel-source-count"></p>
+            </div>
+          </div>
+          <ul class="intel-source-list" id="intel-source-list"></ul>
+        </section>
+        <aside class="block-panel" id="intel-source-detail" aria-live="polite"></aside>
+      </div>
+    </div>
+
+    <!-- OPDRACHT -->
+    <div id="view-delivery" class="is-hidden" hidden data-tour="delivery">
+      <p class="view-explain">
+        <strong>Opdracht</strong> — delivery zodra er een concrete klantvraag is (voorbeeld: Adyen Cloud Infra).
+        Agents bereiden elke stap voor; jij keurt per poort goed. Lead hier: <strong>Samira</strong> (beste match); Marc &amp; Priya zijn backup.
+      </p>
+      <section class="opdracht" id="opdracht" data-tour="opdracht"></section>
+      <section class="block-panel delivery-panel" data-tour="flow">
+        <div class="section-head">
+          <h2>Delivery-stappen</h2>
+          <p>Links stappen · rechts wat de agent deed en wat jij goedkeurt</p>
+        </div>
+        <div class="delivery-desk">
+          <ol class="steps" id="steps"></ol>
+          <article class="detail" id="detail" aria-live="polite"></article>
+        </div>
+      </section>
+    </div>
+
+    <!-- OUTREACH -->
+    <div id="view-demand" class="is-hidden" hidden data-tour="demand">
+      <p class="view-explain">
+        <strong>Outreach</strong> — conceptberichten naar hiring managers, geschreven door de Sales Agent.
+        Jij past toon aan en zet op Ready / Verzonden. Relatie blijft van Brand New Start — geen spam namens AI.
+      </p>
+      <div class="desk-grid outreach-desk">
+        <section class="block-panel" data-tour="outreach">
+          <div class="section-head">
+            <h2>Berichten naar hiring managers</h2>
+            <p>Concept klaarzetten · jij verstuurt of laat agent sturen</p>
+          </div>
+          <ul class="outreach-list" id="outreach-list"></ul>
+        </section>
+        <article class="block-panel outreach-draft" id="outreach-draft"></article>
+      </div>
+    </div>
+
+    <!-- PULSE -->
+    <div id="view-pulse" class="is-hidden" hidden data-tour="pulse-tab">
+      <p class="view-explain">
+        <strong>Pulse</strong> — deelbaar formulier voor kandidaten (~90 sec).
+        Zij krijgen een tariefsnapshot terug; Brand New Start krijgt signalen (waar interviewen ze, ZZP?) voor de radar.
+        Preview hieronder · deellink rechtsboven of <a href="pulse.html" target="_blank" rel="noopener">pulse.html</a>.
+      </p>
+      <div class="pulse-embed">
+        <div id="pulse-embed-root"></div>
+      </div>
+    </div>
+
+    <!-- PROCES -->
+    <div id="view-proces" class="is-hidden" hidden data-tour="proces">
+      <p class="view-explain">
+        <strong>Proces</strong> — het grote plaatje: wat agents doen vs waar Brand New Start inmengt (licht / keurt goed / beslist).
+        Klik een stap links — rechts zie je de exacte taken.
+      </p>
+      <section class="block-panel proces-panel">
+        <div class="section-head">
+          <div class="head-left">
+            <h2>Proces · wie doet wat</h2>
+            <p>Links stappen · rechts details</p>
+          </div>
+          <div class="proces-key">
+            <span class="key-pill key-human-light">Licht</span>
+            <span class="key-pill key-human-mid">Keurt goed</span>
+            <span class="key-pill key-human-heavy">Beslist</span>
+          </div>
+        </div>
+        <div class="proces-desk">
+          <div class="schema" id="schema" aria-label="Processchema"></div>
+          <aside class="proces-detail" id="proces-detail" aria-live="polite"></aside>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <footer class="foot">
+    <span>Brand New Start · IT contracting</span>
+    <span>Prototype command center</span>
+  </footer>
+
+  <script src="data.js"></script>
+  <script src="pulse.js"></script>
+  <script src="tour.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
