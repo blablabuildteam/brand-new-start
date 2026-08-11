@@ -1,5 +1,8 @@
 {
-  "$schema": "https://openapi.vercel.sh/vercel.json",
-  "framework": null,
-  "cleanUrls": true
+  "crons": [
+    {
+      "path": "/api/ingest",
+      "schedule": "0 6 * * *"
+    }
+  ]
 }

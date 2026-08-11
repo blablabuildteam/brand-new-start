@@ -948,8 +948,12 @@ renderDemand();
 renderProces();
 renderIntel();
 setStep(0);
-setMode("radar");
 
-if (new URLSearchParams(location.search).get("demo") === "1") {
+const params = new URLSearchParams(location.search);
+const requestedView = params.get("view");
+const validView = requestedView && document.querySelector(`.mode-btn[data-mode="${requestedView}"]`);
+setMode(validView ? requestedView : "radar");
+
+if (params.get("demo") === "1") {
   setTimeout(() => window.RegieTour?.start(), 300);
 }
