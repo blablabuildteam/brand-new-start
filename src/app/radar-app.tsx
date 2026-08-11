@@ -235,19 +235,22 @@ function openSyncRuns(runs: SyncRun[]): LiveSync {
   const batch = recentSyncBatch(runs);
   const kept = batch.reduce((a, r) => a + r.kept, 0);
   const fetched = batch.reduce((a, r) => a + r.fetched, 0);
-  const labels = [...new Set(batch.map((r) => r.label))];
+  const names = [...new Set(batch.map((r) => channelLabelUi(r.channel) || r.label))];
   const onlyLinkedIn = batch.length === 1 && batch[0]?.channel === "linkedin-jobs";
   const onlyBoards = batch.every((r) => r.channel === "indeed" || r.channel === "freelance-nl");
   return {
     phase: "done",
     action: onlyLinkedIn ? "market" : onlyBoards && batch.length ? "boards" : "all",
-    title: labels.join(" + ") || "Sync",
+    title: names.length > 1 ? `${names.length} bronnen` : names[0] || "Sync",
     statusLine: `${kept} gehouden · ${fetched} opgehaald`,
-    explain: "Sync-geschiedenis · eerdere run opnieuw bekijken.",
+    explain:
+      names.length > 1
+        ? `Apart opgehaald: ${names.join(", ")}. Dit is geen gecombineerde bron.`
+        : "Sync-geschiedenis · eerdere run opnieuw bekijken.",
     searched: [...new Set(batch.flatMap((r) => r.searched || []))],
     steps: batch.map((r) => ({
       id: r.channel,
-      label: r.label,
+      label: channelLabelUi(r.channel) || r.label,
       status: "done" as const,
       detail: `${r.kept}/${r.fetched}`,
     })),
@@ -418,7 +421,7 @@ export default function RadarApp() {
       action === "market"
         ? "LinkedIn Jobs"
         : action === "boards"
-          ? "Indeed & Freelancer.nl"
+          ? "Indeed en Freelancer.nl (apart)"
           : "Careers / platforms";
 
     const explain =
@@ -917,77 +920,62 @@ export default function RadarApp() {
           </div>
 
           {!live && sync?.last ? (
-            <div className="space-y-2">
-              {(() => {
-                const hours =
-                  (Date.now() - new Date(sync.last!.at).getTime()) / (1000 * 60 * 60);
-                if (hours < 18) {
-                  return (
-                    <p className="rounded-md border border-[var(--warn)]/25 bg-[var(--warn)]/5 px-3 py-2 text-xs leading-snug text-[var(--ink)]">
-                      Laatste sync {timeAgo(sync.last!.at)}.{" "}
-                      <span className="text-[var(--muted)]">
-                        Liever niet opnieuw vandaag — elke sync kost Apify/Firecrawl-credits (advies:
-                        1×/dag).
+            <section className="overflow-hidden rounded-md border border-[var(--line)] bg-[var(--surface)] shadow-[var(--shadow)]">
+              <div className="flex items-start justify-between gap-3 border-b border-[var(--line)]/80 px-3.5 py-2.5">
+                <div className="min-w-0">
+                  <p
+                    className="text-[0.65rem] font-medium uppercase tracking-[0.08em] text-[var(--muted)]"
+                    style={{ fontFamily: "var(--mono)" }}
+                  >
+                    Sync
+                  </p>
+                  <p className="mt-0.5 text-sm text-[var(--ink)]">
+                    Laatste run {timeAgo(sync.last.at)}
+                    <span className="text-[var(--muted)]">
+                      {" · "}
+                      {(Date.now() - new Date(sync.last.at).getTime()) / 3600000 < 18
+                        ? "liever niet opnieuw vandaag (kost credits)"
+                        : `verse sync oké · ≈ €${SYNC_COST_PER_RUN.actions.all.eur.low}–${SYNC_COST_PER_RUN.actions.all.eur.high}`}
+                    </span>
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="shrink-0 rounded px-2 py-1 text-xs font-semibold text-[var(--accent)] hover:bg-[var(--accent-soft)]/60"
+                  onClick={() =>
+                    setLive(openSyncRuns(sync.recent?.length ? sync.recent : [sync.last!]))
+                  }
+                >
+                  Batch →
+                </button>
+              </div>
+              <ul className="divide-y divide-[var(--line)]/70">
+                {(sync.recent?.length ? sync.recent : [sync.last]).slice(0, 6).map((r) => (
+                  <li key={r.id}>
+                    <button
+                      type="button"
+                      className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left transition hover:bg-[var(--surface-2)]/80"
+                      onClick={() => setLive(openSyncRuns([r]))}
+                    >
+                      <SourceLogo channel={r.channel} size="sm" />
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-sm font-medium text-[var(--ink)]">
+                          {channelLabelUi(r.channel) || r.label}
+                        </span>
+                        <span className="block text-[0.7rem] text-[var(--muted)]">
+                          {r.kept}/{r.fetched} gehouden · {timeAgo(r.at)}
+                          {r.mode === "skipped" ? " · overgeslagen" : ""}
+                        </span>
                       </span>
-                    </p>
-                  );
-                }
-                return (
-                  <p className="rounded-md border border-[var(--line)] bg-[var(--surface-2)]/50 px-3 py-2 text-xs text-[var(--muted)]">
-                    Laatste sync {timeAgo(sync.last!.at)} — een verse sync is oké (≈ €
-                    {SYNC_COST_PER_RUN.actions.all.eur.low}–{SYNC_COST_PER_RUN.actions.all.eur.high}).
-                  </p>
-                );
-              })()}
-              <button
-                type="button"
-                onClick={() => setLive(openSyncRuns(sync.recent?.length ? sync.recent : [sync.last!]))}
-                className="flex w-full items-center justify-between gap-3 rounded-md border border-[var(--accent)]/25 bg-[var(--accent-soft)]/40 px-3 py-2.5 text-left transition hover:bg-[var(--accent-soft)]/70"
-              >
-                <div>
-                  <p className="text-[0.65rem] uppercase tracking-wide text-[var(--accent)]" style={{ fontFamily: "var(--mono)" }}>
-                    Laatste sync-batch
-                  </p>
-                  <p className="text-sm font-medium text-[var(--ink)]">
-                    {[...new Set(recentSyncBatch(sync.recent?.length ? sync.recent : [sync.last!]).map((r) => r.label))].join(" + ")}{" "}
-                    · {timeAgo(sync.last.at)}
-                  </p>
-                  <p className="text-xs text-[var(--muted)]">
-                    {recentSyncBatch(sync.recent?.length ? sync.recent : [sync.last!]).reduce((a, r) => a + r.kept, 0)}/
-                    {recentSyncBatch(sync.recent?.length ? sync.recent : [sync.last!]).reduce((a, r) => a + r.fetched, 0)} gehouden
-                    {sync.recent?.length ? ` · ${sync.recent.length} recente runs` : ""}
-                  </p>
-                </div>
-                <span className="shrink-0 text-xs font-semibold text-[var(--accent)]">Details →</span>
-              </button>
-              {sync.recent && sync.recent.length > 1 ? (
-                <div className="rounded-md border border-[var(--line)]/80 bg-[var(--surface)] px-3 py-2">
-                  <p className="mb-1.5 text-[0.62rem] uppercase tracking-wide text-[var(--muted)]">
-                    Sync-geschiedenis
-                  </p>
-                  <ul className="max-h-28 space-y-1 overflow-y-auto">
-                    {sync.recent.slice(0, 8).map((r) => (
-                      <li key={r.id}>
-                        <button
-                          type="button"
-                          className="flex w-full items-center gap-2 rounded px-1 py-1 text-left text-xs hover:bg-[var(--surface-2)]"
-                          onClick={() => setLive(openSyncRuns([r]))}
-                        >
-                          <SourceLogo channel={r.channel} size="sm" />
-                          <span className="min-w-0 flex-1 truncate font-medium text-[var(--ink)]">
-                            {r.label}
-                          </span>
-                          <span className="shrink-0 tabular-nums text-[var(--muted)]">
-                            {r.kept}/{r.fetched}
-                          </span>
-                          <span className="shrink-0 text-[var(--muted)]">{timeAgo(r.at)}</span>
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ) : null}
-            </div>
+                      <span className="shrink-0 text-xs text-[var(--accent)]">Details</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+              <p className="border-t border-[var(--line)]/80 px-3.5 py-2 text-[0.68rem] leading-snug text-[var(--muted)]">
+                Indeed, Freelancer.nl en LinkedIn zijn aparte bronnen — elk een eigen regel hierboven.
+              </p>
+            </section>
           ) : null}
         </div>
 
