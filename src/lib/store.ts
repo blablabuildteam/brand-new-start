@@ -337,27 +337,49 @@ export async function ingestSignal(input: IngestInput): Promise<{
   return { ok: true, signal, created: true };
 }
 
+/**
+ * Bouw radar uit signalen + score in-memory.
+ * Geen N× DB-recompute per GET — dat maakte refresh traag.
+ * Persistente radar_entries worden bij ingest bijgewerkt.
+ */
 export async function listRadar() {
   if (hasDatabase()) {
     const db = getDb();
-    const allSignals = await db.query.signals.findMany();
-    const companyIds = [...new Set(allSignals.map((s) => s.companyId))];
-    for (const companyId of companyIds) {
-      await recomputeRadarPg(companyId);
-    }
-    const rows = await db.query.radarEntries.findMany();
-    const cos = await db.query.companies.findMany();
+    const [allSignals, cos] = await Promise.all([
+      db.query.signals.findMany(),
+      db.query.companies.findMany(),
+    ]);
     const coMap = new Map(cos.map((c) => [c.id, c]));
-    return rows
-      .map((r) => {
-        const company = coMap.get(r.companyId)!;
-        const companySignals = allSignals
-          .filter((s) => s.companyId === r.companyId && s.source !== "hm-post")
-          .sort((a, b) => b.seenAt.getTime() - a.seenAt.getTime());
-        return { ...r, company, signals: companySignals };
-      })
-      .filter((r) => r.signals.length > 0)
-      .sort((a, b) => b.kans - a.kans);
+    const byCompany = new Map<string, typeof allSignals>();
+    for (const s of allSignals) {
+      if (s.source === "hm-post") continue;
+      const list = byCompany.get(s.companyId) || [];
+      list.push(s);
+      byCompany.set(s.companyId, list);
+    }
+
+    const rows = [];
+    for (const [companyId, companySignals] of byCompany) {
+      const company = coMap.get(companyId);
+      if (!company || !companySignals.length) continue;
+      const scored = scoreSignals(companySignals);
+      const sorted = [...companySignals].sort((a, b) => b.seenAt.getTime() - a.seenAt.getTime());
+      rows.push({
+        id: `rad_${companyId}_${slugify(scored.roleLabel)}`,
+        companyId,
+        roleLabel: scored.roleLabel,
+        status: scored.status,
+        kans: scored.kans,
+        hiringManager: null as string | null,
+        angle: scored.angle,
+        sources: scored.sources,
+        factors: scored.factors,
+        updatedAt: sorted[0]?.seenAt || new Date(),
+        company,
+        signals: sorted,
+      });
+    }
+    return rows.sort((a, b) => b.kans - a.kans);
   }
 
   const store = mem();
@@ -405,9 +427,18 @@ export async function listSignals(limit = 40) {
     }));
 }
 
-export async function stats() {
-  const radar = await listRadar();
-  const signalCount = (await listSignals(9999)).length;
+export async function stats(radarRows?: Awaited<ReturnType<typeof listRadar>>) {
+  const radar = radarRows ?? (await listRadar());
+  let signalCount = 0;
+  if (hasDatabase()) {
+    const db = getDb();
+    const rows = await db.query.signals.findMany({
+      columns: { id: true, source: true },
+    });
+    signalCount = rows.filter((s) => s.source !== "hm-post").length;
+  } else {
+    signalCount = [...mem().signals.values()].filter((s) => s.source !== "hm-post").length;
+  }
   return {
     companies: radar.length,
     hot: radar.filter((r) => r.status === "hot").length,

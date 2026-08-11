@@ -18,6 +18,27 @@ export function fingerprintOf(parts: {
   return createHash("sha256").update(base).digest("hex").slice(0, 24);
 }
 
+function rawOf(s: Signal): Record<string, unknown> {
+  return s.raw && typeof s.raw === "object" ? (s.raw as Record<string, unknown>) : {};
+}
+
+function parsePostedAt(raw: Record<string, unknown>): Date | null {
+  const v = raw.postedAt;
+  if (!v) return null;
+  const d = new Date(String(v));
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+function applicantsOf(raw: Record<string, unknown>): number | null {
+  const v = raw.applicants;
+  if (typeof v === "number" && Number.isFinite(v)) return v;
+  if (typeof v === "string") {
+    const m = v.match(/(\d+)/);
+    if (m) return Number(m[1]);
+  }
+  return null;
+}
+
 export function scoreSignals(companySignals: Signal[]): {
   kans: number;
   status: "hot" | "warm" | "watch" | "cold";
@@ -92,11 +113,68 @@ export function scoreSignals(companySignals: Signal[]): {
     });
   }
 
-  // Recency boost
+  // Channels / volume — meerdere bronnen = sterker signaal
+  const channels = new Set(
+    companySignals
+      .map((s) => {
+        const ch = rawOf(s).channel;
+        return typeof ch === "string" ? ch : null;
+      })
+      .filter(Boolean)
+  );
+  if (channels.size >= 2) {
+    factors.push({
+      label: `Op ${channels.size} bronnen tegelijk`,
+      points: 14,
+      source: "job-type",
+    });
+  }
+
+  const jobSignals = companySignals.filter((s) => s.source === "job-type");
+  if (jobSignals.length >= 2) {
+    factors.push({
+      label: `${jobSignals.length} contract-vacatures bij dit bedrijf`,
+      points: Math.min(12, 6 + (jobSignals.length - 2) * 3),
+      source: "job-type",
+    });
+  }
+
+  // Recency on first-seen / scrape time
   const newest = Math.max(...companySignals.map((s) => s.seenAt.getTime()));
   const days = (Date.now() - newest) / (1000 * 60 * 60 * 24);
-  if (days <= 3) factors.push({ label: "Vers signaal (≤3 dagen)", points: 10 });
+  if (days <= 1) factors.push({ label: "Net op de radar (≤24u)", points: 14 });
+  else if (days <= 3) factors.push({ label: "Vers signaal (≤3 dagen)", points: 10 });
   else if (days <= 10) factors.push({ label: "Recent (≤10 dagen)", points: 5 });
+
+  // Posting age + applicants from board raw metadata
+  let bestFreshPost = false;
+  let bestStaleLowApps = false;
+  for (const s of companySignals) {
+    const raw = rawOf(s);
+    const posted = parsePostedAt(raw);
+    const apps = applicantsOf(raw);
+    if (posted) {
+      const ageDays = (Date.now() - posted.getTime()) / (1000 * 60 * 60 * 24);
+      if (ageDays <= 2) bestFreshPost = true;
+      if (ageDays >= 14 && (apps === null || apps <= 8)) bestStaleLowApps = true;
+    } else if (apps !== null && apps <= 5 && days >= 7) {
+      bestStaleLowApps = true;
+    }
+  }
+  if (bestFreshPost) {
+    factors.push({
+      label: "Net gepost (≤2 dagen op de board)",
+      points: 12,
+      source: "job-type",
+    });
+  }
+  if (bestStaleLowApps && !stale.length) {
+    factors.push({
+      label: "Lang open / weinig aanmeldingen → pitch-kans",
+      points: 12,
+      source: "stale-job",
+    });
+  }
 
   let kans = factors.reduce((a, f) => a + f.points, 0);
   kans = Math.max(5, Math.min(98, kans));
@@ -105,7 +183,11 @@ export function scoreSignals(companySignals: Signal[]): {
     kans >= 75 ? "hot" : kans >= 55 ? "warm" : kans >= 35 ? "watch" : "cold";
 
   const angle = hasContract
-    ? "Staat al als interim/ZZP/contract in de markt — snelle pitch."
+    ? bestStaleLowApps
+      ? "Contract-rol die blijft hangen — goed moment om te pitchen."
+      : bestFreshPost
+        ? "Verse contract-vacature — snel reageren."
+        : "Staat al als interim/ZZP/contract in de markt — snelle pitch."
     : tenders.length
       ? "Award/project binnen — capaciteit vullen met SM/agile delivery."
       : "Nog geen hard contract-bewijs in de tekst — check de vacature of wacht op een sterker signaal.";

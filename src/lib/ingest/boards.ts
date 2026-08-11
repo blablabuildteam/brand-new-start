@@ -191,17 +191,25 @@ async function fetchFreelanceNlJobs(maxQueries = 2): Promise<{ jobs: BoardJob[];
       const md = data.data?.markdown || "";
       if (!matchesRole(md)) continue;
 
-      // Pull likely assignment lines
+      // Pull likely assignment lines — skip UI chrome from SPA scrapes
       const lines = md
         .split("\n")
-        .map((l) => l.replace(/^#+\s*/, "").trim())
-        .filter((l) => l.length > 8 && l.length < 120 && matchesRole(l));
+        .map((l) => l.replace(/^#+\s*/, "").replace(/^[-*•]\s*/, "").trim())
+        .filter(
+          (l) =>
+            l.length > 12 &&
+            l.length < 100 &&
+            matchesRole(l) &&
+            !/sorteer|relevantie|filter|cookie|inloggen|registreer|opdrachtgever|bekijk alle|pagina \d/i.test(
+              l
+            )
+        );
 
       for (const line of lines.slice(0, 3)) {
         jobs.push({
           company: "Freelance.nl opdrachtgever",
           title: line,
-          description: `${q} · Freelance.nl`,
+          description: `${q} · Freelance.nl · ZZP/interim opdracht`,
           url,
           channel: "freelance-nl",
         });
@@ -215,52 +223,85 @@ async function fetchFreelanceNlJobs(maxQueries = 2): Promise<{ jobs: BoardJob[];
 }
 
 export async function syncJobBoards(opts?: { maxIndeed?: number; maxFreelanceQueries?: number }) {
-  const jobs: BoardJob[] = [];
-  const parts: string[] = [];
   const errors: string[] = [];
-
-  try {
-    const indeed = await fetchIndeedJobs(opts?.maxIndeed ?? INGEST_POLICY.syncIndeedMax);
-    jobs.push(...indeed.jobs);
-    parts.push(indeed.detail);
-  } catch (e) {
-    errors.push(e instanceof Error ? e.message.slice(0, 160) : "indeed-error");
-  }
-
-  try {
-    const fl = await fetchFreelanceNlJobs(
-      opts?.maxFreelanceQueries ?? INGEST_POLICY.syncFreelanceQueries
-    );
-    jobs.push(...fl.jobs);
-    parts.push(fl.detail);
-  } catch (e) {
-    errors.push(e instanceof Error ? e.message.slice(0, 160) : "freelance-error");
-  }
-
-  let mode = "live";
-  if (!jobs.length) {
-    mode = errors.length ? "empty-error" : "empty";
-  }
-
-  const result = await ingestBoardJobs(jobs);
   const day = new Date().getUTCDay();
   const role = BOARD_QUERIES[day % BOARD_QUERIES.length]!;
   const indeedQuery = day % 2 === 0 ? `${role} ZZP` : role;
-  const searched = [
-    `Indeed NL · ${indeedQuery}`,
-    ...BOARD_QUERIES.slice(0, opts?.maxFreelanceQueries ?? 5).map((q) => `Freelance.nl · ${q}`),
-  ];
-  const run = await recordSync({
+  const maxFl = opts?.maxFreelanceQueries ?? INGEST_POLICY.syncFreelanceQueries;
+
+  let indeedJobs: BoardJob[] = [];
+  let indeedDetail = "indeed:empty";
+  try {
+    const indeed = await fetchIndeedJobs(opts?.maxIndeed ?? INGEST_POLICY.syncIndeedMax);
+    indeedJobs = indeed.jobs;
+    indeedDetail = indeed.detail;
+  } catch (e) {
+    errors.push(e instanceof Error ? e.message.slice(0, 160) : "indeed-error");
+    indeedDetail = "indeed:error";
+  }
+
+  const indeedIngest = await ingestBoardJobs(indeedJobs);
+  const indeedRun = await recordSync({
     channel: "indeed",
-    label: "Indeed + Freelance.nl",
-    mode,
-    detail: [...parts, ...errors].filter(Boolean).join(" · ") || "boards",
-    fetched: jobs.length,
-    kept: result.kept,
-    skipped: result.skipped,
-    searched,
-    hits: result.hits,
+    label: "Indeed",
+    mode: indeedJobs.length ? "live" : errors.some((x) => x.includes("indeed")) ? "error" : "empty",
+    detail: indeedDetail,
+    fetched: indeedJobs.length,
+    kept: indeedIngest.kept,
+    skipped: indeedIngest.skipped,
+    searched: [`Indeed NL · ${indeedQuery}`],
+    hits: indeedIngest.hits,
   });
 
-  return { mode, queries: [...BOARD_QUERIES], run, errors, ...result };
+  let flJobs: BoardJob[] = [];
+  let flDetail = "freelance:empty";
+  try {
+    const fl = await fetchFreelanceNlJobs(maxFl);
+    flJobs = fl.jobs;
+    flDetail = fl.detail;
+  } catch (e) {
+    errors.push(e instanceof Error ? e.message.slice(0, 160) : "freelance-error");
+    flDetail = "freelance:error";
+  }
+
+  const flIngest = await ingestBoardJobs(flJobs);
+  const freelanceRun = await recordSync({
+    channel: "freelance-nl",
+    label: "Freelancer.nl",
+    mode: flJobs.length
+      ? "live"
+      : flDetail.includes("needs-FIRECRAWL")
+        ? "skipped"
+        : "empty",
+    detail: flDetail,
+    fetched: flJobs.length,
+    kept: flIngest.kept,
+    skipped: flIngest.skipped,
+    searched: BOARD_QUERIES.slice(0, maxFl).map((q) => `Freelancer.nl · ${q}`),
+    hits: flIngest.hits,
+  });
+
+  const kept = indeedIngest.kept + flIngest.kept;
+  const skipped = indeedIngest.skipped + flIngest.skipped;
+  const scanned = indeedIngest.scanned + flIngest.scanned;
+  const hits = [...indeedIngest.hits, ...flIngest.hits];
+  const runs = [indeedRun, freelanceRun];
+  const mode = hits.length ? "live" : errors.length ? "empty-error" : "empty";
+
+  return {
+    mode,
+    queries: [...BOARD_QUERIES],
+    /** Primary run for backwards compat (Indeed) */
+    run: indeedRun,
+    runs,
+    errors,
+    scanned,
+    kept,
+    skipped,
+    hits,
+    searched: [
+      ...(indeedRun.searched || []),
+      ...(freelanceRun.searched || []),
+    ],
+  };
 }

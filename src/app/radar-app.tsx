@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { SourceLogo, SourceLogos, sourceChannelsFromRow } from "@/components/source-logo";
 import { BlablaLogo } from "@/components/blabla-logo";
-import { INGEST_POLICY } from "@/lib/costs";
+import { INGEST_POLICY, SYNC_COST_PER_RUN } from "@/lib/costs";
 
 type Factor = { label: string; points: number; source?: string };
 type Signal = {
@@ -56,6 +56,7 @@ type SyncRun = {
 type SyncInfo = {
   last: SyncRun | null;
   recent: SyncRun[];
+  byChannel?: Record<string, SyncRun | null>;
   huntQueries: string[];
   boardQueries?: string[];
   platformsEnabled: number;
@@ -73,6 +74,8 @@ type LiveSync = {
   action: "all" | "market" | "boards" | "platforms";
   title: string;
   statusLine: string;
+  /** Korte uitleg wat er nú gebeurt (tijdens running) */
+  activity?: string;
   explain: string;
   searched: string[];
   steps: SyncStep[];
@@ -118,15 +121,53 @@ function scoreTone(kans: number) {
   return "cold";
 }
 
-function SyncStepVisual({ id, label }: { id: string; label: string }) {
-  if (id === "boards") {
-    return (
-      <span className="inline-flex items-center gap-2" title={label}>
-        <SourceLogo channel="indeed" size="sm" />
-        <SourceLogo channel="freelance-nl" size="sm" />
-      </span>
-    );
+const SYNC_ACTIVITY: Record<string, string> = {
+  "linkedin-jobs":
+    "LinkedIn Jobs ophalen via Apify — dit kan 30–90 seconden duren.",
+  market: "LinkedIn Jobs ophalen via Apify — dit kan 30–90 seconden duren.",
+  indeed: "Indeed NL doorzoeken op BNS-rollen + contract/ZZP…",
+  "freelance-nl": "Freelancer.nl scrapen via Firecrawl…",
+  boards: "Indeed en Freelancer.nl ophalen…",
+  platforms: "Careers-pagina’s van watchlist-bedrijven scrapen…",
+};
+
+function syncProgressPct(steps: SyncStep[], phase: LiveSync["phase"]): number {
+  if (phase === "done") return 100;
+  if (phase === "error") {
+    const done = steps.filter((s) => s.status === "done" || s.status === "error").length;
+    return steps.length ? Math.round((done / steps.length) * 100) : 0;
   }
+  if (!steps.length) return 8;
+  const unit = 100 / steps.length;
+  let pct = 0;
+  for (const s of steps) {
+    if (s.status === "done") pct += unit;
+    else if (s.status === "running") pct += unit * 0.42;
+    else if (s.status === "error") pct += unit;
+  }
+  return Math.min(96, Math.max(6, Math.round(pct)));
+}
+
+function formatElapsed(sec: number) {
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return m > 0 ? `${m}:${String(s).padStart(2, "0")}` : `${s}s`;
+}
+
+function channelLabelUi(ch: string) {
+  const labels: Record<string, string> = {
+    "linkedin-jobs": "LinkedIn",
+    indeed: "Indeed",
+    "freelance-nl": "Freelancer.nl",
+    "firecrawl-careers": "Careers",
+    tenderned: "TenderNed",
+    pulse: "Pulse",
+    boards: "Boards",
+  };
+  return labels[ch] || ch;
+}
+
+function SyncStepVisual({ id, label }: { id: string; label: string }) {
   if (id === "market" || id === "linkedin-jobs") {
     return (
       <span className="inline-flex items-center" title={label}>
@@ -136,7 +177,7 @@ function SyncStepVisual({ id, label }: { id: string; label: string }) {
   }
   if (id === "indeed") {
     return (
-      <span title={label}>
+      <span title={label || "Indeed"}>
         <SourceLogo channel="indeed" size="sm" />
       </span>
     );
@@ -180,6 +221,38 @@ function timeAgo(iso: string) {
   const h = Math.round(mins / 60);
   if (h < 48) return `${h} u geleden`;
   return new Date(iso).toLocaleString("nl-NL", { dateStyle: "short", timeStyle: "short" });
+}
+
+/** Runs within ~20 min of the newest — typically one boards/all batch. */
+function recentSyncBatch(runs: SyncRun[]): SyncRun[] {
+  if (!runs.length) return [];
+  const sorted = [...runs].sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
+  const newest = new Date(sorted[0]!.at).getTime();
+  return sorted.filter((r) => newest - new Date(r.at).getTime() < 20 * 60 * 1000);
+}
+
+function openSyncRuns(runs: SyncRun[]): LiveSync {
+  const batch = recentSyncBatch(runs);
+  const kept = batch.reduce((a, r) => a + r.kept, 0);
+  const fetched = batch.reduce((a, r) => a + r.fetched, 0);
+  const labels = [...new Set(batch.map((r) => r.label))];
+  const onlyLinkedIn = batch.length === 1 && batch[0]?.channel === "linkedin-jobs";
+  const onlyBoards = batch.every((r) => r.channel === "indeed" || r.channel === "freelance-nl");
+  return {
+    phase: "done",
+    action: onlyLinkedIn ? "market" : onlyBoards && batch.length ? "boards" : "all",
+    title: labels.join(" + ") || "Sync",
+    statusLine: `${kept} gehouden · ${fetched} opgehaald`,
+    explain: "Sync-geschiedenis · eerdere run opnieuw bekijken.",
+    searched: [...new Set(batch.flatMap((r) => r.searched || []))],
+    steps: batch.map((r) => ({
+      id: r.channel,
+      label: r.label,
+      status: "done" as const,
+      detail: `${r.kept}/${r.fetched}`,
+    })),
+    runs: batch,
+  };
 }
 
 function rowMeta(r: RadarRow) {
@@ -239,7 +312,10 @@ export default function RadarApp() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [live, setLive] = useState<LiveSync | null>(null);
   const [freshSince, setFreshSince] = useState<string | null>(null);
+  const [syncElapsed, setSyncElapsed] = useState(0);
+  const [listCanScrollMore, setListCanScrollMore] = useState(false);
   const detailRef = useRef<HTMLElement>(null);
+  const listScrollRef = useRef<HTMLDivElement>(null);
 
   async function load(opts?: { keepActive?: boolean }) {
     setLoading(true);
@@ -265,6 +341,17 @@ export default function RadarApp() {
     load();
   }, []);
 
+  const syncRunningKey = live?.phase === "running" ? live.action : null;
+  useEffect(() => {
+    if (!syncRunningKey) {
+      setSyncElapsed(0);
+      return;
+    }
+    setSyncElapsed(0);
+    const t = window.setInterval(() => setSyncElapsed((s) => s + 1), 1000);
+    return () => window.clearInterval(t);
+  }, [syncRunningKey]);
+
   const filtered = useMemo(() => {
     return radar.filter((r) => {
       if (filter === "hot") return r.status === "hot";
@@ -278,6 +365,27 @@ export default function RadarApp() {
     });
   }, [radar, filter]);
 
+  useEffect(() => {
+    const el = listScrollRef.current;
+    if (!el) return;
+
+    function update() {
+      if (!el) return;
+      const room = el.scrollHeight - el.clientHeight > 8;
+      const notAtBottom = el.scrollTop + el.clientHeight < el.scrollHeight - 12;
+      setListCanScrollMore(room && notAtBottom);
+    }
+
+    update();
+    el.addEventListener("scroll", update, { passive: true });
+    const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(update) : null;
+    ro?.observe(el);
+    return () => {
+      el.removeEventListener("scroll", update);
+      ro?.disconnect();
+    };
+  }, [filtered.length, loading, live]);
+
   const active = filtered.find((r) => r.id === activeId) || filtered[0] || null;
 
   async function postIngest(body: Record<string, unknown>) {
@@ -288,7 +396,7 @@ export default function RadarApp() {
     });
     const data = await res.json();
     if (!res.ok) throw new Error(typeof data.error === "string" ? data.error : "Sync mislukt");
-    return data as { run?: SyncRun; mode?: string; queries?: unknown };
+    return data as { run?: SyncRun; runs?: SyncRun[]; mode?: string; queries?: unknown; searched?: string[] };
   }
 
   function mergeSearched(prev: string[], next: string[]) {
@@ -310,27 +418,42 @@ export default function RadarApp() {
       action === "market"
         ? "LinkedIn Jobs"
         : action === "boards"
-          ? "Indeed + Freelancer.nl"
+          ? "Indeed & Freelancer.nl"
           : "Careers / platforms";
 
     const explain =
       action === "market"
         ? "We zoeken op LinkedIn Jobs naar BNS-rollen (SM, Agile, BA, …) met contract/ZZP-filters, houden alleen niche-hits, en zetten die op de radar."
         : action === "boards"
-          ? "We zoeken op Indeed (live) en Freelancer.nl (zodra Firecrawl-key er is) naar dezelfde rollen, filteren op niche, en voegen nieuwe hits toe."
+          ? "Indeed en Freelancer.nl worden apart opgehaald: dezelfde BNS-rollen, niche + contract/ZZP-filter."
           : "We scrapen careers-pagina’s van de watchlist-bedrijven (Firecrawl) op openstaande BNS-rollen.";
 
     if (!opts?.nested) {
       setBusy(true);
       setMenuOpen(false);
+      const stepId =
+        action === "market" ? "linkedin-jobs" : action === "boards" ? "indeed" : action;
       setLive({
         phase: "running",
         action,
         title,
-        statusLine: `${title} doorzoeken…`,
+        statusLine:
+          action === "boards"
+            ? "Indeed & Freelancer.nl ophalen…"
+            : `${title} doorzoeken…`,
+        activity:
+          action === "boards"
+            ? "Indeed en Freelancer.nl worden nu opgehaald. Even geduld — boards kunnen 1–2 minuten duren."
+            : SYNC_ACTIVITY[stepId] || `${title} ophalen…`,
         explain,
         searched: previewSearched,
-        steps: [{ id: action, label: title, status: "running" }],
+        steps:
+          action === "boards"
+            ? [
+                { id: "indeed", label: "Indeed", status: "running" },
+                { id: "freelance-nl", label: "Freelancer.nl", status: "running" },
+              ]
+            : [{ id: stepId, label: title, status: "running" }],
         runs: [],
       });
     }
@@ -351,12 +474,22 @@ export default function RadarApp() {
           : { action: "platforms" };
 
     const data = await postIngest(body);
-    const runInfo = data.run || null;
-    const searched = runInfo?.searched?.length
-      ? runInfo.searched
-      : previewSearched;
+    const runInfos =
+      data.runs?.length
+        ? data.runs
+        : data.run
+          ? [data.run]
+          : [];
+    const runInfo = runInfos[0] || null;
+    const searched = data.searched?.length
+      ? data.searched
+      : runInfos.flatMap((r) => r.searched || []).length
+        ? runInfos.flatMap((r) => r.searched || [])
+        : runInfo?.searched?.length
+          ? runInfo.searched
+          : previewSearched;
 
-    return { title, explain, runInfo, searched };
+    return { title, explain, runInfo, runInfos, searched };
   }
 
   async function run(action: "all" | "market" | "boards" | "platforms") {
@@ -369,17 +502,19 @@ export default function RadarApp() {
         phase: "running",
         action: "all",
         title: "Alle bronnen",
-        statusLine: "Stap 1/2 · LinkedIn Jobs…",
+        statusLine: "Stap 1/3 · LinkedIn Jobs",
+        activity: SYNC_ACTIVITY["linkedin-jobs"],
         explain:
-          "Eén sync haalt alle actieve bronnen op: eerst LinkedIn Jobs, daarna Indeed (+ Freelancer.nl). Hits worden gefilterd op BNS-rollen en als nieuw of refresh op de radar gezet.",
+          "Eén sync haalt alle actieve bronnen op: LinkedIn Jobs, daarna Indeed en Freelancer.nl apart. Hits worden gefilterd op BNS-rollen + contract/ZZP.",
         searched: [
           ...(sync?.huntQueries || []).slice(0, 6).map((q) => `LinkedIn · ${q}`),
           "Indeed NL",
           "Freelancer.nl",
         ],
         steps: [
-          { id: "market", label: "LinkedIn Jobs", status: "running" },
-          { id: "boards", label: "Indeed + Freelancer.nl", status: "pending" },
+          { id: "linkedin-jobs", label: "LinkedIn Jobs", status: "running" },
+          { id: "indeed", label: "Indeed", status: "pending" },
+          { id: "freelance-nl", label: "Freelancer.nl", status: "pending" },
         ],
         runs: [],
       });
@@ -390,29 +525,49 @@ export default function RadarApp() {
           prev
             ? {
                 ...prev,
-                statusLine: "Stap 2/2 · Indeed + Freelancer.nl…",
+                statusLine: "Stap 2–3/3 · Indeed & Freelancer.nl",
+                activity:
+                  "LinkedIn klaar. Nu Indeed en Freelancer.nl — dit kan nog 1–2 minuten duren.",
                 searched: mergeSearched(prev.searched, market.searched),
                 steps: prev.steps.map((s) =>
-                  s.id === "market"
+                  s.id === "linkedin-jobs" || s.id === "market"
                     ? {
-                        id: s.id,
-                        label: s.label,
+                        id: "linkedin-jobs",
+                        label: "LinkedIn Jobs",
                         status: "done",
                         detail: market.runInfo
-                          ? `${market.runInfo.kept} gehouden · ${market.runInfo.fetched} opgehaald`
+                          ? `${market.runInfo.kept}/${market.runInfo.fetched}`
                           : "klaar",
                       }
-                    : s.id === "boards"
+                    : s.id === "indeed" || s.id === "freelance-nl"
                       ? { ...s, status: "running" }
                       : s
                 ),
-                runs: market.runInfo ? [market.runInfo] : [],
+                runs: market.runInfos?.length
+                  ? market.runInfos
+                  : market.runInfo
+                    ? [market.runInfo]
+                    : [],
               }
             : prev
         );
 
         const boards = await runOne("boards", { nested: true });
-        const runs = [...(market.runInfo ? [market.runInfo] : []), ...(boards.runInfo ? [boards.runInfo] : [])];
+        const boardRuns = boards.runInfos?.length
+          ? boards.runInfos
+          : boards.runInfo
+            ? [boards.runInfo]
+            : [];
+        const indeedRun = boardRuns.find((r) => r.channel === "indeed");
+        const flRun = boardRuns.find((r) => r.channel === "freelance-nl");
+        const runs = [
+          ...(market.runInfos?.length
+            ? market.runInfos
+            : market.runInfo
+              ? [market.runInfo]
+              : []),
+          ...boardRuns,
+        ];
         const kept = runs.reduce((a, r) => a + r.kept, 0);
         const fetched = runs.reduce((a, r) => a + r.fetched, 0);
         const neu = runs.flatMap((r) => r.hits).filter((h) => h.kept && h.isNew).length;
@@ -423,19 +578,27 @@ export default function RadarApp() {
                 ...prev,
                 phase: "done",
                 statusLine: `Klaar · ${kept} gehouden · ${fetched} opgehaald · ${neu} nieuw`,
+                activity: undefined,
                 searched: mergeSearched(prev.searched, boards.searched),
-                steps: prev.steps.map((s) =>
-                  s.id === "boards"
-                    ? {
-                        id: s.id,
-                        label: s.label,
-                        status: "done",
-                        detail: boards.runInfo
-                          ? `${boards.runInfo.kept} gehouden · ${boards.runInfo.fetched} opgehaald`
-                          : "klaar",
-                      }
-                    : s
-                ),
+                steps: prev.steps.map((s) => {
+                  if (s.id === "indeed") {
+                    return {
+                      id: "indeed",
+                      label: "Indeed",
+                      status: "done",
+                      detail: indeedRun ? `${indeedRun.kept}/${indeedRun.fetched}` : "klaar",
+                    };
+                  }
+                  if (s.id === "freelance-nl") {
+                    return {
+                      id: "freelance-nl",
+                      label: "Freelancer.nl",
+                      status: "done",
+                      detail: flRun ? `${flRun.kept}/${flRun.fetched}` : "klaar",
+                    };
+                  }
+                  return s;
+                }),
                 runs,
               }
             : prev
@@ -449,6 +612,7 @@ export default function RadarApp() {
                 ...prev,
                 phase: "error",
                 statusLine: "Sync mislukt",
+                activity: undefined,
                 error: e instanceof Error ? e.message : "Mislukt",
                 steps: prev.steps.map((s) =>
                   s.status === "running" ? { ...s, status: "error" } : s
@@ -464,26 +628,57 @@ export default function RadarApp() {
 
     try {
       const one = await runOne(action);
+      const runInfos = one.runInfos?.length
+        ? one.runInfos
+        : one.runInfo
+          ? [one.runInfo]
+          : [];
+      const kept = runInfos.reduce((a, r) => a + r.kept, 0);
+      const fetched = runInfos.reduce((a, r) => a + r.fetched, 0);
+
       setLive({
         phase: "done",
         action,
-        title: one.runInfo?.label || one.title,
-        statusLine: one.runInfo
-          ? `${one.runInfo.kept} gehouden · ${one.runInfo.fetched} opgehaald (${one.runInfo.mode})`
+        title: one.title,
+        statusLine: runInfos.length
+          ? `${kept} gehouden · ${fetched} opgehaald`
           : `Klaar`,
+        activity: undefined,
         explain: one.explain,
         searched: one.searched,
-        steps: [
-          {
-            id: action,
-            label: one.title,
-            status: "done",
-            detail: one.runInfo
-              ? `${one.runInfo.kept}/${one.runInfo.fetched}`
-              : undefined,
-          },
-        ],
-        runs: one.runInfo ? [one.runInfo] : [],
+        steps:
+          action === "boards"
+            ? [
+                {
+                  id: "indeed",
+                  label: "Indeed",
+                  status: "done",
+                  detail: (() => {
+                    const r = runInfos.find((x) => x.channel === "indeed");
+                    return r ? `${r.kept}/${r.fetched}` : undefined;
+                  })(),
+                },
+                {
+                  id: "freelance-nl",
+                  label: "Freelancer.nl",
+                  status: "done",
+                  detail: (() => {
+                    const r = runInfos.find((x) => x.channel === "freelance-nl");
+                    return r ? `${r.kept}/${r.fetched}` : undefined;
+                  })(),
+                },
+              ]
+            : [
+                {
+                  id: action === "market" ? "linkedin-jobs" : action,
+                  label: one.title,
+                  status: "done",
+                  detail: one.runInfo
+                    ? `${one.runInfo.kept}/${one.runInfo.fetched}`
+                    : undefined,
+                },
+              ],
+        runs: runInfos,
       });
       setFreshSince(startedAt);
       await load({ keepActive: true });
@@ -529,6 +724,16 @@ export default function RadarApp() {
   const totalFetched = (live?.runs || []).reduce((a, r) => a + r.fetched, 0);
   const totalKept = (live?.runs || []).reduce((a, r) => a + r.kept, 0);
   const showPanel = Boolean(live);
+  const syncPct = live
+    ? Math.min(
+        live.phase === "done" ? 100 : 97,
+        syncProgressPct(live.steps, live.phase) +
+          (live.phase === "running" ? Math.min(12, Math.floor(syncElapsed / 8)) : 0)
+      )
+    : 0;
+  const runningStep = live?.steps.find((s) => s.status === "running");
+  const doneSteps = live?.steps.filter((s) => s.status === "done").length ?? 0;
+  const totalSteps = live?.steps.length ?? 0;
 
   return (
     <div className="radar-shell flex h-dvh flex-col overflow-hidden">
@@ -552,31 +757,49 @@ export default function RadarApp() {
           </div>
 
           <div className="relative flex items-center gap-2">
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => run("all")}
-              className="rounded-md bg-[var(--accent)] px-3.5 py-1.5 text-xs font-semibold text-white transition hover:bg-[var(--accent-bright)] disabled:opacity-50"
-            >
-              {busy ? "Syncen…" : "Sync alles"}
-            </button>
+            {busy ? (
+              <span className="inline-flex items-center gap-1.5 text-xs font-medium text-[var(--accent)]">
+                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[var(--accent)]" />
+                Syncen…
+              </span>
+            ) : null}
             <button
               type="button"
               aria-expanded={menuOpen}
               onClick={() => setMenuOpen((v) => !v)}
               className="rounded-md border border-[var(--line)] bg-[var(--surface)] px-2.5 py-1.5 text-xs font-medium text-[var(--muted)] hover:text-[var(--ink)]"
             >
-              Meer
+              Sync & meer
             </button>
             {menuOpen ? (
-              <div className="absolute right-0 top-full z-50 mt-1.5 min-w-[13rem] rounded-md border border-[var(--line)] bg-[var(--surface)] py-1 shadow-[var(--shadow)]">
+              <div className="absolute right-0 top-full z-50 mt-1.5 w-[16.5rem] rounded-md border border-[var(--line)] bg-[var(--surface)] py-1 shadow-[var(--shadow)]">
+                <div className="border-b border-[var(--line)]/80 px-3 py-2">
+                  <p className="text-[0.65rem] font-medium uppercase tracking-wide text-[var(--warn)]" style={{ fontFamily: "var(--mono)" }}>
+                    Kost geld per run
+                  </p>
+                  <p className="mt-0.5 text-[0.7rem] leading-snug text-[var(--muted)]">
+                    Advies: max 1×/dag. Sync alles ≈ €{SYNC_COST_PER_RUN.actions.all.eur.low}–
+                    {SYNC_COST_PER_RUN.actions.all.eur.high}. Later: vaste cron.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  disabled={busy}
+                  className="block w-full px-3 py-2 text-left text-xs font-semibold hover:bg-[var(--surface-2)] disabled:opacity-50"
+                  onClick={() => run("all")}
+                >
+                  Sync alles
+                  <span className="mt-0.5 block font-normal text-[var(--muted)]">
+                    LinkedIn + Indeed + Freelancer.nl
+                  </span>
+                </button>
                 <button
                   type="button"
                   disabled={busy}
                   className="block w-full px-3 py-2 text-left text-xs hover:bg-[var(--surface-2)] disabled:opacity-50"
                   onClick={() => run("market")}
                 >
-                  Alleen LinkedIn
+                  Alleen LinkedIn · ≈ €{SYNC_COST_PER_RUN.actions.market.eur.low}–{SYNC_COST_PER_RUN.actions.market.eur.high}
                 </button>
                 <button
                   type="button"
@@ -584,7 +807,7 @@ export default function RadarApp() {
                   className="block w-full px-3 py-2 text-left text-xs hover:bg-[var(--surface-2)] disabled:opacity-50"
                   onClick={() => run("boards")}
                 >
-                  Alleen Indeed / Freelancer.nl
+                  Indeed + Freelancer.nl · ≈ €{SYNC_COST_PER_RUN.actions.boards.eur.low}–{SYNC_COST_PER_RUN.actions.boards.eur.high}
                 </button>
                 <button
                   type="button"
@@ -592,32 +815,31 @@ export default function RadarApp() {
                   className="block w-full px-3 py-2 text-left text-xs hover:bg-[var(--surface-2)] disabled:opacity-50"
                   onClick={() => run("platforms")}
                 >
-                  Alleen careers-platforms
+                  Careers / platforms
                 </button>
-                <div className="my-1 h-px bg-[var(--line)]" />
-                <a
-                  href="/costs"
-                  className="block w-full px-3 py-2 text-left text-xs text-[var(--ink)] no-underline hover:bg-[var(--surface-2)]"
-                >
-                  Kosten / ROI
-                </a>
+                <div className="my-1 border-t border-[var(--line)]/80" />
                 <a
                   href="/methode"
-                  className="block w-full px-3 py-2 text-left text-xs text-[var(--ink)] no-underline hover:bg-[var(--surface-2)]"
+                  className="block px-3 py-2 text-xs text-[var(--muted)] no-underline hover:bg-[var(--surface-2)] hover:text-[var(--ink)]"
                 >
-                  Methode & queries
+                  Methode & kosten →
+                </a>
+                <a
+                  href="/costs"
+                  className="block px-3 py-2 text-xs text-[var(--muted)] no-underline hover:bg-[var(--surface-2)] hover:text-[var(--ink)]"
+                >
+                  ROI / kostenmodel →
                 </a>
                 <a
                   href="/samenwerking"
-                  className="block w-full px-3 py-2 text-left text-xs text-[var(--ink)] no-underline hover:bg-[var(--surface-2)]"
+                  className="block px-3 py-2 text-xs text-[var(--muted)] no-underline hover:bg-[var(--surface-2)] hover:text-[var(--ink)]"
                 >
-                  Samenwerkingsvoorstel
+                  Samenwerkingsvoorstel →
                 </a>
-                <div className="my-1 h-px bg-[var(--line)]" />
                 <button
                   type="button"
-                  className="block w-full px-3 py-2 text-left text-xs text-[var(--muted)] hover:bg-[var(--surface-2)]"
-                  onClick={logout}
+                  className="block w-full px-3 py-2 text-left text-xs text-[var(--warn)] hover:bg-[var(--surface-2)]"
+                  onClick={() => logout()}
                 >
                   Uitloggen
                 </button>
@@ -695,43 +917,77 @@ export default function RadarApp() {
           </div>
 
           {!live && sync?.last ? (
-            <button
-              type="button"
-              onClick={() =>
-                setLive({
-                  phase: "done",
-                  action: "all",
-                  title: sync.last!.label,
-                  statusLine: `${sync.last!.kept} gehouden · ${sync.last!.fetched} opgehaald`,
-                  explain: "Laatste sync-run opnieuw bekijken.",
-                  searched: sync.last!.searched || [],
-                  steps: [
-                    {
-                      id: sync.last!.channel,
-                      label: sync.last!.label,
-                      status: "done",
-                      detail: `${sync.last!.kept}/${sync.last!.fetched}`,
-                    },
-                  ],
-                  runs: [sync.last!],
-                })
-              }
-              className="flex w-full items-center justify-between gap-3 rounded-md border border-[var(--accent)]/25 bg-[var(--accent-soft)]/40 px-3 py-2.5 text-left transition hover:bg-[var(--accent-soft)]/70"
-            >
-              <div>
-                <p className="text-[0.65rem] uppercase tracking-wide text-[var(--accent)]" style={{ fontFamily: "var(--mono)" }}>
-                  Laatste sync
-                </p>
-                <p className="text-sm font-medium text-[var(--ink)]">
-                  {sync.last.label} · {timeAgo(sync.last.at)}
-                </p>
-                <p className="text-xs text-[var(--muted)]">
-                  {sync.last.kept}/{sync.last.fetched} gehouden
-                  {sync.last.searched?.length ? ` · ${sync.last.searched.length} zoekopdrachten` : ""}
-                </p>
-              </div>
-              <span className="shrink-0 text-xs font-semibold text-[var(--accent)]">Details →</span>
-            </button>
+            <div className="space-y-2">
+              {(() => {
+                const hours =
+                  (Date.now() - new Date(sync.last!.at).getTime()) / (1000 * 60 * 60);
+                if (hours < 18) {
+                  return (
+                    <p className="rounded-md border border-[var(--warn)]/25 bg-[var(--warn)]/5 px-3 py-2 text-xs leading-snug text-[var(--ink)]">
+                      Laatste sync {timeAgo(sync.last!.at)}.{" "}
+                      <span className="text-[var(--muted)]">
+                        Liever niet opnieuw vandaag — elke sync kost Apify/Firecrawl-credits (advies:
+                        1×/dag).
+                      </span>
+                    </p>
+                  );
+                }
+                return (
+                  <p className="rounded-md border border-[var(--line)] bg-[var(--surface-2)]/50 px-3 py-2 text-xs text-[var(--muted)]">
+                    Laatste sync {timeAgo(sync.last!.at)} — een verse sync is oké (≈ €
+                    {SYNC_COST_PER_RUN.actions.all.eur.low}–{SYNC_COST_PER_RUN.actions.all.eur.high}).
+                  </p>
+                );
+              })()}
+              <button
+                type="button"
+                onClick={() => setLive(openSyncRuns(sync.recent?.length ? sync.recent : [sync.last!]))}
+                className="flex w-full items-center justify-between gap-3 rounded-md border border-[var(--accent)]/25 bg-[var(--accent-soft)]/40 px-3 py-2.5 text-left transition hover:bg-[var(--accent-soft)]/70"
+              >
+                <div>
+                  <p className="text-[0.65rem] uppercase tracking-wide text-[var(--accent)]" style={{ fontFamily: "var(--mono)" }}>
+                    Laatste sync-batch
+                  </p>
+                  <p className="text-sm font-medium text-[var(--ink)]">
+                    {[...new Set(recentSyncBatch(sync.recent?.length ? sync.recent : [sync.last!]).map((r) => r.label))].join(" + ")}{" "}
+                    · {timeAgo(sync.last.at)}
+                  </p>
+                  <p className="text-xs text-[var(--muted)]">
+                    {recentSyncBatch(sync.recent?.length ? sync.recent : [sync.last!]).reduce((a, r) => a + r.kept, 0)}/
+                    {recentSyncBatch(sync.recent?.length ? sync.recent : [sync.last!]).reduce((a, r) => a + r.fetched, 0)} gehouden
+                    {sync.recent?.length ? ` · ${sync.recent.length} recente runs` : ""}
+                  </p>
+                </div>
+                <span className="shrink-0 text-xs font-semibold text-[var(--accent)]">Details →</span>
+              </button>
+              {sync.recent && sync.recent.length > 1 ? (
+                <div className="rounded-md border border-[var(--line)]/80 bg-[var(--surface)] px-3 py-2">
+                  <p className="mb-1.5 text-[0.62rem] uppercase tracking-wide text-[var(--muted)]">
+                    Sync-geschiedenis
+                  </p>
+                  <ul className="max-h-28 space-y-1 overflow-y-auto">
+                    {sync.recent.slice(0, 8).map((r) => (
+                      <li key={r.id}>
+                        <button
+                          type="button"
+                          className="flex w-full items-center gap-2 rounded px-1 py-1 text-left text-xs hover:bg-[var(--surface-2)]"
+                          onClick={() => setLive(openSyncRuns([r]))}
+                        >
+                          <SourceLogo channel={r.channel} size="sm" />
+                          <span className="min-w-0 flex-1 truncate font-medium text-[var(--ink)]">
+                            {r.label}
+                          </span>
+                          <span className="shrink-0 tabular-nums text-[var(--muted)]">
+                            {r.kept}/{r.fetched}
+                          </span>
+                          <span className="shrink-0 text-[var(--muted)]">{timeAgo(r.at)}</span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+            </div>
           ) : null}
         </div>
 
@@ -744,6 +1000,9 @@ export default function RadarApp() {
                   style={{ fontFamily: "var(--mono)" }}
                 >
                   Sync
+                  {live.phase === "running" && totalSteps
+                    ? ` · stap ${Math.min(doneSteps + 1, totalSteps)}/${totalSteps}`
+                    : ""}
                 </p>
                 <p className="mt-0.5 truncate text-base font-semibold text-[var(--ink)]" style={{ fontFamily: "var(--display)" }}>
                   {live.phase === "running" ? (
@@ -757,15 +1016,70 @@ export default function RadarApp() {
                     live.statusLine
                   )}
                 </p>
-                <p className="mt-0.5 text-xs text-[var(--muted)]">{live.title}</p>
+                <p className="mt-0.5 text-xs text-[var(--muted)]">
+                  {live.phase === "running"
+                    ? live.activity ||
+                      (runningStep
+                        ? SYNC_ACTIVITY[runningStep.id] || `${runningStep.label} bezig…`
+                        : live.title)
+                    : live.title}
+                </p>
               </div>
-              <button
-                type="button"
-                className="shrink-0 rounded px-2 py-1 text-xs text-[var(--muted)] hover:bg-[var(--surface-2)] hover:text-[var(--ink)]"
-                onClick={() => setLive(null)}
+              {live.phase === "running" ? (
+                <span
+                  className="shrink-0 rounded px-2 py-1 text-xs tabular-nums text-[var(--muted)]"
+                  style={{ fontFamily: "var(--mono)" }}
+                  title="Verstreken tijd"
+                >
+                  {formatElapsed(syncElapsed)}
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  className="shrink-0 rounded px-2 py-1 text-xs text-[var(--muted)] hover:bg-[var(--surface-2)] hover:text-[var(--ink)]"
+                  onClick={() => setLive(null)}
+                >
+                  Sluiten
+                </button>
+              )}
+            </div>
+
+            <div className="border-b border-[var(--line)]/80 px-4 py-2.5">
+              <div className="mb-1.5 flex items-center justify-between gap-2 text-[0.62rem] uppercase tracking-wide text-[var(--muted)]">
+                <span>
+                  {live.phase === "running"
+                    ? "Bezig met ophalen…"
+                    : live.phase === "done"
+                      ? "Voltooid"
+                      : "Gestopt"}
+                </span>
+                <span className="tabular-nums" style={{ fontFamily: "var(--mono)" }}>
+                  {syncPct}%
+                </span>
+              </div>
+              <div
+                className="h-2 overflow-hidden rounded-full bg-[var(--surface-2)]"
+                role="progressbar"
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={syncPct}
+                aria-label="Sync voortgang"
               >
-                Sluiten
-              </button>
+                <div
+                  className={`sync-progress-fill h-full rounded-full bg-[var(--accent)] ${
+                    live.phase === "running" ? "is-running" : ""
+                  } ${live.phase === "error" ? "!bg-[var(--warn)]" : ""} ${
+                    live.phase === "done" ? "!bg-[var(--green)]" : ""
+                  }`}
+                  style={{ width: `${syncPct}%` }}
+                />
+              </div>
+              {live.phase === "running" ? (
+                <p className="mt-2 text-xs leading-relaxed text-[var(--muted)]">
+                  Bronnen worden live opgehaald (Apify / Firecrawl). Het panel blijft open tot alles
+                  klaar is — even laten staan.
+                </p>
+              ) : null}
             </div>
 
             {live.phase === "done" || live.phase === "running" ? (
@@ -773,13 +1087,13 @@ export default function RadarApp() {
                 <div className="px-4 py-2.5">
                   <p className="text-[0.62rem] uppercase tracking-wide text-[var(--muted)]">Opgehaald</p>
                   <p className="mt-0.5 text-lg font-semibold tabular-nums text-[var(--ink)]" style={{ fontFamily: "var(--mono)" }}>
-                    {totalFetched || "—"}
+                    {live.phase === "running" && !totalFetched ? "…" : totalFetched || "—"}
                   </p>
                 </div>
                 <div className="px-4 py-2.5">
                   <p className="text-[0.62rem] uppercase tracking-wide text-[var(--muted)]">Gehouden</p>
                   <p className="mt-0.5 text-lg font-semibold tabular-nums text-[var(--ink)]" style={{ fontFamily: "var(--mono)" }}>
-                    {totalKept || "—"}
+                    {live.phase === "running" && !totalKept ? "…" : totalKept || "—"}
                   </p>
                 </div>
                 <div className="px-4 py-2.5">
@@ -822,7 +1136,14 @@ export default function RadarApp() {
                         }`}
                       />
                       <SyncStepVisual id={s.id} label={s.label} />
-                      {s.detail ? <span className="tabular-nums text-[var(--muted)]">{s.detail}</span> : null}
+                      <span className="font-medium">{s.label}</span>
+                      {s.status === "running" ? (
+                        <span className="text-[var(--accent)]">bezig…</span>
+                      ) : s.detail ? (
+                        <span className="tabular-nums text-[var(--muted)]">{s.detail}</span>
+                      ) : s.status === "pending" ? (
+                        <span className="text-[var(--muted)]">wacht</span>
+                      ) : null}
                     </li>
                   ))}
                 </ol>
@@ -860,6 +1181,13 @@ export default function RadarApp() {
                       {[...newHits, ...refreshHits].slice(0, 14).map((h, i) => (
                         <li key={`${h.company}-${h.title}-${i}`} className="flex items-center gap-2 px-2.5 py-1.5 text-sm">
                           <SourceLogo channel={h.channel} size="sm" />
+                          <span
+                            className="w-16 shrink-0 truncate text-[0.62rem] uppercase tracking-wide text-[var(--muted)]"
+                            style={{ fontFamily: "var(--mono)" }}
+                            title={channelLabelUi(h.channel)}
+                          >
+                            {channelLabelUi(h.channel)}
+                          </span>
                           <span className="min-w-0 flex-1 truncate">
                             <span className="font-medium text-[var(--ink)]">{h.company}</span>
                             <span className="text-[var(--muted)]"> — {h.title}</span>
@@ -893,90 +1221,125 @@ export default function RadarApp() {
           </section>
         ) : null}
 
-        <div className="grid min-h-0 flex-1 gap-8 pb-5 lg:grid-cols-[minmax(0,1.15fr)_minmax(280px,0.85fr)]">
-          <section className="min-h-0 overflow-y-auto overscroll-contain pr-1">
-            <h2 className="sr-only">Contracting-ruimte</h2>
-            {loading && !radar.length ? (
-              <p className="text-sm text-[var(--muted)]">Radar laden…</p>
-            ) : filtered.length === 0 ? (
-              <p className="text-sm text-[var(--muted)]">Geen resultaten in dit filter.</p>
-            ) : (
-              <ul className="space-y-1.5">
-                {filtered.map((r, idx) => {
-                  const on = active?.id === r.id;
-                  const channels = rowChannels(r);
-                  const employment = rowEmployment(r);
-                  const fresh = isFresh(r, freshSince);
-                  const meta = rowMeta(r);
-                  const angle = cleanAngle(r.angle);
-                  return (
-                    <li key={r.id} className="animate-fade-in" style={{ animationDelay: `${Math.min(idx, 12) * 30}ms` }}>
-                      <button
-                        type="button"
-                        onClick={() => selectRow(r.id)}
-                        aria-current={on ? "true" : undefined}
-                        className={`flex w-full items-start gap-3 rounded-md border px-3 py-3 text-left transition ${
-                          on
-                            ? "border-[var(--accent)] bg-[var(--accent-soft)]/50 shadow-[inset_3px_0_0_0_var(--accent)]"
-                            : "border-transparent hover:border-[var(--line)] hover:bg-[var(--surface)]/70"
-                        }`}
-                      >
-                        <span
-                          className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${
-                            r.status === "hot"
-                              ? "bg-[var(--green)]"
-                              : r.status === "warm"
-                                ? "bg-[var(--accent)]"
-                                : "bg-[var(--line)]"
+        <div className="grid min-h-0 flex-1 gap-5 pb-5 lg:grid-cols-[minmax(0,1.15fr)_minmax(280px,0.85fr)] lg:gap-6">
+          <section
+            className={`radar-scroll-pane min-h-[42vh] lg:min-h-0 ${listCanScrollMore ? "has-more" : ""}`}
+            aria-label="Scrollbare radarlijst"
+          >
+            <div className="radar-scroll-pane__head">
+              <div className="min-w-0">
+                <p
+                  className="text-[0.65rem] font-medium uppercase tracking-[0.08em] text-[var(--muted)]"
+                  style={{ fontFamily: "var(--mono)" }}
+                >
+                  Radarlijst
+                </p>
+                <p className="text-sm font-semibold text-[var(--ink)]">
+                  {filtered.length} {filtered.length === 1 ? "hit" : "hits"}
+                  <span className="font-normal text-[var(--muted)]"> · scroll in dit vak</span>
+                </p>
+              </div>
+              {listCanScrollMore ? (
+                <span
+                  className="shrink-0 text-[0.65rem] text-[var(--accent)]"
+                  style={{ fontFamily: "var(--mono)" }}
+                  aria-hidden
+                >
+                  ↓ meer
+                </span>
+              ) : null}
+            </div>
+            <div
+              ref={listScrollRef}
+              className="radar-scroll-pane__body"
+              tabIndex={0}
+              role="region"
+              aria-label="Vacatures en signalen"
+            >
+              <h2 className="sr-only">Contracting-ruimte</h2>
+              {loading && !radar.length ? (
+                <p className="px-2 py-3 text-sm text-[var(--muted)]">Radar laden…</p>
+              ) : filtered.length === 0 ? (
+                <p className="px-2 py-3 text-sm text-[var(--muted)]">Geen resultaten in dit filter.</p>
+              ) : (
+                <ul className="space-y-1.5">
+                  {filtered.map((r, idx) => {
+                    const on = active?.id === r.id;
+                    const channels = rowChannels(r);
+                    const employment = rowEmployment(r);
+                    const fresh = isFresh(r, freshSince);
+                    const meta = rowMeta(r);
+                    const angle = cleanAngle(r.angle);
+                    return (
+                      <li key={r.id} className="animate-fade-in" style={{ animationDelay: `${Math.min(idx, 12) * 30}ms` }}>
+                        <button
+                          type="button"
+                          onClick={() => selectRow(r.id)}
+                          aria-current={on ? "true" : undefined}
+                          className={`flex w-full items-start gap-3 rounded-md border px-3 py-3 text-left transition ${
+                            on
+                              ? "border-[var(--accent)] bg-[var(--accent-soft)]/50 shadow-[inset_3px_0_0_0_var(--accent)]"
+                              : "border-transparent hover:border-[var(--line)] hover:bg-[var(--surface-2)]/80"
                           }`}
-                          title={STATUS_HELP[r.status] || STATUS_NL[r.status]}
-                        />
-                        {meta.logo ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={meta.logo}
-                            alt=""
-                            className="mt-0.5 h-7 w-7 shrink-0 rounded object-contain bg-white"
+                        >
+                          <span
+                            className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${
+                              r.status === "hot"
+                                ? "bg-[var(--green)]"
+                                : r.status === "warm"
+                                  ? "bg-[var(--accent)]"
+                                  : "bg-[var(--line)]"
+                            }`}
+                            title={STATUS_HELP[r.status] || STATUS_NL[r.status]}
                           />
-                        ) : null}
-                        <span className="min-w-0 flex-1">
-                          <span className="flex flex-wrap items-center gap-2">
-                            <span className="font-semibold text-[var(--ink)]">{r.company.name}</span>
-                            <SourceLogos channels={channels} />
-                            {fresh ? (
-                              <span className="text-[0.65rem] font-semibold uppercase tracking-wide text-[var(--green)]">
-                                nieuw
+                          {meta.logo ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={meta.logo}
+                              alt=""
+                              className="mt-0.5 h-7 w-7 shrink-0 rounded object-contain bg-white"
+                            />
+                          ) : null}
+                          <span className="min-w-0 flex-1">
+                            <span className="flex flex-wrap items-center gap-2">
+                              <span className="font-semibold text-[var(--ink)]">{r.company.name}</span>
+                              <SourceLogos channels={channels} />
+                              {fresh ? (
+                                <span className="text-[0.65rem] font-semibold uppercase tracking-wide text-[var(--green)]">
+                                  nieuw
+                                </span>
+                              ) : null}
+                            </span>
+                            <span className="mt-0.5 block text-sm text-[var(--muted)]">
+                              {r.roleLabel}
+                              {r.company.sector ? ` · ${r.company.sector}` : ""}
+                            </span>
+                            <span className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[0.7rem] text-[var(--muted)]">
+                              <span>{STATUS_NL[r.status] || r.status}</span>
+                              {employment ? <span>· {employment}</span> : null}
+                              {meta.postedLabel ? <span>· {meta.postedLabel}</span> : null}
+                              {meta.applicants != null ? <span>· {meta.applicants} aanmeldingen</span> : null}
+                            </span>
+                            {angle ? (
+                              <span className="mt-1.5 block text-[0.75rem] leading-snug text-[var(--ink)]/75 line-clamp-2">
+                                {angle}
                               </span>
                             ) : null}
                           </span>
-                          <span className="mt-0.5 block text-sm text-[var(--muted)]">
-                            {r.roleLabel}
-                            {r.company.sector ? ` · ${r.company.sector}` : ""}
-                          </span>
-                          <span className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[0.7rem] text-[var(--muted)]">
-                            <span>{STATUS_NL[r.status] || r.status}</span>
-                            {employment ? <span>· {employment}</span> : null}
-                            {meta.postedLabel ? <span>· {meta.postedLabel}</span> : null}
-                            {meta.applicants != null ? <span>· {meta.applicants} aanmeldingen</span> : null}
-                          </span>
-                          {angle ? (
-                            <span className="mt-1.5 block text-[0.75rem] leading-snug text-[var(--ink)]/75 line-clamp-2">
-                              {angle}
-                            </span>
-                          ) : null}
-                        </span>
-                        <ScoreChip kans={r.kans} />
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
+                          <ScoreChip kans={r.kans} />
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+            <div className="radar-scroll-pane__fade" aria-hidden />
           </section>
 
           <aside
             ref={detailRef}
-            className="min-h-0 overflow-y-auto overscroll-contain border-t border-[var(--line)]/70 pt-5 lg:border-t-0 lg:border-l lg:pt-0 lg:pl-8"
+            className="min-h-0 overflow-y-auto overscroll-contain rounded-lg border border-[var(--line)]/80 bg-[var(--surface)]/60 px-4 py-4 lg:border-l lg:px-6"
           >
             {active ? (
               <div key={active.id} className="animate-fade-in pb-6">

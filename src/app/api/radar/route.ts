@@ -42,12 +42,12 @@ export async function GET(req: Request) {
     };
   });
 
-  const last = await lastSyncOverall();
+  const recent = await listSyncRuns(12);
+  const last = recent[0] || (await lastSyncOverall());
   const byChannel = await lastSyncByChannel();
-  const recent = await listSyncRuns(6);
 
   return NextResponse.json({
-    stats: await stats(),
+    stats: await stats(radarRows),
     radar,
     feed,
     sync: {
