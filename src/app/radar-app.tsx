@@ -98,10 +98,10 @@ const STATUS_HELP: Record<string, string> = {
   cold: "Zwak signaal — lage prioriteit, alleen meenemen als er niets beters is.",
 };
 
-const FILTER_HELP: Record<"all" | "hot" | "contract", string> = {
+const FILTER_HELP: Record<"all" | "hot" | "warm", string> = {
   all: "Alle bedrijven op de radar",
-  hot: "Groen bolletje · score ≥ 75 — hoogste prioriteit",
-  contract: "Alleen hits die al interim/ZZP/contract noemen",
+  hot: "Score ≥ 75 — hoogste prioriteit",
+  warm: "Score ≥ 55 — kans groeit of sterker",
 };
 
 const SCORE_MAX = 98;
@@ -309,7 +309,7 @@ export default function RadarApp() {
   } | null>(null);
   const [sync, setSync] = useState<SyncInfo | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
-  const [filter, setFilter] = useState<"all" | "hot" | "contract">("all");
+  const [filter, setFilter] = useState<"all" | "hot" | "warm">("all");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -358,15 +358,19 @@ export default function RadarApp() {
   const filtered = useMemo(() => {
     return radar.filter((r) => {
       if (filter === "hot") return r.status === "hot";
-      if (filter === "contract") {
-        return (
-          r.sources.includes("job-type") ||
-          r.factors.some((f) => /contract|interim|zzp/i.test(f.label))
-        );
-      }
+      if (filter === "warm") return r.status === "hot" || r.status === "warm";
       return true;
     });
   }, [radar, filter]);
+
+  const filterCounts = useMemo(
+    () => ({
+      all: radar.length,
+      hot: radar.filter((r) => r.status === "hot").length,
+      warm: radar.filter((r) => r.status === "hot" || r.status === "warm").length,
+    }),
+    [radar]
+  );
 
   useEffect(() => {
     const el = listScrollRef.current;
@@ -852,132 +856,75 @@ export default function RadarApp() {
         </div>
       </header>
 
-      <main className="mx-auto flex min-h-0 w-full max-w-[1200px] flex-1 flex-col px-5 pt-5 md:px-8">
-        <div className="mb-3 shrink-0 space-y-3 border-b border-[var(--line)]/70 pb-3">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <p
-                className="text-sm text-[var(--muted)]"
-                title="Bedrijven op de radar · hoeveel daarvan score ≥75 (sterke kans) · totaal aantal vacature/signalen"
-              >
+      <main className="mx-auto flex min-h-0 w-full max-w-[1200px] flex-1 flex-col px-5 pt-4 md:px-8">
+        {!live && sync?.last ? (
+          <section className="mb-3 shrink-0 overflow-hidden rounded-md border border-[var(--line)] bg-[var(--surface)] shadow-[var(--shadow)]">
+            <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1.5 border-b border-[var(--line)]/80 px-3.5 py-2">
+              <p className="text-sm text-[var(--ink)]" title="Bedrijven · sterke kans · signalen">
                 {stats ? (
                   <>
-                    <span title="Unieke bedrijven met minstens één relevant signaal">{stats.companies} bedrijven</span>
-                    {" · "}
-                    <span title="Score ≥ 75 — hoogste prioriteit om nu te benaderen">{stats.hot} sterke kans</span>
-                    {" · "}
-                    <span title="Losse vacatures/hits die we hebben binnengehaald">{stats.signals} signalen</span>
+                    <span className="font-medium">{stats.companies}</span>
+                    <span className="text-[var(--muted)]"> bedrijven</span>
+                    <span className="text-[var(--muted)]"> · </span>
+                    <span className="font-medium">{stats.hot}</span>
+                    <span className="text-[var(--muted)]"> sterk</span>
+                    <span className="text-[var(--muted)]"> · </span>
+                    <span className="font-medium">{stats.signals}</span>
+                    <span className="text-[var(--muted)]"> signalen</span>
                   </>
                 ) : (
                   "Laden…"
                 )}
               </p>
-              <p className="mt-1 max-w-xl text-[0.7rem] leading-relaxed text-[var(--muted)]">
-                Sync haalt vacatures op bij LinkedIn, Indeed en Freelancer.nl, filtert op BNS-rollen, en scoort ze
-                (max {SCORE_MAX}).
-              </p>
-              <p className="mt-1.5 flex flex-wrap items-center gap-3 text-[0.65rem] text-[var(--muted)]">
-                <span className="inline-flex items-center gap-1.5" title={STATUS_HELP.hot}>
-                  <span className="h-2 w-2 rounded-full bg-[var(--green)]" /> Sterke kans (≥75)
-                </span>
-                <span className="inline-flex items-center gap-1.5" title={STATUS_HELP.warm}>
-                  <span className="h-2 w-2 rounded-full bg-[var(--accent)]" /> Kans groeit (≥55)
-                </span>
-                <span className="inline-flex items-center gap-1.5" title={STATUS_HELP.watch}>
-                  <span className="h-2 w-2 rounded-full bg-[var(--line)]" /> Volgen — later opnieuw checken
-                </span>
-              </p>
-            </div>
-
-            <div className="flex flex-col items-end gap-1">
-              <div className="flex gap-1">
-                {(
-                  [
-                    ["all", "Alles"],
-                    ["hot", "Sterke kans"],
-                    ["contract", "Interim/ZZP"],
-                  ] as const
-                ).map(([id, label]) => (
-                  <button
-                    key={id}
-                    type="button"
-                    title={FILTER_HELP[id]}
-                    onClick={() => setFilter(id)}
-                    className={`px-2.5 py-1 text-xs transition ${
-                      filter === id
-                        ? "border-b-2 border-[var(--accent)] font-semibold text-[var(--ink)]"
-                        : "border-b-2 border-transparent text-[var(--muted)] hover:text-[var(--ink)]"
-                    }`}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-              <p className="max-w-[16rem] text-right text-[0.65rem] leading-snug text-[var(--muted)]">
-                {FILTER_HELP[filter]}
-              </p>
-            </div>
-          </div>
-
-          {!live && sync?.last ? (
-            <section className="overflow-hidden rounded-md border border-[var(--line)] bg-[var(--surface)] shadow-[var(--shadow)]">
-              <div className="flex items-start justify-between gap-3 border-b border-[var(--line)]/80 px-3.5 py-2.5">
-                <div className="min-w-0">
-                  <p
-                    className="text-[0.65rem] font-medium uppercase tracking-[0.08em] text-[var(--muted)]"
-                    style={{ fontFamily: "var(--mono)" }}
-                  >
-                    Sync
-                  </p>
-                  <p className="mt-0.5 text-sm text-[var(--ink)]">
-                    Laatste run {timeAgo(sync.last.at)}
-                    <span className="text-[var(--muted)]">
-                      {" · "}
-                      {(Date.now() - new Date(sync.last.at).getTime()) / 3600000 < 18
-                        ? "liever niet opnieuw vandaag (kost credits)"
-                        : `verse sync oké · ≈ €${SYNC_COST_PER_RUN.actions.all.eur.low}–${SYNC_COST_PER_RUN.actions.all.eur.high}`}
-                    </span>
-                  </p>
-                </div>
+              <p className="text-[0.7rem] text-[var(--muted)]">
+                Sync {timeAgo(sync.last.at)}
+                {(Date.now() - new Date(sync.last.at).getTime()) / 3600000 < 18
+                  ? " · max 1×/dag (credits)"
+                  : ` · verse sync oké ≈ €${SYNC_COST_PER_RUN.actions.all.eur.low}–${SYNC_COST_PER_RUN.actions.all.eur.high}`}
                 <button
                   type="button"
-                  className="shrink-0 rounded px-2 py-1 text-xs font-semibold text-[var(--accent)] hover:bg-[var(--accent-soft)]/60"
+                  className="ml-2 font-semibold text-[var(--accent)] hover:underline"
                   onClick={() =>
                     setLive(openSyncRuns(sync.recent?.length ? sync.recent : [sync.last!]))
                   }
                 >
                   Batch →
                 </button>
-              </div>
-              <ul className="divide-y divide-[var(--line)]/70">
-                {(sync.recent?.length ? sync.recent : [sync.last]).slice(0, 6).map((r) => (
-                  <li key={r.id}>
-                    <button
-                      type="button"
-                      className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left transition hover:bg-[var(--surface-2)]/80"
-                      onClick={() => setLive(openSyncRuns([r]))}
-                    >
-                      <SourceLogo channel={r.channel} size="sm" />
-                      <span className="min-w-0 flex-1">
-                        <span className="block text-sm font-medium text-[var(--ink)]">
-                          {channelLabelUi(r.channel) || r.label}
-                        </span>
-                        <span className="block text-[0.7rem] text-[var(--muted)]">
-                          {r.kept}/{r.fetched} gehouden · {timeAgo(r.at)}
-                          {r.mode === "skipped" ? " · overgeslagen" : ""}
-                        </span>
-                      </span>
-                      <span className="shrink-0 text-xs text-[var(--accent)]">Details</span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-              <p className="border-t border-[var(--line)]/80 px-3.5 py-2 text-[0.68rem] leading-snug text-[var(--muted)]">
-                Indeed, Freelancer.nl en LinkedIn zijn aparte bronnen — elk een eigen regel hierboven.
               </p>
-            </section>
-          ) : null}
-        </div>
+            </div>
+            <ul className="divide-y divide-[var(--line)]/70">
+              {(sync.recent?.length ? sync.recent : [sync.last]).slice(0, 4).map((r) => (
+                <li key={r.id}>
+                  <button
+                    type="button"
+                    className="flex w-full items-center gap-2 px-3.5 py-1.5 text-left transition hover:bg-[var(--surface-2)]/80"
+                    onClick={() => setLive(openSyncRuns([r]))}
+                  >
+                    <SourceLogo channel={r.channel} size="sm" />
+                    <span className="min-w-0 flex-1 truncate text-sm text-[var(--ink)]">
+                      {channelLabelUi(r.channel) || r.label}
+                    </span>
+                    <span className="shrink-0 tabular-nums text-[0.7rem] text-[var(--muted)]" style={{ fontFamily: "var(--mono)" }}>
+                      {r.kept}/{r.fetched}
+                    </span>
+                    <span className="w-16 shrink-0 text-right text-[0.65rem] text-[var(--muted)]">
+                      {timeAgo(r.at)}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ) : (
+          <div className="mb-3 shrink-0 flex flex-wrap items-center justify-between gap-2 text-sm text-[var(--muted)]">
+            <p>
+              {stats
+                ? `${stats.companies} bedrijven · ${stats.hot} sterk · ${stats.signals} signalen`
+                : "Laden…"}
+            </p>
+            <p className="text-[0.7rem]">Nog geen sync — via Sync & meer (max 1×/dag).</p>
+          </div>
+        )}
 
         {showPanel && live ? (
           <section className="mb-4 shrink-0 animate-fade-in overflow-hidden rounded-md border border-[var(--line)] bg-[var(--surface)] shadow-[var(--shadow)]">
@@ -1223,19 +1170,48 @@ export default function RadarApp() {
                   Radarlijst
                 </p>
                 <p className="text-sm font-semibold text-[var(--ink)]">
-                  {filtered.length} {filtered.length === 1 ? "hit" : "hits"}
-                  <span className="font-normal text-[var(--muted)]"> · scroll in dit vak</span>
+                  {filtered.length}
+                  <span className="font-normal text-[var(--muted)]">
+                    {" "}
+                    / {filterCounts.all} · scroll hier
+                  </span>
                 </p>
               </div>
-              {listCanScrollMore ? (
-                <span
-                  className="shrink-0 text-[0.65rem] text-[var(--accent)]"
-                  style={{ fontFamily: "var(--mono)" }}
-                  aria-hidden
-                >
-                  ↓ meer
-                </span>
-              ) : null}
+              <div className="flex flex-wrap items-center justify-end gap-1">
+                {(
+                  [
+                    ["all", "Alles", filterCounts.all],
+                    ["hot", "Sterk", filterCounts.hot],
+                    ["warm", "Warm+", filterCounts.warm],
+                  ] as const
+                ).map(([id, label, count]) => (
+                  <button
+                    key={id}
+                    type="button"
+                    title={FILTER_HELP[id]}
+                    onClick={() => setFilter(id)}
+                    className={`rounded px-2 py-1 text-[0.68rem] transition ${
+                      filter === id
+                        ? "bg-[var(--accent)] font-semibold text-white"
+                        : "bg-[var(--surface-2)] text-[var(--muted)] hover:text-[var(--ink)]"
+                    }`}
+                  >
+                    {label}
+                    <span className={`ml-1 tabular-nums ${filter === id ? "text-white/80" : ""}`}>
+                      {count}
+                    </span>
+                  </button>
+                ))}
+                {listCanScrollMore ? (
+                  <span
+                    className="ml-0.5 text-[0.65rem] text-[var(--accent)]"
+                    style={{ fontFamily: "var(--mono)" }}
+                    aria-hidden
+                  >
+                    ↓
+                  </span>
+                ) : null}
+              </div>
             </div>
             <div
               ref={listScrollRef}
