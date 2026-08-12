@@ -73,7 +73,7 @@ export default function CostsPage() {
         <>
           <section className="mb-6 grid gap-3 sm:grid-cols-2">
             <div className="rounded-md border border-[var(--line)] bg-[var(--surface)] p-4">
-              <p className="text-[0.65rem] uppercase tracking-wide text-[var(--muted)]">Nu live</p>
+              <p className="text-[0.65rem] uppercase tracking-wide text-[var(--muted)]">Kerndrie · handmatig</p>
               <p className="mt-1 text-2xl font-bold tabular-nums" style={{ fontFamily: "var(--mono)" }}>
                 €{data.monthly.liveNow.low}–{data.monthly.liveNow.high}
                 <span className="text-sm font-normal text-[var(--muted)]">/m</span>
@@ -81,7 +81,7 @@ export default function CostsPage() {
               <p className="mt-1.5 text-xs text-[var(--muted)]">{data.monthly.liveNow.note}</p>
             </div>
             <div className="rounded-md border border-[var(--accent)]/30 bg-[var(--accent-soft)]/25 p-4">
-              <p className="text-[0.65rem] uppercase tracking-wide text-[var(--accent)]">+ Firecrawl</p>
+              <p className="text-[0.65rem] uppercase tracking-wide text-[var(--accent)]">+ careers / alles</p>
               <p className="mt-1 text-2xl font-bold tabular-nums" style={{ fontFamily: "var(--mono)" }}>
                 €{data.monthly.withFirecrawl.low}–{data.monthly.withFirecrawl.high}
                 <span className="text-sm font-normal text-[var(--muted)]">/m</span>
@@ -213,11 +213,13 @@ export default function CostsPage() {
           </section>
 
           <p className="text-sm text-[var(--muted)]">
-            Firecrawl zit als één post in de kosten (careers-watchlist + Freelancer.nl). Zet{" "}
-            <code className="text-[var(--ink)]">FIRECRAWL_API_KEY</code> in{" "}
-            <code className="text-[var(--ink)]">.env.local</code>, herstart{" "}
-            <code className="text-[var(--ink)]">npm run dev</code>, sync daarna via Meer → Careers of Sync
-            alles.
+            Geen auto-cron. LinkedIn, Indeed en Freelance.nl zijn <strong>aparte</strong> syncs (Sync
+            & meer). Bedragen zijn schattingen op basis van ~1×/3 dagen — echte factuur = Apify +
+            Firecrawl. Per-run bedragen: zie{" "}
+            <Link href="/methode" className="text-[var(--accent)]">
+              Methode
+            </Link>
+            .
           </p>
 
           <p className="mt-4 text-sm">

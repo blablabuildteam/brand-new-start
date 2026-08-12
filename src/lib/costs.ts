@@ -28,8 +28,9 @@ export const SOURCE_COST_MODEL: SourceCost[] = [
     tool: "apify",
     quality: "hoog",
     cadence: "handmatig · advies 1×/3 dagen",
-    eurPerMonth: { low: 10, high: 40 },
-    efficiency: "Alleen BNS-rollen + contract/ZZP-filters. Dedup op URL.",
+    /** ~10 runs/m × €0,40–2,50 */
+    eurPerMonth: { low: 4, high: 25 },
+    efficiency: "Alleen BNS-rollen + contract/ZZP-filters. Dedup op URL. Losse sync.",
   },
   {
     id: "indeed",
@@ -37,19 +38,31 @@ export const SOURCE_COST_MODEL: SourceCost[] = [
     tier: "paid-hard",
     tool: "apify",
     quality: "hoog",
-    cadence: "1×/3 dagen, alle BNS-rollen",
-    eurPerMonth: { low: 5, high: 25 },
-    efficiency: "Alle rollen per run · lagere cadans i.p.v. 1 rol/dag.",
+    cadence: "handmatig · advies 1×/3 dagen · alle BNS-rollen",
+    /** ~10 runs/m × €0,80–4,50 */
+    eurPerMonth: { low: 8, high: 45 },
+    efficiency: "Eigen sync-ronde. Alle rollen per run via Apify startUrls.",
   },
   {
-    id: "firecrawl",
-    label: "Firecrawl (careers + Freelance.nl)",
+    id: "freelance-nl",
+    label: "Freelance.nl",
     tier: "paid-open",
     tool: "firecrawl",
     quality: "middel",
-    cadence: "1×/3 dagen (met boards)",
-    eurPerMonth: { low: 8, high: 25 },
-    efficiency: "Alleen watchlist careers + Freelance.nl-zoekpagina’s. Geen LinkedIn.",
+    cadence: "handmatig · advies 1×/3 dagen",
+    /** ~10 runs/m × €0,30–2,00 */
+    eurPerMonth: { low: 3, high: 20 },
+    efficiency: "Eigen sync-ronde. Zoekpagina’s via Firecrawl — niet gebundeld met Indeed.",
+  },
+  {
+    id: "firecrawl-careers",
+    label: "Careers / platforms",
+    tier: "paid-open",
+    tool: "firecrawl",
+    quality: "middel",
+    cadence: "handmatig · watchlist",
+    eurPerMonth: { low: 2, high: 12 },
+    efficiency: "Vaste careers-URL’s in platforms.ts. Apart van Freelance.nl.",
   },
   {
     id: "tenderned",
@@ -57,7 +70,7 @@ export const SOURCE_COST_MODEL: SourceCost[] = [
     tier: "free-api",
     tool: "tenderned",
     quality: "hoog",
-    cadence: "1×/dag (na credentials)",
+    cadence: "nog niet live (credentials)",
     eurPerMonth: { low: 0, high: 0 },
     efficiency: "Officiële API — geen scraper.",
   },
@@ -67,15 +80,15 @@ export const SOURCE_COST_MODEL: SourceCost[] = [
     tier: "owned",
     tool: "pulse",
     quality: "hoog",
-    cadence: "realtime",
-    eurPerMonth: { low: 0, high: 5 },
-    efficiency: "Eigen input — geen scraperkosten.",
+    cadence: "realtime (handmatig)",
+    eurPerMonth: { low: 0, high: 0 },
+    efficiency: "Eigen input — geen scraperkosten. UI volgt later.",
   },
 ];
 
 export const PLATFORM_COST = {
-  vercel: { low: 0, high: 20, note: "Hobby oké; Pro als cron vaker draait" },
-  database: { low: 0, high: 15, note: "Later: Postgres (nu in-memory)" },
+  vercel: { low: 0, high: 20, note: "Hobby oké; Pro als je lange Apify-runs nodig hebt" },
+  database: { low: 0, high: 15, note: "Neon Postgres (live)" },
 };
 
 export function sumRange(items: { low: number; high: number }[]) {
@@ -88,20 +101,25 @@ export function sumRange(items: { low: number; high: number }[]) {
 export function mvpMonthlyTotal() {
   const sources = sumRange(SOURCE_COST_MODEL.map((s) => s.eurPerMonth));
   const platform = sumRange([PLATFORM_COST.vercel, PLATFORM_COST.database]);
+  /** Actieve scrapers bij advies-cadans (geen auto-cron) */
+  const active = SOURCE_COST_MODEL.filter((s) =>
+    ["linkedin-jobs", "indeed", "freelance-nl"].includes(s.id)
+  );
+  const activeRange = sumRange(active.map((s) => s.eurPerMonth));
   return {
     sources,
     platform,
-    /** Zonder Firecrawl (nu live) */
+    /** Typisch als je ~1×/3d LinkedIn + Indeed + Freelance.nl draait */
     liveNow: {
-      low: 10 + 5 + 0, // LinkedIn low + Indeed low + hosting hobby
-      high: 40 + 20 + 20,
-      note: "Apify LinkedIn + Indeed + Vercel hobby/pro",
+      low: activeRange.low + PLATFORM_COST.vercel.low + PLATFORM_COST.database.low,
+      high: activeRange.high + PLATFORM_COST.vercel.high + PLATFORM_COST.database.high,
+      note: "Handmatig · advies 1×/3d · LinkedIn + Indeed + Freelance.nl + Neon/Vercel. Geen auto-cron.",
     },
-    /** Met Firecrawl erbij */
+    /** Inclusief careers-watchlist */
     withFirecrawl: {
       low: sources.low + platform.low,
       high: sources.high + platform.high,
-      note: "Live stack + Firecrawl careers/Freelancer.nl",
+      note: "Zelfde stack + careers-watchlist (+ TenderNed/pulse ≈ €0).",
     },
     total: { low: sources.low + platform.low, high: sources.high + platform.high },
   };
@@ -138,7 +156,8 @@ export const ROI_MODEL = {
   narrative: [
     "Verdienste = (klant-uurtarief − ZZP-uurtarief) × uren × weken.",
     "1 extra interim-plaatsing/jaar dekt typisch de jaarkosten van de signal-stack.",
-    "Kwaliteit > volume: liever 20 sterke signalen/week dan 200 noise.",
+    "Stack is handmatig (geen cron): je stuurt zelf hoe vaak je LinkedIn / Indeed / Freelance.nl draait.",
+    "Kwaliteit > volume: liever sterke niche-hits dan dagelijkse max-scrapes.",
   ],
 };
 
