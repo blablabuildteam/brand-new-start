@@ -158,7 +158,7 @@ function channelLabelUi(ch: string) {
   const labels: Record<string, string> = {
     "linkedin-jobs": "LinkedIn",
     indeed: "Indeed",
-    "freelance-nl": "Freelancer.nl",
+    "freelance-nl": "Freelance.nl",
     "firecrawl-careers": "Careers",
     tenderned: "TenderNed",
     pulse: "Pulse",
@@ -205,7 +205,8 @@ function ScoreChip({ kans, large }: { kans: number; large?: boolean }) {
       className={`inline-flex flex-col items-center justify-center rounded-md border ${cls} ${
         large ? "min-w-[3.6rem] px-2.5 py-1.5" : "min-w-[2.8rem] px-2 py-1"
       }`}
-      title={`Kans-score ${kans}/${SCORE_MAX} (som van factoren, max ${SCORE_MAX})`}
+      title={undefined}
+      data-tip={`Kans-score ${kans}/${SCORE_MAX} — som van factoren`}
       style={{ fontFamily: "var(--mono)" }}
     >
       <span className={`font-semibold tabular-nums ${large ? "text-lg" : "text-sm"}`}>{kans}</span>

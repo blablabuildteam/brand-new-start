@@ -12,9 +12,9 @@ const SOURCE_LOGOS: Record<string, { src: string; alt: string; className?: strin
     className: "h-3.5 w-auto max-w-[3.6rem] object-contain object-left",
   },
   "freelance-nl": {
-    src: "/assets/sources/freelancer-nl.png",
-    alt: "Freelancer.nl",
-    className: "h-3.5 w-auto max-w-[4.5rem] object-contain object-left",
+    src: "/assets/sources/freelance-nl.png",
+    alt: "Freelance.nl",
+    className: "h-3.5 w-auto max-w-[5.5rem] object-contain object-left",
   },
 };
 
@@ -40,6 +40,7 @@ export function SourceLogo({
   const logo = SOURCE_LOGOS[channel];
   if (!logo) return null;
   const box = size === "md" ? "h-5" : "h-4";
+  const wide = channel === "freelance-nl" || channel === "indeed";
   return (
     <span
       className={`inline-flex items-center justify-center ${box}`}
@@ -49,7 +50,7 @@ export function SourceLogo({
       <Image
         src={logo.src}
         alt={logo.alt}
-        width={size === "md" ? 72 : 56}
+        width={size === "md" ? (wide ? 110 : 72) : wide ? 88 : 56}
         height={size === "md" ? 20 : 16}
         className={logo.className}
       />

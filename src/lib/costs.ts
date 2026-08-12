@@ -43,7 +43,7 @@ export const SOURCE_COST_MODEL: SourceCost[] = [
   },
   {
     id: "firecrawl",
-    label: "Firecrawl (careers + Freelancer.nl)",
+    label: "Firecrawl (careers + Freelance.nl)",
     tier: "paid-open",
     tool: "firecrawl",
     quality: "middel",
@@ -184,7 +184,7 @@ export const SYNC_COST_PER_RUN = {
       what: `tot ${INGEST_POLICY.syncMarketUrls} zoek-URL’s · ~${INGEST_POLICY.syncMarketJobs} jobs`,
     },
     boards: {
-      label: "Indeed + Freelancer.nl",
+      label: "Indeed + Freelance.nl",
       tool: "Apify + Firecrawl",
       eur: { low: 0.3, high: 2.0 },
       what: `Indeed ~${INGEST_POLICY.syncIndeedMax} · Freelancer tot ${INGEST_POLICY.syncFreelanceQueries} queries`,

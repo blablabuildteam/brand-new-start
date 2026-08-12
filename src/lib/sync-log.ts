@@ -141,7 +141,7 @@ export function channelLabel(ch: SyncChannel | string) {
   const labels: Record<string, string> = {
     "linkedin-jobs": "LinkedIn Jobs",
     indeed: "Indeed",
-    "freelance-nl": "Freelancer.nl",
+    "freelance-nl": "Freelance.nl",
     "firecrawl-careers": "Careers (Firecrawl)",
     tenderned: "TenderNed",
     pulse: "Team-melding",

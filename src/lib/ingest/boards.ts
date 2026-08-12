@@ -267,7 +267,7 @@ export async function syncJobBoards(opts?: { maxIndeed?: number; maxFreelanceQue
   const flIngest = await ingestBoardJobs(flJobs);
   const freelanceRun = await recordSync({
     channel: "freelance-nl",
-    label: "Freelancer.nl",
+    label: "Freelance.nl",
     mode: flJobs.length
       ? "live"
       : flDetail.includes("needs-FIRECRAWL")
@@ -277,7 +277,7 @@ export async function syncJobBoards(opts?: { maxIndeed?: number; maxFreelanceQue
     fetched: flJobs.length,
     kept: flIngest.kept,
     skipped: flIngest.skipped,
-    searched: BOARD_QUERIES.slice(0, maxFl).map((q) => `Freelancer.nl · ${q}`),
+    searched: BOARD_QUERIES.slice(0, maxFl).map((q) => `Freelance.nl · ${q}`),
     hits: flIngest.hits,
   });
 
