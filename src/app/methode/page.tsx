@@ -192,18 +192,65 @@ export default function MethodePage() {
         </div>
         <div className="space-y-3 px-4 py-3 text-sm leading-relaxed text-[var(--ink)] sm:px-5">
           <p>
-            Indeed krijgt <strong>één hoofdquery per sync</strong> (kosten), niet alle rollen tegelijk.
-            Welke rol dat is, wisselt per dag — vandaag:{" "}
-            <strong style={{ fontFamily: "var(--mono)" }}>{indeedQuery}</strong>.
+            Indeed draait als <strong>eigen sync-run</strong> (niet samengevoegd met Freelance.nl).
+            Via Apify-actor <code className="text-[0.75rem]">misceres/indeed-scraper</code> zoeken we
+            in <strong>Nederland</strong> op één positie-query per sync.
+          </p>
+          <p>
+            <strong>Waarom één query?</strong> Indeed is betaald per scrape. Alle BNS-rollen tegelijk
+            zou de rekening opblazen. Daarom: <strong>één hoofdquery per dag</strong>, die roteert
+            over de rollenlijst. Even dagen: rol + “ZZP”; oneven: alleen de rol.
           </p>
           <p className="text-[var(--muted)]">
-            Apify-scraper (NL) haalt tot ~{INGEST_POLICY.syncIndeedMax} items. We houden titel,
-            bedrijf, URL, soms plaatsingsdatum/aanmeldingen. Zelfde niche + contract-filter als
-            LinkedIn.
+            Vandaag: <strong style={{ fontFamily: "var(--mono)" }}>{indeedQuery}</strong> · tot ~
+            {INGEST_POLICY.syncIndeedMax} items · we bewaren titel, bedrijf, URL, locatie,
+            plaatsingsdatum en aanmeldingen (als Apify die levert). Daarna dezelfde niche +
+            contract/ZZP-filter als LinkedIn · dedup op URL · score op de radar.
           </p>
           <p className="text-xs text-[var(--muted)]">
-            Dit is <strong>niet</strong> hetzelfde als Freelance.nl — aparte bron, apart gelogd.
+            ≈ €{SYNC_COST_PER_RUN.actions.boards.eur.low}–{SYNC_COST_PER_RUN.actions.boards.eur.high}{" "}
+            samen met Freelance.nl als je “Indeed + Freelance.nl” of Sync alles draait.
           </p>
+          <a
+            href={`https://nl.indeed.com/jobs?q=${encodeURIComponent(indeedQuery)}&l=Netherlands`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-block text-xs font-medium text-[var(--accent)] no-underline hover:underline"
+          >
+            Bekijk vandaag’s Indeed-zoekopdracht →
+          </a>
+        </div>
+        <div className="border-t border-[var(--line)]/80 px-4 py-2.5 sm:px-5">
+          <p className="mb-2 text-[0.62rem] uppercase tracking-wide text-[var(--muted)]">
+            Rotatie · alle rollen (één per sync-dag)
+          </p>
+          <ul className="divide-y divide-[var(--line)]/70 text-sm">
+            {BOARD_QUERIES.map((role, i) => {
+              const active = i === day % BOARD_QUERIES.length;
+              return (
+                <li
+                  key={role}
+                  className={`flex items-center justify-between gap-3 py-1.5 ${
+                    active ? "font-semibold text-[var(--ink)]" : "text-[var(--muted)]"
+                  }`}
+                >
+                  <span style={{ fontFamily: "var(--mono)" }}>
+                    {role}
+                    {active && day % 2 === 0 ? " ZZP" : ""}
+                  </span>
+                  {active ? (
+                    <span className="shrink-0 text-[0.65rem] uppercase tracking-wide text-[var(--accent)]">
+                      vandaag
+                    </span>
+                  ) : (
+                    <span className="shrink-0 text-[0.65rem] text-[var(--muted)]">
+                      dag-index {i}
+                    </span>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
         </div>
       </section>
 
