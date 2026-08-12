@@ -519,6 +519,7 @@ export default function RadarApp() {
           ? {
               action: "boards",
               maxIndeed: INGEST_POLICY.syncIndeedMax,
+              maxIndeedQueries: INGEST_POLICY.syncIndeedQueries,
               maxFreelanceQueries: INGEST_POLICY.syncFreelanceQueries,
             }
           : { action: "platforms" };
@@ -833,7 +834,8 @@ export default function RadarApp() {
                     Kost geld per run
                   </p>
                   <p className="mt-0.5 text-[0.7rem] leading-snug text-[var(--muted)]">
-                    Vaste cron: elke dag 06:00 UTC (LinkedIn + boards). Handmatig alleen als nodig — Sync alles ≈ €
+                    Vaste cron: LinkedIn 1×/dag 06:00 UTC. Indeed + Freelance.nl niet in cron —
+                    advies 1×/{INGEST_POLICY.boardsCadenceDays}d handmatig (alle rollen). Sync alles ≈ €
                     {SYNC_COST_PER_RUN.actions.all.eur.low}–{SYNC_COST_PER_RUN.actions.all.eur.high}.
                   </p>
                 </div>

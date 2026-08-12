@@ -23,7 +23,7 @@ async function authorized(req: Request) {
   return { ok: isCron || Boolean(session), isCron };
 }
 
-/** Daily: market jobs + specialty refresh. TenderNed when credentials exist. */
+/** Daily cron: LinkedIn market only. Boards = handmatig / ~1×/3d (duurder, alle rollen). */
 export async function GET(req: Request) {
   const { ok } = await authorized(req);
   if (!ok && process.env.NODE_ENV === "production" && process.env.CRON_SECRET) {
@@ -33,18 +33,17 @@ export async function GET(req: Request) {
     maxUrls: INGEST_POLICY.syncMarketUrls,
     maxJobs: INGEST_POLICY.syncMarketJobs,
   });
-  const boards = await syncJobBoards({
-    maxIndeed: INGEST_POLICY.syncIndeedMax,
-    maxFreelanceQueries: INGEST_POLICY.syncFreelanceQueries,
-  });
   const specialty = await syncJeffreySpecialty(20);
   const tender = await ingestFromTenderNed();
   return NextResponse.json({
     ok: true,
     market,
-    boards,
     specialty,
     tender,
+    boards: {
+      skipped: true,
+      reason: `Boards (Indeed + Freelance.nl) niet in dagelijkse cron — advies 1×/${INGEST_POLICY.boardsCadenceDays} dagen handmatig of latere cron.`,
+    },
     stats: await stats(),
   });
 }
@@ -76,6 +75,9 @@ export async function POST(req: Request) {
   if (action === "boards" || action === "indeed" || action === "freelance") {
     const result = await syncJobBoards({
       maxIndeed: Number((body as { maxIndeed?: number }).maxIndeed) || INGEST_POLICY.syncIndeedMax,
+      maxIndeedQueries:
+        Number((body as { maxIndeedQueries?: number }).maxIndeedQueries) ||
+        INGEST_POLICY.syncIndeedQueries,
       maxFreelanceQueries:
         Number((body as { maxFreelanceQueries?: number }).maxFreelanceQueries) ||
         INGEST_POLICY.syncFreelanceQueries,

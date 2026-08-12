@@ -42,9 +42,9 @@ function SourceHeading({
 export default function MethodePage() {
   const todayLinkedIn = buildLinkedInJobSearchUrls(INGEST_POLICY.syncMarketUrls);
   const platforms = enabledPlatforms();
-  const day = new Date().getUTCDay();
-  const boardRole = BOARD_QUERIES[day % BOARD_QUERIES.length]!;
-  const indeedQuery = day % 2 === 0 ? `${boardRole} ZZP` : boardRole;
+  const indeedQueries = BOARD_QUERIES.slice(0, INGEST_POLICY.syncIndeedQueries).map(
+    (role) => `${role} ZZP`
+  );
   const freelanceQueries = BOARD_QUERIES.slice(0, INGEST_POLICY.syncFreelanceQueries);
 
   const roleNames = [
@@ -68,8 +68,9 @@ export default function MethodePage() {
             Hoe zoeken we?
           </h1>
           <p className="mt-2 max-w-xl text-sm leading-relaxed text-[var(--muted)]">
-            Per bron wat we ophalen, hoe we filteren, en wat een sync ongeveer kost. Cron: 1×/dag
-            06:00 UTC.
+            Cron: LinkedIn 1×/dag 06:00 UTC. Indeed + Freelance.nl staan klaar maar zitten{" "}
+            <strong>niet</strong> in die dagelijkse cron — advies ~1×/
+            {INGEST_POLICY.boardsCadenceDays} dagen (alle rollen per run).
           </p>
         </div>
         <div className="flex flex-col items-end gap-1.5 text-sm">
@@ -188,68 +189,52 @@ export default function MethodePage() {
 
       <section className="mb-4 overflow-hidden rounded-md border border-[var(--line)] bg-[var(--surface)]">
         <div className="border-b border-[var(--line)]/80 px-4 py-3 sm:px-5">
-          <SourceHeading channel="indeed" title="Indeed NL" tool="Apify · aparte sync-run" />
+          <SourceHeading channel="indeed" title="Indeed NL" tool="Apify · aparte sync-run · alle rollen" />
         </div>
         <div className="space-y-3 px-4 py-3 text-sm leading-relaxed text-[var(--ink)] sm:px-5">
           <p>
-            Indeed draait als <strong>eigen sync-run</strong> (niet samengevoegd met Freelance.nl).
-            Via Apify-actor <code className="text-[0.75rem]">misceres/indeed-scraper</code> zoeken we
-            in <strong>Nederland</strong> op één positie-query per sync.
+            Indeed is een <strong>eigen sync-run</strong>. Per boards-sync draaien we{" "}
+            <strong>alle BNS-rollen</strong> (nu {indeedQueries.length} queries: rol + “ZZP”), via
+            Apify <code className="text-[0.75rem]">misceres/indeed-scraper</code>, land NL.
           </p>
           <p>
-            <strong>Waarom één query?</strong> Indeed is betaald per scrape. Alle BNS-rollen tegelijk
-            zou de rekening opblazen. Daarom: <strong>één hoofdquery per dag</strong>, die roteert
-            over de rollenlijst. Even dagen: rol + “ZZP”; oneven: alleen de rol.
+            <strong>Waarom niet elke dag?</strong> Alle rollen tegelijk is duurder/zwaarder dan één
+            query. Daarom: <strong>volledige dekking per run</strong>, cadans ~1×/
+            {INGEST_POLICY.boardsCadenceDays} dagen — aanvullen/updaten i.p.v. elke dag één rol te
+            roteren. Dedup op URL: bestaande hits worden vernieuwd, nieuwe komen erbij.
           </p>
           <p className="text-[var(--muted)]">
-            Vandaag: <strong style={{ fontFamily: "var(--mono)" }}>{indeedQuery}</strong> · tot ~
-            {INGEST_POLICY.syncIndeedMax} items · we bewaren titel, bedrijf, URL, locatie,
-            plaatsingsdatum en aanmeldingen (als Apify die levert). Daarna dezelfde niche +
-            contract/ZZP-filter als LinkedIn · dedup op URL · score op de radar.
+            Cap: tot ~{INGEST_POLICY.syncIndeedMax} items over alle queries samen (~
+            {Math.max(4, Math.ceil(INGEST_POLICY.syncIndeedMax / Math.max(1, indeedQueries.length)))}{" "}
+            per rol). We bewaren titel, bedrijf, URL, locatie, plaatsingsdatum/aanmeldingen (als
+            Apify die levert). Daarna niche + contract-filter · score op de radar.
           </p>
           <p className="text-xs text-[var(--muted)]">
-            ≈ €{SYNC_COST_PER_RUN.actions.boards.eur.low}–{SYNC_COST_PER_RUN.actions.boards.eur.high}{" "}
-            samen met Freelance.nl als je “Indeed + Freelance.nl” of Sync alles draait.
+            Niet in de dagelijkse cron. Handmatig via Sync & meer → Indeed + Freelance.nl. ≈ €
+            {SYNC_COST_PER_RUN.actions.boards.eur.low}–{SYNC_COST_PER_RUN.actions.boards.eur.high} /
+            boards-run.
           </p>
-          <a
-            href={`https://nl.indeed.com/jobs?q=${encodeURIComponent(indeedQuery)}&l=Netherlands`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-block text-xs font-medium text-[var(--accent)] no-underline hover:underline"
-          >
-            Bekijk vandaag’s Indeed-zoekopdracht →
-          </a>
         </div>
         <div className="border-t border-[var(--line)]/80 px-4 py-2.5 sm:px-5">
           <p className="mb-2 text-[0.62rem] uppercase tracking-wide text-[var(--muted)]">
-            Rotatie · alle rollen (één per sync-dag)
+            Queries per boards-sync ({indeedQueries.length})
           </p>
-          <ul className="divide-y divide-[var(--line)]/70 text-sm">
-            {BOARD_QUERIES.map((role, i) => {
-              const active = i === day % BOARD_QUERIES.length;
-              return (
-                <li
-                  key={role}
-                  className={`flex items-center justify-between gap-3 py-1.5 ${
-                    active ? "font-semibold text-[var(--ink)]" : "text-[var(--muted)]"
-                  }`}
+          <ul className="max-h-52 divide-y divide-[var(--line)]/70 overflow-y-auto text-sm">
+            {indeedQueries.map((q) => (
+              <li key={q} className="flex items-center justify-between gap-3 py-1.5">
+                <span className="font-medium text-[var(--ink)]" style={{ fontFamily: "var(--mono)" }}>
+                  {q}
+                </span>
+                <a
+                  href={`https://nl.indeed.com/jobs?q=${encodeURIComponent(q)}&l=Netherlands`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="shrink-0 text-xs text-[var(--accent)] no-underline hover:underline"
                 >
-                  <span style={{ fontFamily: "var(--mono)" }}>
-                    {role}
-                    {active && day % 2 === 0 ? " ZZP" : ""}
-                  </span>
-                  {active ? (
-                    <span className="shrink-0 text-[0.65rem] uppercase tracking-wide text-[var(--accent)]">
-                      vandaag
-                    </span>
-                  ) : (
-                    <span className="shrink-0 text-[0.65rem] text-[var(--muted)]">
-                      dag-index {i}
-                    </span>
-                  )}
-                </li>
-              );
-            })}
+                  open →
+                </a>
+              </li>
+            ))}
           </ul>
         </div>
       </section>
@@ -263,7 +248,9 @@ export default function MethodePage() {
             Freelance.nl is een SPA zonder nette jobs-API. We scrapen{" "}
             <strong>zoekpagina’s</strong> (
             <code className="text-[0.75rem]">freelance.nl/opdrachten?zoekwoord=…</code>) via
-            Firecrawl (markdown), tot {INGEST_POLICY.syncFreelanceQueries} queries per sync.
+            Firecrawl. Zit in dezelfde boards-actie als Indeed (apart gelogd). Advies: samen ~
+            1×/{INGEST_POLICY.boardsCadenceDays} dagen, niet dagelijks. Tot{" "}
+            {INGEST_POLICY.syncFreelanceQueries} zoekpagina’s per sync.
           </p>
           <p className="text-[var(--muted)]">
             Uit de markdown trekken we regels die op BNS-rollen lijken; UI-rommel (sorteer/filter)

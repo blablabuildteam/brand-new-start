@@ -37,9 +37,9 @@ export const SOURCE_COST_MODEL: SourceCost[] = [
     tier: "paid-hard",
     tool: "apify",
     quality: "hoog",
-    cadence: "1×/dag",
-    eurPerMonth: { low: 5, high: 20 },
-    efficiency: "1–2 queries/run, niche-filter in-app.",
+    cadence: "1×/3 dagen, alle BNS-rollen",
+    eurPerMonth: { low: 5, high: 25 },
+    efficiency: "Alle rollen per run · lagere cadans i.p.v. 1 rol/dag.",
   },
   {
     id: "firecrawl",
@@ -47,9 +47,9 @@ export const SOURCE_COST_MODEL: SourceCost[] = [
     tier: "paid-open",
     tool: "firecrawl",
     quality: "middel",
-    cadence: "2–3×/week",
-    eurPerMonth: { low: 10, high: 30 },
-    efficiency: "Alleen watchlist careers + Freelancer-zoekpagina’s. Geen LinkedIn.",
+    cadence: "1×/3 dagen (met boards)",
+    eurPerMonth: { low: 8, high: 25 },
+    efficiency: "Alleen watchlist careers + Freelance.nl-zoekpagina’s. Geen LinkedIn.",
   },
   {
     id: "tenderned",
@@ -153,13 +153,18 @@ export const INGEST_POLICY = {
   dedupeByFingerprint: true,
   preferApiOverScrape: true,
   /**
-   * Sync-caps: ruim genoeg om alle BNS-rollen te raken.
-   * Omhoog = meer signalen én hogere Apify/Firecrawl-kosten per run.
+   * Sync-caps: collect-first — liever alle BNS-rollen per boards-run,
+   * minder vaak (advies ~1×/3 dagen) dan 1 rol/dag.
    */
   syncMarketUrls: 30,
   syncMarketJobs: 80,
-  syncIndeedMax: 40,
+  /** Totaal Indeed-items over alle rol-queries samen */
+  syncIndeedMax: 80,
+  /** Aantal BNS-rollen per Indeed-sync (alle = BOARD_QUERIES.length) */
+  syncIndeedQueries: 12,
   syncFreelanceQueries: 12,
+  /** Advies-cadans boards (Indeed + Freelance.nl), niet de dagelijkse cron */
+  boardsCadenceDays: 3,
 } as const;
 
 /**
@@ -186,8 +191,8 @@ export const SYNC_COST_PER_RUN = {
     boards: {
       label: "Indeed + Freelance.nl",
       tool: "Apify + Firecrawl",
-      eur: { low: 0.3, high: 2.0 },
-      what: `Indeed ~${INGEST_POLICY.syncIndeedMax} · Freelancer tot ${INGEST_POLICY.syncFreelanceQueries} queries`,
+      eur: { low: 1.0, high: 6.0 },
+      what: `Indeed ${INGEST_POLICY.syncIndeedQueries} rollen · ~${INGEST_POLICY.syncIndeedMax} items · Freelance.nl ${INGEST_POLICY.syncFreelanceQueries} queries · advies 1×/${INGEST_POLICY.boardsCadenceDays}d`,
     },
     platforms: {
       label: "Careers-platforms",

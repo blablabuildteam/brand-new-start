@@ -130,33 +130,61 @@ function normalizeIndeedItem(item: Record<string, unknown>): BoardJob | null {
   };
 }
 
-async function fetchIndeedJobs(maxItems = 12): Promise<{ jobs: BoardJob[]; detail: string }> {
-  if (!hasApifyToken()) return { jobs: [], detail: "no-apify-token" };
+async function fetchIndeedJobs(opts?: {
+  maxItems?: number;
+  maxQueries?: number;
+}): Promise<{ jobs: BoardJob[]; detail: string; searched: string[] }> {
+  if (!hasApifyToken()) return { jobs: [], detail: "no-apify-token", searched: [] };
 
-  const day = new Date().getUTCDay();
-  const role = BOARD_QUERIES[day % BOARD_QUERIES.length]!;
-  // Alternate: plain role vs ZZP keyword (Indeed NL indexing)
-  const position = day % 2 === 0 ? `${role} ZZP` : role;
-
-  const { items } = await runApifyActor<Record<string, unknown>>(
-    INDEED_ACTOR,
-    {
-      country: "NL",
-      position,
-      location: "Netherlands",
-      maxItems,
-      parseCompanyDetails: false,
-      saveOnlyUniqueItems: true,
-    },
-    { waitSecs: 120 }
+  const maxQueries = Math.min(
+    opts?.maxQueries ?? INGEST_POLICY.syncIndeedQueries,
+    BOARD_QUERIES.length
   );
+  const maxItems = opts?.maxItems ?? INGEST_POLICY.syncIndeedMax;
+  const queries = BOARD_QUERIES.slice(0, maxQueries);
+  const perQuery = Math.max(4, Math.ceil(maxItems / Math.max(1, queries.length)));
 
   const jobs: BoardJob[] = [];
-  for (const item of items) {
-    const j = normalizeIndeedItem(item);
-    if (j) jobs.push(j);
+  const searched: string[] = [];
+  const seenUrls = new Set<string>();
+
+  for (const role of queries) {
+    // ZZP-keyword: Indeed indexeert contracting beter; niche+contract-filter volgt in-app
+    const position = `${role} ZZP`;
+    searched.push(`Indeed NL · ${position}`);
+    try {
+      const { items } = await runApifyActor<Record<string, unknown>>(
+        INDEED_ACTOR,
+        {
+          country: "NL",
+          position,
+          location: "Netherlands",
+          maxItems: perQuery,
+          parseCompanyDetails: false,
+          saveOnlyUniqueItems: true,
+        },
+        { waitSecs: 120 }
+      );
+      for (const item of items) {
+        const j = normalizeIndeedItem(item);
+        if (!j) continue;
+        const key = (j.url || `${j.company}|${j.title}`).toLowerCase();
+        if (seenUrls.has(key)) continue;
+        seenUrls.add(key);
+        jobs.push(j);
+        if (jobs.length >= maxItems) break;
+      }
+    } catch {
+      // per-role: door naar volgende query
+    }
+    if (jobs.length >= maxItems) break;
   }
-  return { jobs, detail: `indeed:${position}→${jobs.length}` };
+
+  return {
+    jobs,
+    detail: `indeed:${queries.length}q→${jobs.length}`,
+    searched,
+  };
 }
 
 /** Freelance.nl is a Gatsby SPA — needs Firecrawl (or browser actor). */
@@ -222,19 +250,26 @@ async function fetchFreelanceNlJobs(maxQueries = 2): Promise<{ jobs: BoardJob[];
   return { jobs, detail: `freelance:firecrawl→${jobs.length}` };
 }
 
-export async function syncJobBoards(opts?: { maxIndeed?: number; maxFreelanceQueries?: number }) {
+export async function syncJobBoards(opts?: {
+  maxIndeed?: number;
+  maxIndeedQueries?: number;
+  maxFreelanceQueries?: number;
+}) {
   const errors: string[] = [];
-  const day = new Date().getUTCDay();
-  const role = BOARD_QUERIES[day % BOARD_QUERIES.length]!;
-  const indeedQuery = day % 2 === 0 ? `${role} ZZP` : role;
   const maxFl = opts?.maxFreelanceQueries ?? INGEST_POLICY.syncFreelanceQueries;
+  const maxIndeedQ = opts?.maxIndeedQueries ?? INGEST_POLICY.syncIndeedQueries;
 
   let indeedJobs: BoardJob[] = [];
   let indeedDetail = "indeed:empty";
+  let indeedSearched: string[] = [];
   try {
-    const indeed = await fetchIndeedJobs(opts?.maxIndeed ?? INGEST_POLICY.syncIndeedMax);
+    const indeed = await fetchIndeedJobs({
+      maxItems: opts?.maxIndeed ?? INGEST_POLICY.syncIndeedMax,
+      maxQueries: maxIndeedQ,
+    });
     indeedJobs = indeed.jobs;
     indeedDetail = indeed.detail;
+    indeedSearched = indeed.searched;
   } catch (e) {
     errors.push(e instanceof Error ? e.message.slice(0, 160) : "indeed-error");
     indeedDetail = "indeed:error";
@@ -249,7 +284,9 @@ export async function syncJobBoards(opts?: { maxIndeed?: number; maxFreelanceQue
     fetched: indeedJobs.length,
     kept: indeedIngest.kept,
     skipped: indeedIngest.skipped,
-    searched: [`Indeed NL · ${indeedQuery}`],
+    searched: indeedSearched.length
+      ? indeedSearched
+      : BOARD_QUERIES.slice(0, maxIndeedQ).map((q) => `Indeed NL · ${q} ZZP`),
     hits: indeedIngest.hits,
   });
 
@@ -299,9 +336,6 @@ export async function syncJobBoards(opts?: { maxIndeed?: number; maxFreelanceQue
     kept,
     skipped,
     hits,
-    searched: [
-      ...(indeedRun.searched || []),
-      ...(freelanceRun.searched || []),
-    ],
+    searched: [...(indeedRun.searched || []), ...(freelanceRun.searched || [])],
   };
 }
