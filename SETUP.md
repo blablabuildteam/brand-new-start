@@ -21,7 +21,7 @@
 
 ### 4. Vercel (als je deployt)
 - Project env: `RECRUITER_PASSWORD`, `AUTH_SECRET`, `APIFY_TOKEN`, later Firecrawl + TenderNed  
-- Cron staat al op 1×/dag in `vercel.json`  
+- Cron in `vercel.json` staat uit — syncs alleen handmatig via Sync & meer  
 
 ---
 
