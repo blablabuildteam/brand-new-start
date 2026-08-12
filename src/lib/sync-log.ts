@@ -76,6 +76,8 @@ function toSyncRun(row: {
 }
 
 export async function recordSync(run: Omit<SyncRun, "id" | "at"> & { at?: string }) {
+  const cleanHits = (run.hits || []).filter((h) => !h.kept || isCleanSyncHit(h));
+  const keptClean = cleanHits.filter((h) => h.kept).length;
   const entry: SyncRun = {
     id: `sync_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
     at: run.at || new Date().toISOString(),
@@ -84,10 +86,10 @@ export async function recordSync(run: Omit<SyncRun, "id" | "at"> & { at?: string
     mode: run.mode,
     detail: run.detail,
     fetched: run.fetched,
-    kept: run.kept,
+    kept: Math.min(run.kept, keptClean),
     skipped: run.skipped,
     searched: run.searched?.slice(0, 24),
-    hits: run.hits.slice(0, 40),
+    hits: cleanHits.slice(0, 40),
   };
 
   if (hasDatabase()) {
@@ -118,9 +120,9 @@ export async function listSyncRuns(limit = 8) {
   if (hasDatabase()) {
     const db = getDb();
     const rows = await db.select().from(syncRuns).orderBy(desc(syncRuns.at)).limit(limit);
-    return rows.map(toSyncRun);
+    return rows.map(toSyncRun).map(sanitizeSyncRun);
   }
-  return state().runs.slice(0, limit);
+  return state().runs.slice(0, limit).map(sanitizeSyncRun);
 }
 
 export async function lastSyncByChannel() {
@@ -149,4 +151,38 @@ export function channelLabel(ch: SyncChannel | string) {
     specialty: "Specialisatie (eenmalig kader)",
   };
   return labels[ch] || ch;
+}
+
+/** Filter UI-/placeholder-rommel uit sync-hits (o.a. oude Freelance.nl scrapes). */
+export function isCleanSyncHit(h: SyncHit): boolean {
+  const company = (h.company || "").trim();
+  const title = (h.title || "").trim();
+  if (!title || title.length < 8 || title.length > 160) return false;
+  if (/freelance\.nl|via freelance\.nl/i.test(company)) return false;
+  if (
+    /sorteer|relevantie|filter|cookie|inloggen|registreer|bekijk alle|pagina \d|nieuwste opdrachten|oudste opdrachten|\\\\/.test(
+      title
+    )
+  ) {
+    return false;
+  }
+  if (h.url && /freelance\.nl\/opdrachten\?/i.test(h.url)) return false;
+  return true;
+}
+
+export function sanitizeSyncRun(run: SyncRun): SyncRun {
+  const cleanHits = (run.hits || []).filter(isCleanSyncHit);
+  // Oude Freelance.nl-runs: kept/fetched telden junk mee — toon schone aantallen.
+  if (run.channel === "freelance-nl" && (run.hits?.length || 0) > cleanHits.length) {
+    return {
+      ...run,
+      hits: cleanHits,
+      kept: cleanHits.length,
+      fetched: Math.max(run.fetched, cleanHits.length),
+      detail: cleanHits.length
+        ? `freelance:clean→${cleanHits.length}`
+        : "freelance:geen bruikbare hits (alleen UI-rommel)",
+    };
+  }
+  return { ...run, hits: cleanHits.length ? cleanHits : run.hits };
 }

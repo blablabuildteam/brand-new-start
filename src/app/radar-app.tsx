@@ -112,12 +112,6 @@ const STATUS_HELP: Record<string, string> = {
   cold: "Zwak signaal — lage prioriteit, alleen meenemen als er niets beters is.",
 };
 
-const FILTER_HELP: Record<"all" | "hot" | "warm", string> = {
-  all: "Alle openingen op de radar",
-  hot: "Score ≥ 75 — sterke kans",
-  warm: "Score ≥ 55 — warme kans of sterker",
-};
-
 const SCORE_MAX = 98;
 
 function cleanAngle(angle: string | null | undefined) {
@@ -361,7 +355,6 @@ export default function RadarApp() {
   const [user, setUser] = useState<{ email: string; role: "admin" | "recruiter" } | null>(null);
   const [sync, setSync] = useState<SyncInfo | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
-  const [filter, setFilter] = useState<"all" | "hot" | "warm">("all");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -425,20 +418,10 @@ export default function RadarApp() {
     return () => window.clearInterval(t);
   }, [syncRunningKey]);
 
-  const filtered = useMemo(() => {
-    return radar.filter((r) => {
-      if (filter === "hot") return r.status === "hot";
-      if (filter === "warm") return r.status === "hot" || r.status === "warm";
-      return true;
-    });
-  }, [radar, filter]);
+  const filtered = radar;
 
-  const filterCounts = useMemo(
-    () => ({
-      all: radar.length,
-      hot: radar.filter((r) => r.status === "hot").length,
-      warm: radar.filter((r) => r.status === "hot" || r.status === "warm").length,
-    }),
+  const warmPlus = useMemo(
+    () => radar.filter((r) => r.status === "hot" || r.status === "warm").length,
     [radar]
   );
 
@@ -824,8 +807,8 @@ export default function RadarApp() {
   const allHits = (live?.runs || []).flatMap((r) =>
     r.hits.map((h) => ({ ...h, channel: r.channel }))
   );
-  const newHits = allHits.filter((h) => h.kept && h.isNew);
   const keptHits = allHits.filter((h) => h.kept);
+  const newHits = keptHits.filter((h) => h.isNew);
   const refreshHits = keptHits.filter((h) => !h.isNew);
   const totalFetched = (live?.runs || []).reduce((a, r) => a + r.fetched, 0);
   const totalKept = (live?.runs || []).reduce((a, r) => a + r.kept, 0);
@@ -1017,20 +1000,14 @@ export default function RadarApp() {
         {!live && sync?.last ? (
           <section className="mb-3 shrink-0 overflow-hidden rounded-md border border-[var(--line)] bg-[var(--surface)] shadow-[var(--shadow)]">
             <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1.5 border-b border-[var(--line)]/80 px-3.5 py-2">
-              <p className="text-sm text-[var(--ink)]" title="Openingen · bedrijven · sterke kans · signalen">
+              <p className="text-sm text-[var(--ink)]" title="Bedrijven op de radar · warme of sterke kans">
                 {stats ? (
                   <>
-                    <span className="font-medium">{stats.openings ?? stats.companies}</span>
-                    <span className="text-[var(--muted)]"> openingen</span>
-                    <span className="text-[var(--muted)]"> · </span>
                     <span className="font-medium">{stats.companies}</span>
                     <span className="text-[var(--muted)]"> bedrijven</span>
                     <span className="text-[var(--muted)]"> · </span>
-                    <span className="font-medium">{stats.hot}</span>
-                    <span className="text-[var(--muted)]"> sterk</span>
-                    <span className="text-[var(--muted)]"> · </span>
-                    <span className="font-medium">{stats.signals}</span>
-                    <span className="text-[var(--muted)]"> signalen</span>
+                    <span className="font-medium">{warmPlus}</span>
+                    <span className="text-[var(--muted)]"> warm+</span>
                   </>
                 ) : (
                   "Laden…"
@@ -1080,7 +1057,7 @@ export default function RadarApp() {
           <div className="mb-3 shrink-0 flex flex-wrap items-center justify-between gap-2 text-sm text-[var(--muted)]">
             <p>
               {stats
-                ? `${stats.openings ?? stats.companies} openingen · ${stats.companies} bedrijven · ${stats.hot} sterk · ${stats.signals} signalen`
+                ? `${stats.companies} bedrijven · ${warmPlus} warm+`
                 : "Laden…"}
             </p>
             <p className="text-[0.7rem]">
@@ -1334,47 +1311,18 @@ export default function RadarApp() {
                 </p>
                 <p className="text-sm font-semibold text-[var(--ink)]">
                   {filtered.length}
-                  <span className="font-normal text-[var(--muted)]">
-                    {" "}
-                    / {filterCounts.all} · scroll hier
-                  </span>
+                  <span className="font-normal text-[var(--muted)]"> bedrijven · scroll hier</span>
                 </p>
               </div>
-              <div className="flex flex-wrap items-center justify-end gap-1">
-                {(
-                  [
-                    ["all", "Alles", filterCounts.all],
-                    ["hot", "Sterk", filterCounts.hot],
-                    ["warm", "Warm+", filterCounts.warm],
-                  ] as const
-                ).map(([id, label, count]) => (
-                  <button
-                    key={id}
-                    type="button"
-                    data-tip={FILTER_HELP[id]}
-                    onClick={() => setFilter(id)}
-                    className={`rounded px-2 py-1 text-[0.68rem] transition ${
-                      filter === id
-                        ? "bg-[var(--accent)] font-semibold text-white"
-                        : "bg-[var(--surface-2)] text-[var(--muted)] hover:bg-[var(--accent-soft)]/70 hover:text-[var(--ink)]"
-                    }`}
-                  >
-                    {label}
-                    <span className={`ml-1 tabular-nums ${filter === id ? "text-white/80" : ""}`}>
-                      {count}
-                    </span>
-                  </button>
-                ))}
-                {listCanScrollMore ? (
-                  <span
-                    className="ml-0.5 text-[0.65rem] text-[var(--accent)]"
-                    style={{ fontFamily: "var(--mono)" }}
-                    aria-hidden
-                  >
-                    ↓
-                  </span>
-                ) : null}
-              </div>
+              {listCanScrollMore ? (
+                <span
+                  className="ml-0.5 text-[0.65rem] text-[var(--accent)]"
+                  style={{ fontFamily: "var(--mono)" }}
+                  aria-hidden
+                >
+                  ↓
+                </span>
+              ) : null}
             </div>
             <div
               ref={listScrollRef}
