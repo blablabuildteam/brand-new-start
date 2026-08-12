@@ -279,7 +279,11 @@ export async function syncJobBoards(opts?: {
   const indeedRun = await recordSync({
     channel: "indeed",
     label: "Indeed",
-    mode: indeedJobs.length ? "live" : errors.some((x) => x.includes("indeed")) ? "error" : "empty",
+    mode: indeedJobs.length
+      ? "live"
+      : indeedDetail.includes("error") || indeedDetail.includes("no-apify")
+        ? "error"
+        : "empty",
     detail: indeedDetail,
     fetched: indeedJobs.length,
     kept: indeedIngest.kept,

@@ -15,6 +15,9 @@ import { ingestSignal, resetStore, stats } from "@/lib/store";
 import { INGEST_POLICY } from "@/lib/costs";
 import { z } from "zod";
 
+/** Apify Indeed/LinkedIn kan lang duren */
+export const maxDuration = 300;
+
 async function authorized(req: Request) {
   const cronSecret = process.env.CRON_SECRET;
   const authHeader = req.headers.get("authorization");

@@ -252,8 +252,13 @@ function openSyncRuns(runs: SyncRun[]): LiveSync {
     steps: batch.map((r) => ({
       id: r.channel,
       label: channelLabelUi(r.channel) || r.label,
-      status: "done" as const,
-      detail: `${r.kept}/${r.fetched}`,
+      status: (r.mode === "error" || (r.fetched === 0 && r.mode !== "live")
+        ? "error"
+        : "done") as SyncStep["status"],
+      detail:
+        r.fetched === 0 && r.detail
+          ? r.detail.slice(0, 40)
+          : `${r.kept}/${r.fetched}`,
     })),
     runs: batch,
   };
@@ -1059,7 +1064,7 @@ export default function RadarApp() {
               ) : (
                 <button
                   type="button"
-                  className="shrink-0 rounded px-2 py-1 text-xs text-[var(--muted)] hover:bg-[var(--surface-2)] hover:text-[var(--ink)]"
+                  className="shrink-0 rounded-md border border-[var(--line)] bg-[var(--surface-2)] px-3.5 py-2 text-sm font-semibold text-[var(--ink)] transition hover:border-[var(--accent)]/40 hover:bg-[var(--accent-soft)]/50"
                   onClick={() => setLive(null)}
                 >
                   Sluiten
