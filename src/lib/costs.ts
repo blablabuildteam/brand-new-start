@@ -201,10 +201,10 @@ export const SYNC_COST_PER_RUN = {
       what: `${INGEST_POLICY.syncFreelanceQueries} zoekpagina’s · advies 1×/${INGEST_POLICY.boardsCadenceDays}d`,
     },
     boards: {
-      label: "Indeed + Freelance.nl",
+      label: "Indeed + Freelance.nl (legacy bundel)",
       tool: "Apify + Firecrawl",
       eur: { low: 1.1, high: 6.5 },
-      what: `Indeed + Freelance.nl samen (zie aparte regels hierboven)`,
+      what: `Liever apart syncen — Indeed of Freelance.nl los`,
     },
     platforms: {
       label: "Careers-platforms",

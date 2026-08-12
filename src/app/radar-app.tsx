@@ -71,7 +71,7 @@ type SyncStep = {
 
 type LiveSync = {
   phase: "running" | "done" | "error";
-  action: "all" | "market" | "boards" | "platforms";
+  action: "all" | "market" | "indeed" | "freelance-nl" | "platforms";
   title: string;
   statusLine: string;
   /** Korte uitleg wat er nú gebeurt (tijdens running) */
@@ -126,8 +126,7 @@ const SYNC_ACTIVITY: Record<string, string> = {
     "LinkedIn Jobs ophalen via Apify — dit kan 30–90 seconden duren.",
   market: "LinkedIn Jobs ophalen via Apify — dit kan 30–90 seconden duren.",
   indeed: "Indeed NL doorzoeken op BNS-rollen + contract/ZZP…",
-  "freelance-nl": "Freelancer.nl scrapen via Firecrawl…",
-  boards: "Indeed en Freelancer.nl ophalen…",
+  "freelance-nl": "Freelance.nl scrapen via Firecrawl…",
   platforms: "Careers-pagina’s van watchlist-bedrijven scrapen…",
 };
 
@@ -162,7 +161,6 @@ function channelLabelUi(ch: string) {
     "firecrawl-careers": "Careers",
     tenderned: "TenderNed",
     pulse: "Pulse",
-    boards: "Boards",
   };
   return labels[ch] || ch;
 }
@@ -238,10 +236,17 @@ function openSyncRuns(runs: SyncRun[]): LiveSync {
   const fetched = batch.reduce((a, r) => a + r.fetched, 0);
   const names = [...new Set(batch.map((r) => channelLabelUi(r.channel) || r.label))];
   const onlyLinkedIn = batch.length === 1 && batch[0]?.channel === "linkedin-jobs";
-  const onlyBoards = batch.every((r) => r.channel === "indeed" || r.channel === "freelance-nl");
+  const onlyIndeed = batch.length === 1 && batch[0]?.channel === "indeed";
+  const onlyFreelance = batch.length === 1 && batch[0]?.channel === "freelance-nl";
   return {
     phase: "done",
-    action: onlyLinkedIn ? "market" : onlyBoards && batch.length ? "boards" : "all",
+    action: onlyLinkedIn
+      ? "market"
+      : onlyIndeed
+        ? "indeed"
+        : onlyFreelance
+          ? "freelance-nl"
+          : "all",
     title: names.length > 1 ? `${names.length} bronnen` : names[0] || "Sync",
     statusLine: `${kept} gehouden · ${fetched} opgehaald`,
     explain:
@@ -459,56 +464,51 @@ export default function RadarApp() {
   }
 
   async function runOne(
-    action: "market" | "boards" | "platforms",
+    action: "market" | "indeed" | "freelance-nl" | "platforms",
     opts?: { nested?: boolean }
   ) {
     const previewSearched =
       action === "market"
         ? (sync?.huntQueries || []).slice(0, 8).map((q) => `LinkedIn · ${q}`)
-        : action === "boards"
-          ? ["Indeed NL", ...(sync?.boardQueries || []).slice(0, 4).map((q) => `Freelancer.nl · ${q}`)]
-          : [`Careers · ${sync?.platformsEnabled ?? 0} platforms`];
+        : action === "indeed"
+          ? (sync?.boardQueries || [] as string[]).slice(0, 8).map((q) => `Indeed NL · ${q} ZZP`)
+          : action === "freelance-nl"
+            ? (sync?.boardQueries || [] as string[]).slice(0, 8).map((q) => `Freelance.nl · ${q}`)
+            : [`Careers · ${sync?.platformsEnabled ?? 0} platforms`];
 
     const title =
       action === "market"
         ? "LinkedIn Jobs"
-        : action === "boards"
-          ? "Indeed en Freelancer.nl (apart)"
-          : "Careers / platforms";
+        : action === "indeed"
+          ? "Indeed NL"
+          : action === "freelance-nl"
+            ? "Freelance.nl"
+            : "Careers / platforms";
 
     const explain =
       action === "market"
-        ? "We zoeken op LinkedIn Jobs naar BNS-rollen (SM, Agile, BA, …) met contract/ZZP-filters, houden alleen niche-hits, en zetten die op de radar."
-        : action === "boards"
-          ? "Indeed en Freelancer.nl worden apart opgehaald: dezelfde BNS-rollen, niche + contract/ZZP-filter."
-          : "We scrapen careers-pagina’s van de watchlist-bedrijven (Firecrawl) op openstaande BNS-rollen.";
+        ? "We zoeken op LinkedIn Jobs naar BNS-rollen met contract/ZZP-filters, houden alleen niche-hits, en zetten die op de radar."
+        : action === "indeed"
+          ? "Indeed NL via Apify: alle BNS-rollen + ZZP in één run. Niche + contract-filter in-app."
+          : action === "freelance-nl"
+            ? "Freelance.nl via Firecrawl: zoekpagina’s per BNS-rol. Aparte sync van Indeed."
+            : "We scrapen careers-pagina’s van de watchlist-bedrijven (Firecrawl) op openstaande BNS-rollen.";
+
+    const stepId =
+      action === "market" ? "linkedin-jobs" : action === "platforms" ? "platforms" : action;
 
     if (!opts?.nested) {
       setBusy(true);
       setMenuOpen(false);
-      const stepId =
-        action === "market" ? "linkedin-jobs" : action === "boards" ? "indeed" : action;
       setLive({
         phase: "running",
         action,
         title,
-        statusLine:
-          action === "boards"
-            ? "Indeed & Freelancer.nl ophalen…"
-            : `${title} doorzoeken…`,
-        activity:
-          action === "boards"
-            ? "Indeed en Freelancer.nl worden nu opgehaald. Even geduld — boards kunnen 1–2 minuten duren."
-            : SYNC_ACTIVITY[stepId] || `${title} ophalen…`,
+        statusLine: `${title} doorzoeken…`,
+        activity: SYNC_ACTIVITY[stepId] || `${title} ophalen…`,
         explain,
         searched: previewSearched,
-        steps:
-          action === "boards"
-            ? [
-                { id: "indeed", label: "Indeed", status: "running" },
-                { id: "freelance-nl", label: "Freelancer.nl", status: "running" },
-              ]
-            : [{ id: stepId, label: title, status: "running" }],
+        steps: [{ id: stepId, label: title, status: "running" }],
         runs: [],
       });
     }
@@ -520,14 +520,18 @@ export default function RadarApp() {
             maxUrls: INGEST_POLICY.syncMarketUrls,
             maxJobs: INGEST_POLICY.syncMarketJobs,
           }
-        : action === "boards"
+        : action === "indeed"
           ? {
-              action: "boards",
+              action: "indeed",
               maxIndeed: INGEST_POLICY.syncIndeedMax,
               maxIndeedQueries: INGEST_POLICY.syncIndeedQueries,
-              maxFreelanceQueries: INGEST_POLICY.syncFreelanceQueries,
             }
-          : { action: "platforms" };
+          : action === "freelance-nl"
+            ? {
+                action: "freelance-nl",
+                maxFreelanceQueries: INGEST_POLICY.syncFreelanceQueries,
+              }
+            : { action: "platforms" };
 
     const data = await postIngest(body);
     const runInfos =
@@ -548,7 +552,7 @@ export default function RadarApp() {
     return { title, explain, runInfo, runInfos, searched };
   }
 
-  async function run(action: "all" | "market" | "boards" | "platforms") {
+  async function run(action: "all" | "market" | "indeed" | "freelance-nl" | "platforms") {
     setBusy(true);
     setMenuOpen(false);
     const startedAt = new Date().toISOString();
@@ -561,16 +565,16 @@ export default function RadarApp() {
         statusLine: "Stap 1/3 · LinkedIn Jobs",
         activity: SYNC_ACTIVITY["linkedin-jobs"],
         explain:
-          "Eén sync haalt alle actieve bronnen op: LinkedIn Jobs, daarna Indeed en Freelancer.nl apart. Hits worden gefilterd op BNS-rollen + contract/ZZP.",
+          "LinkedIn, daarna Indeed, daarna Freelance.nl — drie aparte rondes. Hits gefilterd op BNS-rollen + contract/ZZP.",
         searched: [
           ...(sync?.huntQueries || []).slice(0, 6).map((q) => `LinkedIn · ${q}`),
           "Indeed NL",
-          "Freelancer.nl",
+          "Freelance.nl",
         ],
         steps: [
           { id: "linkedin-jobs", label: "LinkedIn Jobs", status: "running" },
           { id: "indeed", label: "Indeed", status: "pending" },
-          { id: "freelance-nl", label: "Freelancer.nl", status: "pending" },
+          { id: "freelance-nl", label: "Freelance.nl", status: "pending" },
         ],
         runs: [],
       });
@@ -581,12 +585,11 @@ export default function RadarApp() {
           prev
             ? {
                 ...prev,
-                statusLine: "Stap 2–3/3 · Indeed & Freelancer.nl",
-                activity:
-                  "LinkedIn klaar. Nu Indeed en Freelancer.nl — dit kan nog 1–2 minuten duren.",
+                statusLine: "Stap 2/3 · Indeed NL",
+                activity: SYNC_ACTIVITY.indeed,
                 searched: mergeSearched(prev.searched, market.searched),
                 steps: prev.steps.map((s) =>
-                  s.id === "linkedin-jobs" || s.id === "market"
+                  s.id === "linkedin-jobs"
                     ? {
                         id: "linkedin-jobs",
                         label: "LinkedIn Jobs",
@@ -595,7 +598,7 @@ export default function RadarApp() {
                           ? `${market.runInfo.kept}/${market.runInfo.fetched}`
                           : "klaar",
                       }
-                    : s.id === "indeed" || s.id === "freelance-nl"
+                    : s.id === "indeed"
                       ? { ...s, status: "running" }
                       : s
                 ),
@@ -608,21 +611,66 @@ export default function RadarApp() {
             : prev
         );
 
-        const boards = await runOne("boards", { nested: true });
-        const boardRuns = boards.runInfos?.length
-          ? boards.runInfos
-          : boards.runInfo
-            ? [boards.runInfo]
-            : [];
-        const indeedRun = boardRuns.find((r) => r.channel === "indeed");
-        const flRun = boardRuns.find((r) => r.channel === "freelance-nl");
+        const indeed = await runOne("indeed", { nested: true });
+        const indeedRun = indeed.runInfos?.find((r) => r.channel === "indeed") || indeed.runInfo;
+        setLive((prev) =>
+          prev
+            ? {
+                ...prev,
+                statusLine: "Stap 3/3 · Freelance.nl",
+                activity: SYNC_ACTIVITY["freelance-nl"],
+                searched: mergeSearched(prev.searched, indeed.searched),
+                steps: prev.steps.map((s) =>
+                  s.id === "indeed"
+                    ? {
+                        id: "indeed",
+                        label: "Indeed",
+                        status: indeedRun && indeedRun.fetched === 0 ? "error" : "done",
+                        detail: indeedRun
+                          ? indeedRun.fetched === 0 && indeedRun.detail
+                            ? indeedRun.detail.slice(0, 40)
+                            : `${indeedRun.kept}/${indeedRun.fetched}`
+                          : "klaar",
+                      }
+                    : s.id === "freelance-nl"
+                      ? { ...s, status: "running" }
+                      : s
+                ),
+                runs: [
+                  ...(market.runInfos?.length
+                    ? market.runInfos
+                    : market.runInfo
+                      ? [market.runInfo]
+                      : []),
+                  ...(indeed.runInfos?.length
+                    ? indeed.runInfos
+                    : indeed.runInfo
+                      ? [indeed.runInfo]
+                      : []),
+                ],
+              }
+            : prev
+        );
+
+        const freelance = await runOne("freelance-nl", { nested: true });
+        const flRun =
+          freelance.runInfos?.find((r) => r.channel === "freelance-nl") || freelance.runInfo;
         const runs = [
           ...(market.runInfos?.length
             ? market.runInfos
             : market.runInfo
               ? [market.runInfo]
               : []),
-          ...boardRuns,
+          ...(indeed.runInfos?.length
+            ? indeed.runInfos
+            : indeed.runInfo
+              ? [indeed.runInfo]
+              : []),
+          ...(freelance.runInfos?.length
+            ? freelance.runInfos
+            : freelance.runInfo
+              ? [freelance.runInfo]
+              : []),
         ];
         const kept = runs.reduce((a, r) => a + r.kept, 0);
         const fetched = runs.reduce((a, r) => a + r.fetched, 0);
@@ -635,22 +683,18 @@ export default function RadarApp() {
                 phase: "done",
                 statusLine: `Klaar · ${kept} gehouden · ${fetched} opgehaald · ${neu} nieuw`,
                 activity: undefined,
-                searched: mergeSearched(prev.searched, boards.searched),
+                searched: mergeSearched(prev.searched, freelance.searched),
                 steps: prev.steps.map((s) => {
-                  if (s.id === "indeed") {
-                    return {
-                      id: "indeed",
-                      label: "Indeed",
-                      status: "done",
-                      detail: indeedRun ? `${indeedRun.kept}/${indeedRun.fetched}` : "klaar",
-                    };
-                  }
                   if (s.id === "freelance-nl") {
                     return {
                       id: "freelance-nl",
-                      label: "Freelancer.nl",
-                      status: "done",
-                      detail: flRun ? `${flRun.kept}/${flRun.fetched}` : "klaar",
+                      label: "Freelance.nl",
+                      status: flRun && flRun.fetched === 0 ? "error" : "done",
+                      detail: flRun
+                        ? flRun.fetched === 0 && flRun.detail
+                          ? flRun.detail.slice(0, 40)
+                          : `${flRun.kept}/${flRun.fetched}`
+                        : "klaar",
                     };
                   }
                   return s;
@@ -691,6 +735,9 @@ export default function RadarApp() {
           : [];
       const kept = runInfos.reduce((a, r) => a + r.kept, 0);
       const fetched = runInfos.reduce((a, r) => a + r.fetched, 0);
+      const stepId =
+        action === "market" ? "linkedin-jobs" : action === "platforms" ? "platforms" : action;
+      const primary = runInfos[0];
 
       setLive({
         phase: "done",
@@ -702,38 +749,20 @@ export default function RadarApp() {
         activity: undefined,
         explain: one.explain,
         searched: one.searched,
-        steps:
-          action === "boards"
-            ? [
-                {
-                  id: "indeed",
-                  label: "Indeed",
-                  status: "done",
-                  detail: (() => {
-                    const r = runInfos.find((x) => x.channel === "indeed");
-                    return r ? `${r.kept}/${r.fetched}` : undefined;
-                  })(),
-                },
-                {
-                  id: "freelance-nl",
-                  label: "Freelancer.nl",
-                  status: "done",
-                  detail: (() => {
-                    const r = runInfos.find((x) => x.channel === "freelance-nl");
-                    return r ? `${r.kept}/${r.fetched}` : undefined;
-                  })(),
-                },
-              ]
-            : [
-                {
-                  id: action === "market" ? "linkedin-jobs" : action,
-                  label: one.title,
-                  status: "done",
-                  detail: one.runInfo
-                    ? `${one.runInfo.kept}/${one.runInfo.fetched}`
-                    : undefined,
-                },
-              ],
+        steps: [
+          {
+            id: stepId,
+            label: one.title,
+            status:
+              primary && primary.fetched === 0 && primary.mode !== "live" ? "error" : "done",
+            detail:
+              primary && primary.fetched === 0 && primary.detail
+                ? primary.detail.slice(0, 40)
+                : primary
+                  ? `${primary.kept}/${primary.fetched}`
+                  : undefined,
+          },
+        ],
         runs: runInfos,
       });
       setFreshSince(startedAt);
@@ -861,7 +890,7 @@ export default function RadarApp() {
                 >
                   Sync alles
                   <span className="mt-0.5 block font-normal text-[var(--muted)]">
-                    LinkedIn + Indeed + Freelancer.nl
+                    LinkedIn + Indeed + Freelance.nl
                   </span>
                 </button>
                 <button
@@ -883,16 +912,23 @@ export default function RadarApp() {
                   className="block w-full px-3 py-2 text-left text-xs hover:bg-[var(--surface-2)] disabled:opacity-50"
                   onClick={() => {
                     setMenuOpen(false);
-                    run("boards");
+                    run("indeed");
                   }}
                 >
-                  Indeed + Freelance.nl
-                  <span className="mt-0.5 block font-normal text-[var(--muted)]">
-                    Indeed ≈ €{SYNC_COST_PER_RUN.actions.indeed.eur.low}–{SYNC_COST_PER_RUN.actions.indeed.eur.high}
-                    {" · "}
-                    Freelance.nl ≈ €{SYNC_COST_PER_RUN.actions["freelance-nl"].eur.low}–
-                    {SYNC_COST_PER_RUN.actions["freelance-nl"].eur.high}
-                  </span>
+                  Alleen Indeed · ≈ €{SYNC_COST_PER_RUN.actions.indeed.eur.low}–{SYNC_COST_PER_RUN.actions.indeed.eur.high}
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  disabled={busy}
+                  className="block w-full px-3 py-2 text-left text-xs hover:bg-[var(--surface-2)] disabled:opacity-50"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    run("freelance-nl");
+                  }}
+                >
+                  Alleen Freelance.nl · ≈ €{SYNC_COST_PER_RUN.actions["freelance-nl"].eur.low}–
+                  {SYNC_COST_PER_RUN.actions["freelance-nl"].eur.high}
                 </button>
                 <button
                   type="button"
@@ -904,7 +940,8 @@ export default function RadarApp() {
                     run("platforms");
                   }}
                 >
-                  Careers / platforms
+                  Careers / platforms · ≈ €{SYNC_COST_PER_RUN.actions.platforms.eur.low}–
+                  {SYNC_COST_PER_RUN.actions.platforms.eur.high}
                 </button>
                 <div className="my-1 border-t border-[var(--line)]/80" />
                 <a

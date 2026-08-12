@@ -65,8 +65,15 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true, kind: "market", ...result, stats: await stats() });
   }
 
-  if (action === "boards" || action === "indeed" || action === "freelance") {
+  if (action === "boards" || action === "indeed" || action === "freelance" || action === "freelance-nl") {
+    const only =
+      action === "indeed"
+        ? ("indeed" as const)
+        : action === "freelance" || action === "freelance-nl"
+          ? ("freelance-nl" as const)
+          : undefined;
     const result = await syncJobBoards({
+      only,
       maxIndeed: Number((body as { maxIndeed?: number }).maxIndeed) || INGEST_POLICY.syncIndeedMax,
       maxIndeedQueries:
         Number((body as { maxIndeedQueries?: number }).maxIndeedQueries) ||
@@ -75,7 +82,12 @@ export async function POST(req: Request) {
         Number((body as { maxFreelanceQueries?: number }).maxFreelanceQueries) ||
         INGEST_POLICY.syncFreelanceQueries,
     });
-    return NextResponse.json({ ok: true, kind: "boards", ...result, stats: await stats() });
+    return NextResponse.json({
+      ok: true,
+      kind: only || "boards",
+      ...result,
+      stats: await stats(),
+    });
   }
 
   if (action === "platforms" || action === "careers") {

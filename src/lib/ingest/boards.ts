@@ -257,92 +257,110 @@ export async function syncJobBoards(opts?: {
   maxIndeed?: number;
   maxIndeedQueries?: number;
   maxFreelanceQueries?: number;
+  /** Alleen één bron — losse sync-rondes */
+  only?: "indeed" | "freelance-nl";
 }) {
   const errors: string[] = [];
   const maxFl = opts?.maxFreelanceQueries ?? INGEST_POLICY.syncFreelanceQueries;
   const maxIndeedQ = opts?.maxIndeedQueries ?? INGEST_POLICY.syncIndeedQueries;
+  const only = opts?.only;
+  const doIndeed = !only || only === "indeed";
+  const doFreelance = !only || only === "freelance-nl";
 
   let indeedJobs: BoardJob[] = [];
-  let indeedDetail = "indeed:empty";
+  let indeedDetail = "indeed:skipped";
   let indeedSearched: string[] = [];
-  try {
-    const indeed = await fetchIndeedJobs({
-      maxItems: opts?.maxIndeed ?? INGEST_POLICY.syncIndeedMax,
-      maxQueries: maxIndeedQ,
-    });
-    indeedJobs = indeed.jobs;
-    indeedDetail = indeed.detail;
-    indeedSearched = indeed.searched;
-  } catch (e) {
-    errors.push(e instanceof Error ? e.message.slice(0, 160) : "indeed-error");
-    indeedDetail = "indeed:error";
+  let indeedIngest = { scanned: 0, kept: 0, skipped: 0, hits: [] as Awaited<ReturnType<typeof ingestBoardJobs>>["hits"] };
+
+  if (doIndeed) {
+    try {
+      const indeed = await fetchIndeedJobs({
+        maxItems: opts?.maxIndeed ?? INGEST_POLICY.syncIndeedMax,
+        maxQueries: maxIndeedQ,
+      });
+      indeedJobs = indeed.jobs;
+      indeedDetail = indeed.detail;
+      indeedSearched = indeed.searched;
+    } catch (e) {
+      errors.push(e instanceof Error ? e.message.slice(0, 160) : "indeed-error");
+      indeedDetail = "indeed:error";
+    }
+    indeedIngest = await ingestBoardJobs(indeedJobs);
   }
 
-  const indeedIngest = await ingestBoardJobs(indeedJobs);
-  const indeedRun = await recordSync({
-    channel: "indeed",
-    label: "Indeed",
-    mode: indeedJobs.length
-      ? "live"
-      : indeedDetail.includes("error") || indeedDetail.includes("no-apify")
-        ? "error"
-        : "empty",
-    detail: indeedDetail,
-    fetched: indeedJobs.length,
-    kept: indeedIngest.kept,
-    skipped: indeedIngest.skipped,
-    searched: indeedSearched.length
-      ? indeedSearched
-      : BOARD_QUERIES.slice(0, maxIndeedQ).map((q) => `Indeed NL · ${q} ZZP`),
-    hits: indeedIngest.hits,
-  });
+  const indeedRun = doIndeed
+    ? await recordSync({
+        channel: "indeed",
+        label: "Indeed",
+        mode: indeedJobs.length
+          ? "live"
+          : indeedDetail.includes("error") || indeedDetail.includes("no-apify")
+            ? "error"
+            : "empty",
+        detail: indeedDetail,
+        fetched: indeedJobs.length,
+        kept: indeedIngest.kept,
+        skipped: indeedIngest.skipped,
+        searched: indeedSearched.length
+          ? indeedSearched
+          : BOARD_QUERIES.slice(0, maxIndeedQ).map((q) => `Indeed NL · ${q} ZZP`),
+        hits: indeedIngest.hits,
+      })
+    : null;
 
   let flJobs: BoardJob[] = [];
-  let flDetail = "freelance:empty";
-  try {
-    const fl = await fetchFreelanceNlJobs(maxFl);
-    flJobs = fl.jobs;
-    flDetail = fl.detail;
-  } catch (e) {
-    errors.push(e instanceof Error ? e.message.slice(0, 160) : "freelance-error");
-    flDetail = "freelance:error";
+  let flDetail = "freelance:skipped";
+  let flIngest = { scanned: 0, kept: 0, skipped: 0, hits: [] as Awaited<ReturnType<typeof ingestBoardJobs>>["hits"] };
+
+  if (doFreelance) {
+    try {
+      const fl = await fetchFreelanceNlJobs(maxFl);
+      flJobs = fl.jobs;
+      flDetail = fl.detail;
+    } catch (e) {
+      errors.push(e instanceof Error ? e.message.slice(0, 160) : "freelance-error");
+      flDetail = "freelance:error";
+    }
+    flIngest = await ingestBoardJobs(flJobs);
   }
 
-  const flIngest = await ingestBoardJobs(flJobs);
-  const freelanceRun = await recordSync({
-    channel: "freelance-nl",
-    label: "Freelance.nl",
-    mode: flJobs.length
-      ? "live"
-      : flDetail.includes("needs-FIRECRAWL")
-        ? "skipped"
-        : "empty",
-    detail: flDetail,
-    fetched: flJobs.length,
-    kept: flIngest.kept,
-    skipped: flIngest.skipped,
-    searched: BOARD_QUERIES.slice(0, maxFl).map((q) => `Freelance.nl · ${q}`),
-    hits: flIngest.hits,
-  });
+  const freelanceRun = doFreelance
+    ? await recordSync({
+        channel: "freelance-nl",
+        label: "Freelance.nl",
+        mode: flJobs.length
+          ? "live"
+          : flDetail.includes("needs-FIRECRAWL")
+            ? "skipped"
+            : flDetail.includes("error")
+              ? "error"
+              : "empty",
+        detail: flDetail,
+        fetched: flJobs.length,
+        kept: flIngest.kept,
+        skipped: flIngest.skipped,
+        searched: BOARD_QUERIES.slice(0, maxFl).map((q) => `Freelance.nl · ${q}`),
+        hits: flIngest.hits,
+      })
+    : null;
 
-  const kept = indeedIngest.kept + flIngest.kept;
-  const skipped = indeedIngest.skipped + flIngest.skipped;
-  const scanned = indeedIngest.scanned + flIngest.scanned;
-  const hits = [...indeedIngest.hits, ...flIngest.hits];
-  const runs = [indeedRun, freelanceRun];
+  const runs = [indeedRun, freelanceRun].filter(Boolean) as NonNullable<typeof indeedRun>[];
+  const kept = runs.reduce((a, r) => a + r.kept, 0);
+  const skipped = (indeedIngest.skipped || 0) + (flIngest.skipped || 0);
+  const scanned = (indeedIngest.scanned || 0) + (flIngest.scanned || 0);
+  const hits = runs.flatMap((r) => r.hits);
   const mode = hits.length ? "live" : errors.length ? "empty-error" : "empty";
 
   return {
     mode,
     queries: [...BOARD_QUERIES],
-    /** Primary run for backwards compat (Indeed) */
-    run: indeedRun,
+    run: runs[0] || null,
     runs,
     errors,
     scanned,
     kept,
     skipped,
     hits,
-    searched: [...(indeedRun.searched || []), ...(freelanceRun.searched || [])],
+    searched: runs.flatMap((r) => r.searched || []),
   };
 }
