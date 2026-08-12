@@ -27,7 +27,7 @@ export const SOURCE_COST_MODEL: SourceCost[] = [
     tier: "paid-hard",
     tool: "apify",
     quality: "hoog",
-    cadence: "1×/dag, niche queries",
+    cadence: "handmatig · advies 1×/3 dagen",
     eurPerMonth: { low: 10, high: 40 },
     efficiency: "Alleen BNS-rollen + contract/ZZP-filters. Dedup op URL.",
   },
@@ -174,7 +174,7 @@ export const INGEST_POLICY = {
 export const SYNC_COST_PER_RUN = {
   currency: "EUR",
   disclaimer:
-    "Schatting per sync. Echte rekening = Apify-usage + Firecrawl-credits. Meer syncs/dag = lineair meer.",
+    "Schatting per sync. Echte rekening = Apify-usage + Firecrawl-credits. Geen bron draait automatisch — alles handmatig.",
   meaning: [
     "Je betaalt providers per scrape/run — niet per ‘mooie hit’.",
     "Filteren (niche) is gratis in onze app: we gooien noise weg ná het ophalen.",
@@ -186,13 +186,25 @@ export const SYNC_COST_PER_RUN = {
       label: "LinkedIn Jobs",
       tool: "Apify",
       eur: { low: 0.4, high: 2.5 },
-      what: `tot ${INGEST_POLICY.syncMarketUrls} zoek-URL’s · ~${INGEST_POLICY.syncMarketJobs} jobs`,
+      what: `tot ${INGEST_POLICY.syncMarketUrls} zoek-URL’s · ~${INGEST_POLICY.syncMarketJobs} jobs · advies 1×/${INGEST_POLICY.boardsCadenceDays}d`,
+    },
+    indeed: {
+      label: "Indeed NL",
+      tool: "Apify",
+      eur: { low: 0.8, high: 4.5 },
+      what: `${INGEST_POLICY.syncIndeedQueries} rollen · ~${INGEST_POLICY.syncIndeedMax} items · advies 1×/${INGEST_POLICY.boardsCadenceDays}d`,
+    },
+    "freelance-nl": {
+      label: "Freelance.nl",
+      tool: "Firecrawl",
+      eur: { low: 0.3, high: 2.0 },
+      what: `${INGEST_POLICY.syncFreelanceQueries} zoekpagina’s · advies 1×/${INGEST_POLICY.boardsCadenceDays}d`,
     },
     boards: {
       label: "Indeed + Freelance.nl",
       tool: "Apify + Firecrawl",
-      eur: { low: 1.0, high: 6.0 },
-      what: `Indeed ${INGEST_POLICY.syncIndeedQueries} rollen · ~${INGEST_POLICY.syncIndeedMax} items · Freelance.nl ${INGEST_POLICY.syncFreelanceQueries} queries · advies 1×/${INGEST_POLICY.boardsCadenceDays}d`,
+      eur: { low: 1.1, high: 6.5 },
+      what: `Indeed + Freelance.nl samen (zie aparte regels hierboven)`,
     },
     platforms: {
       label: "Careers-platforms",
@@ -203,8 +215,8 @@ export const SYNC_COST_PER_RUN = {
     all: {
       label: "Sync alles",
       tool: "Apify + Firecrawl",
-      eur: { low: 0.7, high: 4.5 },
-      what: "LinkedIn + Indeed/Freelancer (careers via Meer of later in Sync alles)",
+      eur: { low: 1.5, high: 9.0 },
+      what: "LinkedIn + Indeed + Freelance.nl (careers apart)",
     },
   },
 } as const;

@@ -23,27 +23,17 @@ async function authorized(req: Request) {
   return { ok: isCron || Boolean(session), isCron };
 }
 
-/** Daily cron: LinkedIn market only. Boards = handmatig / ~1×/3d (duurder, alle rollen). */
+/** Cron endpoint: geen automatische scrapes. Alles handmatig via Sync & meer. */
 export async function GET(req: Request) {
   const { ok } = await authorized(req);
   if (!ok && process.env.NODE_ENV === "production" && process.env.CRON_SECRET) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
-  const market = await syncMarketJobsFromLinkedIn({
-    maxUrls: INGEST_POLICY.syncMarketUrls,
-    maxJobs: INGEST_POLICY.syncMarketJobs,
-  });
-  const specialty = await syncJeffreySpecialty(20);
-  const tender = await ingestFromTenderNed();
   return NextResponse.json({
     ok: true,
-    market,
-    specialty,
-    tender,
-    boards: {
-      skipped: true,
-      reason: `Boards (Indeed + Freelance.nl) niet in dagelijkse cron — advies 1×/${INGEST_POLICY.boardsCadenceDays} dagen handmatig of latere cron.`,
-    },
+    skipped: true,
+    reason:
+      "Geen automatische sync. LinkedIn, Indeed en Freelance.nl alleen handmatig (advies ~1×/3d).",
     stats: await stats(),
   });
 }

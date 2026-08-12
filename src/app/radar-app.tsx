@@ -834,9 +834,14 @@ export default function RadarApp() {
                     Kost geld per run
                   </p>
                   <p className="mt-0.5 text-[0.7rem] leading-snug text-[var(--muted)]">
-                    Vaste cron: LinkedIn 1×/dag 06:00 UTC. Indeed + Freelance.nl niet in cron —
-                    advies 1×/{INGEST_POLICY.boardsCadenceDays}d handmatig (alle rollen). Sync alles ≈ €
-                    {SYNC_COST_PER_RUN.actions.all.eur.low}–{SYNC_COST_PER_RUN.actions.all.eur.high}.
+                    Geen auto-sync. Alles handmatig · advies 1×/{INGEST_POLICY.boardsCadenceDays}d.
+                    Indeed ≈ €{SYNC_COST_PER_RUN.actions.indeed.eur.low}–{SYNC_COST_PER_RUN.actions.indeed.eur.high}
+                    {" · "}
+                    Freelance.nl ≈ €{SYNC_COST_PER_RUN.actions["freelance-nl"].eur.low}–
+                    {SYNC_COST_PER_RUN.actions["freelance-nl"].eur.high}
+                    {" · "}
+                    LinkedIn ≈ €{SYNC_COST_PER_RUN.actions.market.eur.low}–{SYNC_COST_PER_RUN.actions.market.eur.high}
+                    .
                   </p>
                 </div>
                 <button
@@ -876,7 +881,13 @@ export default function RadarApp() {
                     run("boards");
                   }}
                 >
-                  Indeed + Freelancer.nl · ≈ €{SYNC_COST_PER_RUN.actions.boards.eur.low}–{SYNC_COST_PER_RUN.actions.boards.eur.high}
+                  Indeed + Freelance.nl
+                  <span className="mt-0.5 block font-normal text-[var(--muted)]">
+                    Indeed ≈ €{SYNC_COST_PER_RUN.actions.indeed.eur.low}–{SYNC_COST_PER_RUN.actions.indeed.eur.high}
+                    {" · "}
+                    Freelance.nl ≈ €{SYNC_COST_PER_RUN.actions["freelance-nl"].eur.low}–
+                    {SYNC_COST_PER_RUN.actions["freelance-nl"].eur.high}
+                  </span>
                 </button>
                 <button
                   type="button"

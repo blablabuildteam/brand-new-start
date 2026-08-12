@@ -68,9 +68,8 @@ export default function MethodePage() {
             Hoe zoeken we?
           </h1>
           <p className="mt-2 max-w-xl text-sm leading-relaxed text-[var(--muted)]">
-            Cron: LinkedIn 1×/dag 06:00 UTC. Indeed + Freelance.nl staan klaar maar zitten{" "}
-            <strong>niet</strong> in die dagelijkse cron — advies ~1×/
-            {INGEST_POLICY.boardsCadenceDays} dagen (alle rollen per run).
+            Geen automatische sync. LinkedIn, Indeed en Freelance.nl alleen handmatig — advies ~1×/
+            {INGEST_POLICY.boardsCadenceDays} dagen.
           </p>
         </div>
         <div className="flex flex-col items-end gap-1.5 text-sm">
@@ -210,9 +209,9 @@ export default function MethodePage() {
             Apify die levert). Daarna niche + contract-filter · score op de radar.
           </p>
           <p className="text-xs text-[var(--muted)]">
-            Niet in de dagelijkse cron. Handmatig via Sync & meer → Indeed + Freelance.nl. ≈ €
-            {SYNC_COST_PER_RUN.actions.boards.eur.low}–{SYNC_COST_PER_RUN.actions.boards.eur.high} /
-            boards-run.
+            Handmatig via Sync & meer. Indeed alleen ≈ €{SYNC_COST_PER_RUN.actions.indeed.eur.low}–
+            {SYNC_COST_PER_RUN.actions.indeed.eur.high} / run · samen met Freelance.nl ≈ €
+            {SYNC_COST_PER_RUN.actions.boards.eur.low}–{SYNC_COST_PER_RUN.actions.boards.eur.high}.
           </p>
         </div>
         <div className="border-t border-[var(--line)]/80 px-4 py-2.5 sm:px-5">
@@ -255,6 +254,10 @@ export default function MethodePage() {
           <p className="text-[var(--muted)]">
             Uit de markdown trekken we regels die op BNS-rollen lijken; UI-rommel (sorteer/filter)
             gooien we weg. Hits krijgen kanaal <strong>freelance-nl</strong> — niet Indeed.
+          </p>
+          <p className="text-xs text-[var(--muted)]">
+            Freelance.nl alleen ≈ €{SYNC_COST_PER_RUN.actions["freelance-nl"].eur.low}–
+            {SYNC_COST_PER_RUN.actions["freelance-nl"].eur.high} / run (Firecrawl-credits).
           </p>
           <div className="flex flex-wrap gap-1.5">
             {freelanceQueries.map((q) => (
