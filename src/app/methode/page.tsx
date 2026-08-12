@@ -209,9 +209,8 @@ export default function MethodePage() {
             Apify die levert). Daarna niche + contract-filter · score op de radar.
           </p>
           <p className="text-xs text-[var(--muted)]">
-            Handmatig via Sync & meer. Indeed alleen ≈ €{SYNC_COST_PER_RUN.actions.indeed.eur.low}–
-            {SYNC_COST_PER_RUN.actions.indeed.eur.high} / run · samen met Freelance.nl ≈ €
-            {SYNC_COST_PER_RUN.actions.boards.eur.low}–{SYNC_COST_PER_RUN.actions.boards.eur.high}.
+            Handmatig via Sync & meer → Alleen Indeed. ≈ €{SYNC_COST_PER_RUN.actions.indeed.eur.low}–
+            {SYNC_COST_PER_RUN.actions.indeed.eur.high} / run (los van Freelance.nl).
           </p>
         </div>
         <div className="border-t border-[var(--line)]/80 px-4 py-2.5 sm:px-5">
@@ -247,9 +246,9 @@ export default function MethodePage() {
             Freelance.nl is een SPA zonder nette jobs-API. We scrapen{" "}
             <strong>zoekpagina’s</strong> (
             <code className="text-[0.75rem]">freelance.nl/opdrachten?zoekwoord=…</code>) via
-            Firecrawl. Zit in dezelfde boards-actie als Indeed (apart gelogd). Advies: samen ~
-            1×/{INGEST_POLICY.boardsCadenceDays} dagen, niet dagelijks. Tot{" "}
-            {INGEST_POLICY.syncFreelanceQueries} zoekpagina’s per sync.
+            Firecrawl. <strong>Eigen sync-ronde</strong>, los van Indeed. Advies: ~1×/
+            {INGEST_POLICY.boardsCadenceDays} dagen. Tot {INGEST_POLICY.syncFreelanceQueries}{" "}
+            zoekpagina’s per sync.
           </p>
           <p className="text-[var(--muted)]">
             Uit de markdown trekken we regels die op BNS-rollen lijken; UI-rommel (sorteer/filter)
