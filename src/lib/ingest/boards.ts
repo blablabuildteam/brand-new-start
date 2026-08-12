@@ -144,47 +144,50 @@ async function fetchIndeedJobs(opts?: {
   const queries = BOARD_QUERIES.slice(0, maxQueries);
   const perQuery = Math.max(4, Math.ceil(maxItems / Math.max(1, queries.length)));
 
-  const jobs: BoardJob[] = [];
-  const searched: string[] = [];
-  const seenUrls = new Set<string>();
+  // Eén Apify-run met alle Indeed-URL’s (i.p.v. 12× sequential — timeout/leeg op Vercel)
+  const searched = queries.map((role) => `Indeed NL · ${role} ZZP`);
+  const startUrls = queries.map((role) => ({
+    url: `https://nl.indeed.com/jobs?q=${encodeURIComponent(`${role} ZZP`)}&l=Nederland`,
+  }));
 
-  for (const role of queries) {
-    // ZZP-keyword: Indeed indexeert contracting beter; niche+contract-filter volgt in-app
-    const position = `${role} ZZP`;
-    searched.push(`Indeed NL · ${position}`);
-    try {
-      const { items } = await runApifyActor<Record<string, unknown>>(
-        INDEED_ACTOR,
-        {
-          country: "NL",
-          position,
-          location: "Netherlands",
-          maxItems: perQuery,
-          parseCompanyDetails: false,
-          saveOnlyUniqueItems: true,
-        },
-        { waitSecs: 120 }
-      );
-      for (const item of items) {
-        const j = normalizeIndeedItem(item);
-        if (!j) continue;
-        const key = (j.url || `${j.company}|${j.title}`).toLowerCase();
-        if (seenUrls.has(key)) continue;
-        seenUrls.add(key);
-        jobs.push(j);
-        if (jobs.length >= maxItems) break;
-      }
-    } catch {
-      // per-role: door naar volgende query
+  try {
+    const { items } = await runApifyActor<Record<string, unknown>>(
+      INDEED_ACTOR,
+      {
+        country: "NL",
+        location: "Nederland",
+        startUrls,
+        maxItemsPerSearch: perQuery,
+        maxItems: maxItems,
+        parseCompanyDetails: false,
+        saveOnlyUniqueItems: true,
+      },
+      { waitSecs: 300 }
+    );
+
+    const jobs: BoardJob[] = [];
+    const seenUrls = new Set<string>();
+    for (const item of items) {
+      const j = normalizeIndeedItem(item);
+      if (!j) continue;
+      const key = (j.url || `${j.company}|${j.title}`).toLowerCase();
+      if (seenUrls.has(key)) continue;
+      seenUrls.add(key);
+      jobs.push(j);
+      if (jobs.length >= maxItems) break;
     }
-    if (jobs.length >= maxItems) break;
-  }
 
-  return {
-    jobs,
-    detail: `indeed:${queries.length}q→${jobs.length}`,
-    searched,
-  };
+    return {
+      jobs,
+      detail: jobs.length
+        ? `indeed:${queries.length}urls→${jobs.length}`
+        : `indeed:empty-dataset (${queries.length} urls, 0 items)`,
+      searched,
+    };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message.slice(0, 120) : "indeed-error";
+    return { jobs: [], detail: `indeed:error ${msg}`, searched };
+  }
 }
 
 /** Freelance.nl is a Gatsby SPA — needs Firecrawl (or browser actor). */
