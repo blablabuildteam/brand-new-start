@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getSession } from "@/lib/auth";
+import { getSession, isAdmin } from "@/lib/auth";
 import { ingestFromTenderNed, ingestJobPayload } from "@/lib/ingest/tenderned";
 import {
   learnSpecialtyFromPosts,
@@ -23,7 +23,8 @@ async function authorized(req: Request) {
   const authHeader = req.headers.get("authorization");
   const isCron = Boolean(cronSecret && authHeader === `Bearer ${cronSecret}`);
   const session = await getSession();
-  return { ok: isCron || Boolean(session), isCron };
+  // Sync alleen voor admin (of cron-secret) — recruiters mogen de radar zien, niet scrapen.
+  return { ok: isCron || isAdmin(session), isCron, session };
 }
 
 /** Cron endpoint: geen automatische scrapes. Alles handmatig via Sync & meer. */
@@ -44,7 +45,10 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   const { ok } = await authorized(req);
   if (!ok) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+    return NextResponse.json(
+      { error: "unauthorized", message: "Sync alleen voor admin." },
+      { status: 401 }
+    );
   }
 
   const body = await req.json().catch(() => ({}));

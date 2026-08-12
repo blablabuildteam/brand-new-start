@@ -1,11 +1,34 @@
 const COOKIE = "bns_session";
 
+export type UserRole = "admin" | "recruiter";
+
+export type SessionUser = {
+  email: string;
+  role: UserRole;
+};
+
+type Account = {
+  role: UserRole;
+  passwordEnv: string;
+  fallback: string;
+};
+
+/** Known logins. Email bepaalt de rechten; wachtwoord per account via env. */
+const ACCOUNTS: Record<string, Account> = {
+  "admin@blablabuild.com": {
+    role: "admin",
+    passwordEnv: "ADMIN_PASSWORD",
+    fallback: "bns-admin",
+  },
+  "recruiter@brandnewstart.nl": {
+    role: "recruiter",
+    passwordEnv: "RECRUITER_PASSWORD",
+    fallback: "bns-demo",
+  },
+};
+
 function secret() {
   return process.env.AUTH_SECRET || "bns-dev-secret-change-me";
-}
-
-function password() {
-  return process.env.RECRUITER_PASSWORD || "bns-demo";
 }
 
 function toBase64Url(bytes: ArrayBuffer | Uint8Array) {
@@ -36,13 +59,46 @@ async function hmac(payload: string) {
   return toBase64Url(sig);
 }
 
-export async function signSession(email: string) {
-  const payload = toBase64Url(new TextEncoder().encode(JSON.stringify({ email, t: Date.now() })));
+function secureEqual(a: string, b: string) {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+
+function normalizeEmail(email: string) {
+  return email.trim().toLowerCase();
+}
+
+export function listAccounts() {
+  return Object.entries(ACCOUNTS).map(([email, a]) => ({ email, role: a.role }));
+}
+
+export function roleForEmail(email: string): UserRole | null {
+  return ACCOUNTS[normalizeEmail(email)]?.role ?? null;
+}
+
+export function authenticate(
+  email: string,
+  password: string
+): SessionUser | null {
+  const key = normalizeEmail(email);
+  const account = ACCOUNTS[key];
+  if (!account) return null;
+  const expected = process.env[account.passwordEnv] || account.fallback;
+  if (!secureEqual(password, expected)) return null;
+  return { email: key, role: account.role };
+}
+
+export async function signSession(user: SessionUser) {
+  const payload = toBase64Url(
+    new TextEncoder().encode(JSON.stringify({ email: user.email, role: user.role, t: Date.now() }))
+  );
   const sig = await hmac(payload);
   return `${payload}.${sig}`;
 }
 
-export async function verifySession(token: string | undefined): Promise<{ email: string } | null> {
+export async function verifySession(token: string | undefined): Promise<SessionUser | null> {
   if (!token) return null;
   const [payload, sig] = token.split(".");
   if (!payload || !sig) return null;
@@ -52,9 +108,16 @@ export async function verifySession(token: string | undefined): Promise<{ email:
   for (let i = 0; i < sig.length; i++) diff |= sig.charCodeAt(i) ^ expected.charCodeAt(i);
   if (diff !== 0) return null;
   try {
-    const data = JSON.parse(fromBase64Url(payload)) as { email: string; t: number };
+    const data = JSON.parse(fromBase64Url(payload)) as {
+      email: string;
+      role?: UserRole;
+      t: number;
+    };
     if (Date.now() - data.t > 30 * 24 * 60 * 60 * 1000) return null;
-    return { email: data.email };
+    const email = normalizeEmail(data.email);
+    const role = ACCOUNTS[email]?.role || data.role || "recruiter";
+    if (!ACCOUNTS[email]) return null;
+    return { email, role };
   } catch {
     return null;
   }
@@ -66,12 +129,14 @@ export async function getSession() {
   return verifySession(jar.get(COOKIE)?.value);
 }
 
-export function checkPassword(input: string) {
-  const expected = password();
-  if (input.length !== expected.length) return false;
-  let diff = 0;
-  for (let i = 0; i < input.length; i++) diff |= input.charCodeAt(i) ^ expected.charCodeAt(i);
-  return diff === 0;
+export function isAdmin(session: SessionUser | null | undefined) {
+  return session?.role === "admin";
 }
 
-export { COOKIE };
+/** @deprecated Use authenticate() — kept for callers that only check recruiter password. */
+export function checkPassword(input: string) {
+  const expected = process.env.RECRUITER_PASSWORD || "bns-demo";
+  return secureEqual(input, expected);
+}
+
+export { COOKIE, ACCOUNTS };

@@ -9,6 +9,7 @@ import { BOARD_QUERIES } from "@/lib/ingest/boards";
 import { enabledPlatforms } from "@/lib/platforms";
 import { INGEST_POLICY, SYNC_COST_PER_RUN } from "@/lib/costs";
 import { ROLE_FAMILIES } from "@/lib/niche";
+import { SCORE_MAX, SCORE_METHOD } from "@/lib/score";
 
 export const metadata = {
   title: "Methode & queries — Brand New Start Radar",
@@ -116,9 +117,58 @@ export default function MethodePage() {
             komen niet op de radar.
           </li>
           <li>
-            <strong>3. Score rangschikt</strong> — hot / warm / volgen binnen die contracting-hits.
+            <strong>3. Score rangschikt</strong> — sterke / warme / volgen per opening (niet per
+            bedrijf). Meerdere vacatures bij één klant = meerdere rijen.
           </li>
         </ol>
+      </section>
+
+      <section
+        id="score"
+        className="mb-6 scroll-mt-8 overflow-hidden rounded-md border border-[var(--line)] bg-[var(--surface)]"
+      >
+        <div className="border-b border-[var(--line)]/80 px-4 py-3 sm:px-5">
+          <h2 className="text-base font-semibold" style={{ fontFamily: "var(--display)" }}>
+            Hoe werkt de kans-score?
+          </h2>
+          <p className="mt-1 text-xs text-[var(--muted)]">Max {SCORE_MAX} · herschatting bij elke sync</p>
+        </div>
+        <div className="space-y-3 px-4 py-3 text-sm leading-relaxed text-[var(--ink)] sm:px-5">
+          <p>{SCORE_METHOD.intro}</p>
+          <p className="text-[var(--muted)]">
+            “Warme kans” is een <strong className="text-[var(--ink)]">scoreband</strong> (≥55), geen
+            grafiek die automatisch omhoog loopt. De score kan ook lager worden (bijv. als “net op de
+            radar”-punten wegzakken).
+          </p>
+        </div>
+        <ul className="divide-y divide-[var(--line)]/80 border-t border-[var(--line)]/80 text-sm">
+          {SCORE_METHOD.bands.map((b) => (
+            <li key={b.id} className="flex flex-wrap items-baseline justify-between gap-2 px-4 py-2.5 sm:px-5">
+              <span>
+                <strong>{b.label}</strong>
+                <span className="text-[var(--muted)]"> — {b.meaning}</span>
+              </span>
+              <span className="tabular-nums text-[var(--muted)]" style={{ fontFamily: "var(--mono)" }}>
+                {b.id === "cold" ? `< ${SCORE_METHOD.bands[2]!.min}` : `≥ ${b.min}`}
+              </span>
+            </li>
+          ))}
+        </ul>
+        <div className="border-t border-[var(--line)]/80 px-4 py-3 sm:px-5">
+          <p className="mb-2 text-[0.62rem] uppercase tracking-wide text-[var(--muted)]">
+            Factoren (punten stapelen)
+          </p>
+          <ul className="space-y-1.5 text-sm">
+            {SCORE_METHOD.factors.map((f) => (
+              <li key={f.when} className="flex justify-between gap-3">
+                <span className="text-[var(--ink)]">{f.when}</span>
+                <span className="shrink-0 tabular-nums text-[var(--green)]" style={{ fontFamily: "var(--mono)" }}>
+                  {f.points}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
       </section>
 
       <section className="mb-6 overflow-hidden rounded-md border border-[var(--line)] bg-[var(--surface)]">

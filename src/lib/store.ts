@@ -14,6 +14,75 @@ function slugify(name: string) {
     .replace(/(^-|-$)/g, "");
 }
 
+/** Dedup-key voor “dezelfde opening” — titel eerst (URL’s verschillen vaak per board). */
+export function openingKeyOf(signal: Signal): string {
+  const title = signal.title
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\(freelancer\)|\(freelance\)|freelancer|freelance|zzp/gi, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .replace(/\s+/g, " ");
+  if (title.length >= 10) return `title:${title}`;
+  const url = (signal.evidenceUrl || "").split("?")[0].trim().toLowerCase();
+  if (url.length > 12) return `url:${url}`;
+  return `fp:${signal.fingerprint}`;
+}
+
+type OpeningBundle = {
+  key: string;
+  primary: Signal;
+  signals: Signal[];
+  siblingOpenings: number;
+};
+
+/**
+ * Eén radarrij per unieke vacature-opening bij een bedrijf.
+ * Company-brede signalen (pulse/tender/…) hangen aan elke opening mee.
+ */
+export function buildOpeningBundles(companySignals: Signal[]): OpeningBundle[] {
+  const usable = companySignals.filter((s) => s.source !== "hm-post");
+  const jobs = usable.filter((s) => s.source === "job-type");
+  const shared = usable.filter((s) => s.source !== "job-type");
+
+  if (!jobs.length) {
+    if (!usable.length) return [];
+    const sorted = [...usable].sort((a, b) => b.seenAt.getTime() - a.seenAt.getTime());
+    return [
+      {
+        key: "company",
+        primary: sorted[0]!,
+        signals: sorted,
+        siblingOpenings: 0,
+      },
+    ];
+  }
+
+  const byKey = new Map<string, Signal[]>();
+  for (const j of jobs) {
+    const key = openingKeyOf(j);
+    const list = byKey.get(key) || [];
+    list.push(j);
+    byKey.set(key, list);
+  }
+
+  const openings = [...byKey.entries()].map(([key, list]) => {
+    const sorted = [...list].sort((a, b) => b.seenAt.getTime() - a.seenAt.getTime());
+    return { key, primary: sorted[0]!, jobSignals: sorted };
+  });
+  openings.sort((a, b) => b.primary.seenAt.getTime() - a.primary.seenAt.getTime());
+
+  const siblingOpenings = Math.max(0, openings.length - 1);
+
+  return openings.map((o) => ({
+    key: o.key,
+    primary: o.primary,
+    signals: [...o.jobSignals, ...shared].sort((a, b) => b.seenAt.getTime() - a.seenAt.getTime()),
+    siblingOpenings,
+  }));
+}
+
 type MemoryDb = {
   companies: Map<string, Company>;
   signals: Map<string, Signal>;
@@ -152,35 +221,44 @@ async function recomputeRadarPg(companyId: string) {
   });
   if (!companySignals.length) return;
 
-  const scored = scoreSignals(companySignals);
-  const id = `rad_${companyId}_${slugify(scored.roleLabel)}`;
-  const row: RadarEntry = {
-    id,
-    companyId,
-    roleLabel: scored.roleLabel,
-    status: scored.status,
-    kans: scored.kans,
-    hiringManager: null,
-    angle: scored.angle,
-    sources: scored.sources,
-    factors: scored.factors,
-    updatedAt: new Date(),
-  };
-  await db
-    .insert(radarEntries)
-    .values(row)
-    .onConflictDoUpdate({
-      target: radarEntries.id,
-      set: {
-        status: row.status,
-        kans: row.kans,
-        angle: row.angle,
-        sources: row.sources,
-        factors: row.factors,
-        roleLabel: row.roleLabel,
-        updatedAt: row.updatedAt,
-      },
+  const bundles = buildOpeningBundles(companySignals);
+  for (const bundle of bundles) {
+    const scored = scoreSignals(bundle.signals, {
+      primary: bundle.primary,
+      siblingOpenings: bundle.siblingOpenings,
     });
+    const id =
+      bundle.key === "company"
+        ? `rad_${companyId}_${slugify(scored.roleLabel)}`
+        : `rad_${companyId}_${bundle.primary.fingerprint}`;
+    const row: RadarEntry = {
+      id,
+      companyId,
+      roleLabel: scored.roleLabel,
+      status: scored.status,
+      kans: scored.kans,
+      hiringManager: null,
+      angle: scored.angle,
+      sources: scored.sources,
+      factors: scored.factors,
+      updatedAt: new Date(),
+    };
+    await db
+      .insert(radarEntries)
+      .values(row)
+      .onConflictDoUpdate({
+        target: radarEntries.id,
+        set: {
+          status: row.status,
+          kans: row.kans,
+          angle: row.angle,
+          sources: row.sources,
+          factors: row.factors,
+          roleLabel: row.roleLabel,
+          updatedAt: row.updatedAt,
+        },
+      });
+  }
 }
 
 function recomputeRadarMem(store: MemoryDb, companyId: string) {
@@ -189,21 +267,33 @@ function recomputeRadarMem(store: MemoryDb, companyId: string) {
   const companySignals = [...store.signals.values()].filter((s) => s.companyId === companyId);
   if (!companySignals.length) return;
 
-  const scored = scoreSignals(companySignals);
-  const id = `rad_${companyId}_${slugify(scored.roleLabel)}`;
-  const row: RadarEntry = {
-    id,
-    companyId,
-    roleLabel: scored.roleLabel,
-    status: scored.status,
-    kans: scored.kans,
-    hiringManager: null,
-    angle: scored.angle,
-    sources: scored.sources,
-    factors: scored.factors,
-    updatedAt: new Date(),
-  };
-  store.radar.set(id, row);
+  // Drop oude company-bundel rijen voor deze company
+  for (const id of [...store.radar.keys()]) {
+    if (id.startsWith(`rad_${companyId}_`)) store.radar.delete(id);
+  }
+
+  for (const bundle of buildOpeningBundles(companySignals)) {
+    const scored = scoreSignals(bundle.signals, {
+      primary: bundle.primary,
+      siblingOpenings: bundle.siblingOpenings,
+    });
+    const id =
+      bundle.key === "company"
+        ? `rad_${companyId}_${slugify(scored.roleLabel)}`
+        : `rad_${companyId}_${bundle.primary.fingerprint}`;
+    store.radar.set(id, {
+      id,
+      companyId,
+      roleLabel: scored.roleLabel,
+      status: scored.status,
+      kans: scored.kans,
+      hiringManager: null,
+      angle: scored.angle,
+      sources: scored.sources,
+      factors: scored.factors,
+      updatedAt: new Date(),
+    });
+  }
 }
 
 export async function ingestSignal(input: IngestInput): Promise<{
@@ -341,6 +431,7 @@ export async function ingestSignal(input: IngestInput): Promise<{
  * Bouw radar uit signalen + score in-memory.
  * Geen N× DB-recompute per GET — dat maakte refresh traag.
  * Persistente radar_entries worden bij ingest bijgewerkt.
+ * Eén rij per unieke opening (niet per bedrijf).
  */
 export async function listRadar() {
   if (hasDatabase()) {
@@ -362,40 +453,75 @@ export async function listRadar() {
     for (const [companyId, companySignals] of byCompany) {
       const company = coMap.get(companyId);
       if (!company || !companySignals.length) continue;
-      const scored = scoreSignals(companySignals);
-      const sorted = [...companySignals].sort((a, b) => b.seenAt.getTime() - a.seenAt.getTime());
-      rows.push({
-        id: `rad_${companyId}_${slugify(scored.roleLabel)}`,
-        companyId,
-        roleLabel: scored.roleLabel,
-        status: scored.status,
-        kans: scored.kans,
-        hiringManager: null as string | null,
-        angle: scored.angle,
-        sources: scored.sources,
-        factors: scored.factors,
-        updatedAt: sorted[0]?.seenAt || new Date(),
-        company,
-        signals: sorted,
-      });
+      for (const bundle of buildOpeningBundles(companySignals)) {
+        const scored = scoreSignals(bundle.signals, {
+          primary: bundle.primary,
+          siblingOpenings: bundle.siblingOpenings,
+        });
+        const id =
+          bundle.key === "company"
+            ? `rad_${companyId}_${slugify(scored.roleLabel)}`
+            : `rad_${companyId}_${bundle.primary.fingerprint}`;
+        rows.push({
+          id,
+          companyId,
+          roleLabel: scored.roleLabel,
+          openingTitle: bundle.primary.title,
+          openingsAtCompany: bundle.siblingOpenings + (bundle.key === "company" ? 0 : 1),
+          status: scored.status,
+          kans: scored.kans,
+          hiringManager: null as string | null,
+          angle: scored.angle,
+          sources: scored.sources,
+          factors: scored.factors,
+          updatedAt: bundle.signals[0]?.seenAt || new Date(),
+          company,
+          signals: bundle.signals,
+        });
+      }
     }
-    return rows.sort((a, b) => b.kans - a.kans);
+    return rows.sort((a, b) => b.kans - a.kans || a.company.name.localeCompare(b.company.name, "nl"));
   }
 
   const store = mem();
   for (const companyId of new Set([...store.signals.values()].map((s) => s.companyId))) {
     recomputeRadarMem(store, companyId);
   }
-  return [...store.radar.values()]
-    .map((r) => {
-      const company = store.companies.get(r.companyId)!;
-      const companySignals = [...store.signals.values()]
-        .filter((s) => s.companyId === r.companyId && s.source !== "hm-post")
-        .sort((a, b) => b.seenAt.getTime() - a.seenAt.getTime());
-      return { ...r, company, signals: companySignals };
-    })
-    .filter((r) => r.signals.length > 0)
-    .sort((a, b) => b.kans - a.kans);
+  const rows = [];
+  for (const companyId of new Set([...store.signals.values()].map((s) => s.companyId))) {
+    const company = store.companies.get(companyId);
+    if (!company) continue;
+    const companySignals = [...store.signals.values()].filter(
+      (s) => s.companyId === companyId && s.source !== "hm-post"
+    );
+    for (const bundle of buildOpeningBundles(companySignals)) {
+      const scored = scoreSignals(bundle.signals, {
+        primary: bundle.primary,
+        siblingOpenings: bundle.siblingOpenings,
+      });
+      const id =
+        bundle.key === "company"
+          ? `rad_${companyId}_${slugify(scored.roleLabel)}`
+          : `rad_${companyId}_${bundle.primary.fingerprint}`;
+      rows.push({
+        id,
+        companyId,
+        roleLabel: scored.roleLabel,
+        openingTitle: bundle.primary.title,
+        openingsAtCompany: bundle.siblingOpenings + (bundle.key === "company" ? 0 : 1),
+        status: scored.status,
+        kans: scored.kans,
+        hiringManager: null as string | null,
+        angle: scored.angle,
+        sources: scored.sources,
+        factors: scored.factors,
+        updatedAt: bundle.signals[0]?.seenAt || new Date(),
+        company,
+        signals: bundle.signals,
+      });
+    }
+  }
+  return rows.sort((a, b) => b.kans - a.kans);
 }
 
 export async function getRadarDetail(id: string) {
@@ -440,7 +566,8 @@ export async function stats(radarRows?: Awaited<ReturnType<typeof listRadar>>) {
     signalCount = [...mem().signals.values()].filter((s) => s.source !== "hm-post").length;
   }
   return {
-    companies: radar.length,
+    companies: new Set(radar.map((r) => r.companyId)).size,
+    openings: radar.length,
     hot: radar.filter((r) => r.status === "hot").length,
     warm: radar.filter((r) => r.status === "warm").length,
     signals: signalCount,

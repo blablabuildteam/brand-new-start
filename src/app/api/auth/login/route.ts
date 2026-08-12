@@ -1,17 +1,21 @@
 import { NextResponse } from "next/server";
-import { checkPassword, COOKIE, signSession } from "@/lib/auth";
+import { authenticate, COOKIE, signSession } from "@/lib/auth";
 
 export async function POST(req: Request) {
   const body = (await req.json()) as { email?: string; password?: string };
-  const email = (body.email || "recruiter@brandnewstart.nl").trim();
+  const email = (body.email || "").trim();
   const password = body.password || "";
 
-  if (!checkPassword(password)) {
-    return NextResponse.json({ error: "Onjuist wachtwoord" }, { status: 401 });
+  const user = authenticate(email, password);
+  if (!user) {
+    return NextResponse.json(
+      { error: "Onjuiste e-mail of wachtwoord" },
+      { status: 401 }
+    );
   }
 
-  const token = await signSession(email);
-  const res = NextResponse.json({ ok: true, email });
+  const token = await signSession(user);
+  const res = NextResponse.json({ ok: true, email: user.email, role: user.role });
   res.cookies.set(COOKIE, token, {
     httpOnly: true,
     sameSite: "lax",

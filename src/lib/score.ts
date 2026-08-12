@@ -39,7 +39,17 @@ function applicantsOf(raw: Record<string, unknown>): number | null {
   return null;
 }
 
-export function scoreSignals(companySignals: Signal[]): {
+export type ScoreOptions = {
+  /** Andere unieke openingen bij hetzelfde bedrijf (na dedup). */
+  siblingOpenings?: number;
+  /** Prefer this title/role when scoring one opening. */
+  primary?: Signal | null;
+};
+
+export function scoreSignals(
+  companySignals: Signal[],
+  opts: ScoreOptions = {}
+): {
   kans: number;
   status: "hot" | "warm" | "watch" | "cold";
   factors: ScoreFactor[];
@@ -50,6 +60,7 @@ export function scoreSignals(companySignals: Signal[]): {
   const factors: ScoreFactor[] = [];
   const sources = [...new Set(companySignals.map((s) => s.source))];
   const roleLabel =
+    opts.primary?.roleLabel ||
     companySignals.map((s) => s.roleLabel).find(Boolean) ||
     companySignals[0]?.roleLabel ||
     "IT contracting";
@@ -131,7 +142,18 @@ export function scoreSignals(companySignals: Signal[]): {
   }
 
   const jobSignals = companySignals.filter((s) => s.source === "job-type");
-  if (jobSignals.length >= 2) {
+  const siblings = opts.siblingOpenings ?? 0;
+  if (siblings >= 1) {
+    factors.push({
+      label:
+        siblings === 1
+          ? "Nog 1 andere open contracting-kans bij dit bedrijf"
+          : `Nog ${siblings} andere open contracting-kansen bij dit bedrijf`,
+      points: Math.min(12, 6 + (siblings - 1) * 3),
+      source: "job-type",
+    });
+  } else if (jobSignals.length >= 2 && opts.siblingOpenings === undefined) {
+    // Legacy company-bundel: meerdere job-signalen zonder opening-split
     factors.push({
       label: `${jobSignals.length} contract-vacatures bij dit bedrijf`,
       points: Math.min(12, 6 + (jobSignals.length - 2) * 3),
@@ -201,4 +223,52 @@ export const SCORE_THRESHOLDS = {
   hot: 75,
   warm: 55,
   watch: 35,
+} as const;
+
+/**
+ * Uitleg voor /methode en UI — score is geen vaste “inschatting één keer”,
+ * maar een herschatting bij elke sync uit actuele signalen.
+ */
+export const SCORE_METHOD = {
+  intro:
+    "De kans-score is de som van bewijsfactoren (max 98). Bij elke sync of refresh herberekenen we die uit de signalen die er nu zijn. Versheidspunten kunnen dus dalen als een vacature ouder wordt; nieuwe vacatures, team-meldingen of extra bronnen kunnen de score verhogen.",
+  bands: [
+    {
+      id: "hot",
+      label: "Sterke kans",
+      min: SCORE_THRESHOLDS.hot,
+      meaning: "Genoeg bewijs om nu te benaderen.",
+    },
+    {
+      id: "warm",
+      label: "Warme kans",
+      min: SCORE_THRESHOLDS.warm,
+      meaning:
+        "Scoreband ≥55 — niet dat de score ‘groeit in de tijd’, maar dat er al serieuze signalen zijn. Nog 1–2 sterke factoren en het is hot.",
+    },
+    {
+      id: "watch",
+      label: "Volgen",
+      min: SCORE_THRESHOLDS.watch,
+      meaning: "Op de radar, nog te weinig bewijs voor actie.",
+    },
+    {
+      id: "cold",
+      label: "Zwak",
+      min: 0,
+      meaning: "Lage prioriteit.",
+    },
+  ],
+  factors: [
+    { when: "Vacature noemt contract / interim / ZZP", points: "+35" },
+    { when: "Aanbesteding / award", points: "+25–40" },
+    { when: "Team-melding (pulse)", points: "+18–35" },
+    { when: "Combo contract-vacature + team-melding", points: "+12" },
+    { when: "Vacature blijft hangen / weinig aanmeldingen", points: "+12" },
+    { when: "Meerdere bureaus op dezelfde rol", points: "+10" },
+    { when: "Zelfde kans op ≥2 bronnen", points: "+14" },
+    { when: "Andere openingen bij hetzelfde bedrijf", points: "+6–12" },
+    { when: "Net op de radar (≤24u / ≤3d / ≤10d)", points: "+14 / +10 / +5" },
+    { when: "Net gepost op de board (≤2 dagen)", points: "+12" },
+  ],
 } as const;

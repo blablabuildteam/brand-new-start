@@ -20,8 +20,10 @@
 2. `TENDERNED_USER` / `TENDERNED_PASS`  
 
 ### 4. Vercel (als je deployt)
-- Project env: `RECRUITER_PASSWORD`, `AUTH_SECRET`, `APIFY_TOKEN`, later Firecrawl + TenderNed  
-- Cron in `vercel.json` staat uit — syncs alleen handmatig via Sync & meer  
+- Project env: `RECRUITER_PASSWORD`, `ADMIN_PASSWORD`, `AUTH_SECRET`, `APIFY_TOKEN`, later Firecrawl + TenderNed  
+  - `admin@blablabuild.com` → admin (sync + samenwerking)  
+  - `recruiter@brandnewstart.nl` → recruiter (radar alleen)  
+- Cron in `vercel.json` staat uit — syncs alleen handmatig via Sync & meer (admin)  
 
 ---
 

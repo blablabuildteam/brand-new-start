@@ -47,6 +47,7 @@ export async function GET(req: Request) {
   const byChannel = await lastSyncByChannel();
 
   return NextResponse.json({
+    user: { email: session.email, role: session.role },
     stats: await stats(radarRows),
     radar,
     feed,

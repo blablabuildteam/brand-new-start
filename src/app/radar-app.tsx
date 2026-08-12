@@ -26,6 +26,8 @@ type Signal = {
 type RadarRow = {
   id: string;
   roleLabel: string;
+  openingTitle?: string;
+  openingsAtCompany?: number;
   status: string;
   kans: number;
   angle: string | null;
@@ -85,23 +87,23 @@ type LiveSync = {
 
 const STATUS_NL: Record<string, string> = {
   hot: "Sterke kans",
-  warm: "Kans groeit",
+  warm: "Warme kans",
   watch: "Volgen",
   cold: "Zwak",
 };
 
 const STATUS_HELP: Record<string, string> = {
-  hot: "Hoogste prioriteit — genoeg bewijs om nu te benaderen.",
-  warm: "Wordt interessanter — nog 1–2 signalen en het is hot.",
+  hot: "Score ≥ 75 — genoeg bewijs om nu te benaderen.",
+  warm: "Score ≥ 55 — serieuze signalen, nog niet ‘hot’. Geen tijdreeks: de band is een drempel, geen groei-indicator.",
   watch:
     "Op de radar houden: nog te weinig bewijs voor actie. Check bij een volgende sync of er een contract/ZZP-label, nieuwe vacature of sterker signaal bij komt.",
   cold: "Zwak signaal — lage prioriteit, alleen meenemen als er niets beters is.",
 };
 
 const FILTER_HELP: Record<"all" | "hot" | "warm", string> = {
-  all: "Alle bedrijven op de radar",
-  hot: "Score ≥ 75 — hoogste prioriteit",
-  warm: "Score ≥ 55 — kans groeit of sterker",
+  all: "Alle openingen op de radar",
+  hot: "Score ≥ 75 — sterke kans",
+  warm: "Score ≥ 55 — warme kans of sterker",
 };
 
 const SCORE_MAX = 98;
@@ -341,8 +343,10 @@ export default function RadarApp() {
     hot: number;
     warm: number;
     companies: number;
+    openings?: number;
     signals: number;
   } | null>(null);
+  const [user, setUser] = useState<{ email: string; role: "admin" | "recruiter" } | null>(null);
   const [sync, setSync] = useState<SyncInfo | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [filter, setFilter] = useState<"all" | "hot" | "warm">("all");
@@ -367,6 +371,7 @@ export default function RadarApp() {
     const data = await res.json();
     setRadar(data.radar);
     setStats(data.stats);
+    if (data.user) setUser(data.user);
     setSync(data.sync);
     setActiveId((prev) => {
       if (opts?.keepActive && prev && data.radar.some((r: RadarRow) => r.id === prev)) return prev;
@@ -553,6 +558,10 @@ export default function RadarApp() {
   }
 
   async function run(action: "all" | "market" | "indeed" | "freelance-nl" | "platforms") {
+    if (user?.role !== "admin") {
+      setMenuOpen(false);
+      return;
+    }
     setBusy(true);
     setMenuOpen(false);
     const startedAt = new Date().toISOString();
@@ -819,6 +828,8 @@ export default function RadarApp() {
   const runningStep = live?.steps.find((s) => s.status === "running");
   const doneSteps = live?.steps.filter((s) => s.status === "done").length ?? 0;
   const totalSteps = live?.steps.length ?? 0;
+  const canSync = user?.role === "admin";
+  const menuLabel = canSync ? "Sync & meer" : "Meer";
 
   return (
     <div className="radar-shell flex h-dvh flex-col overflow-hidden">
@@ -852,98 +863,96 @@ export default function RadarApp() {
               type="button"
               aria-expanded={menuOpen}
               aria-haspopup="menu"
-              data-tip="Sync, kosten en uitloggen"
+              data-tip={canSync ? "Sync, kosten en uitloggen" : "Methode, kosten en uitloggen"}
               onClick={() => setMenuOpen((v) => !v)}
               className="rounded-md border border-[var(--line)] bg-[var(--surface)] px-2.5 py-1.5 text-xs font-medium text-[var(--muted)] hover:border-[var(--accent)]/40 hover:text-[var(--ink)]"
             >
-              Sync & meer
+              {menuLabel}
             </button>
             {menuOpen ? (
               <div
                 role="menu"
                 className="absolute right-0 top-full z-50 mt-1.5 w-[16.5rem] rounded-md border border-[var(--line)] bg-[var(--surface)] py-1 shadow-[var(--shadow)]"
               >
-                <div className="border-b border-[var(--line)]/80 px-3 py-2">
-                  <p className="text-[0.65rem] font-medium uppercase tracking-wide text-[var(--warn)]" style={{ fontFamily: "var(--mono)" }}>
-                    Kost geld per run
-                  </p>
-                  <p className="mt-0.5 text-[0.7rem] leading-snug text-[var(--muted)]">
-                    Geen auto-sync. Alles handmatig · advies 1×/{INGEST_POLICY.boardsCadenceDays}d.
-                    Indeed ≈ €{SYNC_COST_PER_RUN.actions.indeed.eur.low}–{SYNC_COST_PER_RUN.actions.indeed.eur.high}
-                    {" · "}
-                    Freelance.nl ≈ €{SYNC_COST_PER_RUN.actions["freelance-nl"].eur.low}–
-                    {SYNC_COST_PER_RUN.actions["freelance-nl"].eur.high}
-                    {" · "}
-                    LinkedIn ≈ €{SYNC_COST_PER_RUN.actions.market.eur.low}–{SYNC_COST_PER_RUN.actions.market.eur.high}
-                    .
+                {canSync ? (
+                  <>
+                    <div className="border-b border-[var(--line)]/80 px-3 py-2">
+                      <p className="text-[0.65rem] font-medium uppercase tracking-wide text-[var(--warn)]" style={{ fontFamily: "var(--mono)" }}>
+                        Sync starten · kost geld
+                      </p>
+                      <p className="mt-0.5 text-[0.7rem] leading-snug text-[var(--muted)]">
+                        Klik = bronnen ophalen (Apify/Firecrawl). Advies 1×/{INGEST_POLICY.boardsCadenceDays}d · geen auto-cron.
+                      </p>
+                    </div>
+                    <div className="space-y-1 px-2 py-2">
+                      <button
+                        type="button"
+                        role="menuitem"
+                        disabled={busy}
+                        className="flex w-full items-start gap-2 rounded-md border border-[var(--accent)]/35 bg-[var(--accent-soft)]/40 px-2.5 py-2 text-left text-xs transition hover:bg-[var(--accent-soft)]/80 disabled:opacity-50"
+                        onClick={() => {
+                          setMenuOpen(false);
+                          run("all");
+                        }}
+                      >
+                        <span className="mt-0.5 shrink-0 rounded bg-[var(--accent)] px-1.5 py-0.5 text-[0.6rem] font-bold uppercase tracking-wide text-white">
+                          Sync
+                        </span>
+                        <span className="min-w-0">
+                          <span className="block font-semibold text-[var(--ink)]">Alles</span>
+                          <span className="block text-[0.7rem] text-[var(--muted)]">
+                            LinkedIn + Indeed + Freelance.nl · ≈ €{SYNC_COST_PER_RUN.actions.all.eur.low}–
+                            {SYNC_COST_PER_RUN.actions.all.eur.high}
+                          </span>
+                        </span>
+                      </button>
+                      {(
+                        [
+                          ["market", "LinkedIn Jobs", SYNC_COST_PER_RUN.actions.market] as const,
+                          ["indeed", "Indeed NL", SYNC_COST_PER_RUN.actions.indeed] as const,
+                          ["freelance-nl", "Freelance.nl", SYNC_COST_PER_RUN.actions["freelance-nl"]] as const,
+                          ["platforms", "Careers / platforms", SYNC_COST_PER_RUN.actions.platforms] as const,
+                        ] as const
+                      ).map(([id, label, cost]) => (
+                        <button
+                          key={id}
+                          type="button"
+                          role="menuitem"
+                          disabled={busy}
+                          className="flex w-full items-start gap-2 rounded-md border border-[var(--line)] bg-[var(--surface)] px-2.5 py-2 text-left text-xs transition hover:border-[var(--accent)]/40 hover:bg-[var(--surface-2)] disabled:opacity-50"
+                          onClick={() => {
+                            setMenuOpen(false);
+                            run(id);
+                          }}
+                        >
+                          <span className="mt-0.5 shrink-0 rounded border border-[var(--accent)]/30 bg-[var(--accent-soft)]/50 px-1.5 py-0.5 text-[0.6rem] font-bold uppercase tracking-wide text-[var(--accent)]">
+                            Sync
+                          </span>
+                          <span className="min-w-0">
+                            <span className="block font-semibold text-[var(--ink)]">{label}</span>
+                            <span className="block text-[0.7rem] text-[var(--muted)]">
+                              ≈ €{cost.eur.low}–{cost.eur.high} / run
+                            </span>
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                ) : (
+                  <div className="border-b border-[var(--line)]/80 px-3 py-2">
+                    <p className="text-[0.65rem] font-medium uppercase tracking-wide text-[var(--muted)]" style={{ fontFamily: "var(--mono)" }}>
+                      Recruiter
+                    </p>
+                    <p className="mt-0.5 text-[0.7rem] leading-snug text-[var(--muted)]">
+                      Sync is alleen voor admin. Vraag blablabuild als de radar ververst moet worden.
+                    </p>
+                  </div>
+                )}
+                <div className="border-t border-[var(--line)]/80 px-3 py-1.5">
+                  <p className="text-[0.62rem] uppercase tracking-wide text-[var(--muted)]" style={{ fontFamily: "var(--mono)" }}>
+                    Pagina’s
                   </p>
                 </div>
-                <button
-                  type="button"
-                  role="menuitem"
-                  disabled={busy}
-                  className="block w-full px-3 py-2 text-left text-xs font-semibold hover:bg-[var(--surface-2)] disabled:opacity-50"
-                  onClick={() => {
-                    setMenuOpen(false);
-                    run("all");
-                  }}
-                >
-                  Sync alles
-                  <span className="mt-0.5 block font-normal text-[var(--muted)]">
-                    LinkedIn + Indeed + Freelance.nl
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  role="menuitem"
-                  disabled={busy}
-                  className="block w-full px-3 py-2 text-left text-xs hover:bg-[var(--surface-2)] disabled:opacity-50"
-                  onClick={() => {
-                    setMenuOpen(false);
-                    run("market");
-                  }}
-                >
-                  Alleen LinkedIn · ≈ €{SYNC_COST_PER_RUN.actions.market.eur.low}–{SYNC_COST_PER_RUN.actions.market.eur.high}
-                </button>
-                <button
-                  type="button"
-                  role="menuitem"
-                  disabled={busy}
-                  className="block w-full px-3 py-2 text-left text-xs hover:bg-[var(--surface-2)] disabled:opacity-50"
-                  onClick={() => {
-                    setMenuOpen(false);
-                    run("indeed");
-                  }}
-                >
-                  Alleen Indeed · ≈ €{SYNC_COST_PER_RUN.actions.indeed.eur.low}–{SYNC_COST_PER_RUN.actions.indeed.eur.high}
-                </button>
-                <button
-                  type="button"
-                  role="menuitem"
-                  disabled={busy}
-                  className="block w-full px-3 py-2 text-left text-xs hover:bg-[var(--surface-2)] disabled:opacity-50"
-                  onClick={() => {
-                    setMenuOpen(false);
-                    run("freelance-nl");
-                  }}
-                >
-                  Alleen Freelance.nl · ≈ €{SYNC_COST_PER_RUN.actions["freelance-nl"].eur.low}–
-                  {SYNC_COST_PER_RUN.actions["freelance-nl"].eur.high}
-                </button>
-                <button
-                  type="button"
-                  role="menuitem"
-                  disabled={busy}
-                  className="block w-full px-3 py-2 text-left text-xs hover:bg-[var(--surface-2)] disabled:opacity-50"
-                  onClick={() => {
-                    setMenuOpen(false);
-                    run("platforms");
-                  }}
-                >
-                  Careers / platforms · ≈ €{SYNC_COST_PER_RUN.actions.platforms.eur.low}–
-                  {SYNC_COST_PER_RUN.actions.platforms.eur.high}
-                </button>
-                <div className="my-1 border-t border-[var(--line)]/80" />
                 <a
                   href="/methode"
                   role="menuitem"
@@ -960,14 +969,21 @@ export default function RadarApp() {
                 >
                   ROI / kostenmodel →
                 </a>
-                <a
-                  href="/samenwerking"
-                  role="menuitem"
-                  className="block px-3 py-2 text-xs text-[var(--muted)] no-underline hover:bg-[var(--surface-2)] hover:text-[var(--ink)]"
-                  onClick={() => setMenuOpen(false)}
-                >
-                  Samenwerkingsvoorstel →
-                </a>
+                {canSync ? (
+                  <a
+                    href="/samenwerking"
+                    role="menuitem"
+                    className="block px-3 py-2 text-xs text-[var(--muted)] no-underline hover:bg-[var(--surface-2)] hover:text-[var(--ink)]"
+                    onClick={() => setMenuOpen(false)}
+                  >
+                    Samenwerkingsvoorstel →
+                  </a>
+                ) : null}
+                {user?.email ? (
+                  <p className="border-t border-[var(--line)]/80 px-3 py-1.5 text-[0.65rem] text-[var(--muted)]" style={{ fontFamily: "var(--mono)" }}>
+                    {user.email}
+                  </p>
+                ) : null}
                 <button
                   type="button"
                   role="menuitem"
@@ -989,9 +1005,12 @@ export default function RadarApp() {
         {!live && sync?.last ? (
           <section className="mb-3 shrink-0 overflow-hidden rounded-md border border-[var(--line)] bg-[var(--surface)] shadow-[var(--shadow)]">
             <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1.5 border-b border-[var(--line)]/80 px-3.5 py-2">
-              <p className="text-sm text-[var(--ink)]" title="Bedrijven · sterke kans · signalen">
+              <p className="text-sm text-[var(--ink)]" title="Openingen · bedrijven · sterke kans · signalen">
                 {stats ? (
                   <>
+                    <span className="font-medium">{stats.openings ?? stats.companies}</span>
+                    <span className="text-[var(--muted)]"> openingen</span>
+                    <span className="text-[var(--muted)]"> · </span>
                     <span className="font-medium">{stats.companies}</span>
                     <span className="text-[var(--muted)]"> bedrijven</span>
                     <span className="text-[var(--muted)]"> · </span>
@@ -1049,10 +1068,12 @@ export default function RadarApp() {
           <div className="mb-3 shrink-0 flex flex-wrap items-center justify-between gap-2 text-sm text-[var(--muted)]">
             <p>
               {stats
-                ? `${stats.companies} bedrijven · ${stats.hot} sterk · ${stats.signals} signalen`
+                ? `${stats.openings ?? stats.companies} openingen · ${stats.companies} bedrijven · ${stats.hot} sterk · ${stats.signals} signalen`
                 : "Laden…"}
             </p>
-            <p className="text-[0.7rem]">Nog geen sync — via Sync & meer (max 1×/dag).</p>
+            <p className="text-[0.7rem]">
+              {canSync ? "Nog geen sync — via Sync & meer (max 1×/dag)." : "Nog geen sync-historie."}
+            </p>
           </div>
         )}
 
@@ -1398,13 +1419,24 @@ export default function RadarApp() {
                             <span className="flex flex-wrap items-center gap-2">
                               <span className="font-semibold text-[var(--ink)]">{r.company.name}</span>
                               <SourceLogos channels={channels} />
+                              {(r.openingsAtCompany || 0) > 1 ? (
+                                <span
+                                  className="rounded bg-[var(--accent-soft)] px-1.5 py-0.5 text-[0.62rem] font-semibold text-[var(--accent)]"
+                                  data-tip={`${r.openingsAtCompany} open contracting-kansen bij dit bedrijf`}
+                                >
+                                  {r.openingsAtCompany} openingen
+                                </span>
+                              ) : null}
                               {fresh ? (
                                 <span className="text-[0.65rem] font-semibold uppercase tracking-wide text-[var(--green)]">
                                   nieuw
                                 </span>
                               ) : null}
                             </span>
-                            <span className="mt-0.5 block text-sm text-[var(--muted)]">
+                            <span className="mt-0.5 block text-sm text-[var(--ink)]/85">
+                              {r.openingTitle || r.roleLabel}
+                            </span>
+                            <span className="mt-0.5 block text-[0.75rem] text-[var(--muted)]">
                               {r.roleLabel}
                               {r.company.sector ? ` · ${r.company.sector}` : ""}
                             </span>
@@ -1461,9 +1493,15 @@ export default function RadarApp() {
                         {active.company.name}
                       </h3>
                     </div>
+                    <p className="mt-0.5 text-sm font-medium text-[var(--ink)]">
+                      {active.openingTitle || active.roleLabel}
+                    </p>
                     <p className="mt-0.5 text-sm text-[var(--muted)]">
                       {active.roleLabel}
                       {active.company.sector ? ` · ${active.company.sector}` : ""}
+                      {(active.openingsAtCompany || 0) > 1
+                        ? ` · ${active.openingsAtCompany} openingen bij dit bedrijf`
+                        : ""}
                     </p>
                     {(rowMeta(active).postedLabel || rowMeta(active).applicants != null) && (
                       <p className="mt-1 text-xs text-[var(--muted)]">
@@ -1487,8 +1525,9 @@ export default function RadarApp() {
                     Waarom deze score (max {SCORE_MAX})
                   </h4>
                   <p className="mb-3 text-[0.7rem] leading-relaxed text-[var(--muted)]">
-                    Score = som van factoren hieronder. ≥75 sterke kans (groen) · ≥55 kans groeit (blauw) · lager =
-                    volgen (grijs).
+                    Score = som van factoren hieronder (max {SCORE_MAX}), opnieuw berekend bij elke sync —
+                    kan dus ook dalen als versheid wegzakt. ≥75 sterke kans · ≥55 warme kans · lager = volgen.
+                    Uitleg: <a href="/methode#score">Methode → score</a>.
                   </p>
                   <ul className="space-y-2">
                     {active.factors.map((f, i) => (

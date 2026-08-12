@@ -49,14 +49,14 @@ export default function LoginForm() {
               Command Center
             </p>
             <h1 className="text-xl font-bold" style={{ fontFamily: "var(--display)" }}>
-              Recruiter login
+              Radar login
             </h1>
           </div>
         </div>
 
         <p className="mb-5 text-sm text-[var(--muted)]">
           MVP-radar voor de <strong className="text-[var(--ink)]">kernrollen van Brand New Start</strong>{" "}
-          (Jeffrey’s specialisatie). Alleen BNS-recruiters.
+          (Jeffrey’s specialisatie). Admin kan syncen; recruiter bekijkt de radar.
         </p>
 
         <label className="mb-3 block text-sm font-medium">
@@ -93,7 +93,7 @@ export default function LoginForm() {
         </button>
 
         <p className="mt-4 text-center text-xs text-[var(--muted)]" style={{ fontFamily: "var(--mono)" }}>
-          Dev default: <code>bns-demo</code>
+          Accounts: <code>recruiter@brandnewstart.nl</code> · <code>admin@blablabuild.com</code>
         </p>
 
         <a
