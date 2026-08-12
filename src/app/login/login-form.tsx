@@ -55,8 +55,8 @@ export default function LoginForm() {
         </div>
 
         <p className="mb-5 text-sm text-[var(--muted)]">
-          MVP-radar voor de <strong className="text-[var(--ink)]">kernrollen van Brand New Start</strong>{" "}
-          (Jeffrey’s specialisatie). Admin kan syncen; recruiter bekijkt de radar.
+          Vindt openstaande <strong className="text-[var(--ink)]">contract-, ZZP- en interim-opdrachten</strong>{" "}
+          op jobboards, rangschikt ze op kans, en houdt per bedrijf overzichtelijk bij waar je kunt pitchen.
         </p>
 
         <label className="mb-3 block text-sm font-medium">
