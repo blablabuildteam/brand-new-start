@@ -258,6 +258,31 @@ function openSyncRuns(runs: SyncRun[]): LiveSync {
   };
 }
 
+/** Nieuwste run per bron — voorkomt dubbele Indeed-regels in het overzicht. */
+function latestRunsByChannel(sync: SyncInfo | null): SyncRun[] {
+  if (!sync) return [];
+  const order = ["linkedin-jobs", "indeed", "freelance-nl", "firecrawl-careers"] as const;
+  const fromBy = sync.byChannel || {};
+  const picked: SyncRun[] = [];
+  const seen = new Set<string>();
+
+  for (const ch of order) {
+    const run = fromBy[ch] || sync.recent?.find((r) => r.channel === ch) || null;
+    if (run) {
+      picked.push(run);
+      seen.add(ch);
+    }
+  }
+  for (const r of sync.recent || []) {
+    if (!seen.has(r.channel)) {
+      picked.push(r);
+      seen.add(r.channel);
+    }
+  }
+  if (!picked.length && sync.last) return [sync.last];
+  return picked;
+}
+
 function rowMeta(r: RadarRow) {
   const sig = r.signals[0];
   const raw = (sig?.raw && typeof sig.raw === "object" ? sig.raw : {}) as Record<string, unknown>;
@@ -319,6 +344,7 @@ export default function RadarApp() {
   const [listCanScrollMore, setListCanScrollMore] = useState(false);
   const detailRef = useRef<HTMLElement>(null);
   const listScrollRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   async function load(opts?: { keepActive?: boolean }) {
     setLoading(true);
@@ -343,6 +369,22 @@ export default function RadarApp() {
   useEffect(() => {
     load();
   }, []);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    function onPointerDown(e: MouseEvent) {
+      if (!menuRef.current?.contains(e.target as Node)) setMenuOpen(false);
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setMenuOpen(false);
+    }
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [menuOpen]);
 
   const syncRunningKey = live?.phase === "running" ? live.action : null;
   useEffect(() => {
@@ -763,7 +805,7 @@ export default function RadarApp() {
             </div>
           </div>
 
-          <div className="relative flex items-center gap-2">
+          <div className="relative flex items-center gap-2" ref={menuRef}>
             {busy ? (
               <span className="inline-flex items-center gap-1.5 text-xs font-medium text-[var(--accent)]">
                 <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[var(--accent)]" />
@@ -773,27 +815,36 @@ export default function RadarApp() {
             <button
               type="button"
               aria-expanded={menuOpen}
+              aria-haspopup="menu"
+              data-tip="Sync, kosten en uitloggen"
               onClick={() => setMenuOpen((v) => !v)}
-              className="rounded-md border border-[var(--line)] bg-[var(--surface)] px-2.5 py-1.5 text-xs font-medium text-[var(--muted)] hover:text-[var(--ink)]"
+              className="rounded-md border border-[var(--line)] bg-[var(--surface)] px-2.5 py-1.5 text-xs font-medium text-[var(--muted)] hover:border-[var(--accent)]/40 hover:text-[var(--ink)]"
             >
               Sync & meer
             </button>
             {menuOpen ? (
-              <div className="absolute right-0 top-full z-50 mt-1.5 w-[16.5rem] rounded-md border border-[var(--line)] bg-[var(--surface)] py-1 shadow-[var(--shadow)]">
+              <div
+                role="menu"
+                className="absolute right-0 top-full z-50 mt-1.5 w-[16.5rem] rounded-md border border-[var(--line)] bg-[var(--surface)] py-1 shadow-[var(--shadow)]"
+              >
                 <div className="border-b border-[var(--line)]/80 px-3 py-2">
                   <p className="text-[0.65rem] font-medium uppercase tracking-wide text-[var(--warn)]" style={{ fontFamily: "var(--mono)" }}>
                     Kost geld per run
                   </p>
                   <p className="mt-0.5 text-[0.7rem] leading-snug text-[var(--muted)]">
-                    Advies: max 1×/dag. Sync alles ≈ €{SYNC_COST_PER_RUN.actions.all.eur.low}–
-                    {SYNC_COST_PER_RUN.actions.all.eur.high}. Later: vaste cron.
+                    Vaste cron: elke dag 06:00 UTC (LinkedIn + boards). Handmatig alleen als nodig — Sync alles ≈ €
+                    {SYNC_COST_PER_RUN.actions.all.eur.low}–{SYNC_COST_PER_RUN.actions.all.eur.high}.
                   </p>
                 </div>
                 <button
                   type="button"
+                  role="menuitem"
                   disabled={busy}
                   className="block w-full px-3 py-2 text-left text-xs font-semibold hover:bg-[var(--surface-2)] disabled:opacity-50"
-                  onClick={() => run("all")}
+                  onClick={() => {
+                    setMenuOpen(false);
+                    run("all");
+                  }}
                 >
                   Sync alles
                   <span className="mt-0.5 block font-normal text-[var(--muted)]">
@@ -802,51 +853,73 @@ export default function RadarApp() {
                 </button>
                 <button
                   type="button"
+                  role="menuitem"
                   disabled={busy}
                   className="block w-full px-3 py-2 text-left text-xs hover:bg-[var(--surface-2)] disabled:opacity-50"
-                  onClick={() => run("market")}
+                  onClick={() => {
+                    setMenuOpen(false);
+                    run("market");
+                  }}
                 >
                   Alleen LinkedIn · ≈ €{SYNC_COST_PER_RUN.actions.market.eur.low}–{SYNC_COST_PER_RUN.actions.market.eur.high}
                 </button>
                 <button
                   type="button"
+                  role="menuitem"
                   disabled={busy}
                   className="block w-full px-3 py-2 text-left text-xs hover:bg-[var(--surface-2)] disabled:opacity-50"
-                  onClick={() => run("boards")}
+                  onClick={() => {
+                    setMenuOpen(false);
+                    run("boards");
+                  }}
                 >
                   Indeed + Freelancer.nl · ≈ €{SYNC_COST_PER_RUN.actions.boards.eur.low}–{SYNC_COST_PER_RUN.actions.boards.eur.high}
                 </button>
                 <button
                   type="button"
+                  role="menuitem"
                   disabled={busy}
                   className="block w-full px-3 py-2 text-left text-xs hover:bg-[var(--surface-2)] disabled:opacity-50"
-                  onClick={() => run("platforms")}
+                  onClick={() => {
+                    setMenuOpen(false);
+                    run("platforms");
+                  }}
                 >
                   Careers / platforms
                 </button>
                 <div className="my-1 border-t border-[var(--line)]/80" />
                 <a
                   href="/methode"
+                  role="menuitem"
                   className="block px-3 py-2 text-xs text-[var(--muted)] no-underline hover:bg-[var(--surface-2)] hover:text-[var(--ink)]"
+                  onClick={() => setMenuOpen(false)}
                 >
                   Methode & kosten →
                 </a>
                 <a
                   href="/costs"
+                  role="menuitem"
                   className="block px-3 py-2 text-xs text-[var(--muted)] no-underline hover:bg-[var(--surface-2)] hover:text-[var(--ink)]"
+                  onClick={() => setMenuOpen(false)}
                 >
                   ROI / kostenmodel →
                 </a>
                 <a
                   href="/samenwerking"
+                  role="menuitem"
                   className="block px-3 py-2 text-xs text-[var(--muted)] no-underline hover:bg-[var(--surface-2)] hover:text-[var(--ink)]"
+                  onClick={() => setMenuOpen(false)}
                 >
                   Samenwerkingsvoorstel →
                 </a>
                 <button
                   type="button"
+                  role="menuitem"
                   className="block w-full px-3 py-2 text-left text-xs text-[var(--warn)] hover:bg-[var(--surface-2)]"
-                  onClick={() => logout()}
+                  onClick={() => {
+                    setMenuOpen(false);
+                    logout();
+                  }}
                 >
                   Uitloggen
                 </button>
@@ -893,10 +966,11 @@ export default function RadarApp() {
               </p>
             </div>
             <ul className="divide-y divide-[var(--line)]/70">
-              {(sync.recent?.length ? sync.recent : [sync.last]).slice(0, 4).map((r) => (
+              {latestRunsByChannel(sync).map((r) => (
                 <li key={r.id}>
                   <button
                     type="button"
+                    data-tip={`${channelLabelUi(r.channel)} · ${r.kept} gehouden van ${r.fetched} opgehaald`}
                     className="flex w-full items-center gap-2 px-3.5 py-1.5 text-left transition hover:bg-[var(--surface-2)]/80"
                     onClick={() => setLive(openSyncRuns([r]))}
                   >
@@ -1188,12 +1262,12 @@ export default function RadarApp() {
                   <button
                     key={id}
                     type="button"
-                    title={FILTER_HELP[id]}
+                    data-tip={FILTER_HELP[id]}
                     onClick={() => setFilter(id)}
                     className={`rounded px-2 py-1 text-[0.68rem] transition ${
                       filter === id
                         ? "bg-[var(--accent)] font-semibold text-white"
-                        : "bg-[var(--surface-2)] text-[var(--muted)] hover:text-[var(--ink)]"
+                        : "bg-[var(--surface-2)] text-[var(--muted)] hover:bg-[var(--accent-soft)]/70 hover:text-[var(--ink)]"
                     }`}
                   >
                     {label}
@@ -1254,7 +1328,7 @@ export default function RadarApp() {
                                   ? "bg-[var(--accent)]"
                                   : "bg-[var(--line)]"
                             }`}
-                            title={STATUS_HELP[r.status] || STATUS_NL[r.status]}
+                            data-tip={STATUS_HELP[r.status] || STATUS_NL[r.status]}
                           />
                           {meta.logo ? (
                             // eslint-disable-next-line @next/next/no-img-element
