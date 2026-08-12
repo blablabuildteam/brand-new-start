@@ -21,26 +21,22 @@ export async function GET(req: Request) {
   }
 
   const radarRows = await listRadar();
-  const radar = radarRows.map((r) => ({
-    ...r,
-    signals: r.signals.map((s) => {
-      const channel =
-        (s.raw && typeof s.raw === "object" && (s.raw as { channel?: string }).channel) ||
-        (s.source === "tender" ? "tenderned" : s.source === "pulse" ? "pulse" : "seed");
-      return { ...s, channel, channelLabel: channelLabel(String(channel)) };
-    }),
-  }));
-  const feedRows = await listSignals(24);
-  const feed = feedRows.map((s) => {
+  function withChannel<T extends { source: string; raw?: unknown }>(s: T) {
     const channel =
       (s.raw && typeof s.raw === "object" && (s.raw as { channel?: string }).channel) ||
       (s.source === "tender" ? "tenderned" : s.source === "pulse" ? "pulse" : "seed");
-    return {
-      ...s,
-      channel,
-      channelLabel: channelLabel(String(channel)),
-    };
-  });
+    return { ...s, channel, channelLabel: channelLabel(String(channel)) };
+  }
+  const radar = radarRows.map((r) => ({
+    ...r,
+    signals: r.signals.map(withChannel),
+    openings: (r.openings || []).map((o) => ({
+      ...o,
+      signals: o.signals.map(withChannel),
+    })),
+  }));
+  const feedRows = await listSignals(24);
+  const feed = feedRows.map(withChannel);
 
   const recent = await listSyncRuns(12);
   const last = recent[0] || (await lastSyncOverall());

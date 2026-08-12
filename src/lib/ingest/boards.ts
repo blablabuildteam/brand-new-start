@@ -191,6 +191,70 @@ async function fetchIndeedJobs(opts?: {
 }
 
 /** Freelance.nl is a Gatsby SPA — needs Firecrawl (or browser actor). */
+function cleanFreelanceTitle(raw: string): string {
+  return raw
+    .replace(/\\+/g, "")
+    .replace(/^#+\s*/, "")
+    .replace(/^[-*•\d.]+\s*/, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function isJunkFreelanceTitle(title: string): boolean {
+  if (title.length < 8 || title.length > 140) return true;
+  return /sorteer|relevantie|filter|cookie|inloggen|registreer|bekijk alle|pagina \d|opdrachtgever|nieuwste opdrachten|oudste opdrachten|^https?:\/\//i.test(
+    title
+  );
+}
+
+function extractFreelanceCompany(context: string): string | null {
+  const patterns = [
+    /opdrachtgever[:\s|*]+([A-ZÁÉÍÓÚÄËÏÖÜ0-9][\w&.'’\- ]{1,60})/i,
+    /(?:^|\n)\s*\*?\*?([A-ZÁÉÍÓÚÄËÏÖÜ][\w&.'’\- ]{2,50})\*?\*?\s*(?:\n|$)/,
+  ];
+  for (const re of patterns) {
+    const m = context.match(re);
+    const name = m?.[1]?.trim().replace(/\s+/g, " ");
+    if (!name) continue;
+    if (/freelance\.nl|opdrachtgever|nederland|amsterdam|rotterdam|utrecht|remote|zzp|interim/i.test(name)) {
+      continue;
+    }
+    if (name.length < 2 || name.length > 60) continue;
+    return name;
+  }
+  return null;
+}
+
+function parseFreelanceMarkdown(md: string, query: string): BoardJob[] {
+  const jobs: BoardJob[] = [];
+  const seen = new Set<string>();
+  const linkRe =
+    /\[([^\]]+)\]\((https?:\/\/(?:www\.)?freelance\.nl\/opdracht\/(\d+)[^)\s]*)\)/gi;
+  let m: RegExpExecArray | null;
+  while ((m = linkRe.exec(md)) !== null) {
+    const title = cleanFreelanceTitle(m[1] || "");
+    const url = (m[2] || "").split("?")[0];
+    if (!url || seen.has(url)) continue;
+    if (isJunkFreelanceTitle(title) || !matchesRole(title)) continue;
+
+    const start = Math.max(0, m.index - 220);
+    const end = Math.min(md.length, m.index + m[0].length + 280);
+    const company = extractFreelanceCompany(md.slice(start, end));
+    // Zonder echte opdrachtgever niet onder “Freelance.nl” bundelen — skip.
+    if (!company) continue;
+
+    seen.add(url);
+    jobs.push({
+      company,
+      title,
+      description: `${query} · via Freelance.nl · ZZP/interim opdracht`,
+      url,
+      channel: "freelance-nl",
+    });
+  }
+  return jobs;
+}
+
 async function fetchFreelanceNlJobs(maxQueries = 2): Promise<{ jobs: BoardJob[]; detail: string }> {
   const key = process.env.FIRECRAWL_API_KEY;
   if (!key) {
@@ -213,44 +277,26 @@ async function fetchFreelanceNlJobs(maxQueries = 2): Promise<{ jobs: BoardJob[];
           url,
           formats: ["markdown"],
           onlyMainContent: true,
-          waitFor: 2000,
+          waitFor: 2500,
         }),
         signal: AbortSignal.timeout(25000),
       });
       if (!res.ok) continue;
       const data = (await res.json()) as { data?: { markdown?: string } };
       const md = data.data?.markdown || "";
-      if (!matchesRole(md)) continue;
-
-      // Pull likely assignment lines — skip UI chrome from SPA scrapes
-      const lines = md
-        .split("\n")
-        .map((l) => l.replace(/^#+\s*/, "").replace(/^[-*•]\s*/, "").trim())
-        .filter(
-          (l) =>
-            l.length > 12 &&
-            l.length < 100 &&
-            matchesRole(l) &&
-            !/sorteer|relevantie|filter|cookie|inloggen|registreer|opdrachtgever|bekijk alle|pagina \d/i.test(
-              l
-            )
-        );
-
-      for (const line of lines.slice(0, 3)) {
-        jobs.push({
-          company: "Freelance.nl opdrachtgever",
-          title: line,
-          description: `${q} · Freelance.nl · ZZP/interim opdracht`,
-          url,
-          channel: "freelance-nl",
-        });
-      }
+      jobs.push(...parseFreelanceMarkdown(md, q));
     } catch {
       // per-query ignore
     }
   }
 
-  return { jobs, detail: `freelance:firecrawl→${jobs.length}` };
+  // Dedup over queries
+  const byUrl = new Map<string, BoardJob>();
+  for (const j of jobs) {
+    if (j.url) byUrl.set(j.url, j);
+  }
+  const unique = [...byUrl.values()];
+  return { jobs: unique, detail: `freelance:firecrawl→${unique.length}` };
 }
 
 export async function syncJobBoards(opts?: {

@@ -23,11 +23,23 @@ type Signal = {
   channelLabel?: string;
   raw?: Record<string, unknown> | null;
 };
+type Opening = {
+  id: string;
+  roleLabel: string;
+  openingTitle: string;
+  status: string;
+  kans: number;
+  angle: string | null;
+  sources: string[];
+  factors: Factor[];
+  signals: Signal[];
+};
 type RadarRow = {
   id: string;
   roleLabel: string;
   openingTitle?: string;
   openingsAtCompany?: number;
+  openings?: Opening[];
   status: string;
   kans: number;
   angle: string | null;
@@ -1384,7 +1396,6 @@ export default function RadarApp() {
                     const employment = rowEmployment(r);
                     const fresh = isFresh(r, freshSince);
                     const meta = rowMeta(r);
-                    const angle = cleanAngle(r.angle);
                     return (
                       <li key={r.id} className="animate-fade-in" style={{ animationDelay: `${Math.min(idx, 12) * 30}ms` }}>
                         <button
@@ -1422,7 +1433,7 @@ export default function RadarApp() {
                               {(r.openingsAtCompany || 0) > 1 ? (
                                 <span
                                   className="rounded bg-[var(--accent-soft)] px-1.5 py-0.5 text-[0.62rem] font-semibold text-[var(--accent)]"
-                                  data-tip={`${r.openingsAtCompany} open contracting-kansen bij dit bedrijf`}
+                                  data-tip={`${r.openingsAtCompany} open contracting-kansen — details rechts`}
                                 >
                                   {r.openingsAtCompany} openingen
                                 </span>
@@ -1433,8 +1444,12 @@ export default function RadarApp() {
                                 </span>
                               ) : null}
                             </span>
-                            <span className="mt-0.5 block text-sm text-[var(--ink)]/85">
-                              {r.openingTitle || r.roleLabel}
+                            <span className="mt-0.5 block text-sm text-[var(--ink)]/85 line-clamp-2">
+                              {(r.openingsAtCompany || 0) > 1
+                                ? (r.openings || [])
+                                    .map((o) => o.openingTitle || o.roleLabel)
+                                    .join(" · ")
+                                : r.openingTitle || r.roleLabel}
                             </span>
                             <span className="mt-0.5 block text-[0.75rem] text-[var(--muted)]">
                               {r.roleLabel}
@@ -1443,14 +1458,13 @@ export default function RadarApp() {
                             <span className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[0.7rem] text-[var(--muted)]">
                               <span>{STATUS_NL[r.status] || r.status}</span>
                               {employment ? <span>· {employment}</span> : null}
-                              {meta.postedLabel ? <span>· {meta.postedLabel}</span> : null}
-                              {meta.applicants != null ? <span>· {meta.applicants} aanmeldingen</span> : null}
+                              {(r.openingsAtCompany || 0) <= 1 && meta.postedLabel ? (
+                                <span>· {meta.postedLabel}</span>
+                              ) : null}
+                              {(r.openingsAtCompany || 0) <= 1 && meta.applicants != null ? (
+                                <span>· {meta.applicants} aanmeldingen</span>
+                              ) : null}
                             </span>
-                            {angle ? (
-                              <span className="mt-1.5 block text-[0.75rem] leading-snug text-[var(--ink)]/75 line-clamp-2">
-                                {angle}
-                              </span>
-                            ) : null}
                           </span>
                           <ScoreChip kans={r.kans} />
                         </button>
@@ -1473,13 +1487,12 @@ export default function RadarApp() {
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                       <p className="text-[0.68rem] uppercase tracking-[0.06em] text-[var(--muted)]" style={{ fontFamily: "var(--mono)" }}>
-                        {STATUS_NL[active.status] || active.status}
+                        {(active.openingsAtCompany || 0) > 1
+                          ? `${active.openingsAtCompany} openingen`
+                          : STATUS_NL[active.status] || active.status}
                       </p>
                       <SourceLogos channels={rowChannels(active)} size="md" />
                     </div>
-                    <p className="mt-1 max-w-sm text-[0.7rem] leading-snug text-[var(--muted)]">
-                      {STATUS_HELP[active.status]}
-                    </p>
                     <div className="mt-1 flex items-center gap-2.5">
                       {rowMeta(active).logo ? (
                         // eslint-disable-next-line @next/next/no-img-element
@@ -1493,85 +1506,129 @@ export default function RadarApp() {
                         {active.company.name}
                       </h3>
                     </div>
-                    <p className="mt-0.5 text-sm font-medium text-[var(--ink)]">
-                      {active.openingTitle || active.roleLabel}
-                    </p>
-                    <p className="mt-0.5 text-sm text-[var(--muted)]">
-                      {active.roleLabel}
-                      {active.company.sector ? ` · ${active.company.sector}` : ""}
+                    <p className="mt-1 text-sm text-[var(--muted)]">
+                      {active.company.sector ? `${active.company.sector} · ` : ""}
+                      Score per contract-mogelijkheid
                       {(active.openingsAtCompany || 0) > 1
-                        ? ` · ${active.openingsAtCompany} openingen bij dit bedrijf`
+                        ? ` · lijst toont hoogste (${active.kans})`
                         : ""}
                     </p>
-                    {(rowMeta(active).postedLabel || rowMeta(active).applicants != null) && (
-                      <p className="mt-1 text-xs text-[var(--muted)]">
-                        {rowMeta(active).postedLabel}
-                        {rowMeta(active).postedLabel && rowMeta(active).applicants != null ? " · " : ""}
-                        {rowMeta(active).applicants != null ? `${rowMeta(active).applicants} aanmeldingen` : ""}
-                      </p>
-                    )}
                   </div>
-                  <ScoreChip kans={active.kans} large />
+                  {(active.openingsAtCompany || 0) <= 1 ? <ScoreChip kans={active.kans} large /> : null}
                 </div>
 
-                {cleanAngle(active.angle) ? (
-                  <p className="mt-5 border-l-2 border-[var(--accent)] pl-3 text-sm leading-relaxed text-[var(--ink)]">
-                    {cleanAngle(active.angle)}
-                  </p>
-                ) : null}
+                {(active.openings && active.openings.length > 1
+                  ? active.openings
+                  : [
+                      {
+                        id: active.id,
+                        roleLabel: active.roleLabel,
+                        openingTitle: active.openingTitle || active.roleLabel,
+                        status: active.status,
+                        kans: active.kans,
+                        angle: active.angle,
+                        sources: active.sources,
+                        factors: active.factors,
+                        signals: active.signals,
+                      } satisfies Opening,
+                    ]
+                ).map((o) => {
+                  const oMeta = rowMeta({ ...active, signals: o.signals });
+                  return (
+                    <div
+                      key={o.id}
+                      className="mt-6 border-t border-[var(--line)]/80 pt-5 first:mt-5 first:border-t-0 first:pt-0"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p
+                            className="text-[0.65rem] uppercase tracking-[0.06em] text-[var(--muted)]"
+                            style={{ fontFamily: "var(--mono)" }}
+                          >
+                            {STATUS_NL[o.status] || o.status}
+                          </p>
+                          <h4 className="mt-1 text-base font-semibold text-[var(--ink)]">
+                            {o.openingTitle || o.roleLabel}
+                          </h4>
+                          <p className="mt-0.5 text-sm text-[var(--muted)]">
+                            {o.roleLabel}
+                            {oMeta.postedLabel ? ` · ${oMeta.postedLabel}` : ""}
+                            {oMeta.applicants != null ? ` · ${oMeta.applicants} aanmeldingen` : ""}
+                          </p>
+                        </div>
+                        <ScoreChip kans={o.kans} />
+                      </div>
 
-                <div className="mt-8">
-                  <h4 className="mb-1 text-[0.7rem] uppercase tracking-[0.06em] text-[var(--muted)]">
-                    Waarom deze score (max {SCORE_MAX})
-                  </h4>
-                  <p className="mb-3 text-[0.7rem] leading-relaxed text-[var(--muted)]">
-                    Score = som van factoren hieronder (max {SCORE_MAX}), opnieuw berekend bij elke sync —
-                    kan dus ook dalen als versheid wegzakt. ≥75 sterke kans · ≥55 warme kans · lager = volgen.
-                    Uitleg: <a href="/methode#score">Methode → score</a>.
-                  </p>
-                  <ul className="space-y-2">
-                    {active.factors.map((f, i) => (
-                      <li key={i} className="flex justify-between gap-4 text-sm">
-                        <span className="text-[var(--ink)]/90">{f.label}</span>
-                        <span className="shrink-0 tabular-nums text-[var(--green)]" style={{ fontFamily: "var(--mono)" }}>
-                          +{f.points}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
+                      {cleanAngle(o.angle) ? (
+                        <p className="mt-3 border-l-2 border-[var(--accent)] pl-3 text-sm leading-relaxed text-[var(--ink)]">
+                          {cleanAngle(o.angle)}
+                        </p>
+                      ) : null}
 
-                <div className="mt-8">
-                  <h4 className="mb-3 text-[0.7rem] uppercase tracking-[0.06em] text-[var(--muted)]">Bronnen</h4>
-                  <ul className="space-y-4">
-                    {active.signals.map((s) => {
-                      const ch = s.channel || "";
-                      const chLabel = s.channelLabel || ch || s.source;
-                      return (
-                        <li key={s.id}>
-                          <div className="flex items-center gap-2">
-                            <SourceLogos channels={ch ? [ch] : []} />
-                            <p className="text-[0.65rem] uppercase tracking-wide text-[var(--accent)]" style={{ fontFamily: "var(--mono)" }}>
-                              {chLabel}
-                            </p>
-                          </div>
-                          <p className="mt-0.5 text-sm font-medium">{s.title}</p>
-                          <p className="mt-1 text-sm leading-relaxed text-[var(--muted)] line-clamp-3">{s.summary}</p>
-                          {s.evidenceUrl ? (
-                            <a
-                              href={s.evidenceUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="mt-1.5 inline-block text-xs font-medium"
-                            >
-                              Openen →
-                            </a>
-                          ) : null}
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </div>
+                      <div className="mt-5">
+                        <h5 className="mb-1 text-[0.7rem] uppercase tracking-[0.06em] text-[var(--muted)]">
+                          Waarom deze score (max {SCORE_MAX})
+                        </h5>
+                        <p className="mb-3 text-[0.7rem] leading-relaxed text-[var(--muted)]">
+                          Per opening · opnieuw bij elke sync. Uitleg:{" "}
+                          <a href="/methode#score">Methode → score</a>.
+                        </p>
+                        <ul className="space-y-2">
+                          {o.factors.map((f, i) => (
+                            <li key={i} className="flex justify-between gap-4 text-sm">
+                              <span className="text-[var(--ink)]/90">{f.label}</span>
+                              <span
+                                className="shrink-0 tabular-nums text-[var(--green)]"
+                                style={{ fontFamily: "var(--mono)" }}
+                              >
+                                +{f.points}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+
+                      <div className="mt-5">
+                        <h5 className="mb-3 text-[0.7rem] uppercase tracking-[0.06em] text-[var(--muted)]">
+                          Bronnen
+                        </h5>
+                        <ul className="space-y-4">
+                          {o.signals.map((s) => {
+                            const ch = s.channel || "";
+                            const chLabel = s.channelLabel || ch || s.source;
+                            return (
+                              <li key={s.id}>
+                                <div className="flex items-center gap-2">
+                                  <SourceLogos channels={ch ? [ch] : []} />
+                                  <p
+                                    className="text-[0.65rem] uppercase tracking-wide text-[var(--accent)]"
+                                    style={{ fontFamily: "var(--mono)" }}
+                                  >
+                                    {chLabel}
+                                  </p>
+                                </div>
+                                <p className="mt-0.5 text-sm font-medium">{s.title}</p>
+                                <p className="mt-1 text-sm leading-relaxed text-[var(--muted)] line-clamp-3">
+                                  {s.summary}
+                                </p>
+                                {s.evidenceUrl ? (
+                                  <a
+                                    href={s.evidenceUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="mt-1.5 inline-block text-xs font-medium"
+                                  >
+                                    Openen →
+                                  </a>
+                                ) : null}
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             ) : (
               <p className="text-sm text-[var(--muted)]">Selecteer een bedrijf.</p>

@@ -30,6 +30,27 @@ export function openingKeyOf(signal: Signal): string {
   return `fp:${signal.fingerprint}`;
 }
 
+/** Board-placeholders / UI-rommel — geen echte opdrachtgevers. */
+export function isPlaceholderCompany(name: string): boolean {
+  const n = name.trim().toLowerCase();
+  return (
+    n === "freelance.nl" ||
+    n === "freelance.nl opdrachtgever" ||
+    n.startsWith("freelance.nl ") ||
+    n === "via freelance.nl" ||
+    n === "indeed" ||
+    n === "linkedin"
+  );
+}
+
+export function isJunkJobTitle(title: string): boolean {
+  const t = title.trim();
+  if (t.length < 8 || t.length > 160) return true;
+  return /sorteer|relevantie|filter|cookie|inloggen|registreer|bekijk alle|pagina \d|nieuwste opdrachten|oudste opdrachten|\\\\/.test(
+    t
+  );
+}
+
 type OpeningBundle = {
   key: string;
   primary: Signal;
@@ -38,11 +59,13 @@ type OpeningBundle = {
 };
 
 /**
- * Eén radarrij per unieke vacature-opening bij een bedrijf.
+ * Eén bundle per unieke vacature-opening bij een bedrijf.
  * Company-brede signalen (pulse/tender/…) hangen aan elke opening mee.
  */
 export function buildOpeningBundles(companySignals: Signal[]): OpeningBundle[] {
-  const usable = companySignals.filter((s) => s.source !== "hm-post");
+  const usable = companySignals.filter(
+    (s) => s.source !== "hm-post" && !isJunkJobTitle(s.title)
+  );
   const jobs = usable.filter((s) => s.source === "job-type");
   const shared = usable.filter((s) => s.source !== "job-type");
 
@@ -429,11 +452,85 @@ export async function ingestSignal(input: IngestInput): Promise<{
 
 /**
  * Bouw radar uit signalen + score in-memory.
- * Geen N× DB-recompute per GET — dat maakte refresh traag.
- * Persistente radar_entries worden bij ingest bijgewerkt.
- * Eén rij per unieke opening (niet per bedrijf).
+ * Eén rij per bedrijf; openingen (met eigen score) als nested array.
  */
 export async function listRadar() {
+  function buildCompanyRows(
+    byCompany: Map<string, Signal[]>,
+    coMap: Map<string, Company>
+  ) {
+    const rows = [];
+    for (const [companyId, companySignals] of byCompany) {
+      const company = coMap.get(companyId);
+      if (!company || !companySignals.length) continue;
+      if (isPlaceholderCompany(company.name)) continue;
+
+      const bundles = buildOpeningBundles(companySignals);
+      if (!bundles.length) continue;
+
+      const openings = bundles.map((bundle) => {
+        const scored = scoreSignals(bundle.signals, {
+          primary: bundle.primary,
+          siblingOpenings: bundle.siblingOpenings,
+        });
+        const id =
+          bundle.key === "company"
+            ? `rad_${companyId}_${slugify(scored.roleLabel)}`
+            : `rad_${companyId}_${bundle.primary.fingerprint}`;
+        return {
+          id,
+          roleLabel: scored.roleLabel,
+          openingTitle: bundle.primary.title,
+          status: scored.status,
+          kans: scored.kans,
+          angle: scored.angle,
+          sources: scored.sources,
+          factors: scored.factors,
+          signals: bundle.signals,
+          updatedAt: bundle.signals[0]?.seenAt || new Date(),
+        };
+      });
+      openings.sort((a, b) => b.kans - a.kans);
+
+      const best = openings[0]!;
+      const roleLabels = [...new Set(openings.map((o) => o.roleLabel))];
+      rows.push({
+        id: `rad_${companyId}`,
+        companyId,
+        roleLabel:
+          openings.length === 1
+            ? best.roleLabel
+            : roleLabels.length <= 2
+              ? roleLabels.join(" · ")
+              : `${openings.length} rollen`,
+        openingTitle:
+          openings.length === 1
+            ? best.openingTitle
+            : openings.map((o) => o.openingTitle).join(" · "),
+        openingsAtCompany: openings.length,
+        openings,
+        status: best.status,
+        kans: best.kans,
+        hiringManager: null as string | null,
+        angle:
+          openings.length === 1
+            ? best.angle
+            : `${openings.length} contract-mogelijkheden bij dit bedrijf — score per opening.`,
+        sources: [...new Set(openings.flatMap((o) => o.sources))],
+        factors: best.factors,
+        updatedAt: openings.reduce(
+          (max, o) => (o.updatedAt > max ? o.updatedAt : max),
+          openings[0]!.updatedAt
+        ),
+        company,
+        signals: openings.flatMap((o) => o.signals),
+      });
+    }
+    return rows.sort(
+      (a, b) => b.kans - a.kans || a.company.name.localeCompare(b.company.name, "nl")
+    );
+  }
+
   if (hasDatabase()) {
     const db = getDb();
     const [allSignals, cos] = await Promise.all([
@@ -448,80 +545,22 @@ export async function listRadar() {
       list.push(s);
       byCompany.set(s.companyId, list);
     }
-
-    const rows = [];
-    for (const [companyId, companySignals] of byCompany) {
-      const company = coMap.get(companyId);
-      if (!company || !companySignals.length) continue;
-      for (const bundle of buildOpeningBundles(companySignals)) {
-        const scored = scoreSignals(bundle.signals, {
-          primary: bundle.primary,
-          siblingOpenings: bundle.siblingOpenings,
-        });
-        const id =
-          bundle.key === "company"
-            ? `rad_${companyId}_${slugify(scored.roleLabel)}`
-            : `rad_${companyId}_${bundle.primary.fingerprint}`;
-        rows.push({
-          id,
-          companyId,
-          roleLabel: scored.roleLabel,
-          openingTitle: bundle.primary.title,
-          openingsAtCompany: bundle.siblingOpenings + (bundle.key === "company" ? 0 : 1),
-          status: scored.status,
-          kans: scored.kans,
-          hiringManager: null as string | null,
-          angle: scored.angle,
-          sources: scored.sources,
-          factors: scored.factors,
-          updatedAt: bundle.signals[0]?.seenAt || new Date(),
-          company,
-          signals: bundle.signals,
-        });
-      }
-    }
-    return rows.sort((a, b) => b.kans - a.kans || a.company.name.localeCompare(b.company.name, "nl"));
+    return buildCompanyRows(byCompany, coMap);
   }
 
   const store = mem();
   for (const companyId of new Set([...store.signals.values()].map((s) => s.companyId))) {
     recomputeRadarMem(store, companyId);
   }
-  const rows = [];
-  for (const companyId of new Set([...store.signals.values()].map((s) => s.companyId))) {
-    const company = store.companies.get(companyId);
-    if (!company) continue;
-    const companySignals = [...store.signals.values()].filter(
-      (s) => s.companyId === companyId && s.source !== "hm-post"
-    );
-    for (const bundle of buildOpeningBundles(companySignals)) {
-      const scored = scoreSignals(bundle.signals, {
-        primary: bundle.primary,
-        siblingOpenings: bundle.siblingOpenings,
-      });
-      const id =
-        bundle.key === "company"
-          ? `rad_${companyId}_${slugify(scored.roleLabel)}`
-          : `rad_${companyId}_${bundle.primary.fingerprint}`;
-      rows.push({
-        id,
-        companyId,
-        roleLabel: scored.roleLabel,
-        openingTitle: bundle.primary.title,
-        openingsAtCompany: bundle.siblingOpenings + (bundle.key === "company" ? 0 : 1),
-        status: scored.status,
-        kans: scored.kans,
-        hiringManager: null as string | null,
-        angle: scored.angle,
-        sources: scored.sources,
-        factors: scored.factors,
-        updatedAt: bundle.signals[0]?.seenAt || new Date(),
-        company,
-        signals: bundle.signals,
-      });
-    }
+  const coMap = store.companies;
+  const byCompany = new Map<string, Signal[]>();
+  for (const s of store.signals.values()) {
+    if (s.source === "hm-post") continue;
+    const list = byCompany.get(s.companyId) || [];
+    list.push(s);
+    byCompany.set(s.companyId, list);
   }
-  return rows.sort((a, b) => b.kans - a.kans);
+  return buildCompanyRows(byCompany, coMap);
 }
 
 export async function getRadarDetail(id: string) {
@@ -566,8 +605,8 @@ export async function stats(radarRows?: Awaited<ReturnType<typeof listRadar>>) {
     signalCount = [...mem().signals.values()].filter((s) => s.source !== "hm-post").length;
   }
   return {
-    companies: new Set(radar.map((r) => r.companyId)).size,
-    openings: radar.length,
+    companies: radar.length,
+    openings: radar.reduce((a, r) => a + (r.openingsAtCompany || r.openings?.length || 1), 0),
     hot: radar.filter((r) => r.status === "hot").length,
     warm: radar.filter((r) => r.status === "warm").length,
     signals: signalCount,

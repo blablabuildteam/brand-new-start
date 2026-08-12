@@ -117,8 +117,9 @@ export default function MethodePage() {
             komen niet op de radar.
           </li>
           <li>
-            <strong>3. Score rangschikt</strong> — sterke / warme / volgen per opening (niet per
-            bedrijf). Meerdere vacatures bij één klant = meerdere rijen.
+            <strong>3. Score rangschikt per opening</strong> — sterke / warme / volgen. Meerdere
+            vacatures bij één klant = één rij in de lijst, alle openingen rechts met eigen score.
+            De lijst toont de hoogste score van dat bedrijf.
           </li>
         </ol>
       </section>
@@ -301,8 +302,9 @@ export default function MethodePage() {
             zoekpagina’s per sync.
           </p>
           <p className="text-[var(--muted)]">
-            Uit de markdown trekken we regels die op BNS-rollen lijken; UI-rommel (sorteer/filter)
-            gooien we weg. Hits krijgen kanaal <strong>freelance-nl</strong> — niet Indeed.
+            Uit de markdown trekken we alleen echte opdracht-links (
+            <code className="text-[0.75rem]">/opdracht/…</code>) mét opdrachtgever-naam. Freelance.nl
+            zelf is geen bedrijf op de radar. Hits krijgen kanaal <strong>freelance-nl</strong>.
           </p>
           <p className="text-xs text-[var(--muted)]">
             Freelance.nl alleen ≈ €{SYNC_COST_PER_RUN.actions["freelance-nl"].eur.low}–
