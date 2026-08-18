@@ -27,6 +27,7 @@ export function isPublicSector(company: string, sector?: string | null): boolean
 export type HmSearchPlan = {
   keywords: string;
   hint: string;
+  mode: "title" | "department";
 };
 
 /**
@@ -42,7 +43,7 @@ export function hmSearchPlan(opts: {
 }): HmSearchPlan {
   const dept = opts.department?.trim() || "";
   if (dept.length >= 3 && !GENERIC_DEPT.test(dept)) {
-    return { keywords: dept, hint: `in ${dept}` };
+    return { keywords: dept, hint: `in ${dept}`, mode: "department" };
   }
 
   const family =
@@ -51,11 +52,12 @@ export function hmSearchPlan(opts: {
   const overheid = isPublicSector(opts.company, opts.sector);
   if (family) {
     const title = overheid ? DECIDERS[family].overheid : DECIDERS[family].corporate;
-    return { keywords: title, hint: title };
+    return { keywords: title, hint: title, mode: "title" };
   }
   return {
     keywords: overheid ? "opdrachtgever" : "hiring manager",
     hint: overheid ? "opdrachtgever" : "hiring manager",
+    mode: "title",
   };
 }
 
@@ -88,7 +90,47 @@ export function borrowHiringManager<T extends WithOrg>(openings: T[]): T[] {
         hiringManager: donor.org.hiringManager,
         hiringManagerTitle:
           o.org.hiringManagerTitle || donor.org.hiringManagerTitle || donor.org.department,
+        hmHits: o.org.hmHits?.length ? o.org.hmHits : donor.org.hmHits,
       },
     };
   });
+}
+
+export type HmCandidate = {
+  name: string;
+  title: string | null;
+  url: string | null;
+  score: number;
+};
+
+const DECIDER_HINT =
+  /\b(manager|lead|director|head|hoofd|opdrachtgever|informatiemanager|owner|ciso|architect|chapter|tribe|delivery)\b/i;
+
+export function rankHmCandidates(
+  people: { name: string; title: string | null; url: string | null; headline?: string | null }[],
+  plan: HmSearchPlan
+): HmCandidate[] {
+  const needle = plan.keywords.toLowerCase();
+  const ranked: HmCandidate[] = [];
+  for (const p of people) {
+    const title = `${p.title || ""} ${p.headline || ""}`.trim();
+    if (/recruiter|talent acquisition|sourcer|werving|staffing|intercedent/i.test(title)) continue;
+    if (!p.name || !p.name.includes(" ")) continue;
+    let score = 1;
+    if (title.toLowerCase().includes(needle)) score += 40;
+    if (DECIDER_HINT.test(title)) score += 18;
+    if (p.url) score += 6;
+    ranked.push({ name: p.name, title: p.title, url: p.url, score });
+  }
+  ranked.sort((a, b) => b.score - a.score);
+  const seen = new Set<string>();
+  const unique: HmCandidate[] = [];
+  for (const r of ranked) {
+    const key = r.name.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    unique.push(r);
+    if (unique.length >= 3) break;
+  }
+  return unique;
 }

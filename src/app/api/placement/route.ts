@@ -75,6 +75,7 @@ export async function GET() {
           openingTitle: opening.openingTitle || opening.roleLabel,
           roleLabel: opening.roleLabel,
           org,
+          sector: r.company.sector,
           signals: opening.signals,
         }),
       });

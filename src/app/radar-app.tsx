@@ -32,6 +32,7 @@ type OrgContext = {
   contactName: string | null;
   contactTitle: string | null;
   contactUrl: string | null;
+  hmHits?: { name: string; title: string | null; url: string | null }[];
 };
 type Opening = {
   id: string;
@@ -172,6 +173,7 @@ function channelLabelUi(ch: string) {
     "firecrawl-careers": "Careers",
     tenderned: "TenderNed",
     pulse: "Pulse",
+    "hm-search": "Hiring manager",
   };
   return labels[ch] || ch;
 }
@@ -298,7 +300,12 @@ function rowMeta(r: RadarRow) {
 }
 
 function openingOrg(o: { org?: OrgContext; signals: Signal[] }): OrgContext {
-  if (o.org && (o.org.department || o.org.hiringManager || o.org.contactName)) return o.org;
+  if (
+    o.org &&
+    (o.org.department || o.org.hiringManager || o.org.contactName || o.org.hmHits?.length)
+  ) {
+    return o.org;
+  }
   return orgContextFromSignals(o.signals);
 }
 
@@ -320,21 +327,61 @@ function openingApproach(
 function HiringManagerBlock({
   company,
   sector,
+  companyId,
   opening,
   deskHref,
+  onOrg,
 }: {
   company: string;
   sector?: string | null;
+  companyId: string;
   opening: {
+    id: string;
     roleLabel: string;
     openingTitle?: string;
     org?: OrgContext;
     signals: Signal[];
   };
   deskHref: string;
+  onOrg?: (openingId: string, org: OrgContext) => void;
 }) {
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
   const targets = openingApproach(company, opening, sector);
   if (!targets.length) return null;
+  const needsHunt = targets[0]?.cta === "zoek";
+
+  async function hunt() {
+    setBusy(true);
+    setErr("");
+    try {
+      const res = await fetch("/api/hm-search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ companyId, openingId: opening.id }),
+      });
+      const data = (await res.json()) as {
+        error?: string;
+        empty?: boolean;
+        org?: OrgContext;
+        detail?: string;
+      };
+      if (!res.ok) throw new Error(data.error || "zoeken mislukt");
+      if (data.empty) {
+        setErr(
+          data.detail === "no-apify-token"
+            ? "Geen Apify-token — gebruik Vind op LinkedIn."
+            : "Geen mensen gevonden. Probeer Vind op LinkedIn."
+        );
+        return;
+      }
+      if (data.org) onOrg?.(opening.id, data.org);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "zoeken mislukt");
+    } finally {
+      setBusy(false);
+    }
+  }
 
   return (
     <div className="mt-4 border-t border-[var(--line)]/80 pt-3">
@@ -364,6 +411,20 @@ function HiringManagerBlock({
           </li>
         ))}
       </ul>
+      {needsHunt ? (
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            disabled={busy}
+            onClick={hunt}
+            className="rounded-[var(--radius)] border border-[var(--line)] bg-[var(--surface-2)] px-3 py-1.5 text-xs font-semibold text-[var(--ink)] disabled:opacity-50"
+          >
+            {busy ? "Zoeken…" : "Zoek 3 mensen"}
+          </button>
+          <span className="text-[0.68rem] text-[var(--muted)]">≈ €0,10</span>
+        </div>
+      ) : null}
+      {err ? <p className="mt-1 text-[0.75rem] text-[var(--warn)]">{err}</p> : null}
       <a href={deskHref} className="mt-2 inline-block text-xs font-semibold no-underline hover:underline">
         Maak voorstel →
       </a>
@@ -1596,8 +1657,23 @@ export default function RadarApp() {
                       <HiringManagerBlock
                         company={active.company.name}
                         sector={active.company.sector}
+                        companyId={active.id}
                         opening={o}
                         deskHref={`/regie?id=${encodeURIComponent(active.id)}&opening=${encodeURIComponent(o.id)}`}
+                        onOrg={(openingId, org) => {
+                          setRadar((rows) =>
+                            rows.map((r) =>
+                              r.id !== active.id
+                                ? r
+                                : {
+                                    ...r,
+                                    openings: (r.openings || []).map((op) =>
+                                      op.id === openingId ? { ...op, org } : op
+                                    ),
+                                  }
+                            )
+                          );
+                        }}
                       />
 
                       {cleanAngle(o.angle) ? (

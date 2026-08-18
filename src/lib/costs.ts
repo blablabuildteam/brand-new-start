@@ -186,6 +186,8 @@ export const INGEST_POLICY = {
   syncFreelanceDetails: 8,
   /** Advies-cadans boards (Indeed + Freelance.nl), niet de dagelijkse cron */
   boardsCadenceDays: 3,
+  /** On-demand hiring-manager people-search (Short page) */
+  hmSearchMax: 8,
 } as const;
 
 /**
@@ -238,6 +240,12 @@ export const SYNC_COST_PER_RUN = {
       tool: "Apify + Firecrawl",
       eur: { low: 1.5, high: 9.0 },
       what: "LinkedIn + Indeed + Freelance.nl (careers apart)",
+    },
+    "hm-search": {
+      label: "Zoek 3 mensen",
+      tool: "Apify",
+      eur: { low: 0.1, high: 0.4 },
+      what: "1 LinkedIn people-pagina · max 8 hits · top 3",
     },
   },
 } as const;

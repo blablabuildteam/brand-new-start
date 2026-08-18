@@ -596,6 +596,25 @@ export async function getRadarDetail(id: string) {
   return rows.find((r) => r.id === id) || null;
 }
 
+export async function patchSignalRaw(signalId: string, patch: Record<string, unknown>) {
+  if (hasDatabase()) {
+    const db = getDb();
+    const row = await db.query.signals.findFirst({ where: eq(signals.id, signalId) });
+    if (!row) return null;
+    const prev = (row.raw && typeof row.raw === "object" ? row.raw : {}) as Record<string, unknown>;
+    const raw = { ...prev, ...patch };
+    await db.update(signals).set({ raw }).where(eq(signals.id, signalId));
+    return { ...row, raw };
+  }
+  const store = mem();
+  const row = store.signals.get(signalId);
+  if (!row) return null;
+  const prev = (row.raw && typeof row.raw === "object" ? row.raw : {}) as Record<string, unknown>;
+  const updated = { ...row, raw: { ...prev, ...patch } };
+  store.signals.set(signalId, updated);
+  return updated;
+}
+
 export async function listSignals(limit = 40) {
   if (hasDatabase()) {
     const db = getDb();

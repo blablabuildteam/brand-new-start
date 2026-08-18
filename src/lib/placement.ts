@@ -6,7 +6,7 @@ import {
   linkedinCompanyQuery,
   linkedinPeopleAtCompany,
 } from "@/lib/approach";
-import type { OrgContext } from "@/lib/org-context";
+import type { HmHit, OrgContext } from "@/lib/org-context";
 
 export type PlacementInput = {
   company: string;
@@ -18,8 +18,10 @@ export type PlacementInput = {
   contactName?: string | null;
   contactTitle?: string | null;
   contactUrl?: string | null;
+  hmHits?: HmHit[];
   summary?: string;
   companyLinkedinUrl?: string | null;
+  sector?: string | null;
 };
 
 export type FitFactor = { label: string; points: number };
@@ -160,6 +162,7 @@ export function buildPlacement(input: PlacementInput): PlacementProposal {
     contactName: input.contactName || null,
     contactTitle: input.contactTitle || null,
     contactUrl: input.contactUrl || null,
+    hmHits: input.hmHits,
   };
   const hiring = buildApproach({
     company: input.company,
@@ -167,6 +170,7 @@ export function buildPlacement(input: PlacementInput): PlacementProposal {
     openingTitle: input.openingTitle,
     org,
     companyLinkedinUrl: input.companyLinkedinUrl,
+    sector: input.sector,
   }).targets;
 
   const ranked: RankedPerson[] = BENCH.map((person) => {
@@ -253,6 +257,7 @@ export function placementFromSignals(opts: {
   openingTitle: string;
   roleLabel: string;
   org: OrgContext;
+  sector?: string | null;
   signals: { summary?: string | null; raw?: Record<string, unknown> | null }[];
 }): PlacementProposal {
   const summary = opts.signals
@@ -268,7 +273,9 @@ export function placementFromSignals(opts: {
     contactName: opts.org.contactName,
     contactTitle: opts.org.contactTitle,
     contactUrl: opts.org.contactUrl,
+    hmHits: opts.org.hmHits,
     summary,
     companyLinkedinUrl: companyLinkedinFromSignals(opts.signals),
+    sector: opts.sector,
   });
 }

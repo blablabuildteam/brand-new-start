@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { WorkspaceBar } from "@/components/workspace-bar";
 import { ScoreChip, SCORE_BAND, scoreTone } from "@/components/score-chip";
 import type { PlacementProposal } from "@/lib/placement";
+import type { ApproachTarget } from "@/lib/approach";
 
 type DeskItem = {
   companyId: string;
@@ -66,6 +67,8 @@ export default function RegieDesk({
   const [tab, setTab] = useState<"hm" | string>("hm");
   const [draft, setDraft] = useState("");
   const [copied, setCopied] = useState(false);
+  const [huntBusy, setHuntBusy] = useState(false);
+  const [huntErr, setHuntErr] = useState("");
 
   useEffect(() => {
     fetch("/api/placement")
@@ -104,6 +107,7 @@ export default function RegieDesk({
 
   useEffect(() => {
     setTab(defaultTab(proposal));
+    setHuntErr("");
   }, [item?.openingId]);
 
   useEffect(() => {
@@ -114,6 +118,61 @@ export default function RegieDesk({
   function select(companyId: string, oid: string) {
     setSel({ companyId, openingId: oid });
     writeUrl(companyId, oid);
+  }
+
+  async function huntHm() {
+    if (!item) return;
+    setHuntBusy(true);
+    setHuntErr("");
+    try {
+      const res = await fetch("/api/hm-search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ companyId: item.companyId, openingId: item.openingId }),
+      });
+      const data = (await res.json()) as {
+        error?: string;
+        empty?: boolean;
+        detail?: string;
+        targets?: ApproachTarget[];
+      };
+      if (!res.ok) throw new Error(data.error || "zoeken mislukt");
+      if (data.empty || !data.targets?.length) {
+        setHuntErr(
+          data.detail === "no-apify-token"
+            ? "Geen Apify-token — gebruik Vind op LinkedIn."
+            : data.detail === "demo"
+              ? "Demo-opening — sync eerst echte kansen."
+              : "Geen mensen gevonden. Probeer Vind op LinkedIn."
+        );
+        return;
+      }
+      const openingId = item.openingId;
+      const companyId = item.companyId;
+      const named = data.targets.find((t) => t.kind === "person" && t.cta === "bericht");
+      const first = named?.label.split(/\s+/)[0];
+      setItems((rows) =>
+        rows.map((r) =>
+          r.openingId === openingId && r.companyId === companyId
+            ? {
+                ...r,
+                proposal: {
+                  ...r.proposal,
+                  hiring: data.targets!,
+                  hmMessage: first
+                    ? r.proposal.hmMessage.replace(/^Hoi\b[^,]*,/, `Hoi ${first},`)
+                    : r.proposal.hmMessage,
+                },
+              }
+            : r
+        )
+      );
+      setTab("hm");
+    } catch (e) {
+      setHuntErr(e instanceof Error ? e.message : "zoeken mislukt");
+    } finally {
+      setHuntBusy(false);
+    }
   }
 
   async function copyDraft() {
@@ -214,7 +273,7 @@ export default function RegieDesk({
                 <div className="border-b border-[var(--line)]/80 px-5 py-2.5">
                   <p className="text-[0.68rem] uppercase tracking-[0.08em] text-[var(--muted)]">Hiring manager</p>
                 </div>
-                {proposal.hiring.slice(0, 2).map((t) => {
+                {proposal.hiring.slice(0, 3).map((t) => {
                   const named = t.kind === "person" && t.cta === "bericht";
                   const recruiter = /recruiter/i.test(t.subtitle || "");
                   return (
@@ -259,6 +318,21 @@ export default function RegieDesk({
                     </div>
                   );
                 })}
+                {!known && item.companyId !== "demo" ? (
+                  <div className="flex flex-wrap items-center gap-3 border-t border-[var(--line)]/70 px-5 py-3">
+                    <button
+                      type="button"
+                      disabled={huntBusy}
+                      onClick={() => void huntHm()}
+                      className="rounded-md bg-[var(--ink)] px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
+                    >
+                      {huntBusy ? "Zoeken…" : "Zoek 3 mensen"}
+                    </button>
+                    <p className="text-[0.72rem] text-[var(--muted)]">
+                      {huntErr || "People search bij dit bedrijf · ≈ €0,10"}
+                    </p>
+                  </div>
+                ) : null}
               </section>
 
               <section>

@@ -118,12 +118,28 @@ export function buildApproach(opts: {
         company: opts.company,
         companyLinkedinUrl: companyUrl,
         profileUrl:
-          !opts.org.contactName || opts.org.contactName === opts.org.hiringManager
+          opts.org.hmHits?.find((h) => h.name === opts.org.hiringManager)?.url ||
+          (!opts.org.contactName || opts.org.contactName === opts.org.hiringManager
             ? opts.org.contactUrl
-            : null,
+            : null),
       }),
       cta: "bericht",
     });
+    for (const hit of opts.org.hmHits || []) {
+      if (hit.name === opts.org.hiringManager) continue;
+      targets.push({
+        kind: "person",
+        label: hit.name,
+        subtitle: hit.title || "Ook mogelijk",
+        url: linkedinPersonUrl({
+          name: hit.name,
+          company: opts.company,
+          companyLinkedinUrl: companyUrl,
+          profileUrl: hit.url,
+        }),
+        cta: "bericht",
+      });
+    }
     return { department: opts.org.department, targets };
   }
 

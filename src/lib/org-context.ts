@@ -3,6 +3,12 @@
  * LinkedIn levert vaak de job-poster; de tekst noemt afdeling / rapportagelijn.
  */
 
+export type HmHit = {
+  name: string;
+  title: string | null;
+  url: string | null;
+};
+
 export type OrgContext = {
   department: string | null;
   hiringManager: string | null;
@@ -10,6 +16,7 @@ export type OrgContext = {
   contactName: string | null;
   contactTitle: string | null;
   contactUrl: string | null;
+  hmHits?: HmHit[];
 };
 
 const GENERIC_DEPT = /^(other|engineering|information technology|it|consulting|business|management|project management|analyst|design|research|other\/unknown)$/i;
@@ -38,8 +45,12 @@ function cleanLabel(raw: string, max = 80): string | null {
   return s;
 }
 
-function isRecruiter(title: string | null): boolean {
+export function isRecruiterTitle(title: string | null | undefined): boolean {
   return Boolean(title && RECRUITER_TITLE.test(title));
+}
+
+function isRecruiter(title: string | null): boolean {
+  return isRecruiterTitle(title);
 }
 
 function looksLikePerson(name: string): boolean {
@@ -102,6 +113,24 @@ function parseFromText(text: string): Pick<OrgContext, "department" | "hiringMan
   return { department, hiringManager, hiringManagerTitle };
 }
 
+function parseHmHits(raw: Record<string, unknown>): HmHit[] {
+  const v = raw.hmHits;
+  if (!Array.isArray(v)) return [];
+  const out: HmHit[] = [];
+  for (const item of v) {
+    if (!item || typeof item !== "object") continue;
+    const o = item as Record<string, unknown>;
+    const name = str(o.name);
+    if (!name) continue;
+    out.push({
+      name,
+      title: str(o.title),
+      url: str(o.url),
+    });
+  }
+  return out;
+}
+
 function fromRaw(raw: Record<string, unknown> | null | undefined): OrgContext {
   const r = raw && typeof raw === "object" ? raw : {};
   const posterName =
@@ -120,14 +149,18 @@ function fromRaw(raw: Record<string, unknown> | null | undefined): OrgContext {
   const recruiter = isRecruiter(posterTitle);
   const managerish = Boolean(posterTitle && MANAGER_TITLE.test(posterTitle) && !recruiter);
   const storedMgr = str(r.hiringManager);
+  const hmHits = parseHmHits(r);
+  const hit = hmHits[0];
 
   return {
     department,
-    hiringManager: storedMgr || (managerish ? posterName : null),
-    hiringManagerTitle: str(r.hiringManagerTitle) || (managerish ? posterTitle : null),
+    hiringManager: storedMgr || (managerish ? posterName : null) || hit?.name || null,
+    hiringManagerTitle:
+      str(r.hiringManagerTitle) || (managerish ? posterTitle : null) || hit?.title || null,
     contactName: recruiter || (!managerish && posterName && posterName !== storedMgr) ? posterName : null,
     contactTitle: recruiter || (!managerish && posterTitle) ? posterTitle : null,
-    contactUrl: posterUrl,
+    contactUrl: posterUrl || hit?.url || null,
+    hmHits,
   };
 }
 
@@ -150,6 +183,7 @@ export function extractOrgContext(opts: {
     contactTitle:
       rawed.contactName && rawed.contactName !== hiringManager ? rawed.contactTitle : null,
     contactUrl: rawed.contactUrl,
+    hmHits: rawed.hmHits,
   };
 }
 
@@ -177,6 +211,7 @@ export function orgContextFromSignals(
       contactName: acc.contactName || next.contactName,
       contactTitle: acc.contactTitle || next.contactTitle,
       contactUrl: acc.contactUrl || next.contactUrl,
+      hmHits: acc.hmHits?.length ? acc.hmHits : next.hmHits,
     };
   }
   return acc;
