@@ -214,6 +214,13 @@ input {
   transition: opacity 0.2s ease;
 }
 
-.radar-scroll-pane.has-more .radar-scroll-pane__fade {
-  opacity: 1;
+.regie-shell {
+  background:
+    radial-gradient(ellipse 80% 40% at 100% 0%, rgba(0, 121, 193, 0.12) 0%, transparent 50%),
+    linear-gradient(180deg, #0b1c30 0 7.5rem, transparent 7.5rem),
+    var(--bg);
+}
+
+.regie-person {
+  animation: fade-in 0.45s ease both;
 }

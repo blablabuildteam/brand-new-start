@@ -350,6 +350,7 @@ function openingApproach(
 function HiringManagerBlock({
   company,
   opening,
+  deskHref,
 }: {
   company: string;
   opening: {
@@ -358,6 +359,7 @@ function HiringManagerBlock({
     org?: OrgContext;
     signals: Signal[];
   };
+  deskHref: string;
 }) {
   const targets = openingApproach(company, opening);
   if (!targets.length) return null;
@@ -386,6 +388,9 @@ function HiringManagerBlock({
           </li>
         ))}
       </ul>
+      <a href={deskHref} className="mt-2 inline-block text-xs font-semibold no-underline hover:underline">
+        Maak voorstel →
+      </a>
     </div>
   );
 }
@@ -921,6 +926,12 @@ export default function RadarApp() {
           </div>
 
           <div className="relative flex items-center gap-2" ref={menuRef}>
+            <a
+              href="/regie"
+              className="hidden text-xs font-semibold text-[var(--ink)] no-underline hover:underline sm:inline"
+            >
+              Regie
+            </a>
             {busy ? (
               <span className="inline-flex items-center gap-1.5 text-xs font-medium text-[var(--accent)]">
                 <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[var(--accent)]" />
@@ -1021,6 +1032,14 @@ export default function RadarApp() {
                     Pagina’s
                   </p>
                 </div>
+                <a
+                  href="/regie"
+                  role="menuitem"
+                  className="block px-3 py-2 text-xs text-[var(--muted)] no-underline hover:bg-[var(--surface-2)] hover:text-[var(--ink)]"
+                  onClick={() => setMenuOpen(false)}
+                >
+                  Regie · voorstel →
+                </a>
                 <a
                   href="/methode"
                   role="menuitem"
@@ -1590,7 +1609,11 @@ export default function RadarApp() {
                         <ScoreChip kans={o.kans} />
                       </div>
 
-                      <HiringManagerBlock company={active.company.name} opening={o} />
+                      <HiringManagerBlock
+                        company={active.company.name}
+                        opening={o}
+                        deskHref={`/regie?id=${encodeURIComponent(active.id)}&opening=${encodeURIComponent(o.id)}`}
+                      />
 
                       {cleanAngle(o.angle) ? (
                         <p className="mt-3 border-l-2 border-[var(--accent)] pl-3 text-sm leading-relaxed text-[var(--ink)]">
