@@ -189,7 +189,7 @@ export function buildApproach(opts: {
   targets.push({
     kind: "search",
     label: "Nog niet bekend",
-    subtitle: `Zoek ${plan.keywords} bij ${short}`,
+    subtitle: plan.hint ? `${plan.hint} bij ${short}` : `bij ${short}`,
     url: linkedinPeopleAtCompany({
       company: opts.company,
       companyLinkedinUrl: companyUrl,

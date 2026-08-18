@@ -324,6 +324,13 @@ function openingApproach(
   }).targets;
 }
 
+function targetAction(t: ApproachTarget) {
+  if (t.cta === "bericht") {
+    return /recruiter/i.test(t.subtitle || "") ? "Vraag" : "Bericht";
+  }
+  return "LinkedIn";
+}
+
 function HiringManagerBlock({
   company,
   sector,
@@ -351,6 +358,8 @@ function HiringManagerBlock({
   if (!targets.length) return null;
   const needsHunt = targets[0]?.cta === "zoek";
   const hunted = Boolean(openingOrg(opening).hmHits?.length);
+  const search = targets.find((t) => t.cta === "zoek");
+  const people = targets.filter((t) => t.kind === "person");
 
   async function hunt() {
     setBusy(true);
@@ -371,9 +380,9 @@ function HiringManagerBlock({
       if (data.empty) {
         setErr(
           data.detail === "no-apify-token"
-            ? "Geen Apify-token — gebruik Vind op LinkedIn."
+            ? "Geen Apify-token — zoek zelf op LinkedIn."
             : data.detail === "no-company-linkedin"
-              ? "Geen LinkedIn-bedrijfspagina — gebruik Vind op LinkedIn."
+              ? "Geen LinkedIn-bedrijfspagina — zoek zelf op LinkedIn."
               : "Geen mensen gevonden die nu bij dit bedrijf werken."
         );
         return;
@@ -387,52 +396,68 @@ function HiringManagerBlock({
   }
 
   return (
-    <div className="mt-4 border-t border-[var(--line)]/80 pt-3">
-      <p className="text-[0.7rem] uppercase tracking-[0.06em] text-[var(--muted)]">Hiring manager</p>
-      <ul className="mt-1.5">
-        {targets.map((t) => (
-          <li key={`${t.kind}-${t.label}`} className="flex items-center justify-between gap-3 py-1">
-            <p className="min-w-0">
-              <span className="text-sm font-semibold text-[var(--ink)]">{t.label}</span>
-              {t.subtitle ? (
-                <span className="mt-0.5 block text-[0.75rem] text-[var(--muted)]">{t.subtitle}</span>
-              ) : null}
-            </p>
-            <a
-              href={t.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="shrink-0 rounded-[var(--radius)] bg-[var(--ink)] px-3 py-1.5 text-xs font-semibold no-underline"
-              style={{ color: "#fff" }}
-            >
-              {t.cta === "bericht"
-                ? /recruiter/i.test(t.subtitle || "")
-                  ? "Vraag op LinkedIn"
-                  : "Bericht"
-                : "Vind op LinkedIn"}
-            </a>
-          </li>
-        ))}
-      </ul>
-      {needsHunt || hunted ? (
-        <div className="mt-2 flex flex-wrap items-center gap-2">
+    <div className="mt-4">
+      <p className="text-[0.65rem] uppercase tracking-[0.08em] text-[var(--muted)]">Manager</p>
+      {needsHunt ? (
+        <p className="mt-1.5 text-sm text-[var(--ink)]">
+          <span className="font-semibold">Nog niet bekend</span>
+          {search?.subtitle ? (
+            <span className="text-[var(--muted)]"> · {search.subtitle}</span>
+          ) : null}
+        </p>
+      ) : (
+        <ul className="mt-1.5 space-y-1">
+          {people.map((t) => (
+            <li key={`${t.kind}-${t.label}`} className="flex items-baseline justify-between gap-3">
+              <p className="min-w-0 truncate text-sm">
+                <span className="font-semibold text-[var(--ink)]">{t.label}</span>
+                {t.subtitle ? <span className="text-[var(--muted)]"> · {t.subtitle}</span> : null}
+              </p>
+              <a
+                href={t.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="shrink-0 text-xs font-semibold no-underline hover:underline"
+              >
+                {targetAction(t)}
+              </a>
+            </li>
+          ))}
+        </ul>
+      )}
+      <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
+        {needsHunt || hunted ? (
           <button
             type="button"
             disabled={busy}
             onClick={hunt}
-            className="rounded-[var(--radius)] border border-[var(--line)] bg-[var(--surface-2)] px-3 py-1.5 text-xs font-semibold text-[var(--ink)] disabled:opacity-50"
+            className={`rounded-[var(--radius)] px-3 py-1.5 text-xs font-semibold disabled:opacity-50 ${
+              needsHunt
+                ? "bg-[var(--ink)] text-white"
+                : "border border-[var(--line)] bg-[var(--surface)] text-[var(--ink)]"
+            }`}
           >
-            {busy ? "Zoeken…" : needsHunt ? "Zoek 3 managers" : "Opnieuw zoeken"}
+            {busy ? "Zoeken…" : needsHunt ? "Zoek 3 managers · €0,10" : "Opnieuw · €0,10"}
           </button>
-          <span className="text-[0.68rem] text-[var(--muted)]">
-            {needsHunt ? "nu bij dit bedrijf · ≈ €0,10" : "≈ €0,10"}
-          </span>
-        </div>
-      ) : null}
-      {err ? <p className="mt-1 text-[0.75rem] text-[var(--warn)]">{err}</p> : null}
-      <a href={deskHref} className="mt-2 inline-block text-xs font-semibold no-underline hover:underline">
-        Maak voorstel →
-      </a>
+        ) : null}
+        {search ? (
+          <a
+            href={search.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs font-medium text-[var(--muted)] no-underline hover:text-[var(--ink)] hover:underline"
+          >
+            Zelf op LinkedIn
+          </a>
+        ) : null}
+        <a
+          href={deskHref}
+          className="ml-auto text-xs font-semibold no-underline hover:underline"
+        >
+          Voorstel →
+        </a>
+      </div>
+      {err ? <p className="mt-2 text-[0.75rem] text-[var(--warn)]">{err}</p> : null}
     </div>
   );
 }
@@ -1633,31 +1658,43 @@ export default function RadarApp() {
                 ).map((o) => {
                   const oMeta = rowMeta({ ...active, signals: o.signals });
                   const org = openingOrg(o);
+                  const angle = cleanAngle(o.angle);
+                  const evidence = o.signals.find((s) => s.evidenceUrl);
                   return (
-                    <div
+                    <article
                       key={o.id}
-                      className="mt-6 border-t border-[var(--line)]/80 pt-5 first:mt-5 first:border-t-0 first:pt-0"
+                      className="mt-5 overflow-hidden rounded-md border border-[var(--line)] bg-[var(--surface)] px-4 py-4 shadow-[var(--shadow)] first:mt-4"
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
                           <p
-                            className="text-[0.65rem] uppercase tracking-[0.06em] text-[var(--muted)]"
+                            className="text-[0.65rem] uppercase tracking-[0.08em] text-[var(--muted)]"
                             style={{ fontFamily: "var(--mono)" }}
                           >
                             {STATUS_NL[o.status] || o.status}
                           </p>
-                          <h4 className="mt-1 text-base font-semibold text-[var(--ink)]">
+                          <h4 className="mt-1 text-base font-semibold leading-snug text-[var(--ink)]">
                             {o.openingTitle || o.roleLabel}
                           </h4>
-                          <p className="mt-0.5 text-sm text-[var(--muted)]">
-                            {o.roleLabel}
-                            {org.department ? ` · ${org.department}` : ""}
-                            {oMeta.postedLabel ? ` · ${oMeta.postedLabel}` : ""}
-                            {oMeta.applicants != null ? ` · ${oMeta.applicants} aanmeldingen` : ""}
+                          <p className="mt-1 text-[0.78rem] text-[var(--muted)]">
+                            {[
+                              o.roleLabel !== o.openingTitle ? o.roleLabel : null,
+                              org.department,
+                              oMeta.postedLabel,
+                              oMeta.applicants != null ? `${oMeta.applicants} aanmeldingen` : null,
+                            ]
+                              .filter(Boolean)
+                              .join(" · ")}
                           </p>
                         </div>
                         <ScoreChip kans={o.kans} />
                       </div>
+
+                      {angle ? (
+                        <p className="mt-3 text-[0.82rem] leading-relaxed text-[var(--ink)]/85">
+                          {angle}
+                        </p>
+                      ) : null}
 
                       <HiringManagerBlock
                         company={active.company.name}
@@ -1665,7 +1702,7 @@ export default function RadarApp() {
                         companyId={active.id}
                         opening={o}
                         deskHref={`/regie?id=${encodeURIComponent(active.id)}&opening=${encodeURIComponent(o.id)}`}
-                        onOrg={(openingId, org) => {
+                        onOrg={(openingId, nextOrg) => {
                           setRadar((rows) =>
                             rows.map((r) =>
                               r.id !== active.id
@@ -1673,7 +1710,7 @@ export default function RadarApp() {
                                 : {
                                     ...r,
                                     openings: (r.openings || []).map((op) =>
-                                      op.id === openingId ? { ...op, org } : op
+                                      op.id === openingId ? { ...op, org: nextOrg } : op
                                     ),
                                   }
                             )
@@ -1681,67 +1718,32 @@ export default function RadarApp() {
                         }}
                       />
 
-                      {cleanAngle(o.angle) ? (
-                        <p className="mt-3 border-l-2 border-[var(--accent)] pl-3 text-sm leading-relaxed text-[var(--ink)]">
-                          {cleanAngle(o.angle)}
-                        </p>
-                      ) : null}
-
-                      <div className="mt-5">
-                        <h5 className="mb-2 text-[0.7rem] uppercase tracking-[0.06em] text-[var(--muted)]">
-                          Score
-                        </h5>
-                        <ul className="space-y-1.5">
+                      {o.factors.length ? (
+                        <ul className="mt-4 flex flex-wrap gap-x-3 gap-y-1 border-t border-[var(--line)]/70 pt-3">
                           {o.factors.map((f, i) => (
-                            <li key={i} className="flex justify-between gap-4 text-sm">
-                              <span className="text-[var(--ink)]/90">{f.label}</span>
-                              <span
-                                className="shrink-0 tabular-nums text-[var(--green)]"
-                                style={{ fontFamily: "var(--mono)" }}
-                              >
+                            <li key={i} className="text-[0.72rem] text-[var(--muted)]">
+                              <span className="tabular-nums text-[var(--green)]" style={{ fontFamily: "var(--mono)" }}>
                                 +{f.points}
-                              </span>
+                              </span>{" "}
+                              {f.label}
                             </li>
                           ))}
                         </ul>
-                      </div>
+                      ) : null}
 
-                      <div className="mt-5">
-                        <h5 className="mb-2 text-[0.7rem] uppercase tracking-[0.06em] text-[var(--muted)]">
-                          Bron
-                        </h5>
-                        <ul className="space-y-3">
-                          {o.signals.map((s) => {
-                            const ch = s.channel || "";
-                            const chLabel = s.channelLabel || ch || s.source;
-                            return (
-                              <li key={s.id}>
-                                <div className="flex items-center gap-2">
-                                  <SourceLogos channels={ch ? [ch] : []} />
-                                  <p
-                                    className="text-[0.65rem] uppercase tracking-wide text-[var(--accent)]"
-                                    style={{ fontFamily: "var(--mono)" }}
-                                  >
-                                    {chLabel}
-                                  </p>
-                                </div>
-                                <p className="mt-0.5 text-sm font-medium">{s.title}</p>
-                                {s.evidenceUrl ? (
-                                  <a
-                                    href={s.evidenceUrl}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="mt-1 inline-block text-xs font-medium"
-                                  >
-                                    Vacature →
-                                  </a>
-                                ) : null}
-                              </li>
-                            );
-                          })}
-                        </ul>
-                      </div>
-                    </div>
+                      {evidence?.evidenceUrl ? (
+                        <p className="mt-3 text-[0.72rem]">
+                          <a
+                            href={evidence.evidenceUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="font-medium no-underline hover:underline"
+                          >
+                            Vacature →
+                          </a>
+                        </p>
+                      ) : null}
+                    </article>
                   );
                 })}
               </div>
