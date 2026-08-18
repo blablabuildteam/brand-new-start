@@ -1,4 +1,5 @@
 import { detectFamily, detectRoleLabel, matchesRole, ROLE_FAMILIES } from "@/lib/niche";
+import { huntRoles } from "@/lib/hunt";
 
 export const JEFFREY_PROFILE = "https://www.linkedin.com/in/jeffrey-köhnke-88239270/";
 
@@ -66,7 +67,7 @@ export function learnSpecialtyFromPosts(
     // Family from the role label itself (not whole post — posts often mix keywords)
     const familyId = detectFamily(label) || detectFamily(text);
     const family =
-      ROLE_FAMILIES.find((f) => f.id === familyId)?.label || "Overig BNS";
+      ROLE_FAMILIES.find((f) => f.id === familyId)?.label || "Overig";
 
     const key = label.toLowerCase();
     const prev = counts.get(key);
@@ -99,14 +100,18 @@ export function learnSpecialtyFromPosts(
 
 export function getSpecialty(): SpecialtyProfile {
   if (!globalSpecialty.__bnsSpecialty) {
-    // Default from known BNS practice areas until first Jeffrey sync
+    // Default from Instellingen until first Jeffrey sync
     globalSpecialty.__bnsSpecialty = {
       updatedAt: new Date().toISOString(),
       mode: "default",
       scanned: 0,
       vacancyPosts: 0,
-      roles: ROLE_FAMILIES.map((f) => ({ label: f.label, family: f.label, count: 0 })),
-      huntSummary: ROLE_FAMILIES.map((f) => f.label).join(" · "),
+      roles: huntRoles().map((label) => ({
+        label,
+        family: detectFamily(label) || "Overig",
+        count: 0,
+      })),
+      huntSummary: huntRoles().join(" · "),
       samples: [],
     };
   }

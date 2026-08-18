@@ -6,6 +6,7 @@ import { fingerprintOf, scoreSignals } from "@/lib/score";
 import { detectRoleLabel, matchesContract, matchesRole, matchesTender } from "@/lib/niche";
 import { orgContextFromSignals } from "@/lib/org-context";
 import { buildApproach, companyLinkedinFromSignals } from "@/lib/approach";
+import { huntSettings } from "@/lib/hunt";
 
 function slugify(name: string) {
   return name
@@ -184,7 +185,7 @@ function nicheOk(input: IngestInput) {
   }
 
   // Contract/ZZP/interim is verplicht voor market-hits (pulse/tender uitgezonderd)
-  if (!isTender && !isPulse && !isContractish(input, blob)) {
+  if (!isTender && !isPulse && huntSettings().requireContract && !isContractish(input, blob)) {
     return { ok: false as const, reason: "no-contract-zzp" };
   }
 
@@ -623,7 +624,7 @@ export async function stats(radarRows?: Awaited<ReturnType<typeof listRadar>>) {
     hot: radar.filter((r) => r.status === "hot").length,
     warm: radar.filter((r) => r.status === "warm").length,
     signals: signalCount,
-    niche: "Markt · contracting-ruimte voor BNS-kernrollen",
+    niche: "Markt · contracting-ruimte volgens Instellingen",
     persistence: hasDatabase() ? "postgres" : "memory",
   };
 }

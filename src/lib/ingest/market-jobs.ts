@@ -4,6 +4,7 @@ import { ingestSignal } from "@/lib/store";
 import { recordSync, type SyncHit } from "@/lib/sync-log";
 import { INGEST_POLICY } from "@/lib/costs";
 import { extractOrgContext, orgContextToRaw } from "@/lib/org-context";
+import { huntSettings, marketSearchQueries } from "@/lib/hunt";
 
 const JOBS_ACTOR =
   process.env.APIFY_JOBS_ACTOR || "curious_coder/linkedin-jobs-scraper";
@@ -118,41 +119,26 @@ function normalizeJobItem(item: Record<string, unknown>): MarketJob | null {
   };
 }
 
-/** Fixed BNS hunt queries — not Jeffrey feed. Slimme NL contracting-search. */
-export const MARKET_SEARCH_QUERIES = [
-  { role: "Scrum Master", extras: ["ZZP", "interim", "contract"] },
-  { role: "Scrummaster", extras: ["ZZP", "interim"] },
-  { role: "Agile Coach", extras: ["ZZP", "interim"] },
-  { role: "Business Analist", extras: ["ZZP", "interim"] },
-  { role: "Business Analyst", extras: ["contract", "ZZP"] },
-  { role: "Product Owner", extras: ["ZZP", "interim"] },
-  { role: "DevOps Engineer", extras: ["contract", "ZZP"] },
-  { role: "Platform Engineer", extras: ["contract", "interim"] },
-  { role: "Project Manager", extras: ["interim", "ZZP"] },
-  { role: "Test Lead", extras: ["interim", "ZZP"] },
-  { role: "Release Train Engineer", extras: ["interim", "SAFe"] },
-  { role: "Change Manager", extras: ["interim", "ZZP"] },
-  { role: "Interim Manager", extras: ["agile", "digital"] },
-  { role: "Node.js", extras: ["ZZP", "freelance"] },
-  { role: "Solution Architect", extras: ["interim", "ZZP"] },
-] as const;
-
-/** Rotate role families daily so capped Apify runs still cover the niche. */
+/** Rotate roles daily so capped Apify runs still cover the kader. */
 export function buildLinkedInJobSearchUrls(maxUrls = 8): { url: string; query: string }[] {
+  const queries = marketSearchQueries();
+  const contract = huntSettings().requireContract;
   const day = new Date().getUTCDay();
   const rotated = [
-    ...MARKET_SEARCH_QUERIES.slice(day % MARKET_SEARCH_QUERIES.length),
-    ...MARKET_SEARCH_QUERIES.slice(0, day % MARKET_SEARCH_QUERIES.length),
+    ...queries.slice(day % Math.max(1, queries.length)),
+    ...queries.slice(0, day % Math.max(1, queries.length)),
   ];
 
   const out: { url: string; query: string }[] = [];
   for (const q of rotated) {
+    const jt = contract ? "&f_JT=C" : "";
     out.push({
-      query: `${q.role} · contract NL`,
-      url: `https://www.linkedin.com/jobs/search/?keywords=${encodeURIComponent(q.role)}&location=Netherlands&f_JT=C&f_TPR=r2592000&sortBy=DD`,
+      query: contract ? `${q.role} · contract NL` : `${q.role} NL`,
+      url: `https://www.linkedin.com/jobs/search/?keywords=${encodeURIComponent(q.role)}&location=Netherlands${jt}&f_TPR=r2592000&sortBy=DD`,
     });
     if (out.length >= maxUrls) break;
 
+    if (!contract) continue;
     const extra = q.extras[0];
     out.push({
       query: `${q.role} ${extra} NL`,
@@ -184,7 +170,7 @@ export async function ingestMarketJobs(
     const contractish =
       matchesContract(blob) ||
       /contract|interim|zzp|temp|freelance/i.test(job.employmentType || "");
-    if (!contractish) {
+    if (huntSettings().requireContract && !contractish) {
       skipped += 1;
       hits.push({ company: job.company, title: job.title, url: job.url, kept: false, isNew: false });
       continue;

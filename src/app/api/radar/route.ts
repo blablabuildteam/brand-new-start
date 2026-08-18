@@ -2,15 +2,15 @@ import { NextResponse } from "next/server";
 import { getRadarDetail, listRadar, listSignals, stats } from "@/lib/store";
 import { getSession } from "@/lib/auth";
 import { channelLabel, lastSyncByChannel, lastSyncOverall, listSyncRuns } from "@/lib/sync-log";
-import { MARKET_SEARCH_QUERIES } from "@/lib/ingest/market-jobs";
-import { BOARD_QUERIES } from "@/lib/ingest/boards";
 import { enabledPlatforms } from "@/lib/platforms";
+import { loadHuntSettings } from "@/lib/hunt";
 
 export async function GET(req: Request) {
   const session = await getSession();
   if (!session) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
+  const hunt = await loadHuntSettings();
 
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
@@ -47,12 +47,13 @@ export async function GET(req: Request) {
     stats: await stats(radarRows),
     radar,
     feed,
+    workspace: hunt,
     sync: {
       last,
       byChannel,
       recent,
-      huntQueries: [...new Set(MARKET_SEARCH_QUERIES.map((q) => q.role))],
-      boardQueries: [...BOARD_QUERIES],
+      huntQueries: hunt.roles,
+      boardQueries: hunt.roles,
       platformsEnabled: enabledPlatforms().length,
     },
   });

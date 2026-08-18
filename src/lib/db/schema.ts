@@ -72,6 +72,17 @@ export const syncRuns = pgTable(
   (t) => [index("sync_runs_at_idx").on(t.at)]
 );
 
+export const workspaceSettings = pgTable("workspace_settings", {
+  id: text("id").primaryKey(),
+  data: jsonb("data").$type<{
+    name: string;
+    market: string;
+    roles: string[];
+    requireContract: boolean;
+  }>().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
+});
+
 export type Company = typeof companies.$inferSelect;
 export type Signal = typeof signals.$inferSelect;
 export type RadarEntry = typeof radarEntries.$inferSelect;

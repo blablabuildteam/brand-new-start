@@ -2,14 +2,13 @@
 
 import { FormEvent, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import Image from "next/image";
 import { BlablaLogo } from "@/components/blabla-logo";
 
 export default function LoginForm() {
   const router = useRouter();
   const params = useSearchParams();
   const next = params.get("next") || "/";
-  const [email, setEmail] = useState("recruiter@brandnewstart.nl");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -39,24 +38,18 @@ export default function LoginForm() {
         onSubmit={onSubmit}
         className="w-full max-w-md rounded-[var(--radius)] border border-[var(--line)] bg-[var(--surface)] p-7 shadow-[var(--shadow)]"
       >
-        <div className="mb-6 flex items-center gap-3">
-          <Image src="/assets/bns-logo.png" alt="Brand New Start" width={42} height={42} />
-          <div>
-            <p
-              className="text-[0.65rem] uppercase tracking-[0.08em] text-[var(--muted)]"
-              style={{ fontFamily: "var(--mono)" }}
-            >
-              Command Center
-            </p>
-            <h1 className="text-xl font-bold" style={{ fontFamily: "var(--display)" }}>
-              Radar login
-            </h1>
-          </div>
-        </div>
-
-        <p className="mb-5 text-sm text-[var(--muted)]">
-          Vindt openstaande <strong className="text-[var(--ink)]">contract-, ZZP- en interim-opdrachten</strong>{" "}
-          op jobboards, rangschikt ze op kans, en houdt per bedrijf overzichtelijk bij waar je kunt pitchen.
+        <p
+          className="text-[0.65rem] uppercase tracking-[0.08em] text-[var(--muted)]"
+          style={{ fontFamily: "var(--mono)" }}
+        >
+          Contracting radar
+        </p>
+        <h1 className="mt-1 text-2xl font-bold" style={{ fontFamily: "var(--display)" }}>
+          Regie
+        </h1>
+        <p className="mt-3 mb-5 text-sm text-[var(--muted)]">
+          Vindt openstaande contract-, ZZP- en interim-opdrachten, koppelt ze aan een hiring manager,
+          en maakt een voorstel klaar.
         </p>
 
         <label className="mb-3 block text-sm font-medium">
@@ -78,7 +71,6 @@ export default function LoginForm() {
             onChange={(e) => setPassword(e.target.value)}
             type="password"
             autoComplete="current-password"
-            placeholder="bns-demo"
           />
         </label>
 
@@ -92,17 +84,13 @@ export default function LoginForm() {
           {loading ? "Bezig…" : "Naar radar"}
         </button>
 
-        <p className="mt-4 text-center text-xs text-[var(--muted)]" style={{ fontFamily: "var(--mono)" }}>
-          Accounts: <code>recruiter@brandnewstart.nl</code> · <code>admin@blablabuild.com</code>
-        </p>
-
         <a
           href="https://blablabuild.com"
           target="_blank"
           rel="noopener noreferrer"
           className="mt-5 flex items-center justify-center gap-2 text-[0.7rem] text-[var(--muted)] no-underline hover:text-[var(--ink)]"
         >
-          <span>Tool gebouwd door</span>
+          <span>Gebouwd door</span>
           <BlablaLogo className="h-4 w-4" />
           <span className="font-semibold text-[var(--ink)]">blablabuild</span>
         </a>

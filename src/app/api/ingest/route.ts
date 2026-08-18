@@ -13,6 +13,7 @@ import { syncJobBoards } from "@/lib/ingest/boards";
 import { enabledPlatforms } from "@/lib/platforms";
 import { ingestSignal, resetStore, stats } from "@/lib/store";
 import { INGEST_POLICY } from "@/lib/costs";
+import { loadHuntSettings } from "@/lib/hunt";
 import { z } from "zod";
 
 /** Apify Indeed/LinkedIn kan lang duren */
@@ -53,6 +54,7 @@ export async function POST(req: Request) {
 
   const body = await req.json().catch(() => ({}));
   const action = (body as { action?: string }).action || "market";
+  await loadHuntSettings();
 
   if (action === "reset") {
     return NextResponse.json({

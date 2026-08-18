@@ -22,18 +22,18 @@ export async function GET(req: Request) {
   const openingId = searchParams.get("opening");
   const rows = await listRadar();
 
-  const rail = rows.map((r) => ({
-    id: r.id,
-    company: r.company.name,
-    title: r.openingTitle || r.roleLabel,
-    kans: r.kans,
-    openings: (r.openings || []).map((o) => ({
-      id: o.id,
+  const rail = rows.flatMap((r) => {
+    const openings = r.openings?.length
+      ? r.openings
+      : [{ id: r.id, openingTitle: r.openingTitle || r.roleLabel, roleLabel: r.roleLabel, kans: r.kans }];
+    return openings.map((o) => ({
+      companyId: r.id,
+      openingId: o.id,
+      company: r.company.name,
       title: o.openingTitle || o.roleLabel,
-      roleLabel: o.roleLabel,
       kans: o.kans,
-    })),
-  }));
+    }));
+  });
 
   function demo() {
     return {

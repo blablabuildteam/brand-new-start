@@ -4,6 +4,7 @@ import { INGEST_POLICY } from "@/lib/costs";
 import { enabledPlatforms, type PlatformTarget } from "@/lib/platforms";
 import { recordSync, type SyncHit } from "@/lib/sync-log";
 import { extractOrgContext, orgContextToRaw } from "@/lib/org-context";
+import { huntSettings } from "@/lib/hunt";
 
 /**
  * Firecrawl = open web (careers pages). Not for LinkedIn.
@@ -85,10 +86,10 @@ export async function scrapeCareersWithFirecrawl(
       fetched += 1;
 
       if (!matchesRole(md)) {
-        hits.push({ company, title: "geen BNS-rol match", url, kept: false });
+        hits.push({ company, title: "geen rol-match in kader", url, kept: false });
         continue;
       }
-      if (!matchesContract(md)) {
+      if (huntSettings().requireContract && !matchesContract(md)) {
         hits.push({ company, title: "geen contract/ZZP in tekst", url, kept: false });
         continue;
       }

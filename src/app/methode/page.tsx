@@ -1,18 +1,14 @@
 import Link from "next/link";
 import { BlablaLogo } from "@/components/blabla-logo";
 import { SourceLogo } from "@/components/source-logo";
-import {
-  MARKET_SEARCH_QUERIES,
-  buildLinkedInJobSearchUrls,
-} from "@/lib/ingest/market-jobs";
-import { BOARD_QUERIES } from "@/lib/ingest/boards";
+import { buildLinkedInJobSearchUrls } from "@/lib/ingest/market-jobs";
 import { enabledPlatforms } from "@/lib/platforms";
 import { INGEST_POLICY, SYNC_COST_PER_RUN } from "@/lib/costs";
-import { ROLE_FAMILIES } from "@/lib/niche";
+import { loadHuntSettings } from "@/lib/hunt";
 import { SCORE_MAX, SCORE_METHOD } from "@/lib/score";
 
 export const metadata = {
-  title: "Methode & queries — Brand New Start Radar",
+  title: "Methode & queries — Contracting radar",
   description: "Per bron: wat we scrapen, hoe we filteren, en wat een sync kost.",
 };
 
@@ -40,17 +36,16 @@ function SourceHeading({
   );
 }
 
-export default function MethodePage() {
+export default async function MethodePage() {
+  const hunt = await loadHuntSettings();
   const todayLinkedIn = buildLinkedInJobSearchUrls(INGEST_POLICY.syncMarketUrls);
   const platforms = enabledPlatforms();
-  const indeedQueries = BOARD_QUERIES.slice(0, INGEST_POLICY.syncIndeedQueries).map(
-    (role) => `${role} ZZP`
-  );
-  const freelanceQueries = BOARD_QUERIES.slice(0, INGEST_POLICY.syncFreelanceQueries);
+  const indeedQueries = hunt.roles
+    .slice(0, INGEST_POLICY.syncIndeedQueries)
+    .map((role) => (hunt.requireContract ? `${role} ZZP` : role));
+  const freelanceQueries = hunt.roles.slice(0, INGEST_POLICY.syncFreelanceQueries);
 
-  const roleNames = [
-    ...new Set([...MARKET_SEARCH_QUERIES.map((q) => q.role), ...BOARD_QUERIES]),
-  ].sort((a, b) => a.localeCompare(b, "nl"));
+  const roleNames = [...new Set(hunt.roles)].sort((a, b) => a.localeCompare(b, "nl"));
 
   return (
     <main className="mx-auto min-h-dvh max-w-[900px] px-5 py-8 md:px-8">
@@ -92,7 +87,9 @@ export default function MethodePage() {
         <ul className="divide-y divide-[var(--line)]/80 text-sm">
           {[
             "Elke bron draait apart: LinkedIn, Indeed, Freelance.nl (en optioneel careers).",
-            "Interessant = BNS-rol én contract/ZZP/interim. Score rangschikt. Dubbele URL = refresh.",
+            hunt.requireContract
+              ? "Interessant = jouw rollen (Instellingen) én contract/ZZP/interim. Score rangschikt. Dubbele URL = refresh."
+              : "Interessant = jouw rollen (Instellingen). Score rangschikt. Dubbele URL = refresh.",
             "Kosten = Apify/Firecrawl per scrape; filteren in de app is gratis.",
           ].map((t) => (
             <li key={t} className="flex gap-2 px-4 py-2.5 sm:px-5">
@@ -109,13 +106,20 @@ export default function MethodePage() {
         </h2>
         <ol className="mt-3 space-y-2.5 text-sm text-[var(--ink)]">
           <li>
-            <strong>1. Binnen de BNS-rollen</strong> — titel/tekst moet matchen (Scrum Master, Agile
-            Coach, BA, DevOps, …). Anders: weg.
+            <strong>1. Binnen jouw rollen</strong> — titel/tekst moet matchen met het kader in{" "}
+            <a href="/instellingen">Instellingen</a>. Anders: weg.
           </li>
-          <li>
-            <strong>2. Contract / ZZP / interim is verplicht</strong> — vaste dienstverband-postings
-            komen niet op de radar.
-          </li>
+          {hunt.requireContract ? (
+            <li>
+              <strong>2. Contract / ZZP / interim is verplicht</strong> — vaste dienstverband-postings
+              komen niet op de radar.
+            </li>
+          ) : (
+            <li>
+              <strong>2. Contract-filter staat uit</strong> — ook vaste rollen mogen door, tot je het
+              weer aanzet in Instellingen.
+            </li>
+          )}
           <li>
             <strong>3. Score rangschikt per opening</strong> — sterke / warme / volgen. Meerdere
             vacatures bij één klant = één rij in de lijst, alle openingen rechts met eigen score.
@@ -175,10 +179,10 @@ export default function MethodePage() {
       <section className="mb-6 overflow-hidden rounded-md border border-[var(--line)] bg-[var(--surface)]">
         <div className="border-b border-[var(--line)]/80 px-4 py-3 sm:px-5">
           <h2 className="text-base font-semibold" style={{ fontFamily: "var(--display)" }}>
-            BNS-rollen (zoektermen)
+            Rollen (Instellingen)
           </h2>
           <p className="mt-1 text-xs text-[var(--muted)]">
-            Deze titels gebruiken we op LinkedIn / Indeed / Freelance.nl.
+            Dit kader staat in <a href="/instellingen">Instellingen</a>. Sync zoekt hierop.
           </p>
         </div>
         <div className="flex flex-wrap gap-1.5 px-4 py-3 sm:px-5">
@@ -189,7 +193,8 @@ export default function MethodePage() {
           ))}
         </div>
         <p className="border-t border-[var(--line)]/80 px-4 py-2.5 text-xs text-[var(--muted)] sm:px-5">
-          Niche-filter: {ROLE_FAMILIES.map((f) => f.label).join(" · ")}
+          {hunt.requireContract ? "Alleen contract / ZZP / interim." : "Ook vaste rollen toegestaan."}{" "}
+          {hunt.market}
         </p>
       </section>
 
@@ -207,12 +212,19 @@ export default function MethodePage() {
         </div>
         <div className="space-y-3 px-4 py-3 text-sm leading-relaxed text-[var(--ink)] sm:px-5">
           <p>
-            We bouwen LinkedIn-zoek-URL’s voor BNS-rollen met <strong>contract/ZZP-filters</strong>,
-            draaien die via Apify, en halen tot ~{INGEST_POLICY.syncMarketJobs} jobs op (cap:{" "}
+            We bouwen LinkedIn-zoek-URL’s voor jouw rollen
+            {hunt.requireContract ? (
+              <>
+                {" "}
+                met <strong>contract/ZZP-filters</strong>
+              </>
+            ) : null}
+            , draaien die via Apify, en halen tot ~{INGEST_POLICY.syncMarketJobs} jobs op (cap:{" "}
             {INGEST_POLICY.syncMarketUrls} zoek-URL’s per sync).
           </p>
           <p className="text-[var(--muted)]">
-            Daarna in-app: alleen niche + contractish houden · dedup op URL · score op de radar.
+            Daarna in-app: alleen jouw rollen
+            {hunt.requireContract ? " + contract/ZZP" : ""} houden · dedup op URL · score op de radar.
             Volgorde van queries roteert licht per dag.
           </p>
           <p className="text-xs text-[var(--muted)]">
@@ -244,8 +256,9 @@ export default function MethodePage() {
         <div className="space-y-3 px-4 py-3 text-sm leading-relaxed text-[var(--ink)] sm:px-5">
           <p>
             Indeed is een <strong>eigen sync-run</strong>. Per boards-sync draaien we{" "}
-            <strong>alle BNS-rollen</strong> (nu {indeedQueries.length} queries: rol + “ZZP”), via
-            Apify <code className="text-[0.75rem]">misceres/indeed-scraper</code>, land NL.
+            <strong>alle ingestelde rollen</strong> (nu {indeedQueries.length} queries
+            {hunt.requireContract ? ": rol + “ZZP”" : ""}), via Apify{" "}
+            <code className="text-[0.75rem]">misceres/indeed-scraper</code>, land NL.
           </p>
           <p>
             <strong>Waarom niet elke dag?</strong> Alle rollen tegelijk is duurder/zwaarder dan één
@@ -257,7 +270,8 @@ export default function MethodePage() {
             Cap: tot ~{INGEST_POLICY.syncIndeedMax} items over alle queries samen (~
             {Math.max(4, Math.ceil(INGEST_POLICY.syncIndeedMax / Math.max(1, indeedQueries.length)))}{" "}
             per rol). We bewaren titel, bedrijf, URL, locatie, plaatsingsdatum/aanmeldingen (als
-            Apify die levert). Daarna niche + contract-filter · score op de radar.
+            Apify die levert). Daarna filter op jouw rollen
+            {hunt.requireContract ? " + contract" : ""} · score op de radar.
           </p>
           <p className="text-xs text-[var(--muted)]">
             Handmatig via Sync & meer → Alleen Indeed. ≈ €{SYNC_COST_PER_RUN.actions.indeed.eur.low}–
@@ -337,7 +351,7 @@ export default function MethodePage() {
           <p>
             Geen scrape van heel NL. Vaste lijst bedrijven (
             <code className="text-[0.75rem]">platforms.ts</code>) — Firecrawl opent hun
-            careers-URL en zoekt BNS-rollen in de tekst. Cap: tot{" "}
+            careers-URL en zoekt jouw rollen in de tekst. Cap: tot{" "}
             {INGEST_POLICY.careersMaxUrlsPerRun} pagina’s / run · nu {platforms.length} enabled.
           </p>
         </div>

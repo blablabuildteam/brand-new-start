@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { SourceLogo, SourceLogos, sourceChannelsFromRow } from "@/components/source-logo";
@@ -145,7 +144,7 @@ const SYNC_ACTIVITY: Record<string, string> = {
   "linkedin-jobs":
     "LinkedIn Jobs ophalen via Apify — dit kan 30–90 seconden duren.",
   market: "LinkedIn Jobs ophalen via Apify — dit kan 30–90 seconden duren.",
-  indeed: "Indeed NL doorzoeken op BNS-rollen + contract/ZZP…",
+  indeed: "Indeed NL doorzoeken op ingestelde rollen + contract/ZZP…",
   "freelance-nl": "Freelance.nl scrapen via Firecrawl…",
   platforms: "Careers-pagina’s van watchlist-bedrijven scrapen…",
 };
@@ -431,6 +430,7 @@ export default function RadarApp() {
     signals: number;
   } | null>(null);
   const [user, setUser] = useState<{ email: string; role: "admin" | "recruiter" } | null>(null);
+  const [workspaceName, setWorkspaceName] = useState("Regie");
   const [sync, setSync] = useState<SyncInfo | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -455,6 +455,7 @@ export default function RadarApp() {
     setRadar(data.radar);
     setStats(data.stats);
     if (data.user) setUser(data.user);
+    if (data.workspace?.name) setWorkspaceName(data.workspace.name);
     setSync(data.sync);
     setActiveId((prev) => {
       if (opts?.keepActive && prev && data.radar.some((r: RadarRow) => r.id === prev)) return prev;
@@ -565,12 +566,12 @@ export default function RadarApp() {
 
     const explain =
       action === "market"
-        ? "We zoeken op LinkedIn Jobs naar BNS-rollen met contract/ZZP-filters, houden alleen niche-hits, en zetten die op de radar."
+        ? "LinkedIn Jobs: ingestelde rollen met contract/ZZP-filters. Alleen hits in jouw kader komen op de radar."
         : action === "indeed"
-          ? "Indeed NL via Apify: alle BNS-rollen + ZZP in één run. Niche + contract-filter in-app."
+          ? "Indeed NL via Apify: jouw rollen + ZZP. Filter in-app."
           : action === "freelance-nl"
-            ? "Freelance.nl via Firecrawl: zoekpagina’s per BNS-rol. Aparte sync van Indeed."
-            : "We scrapen careers-pagina’s van de watchlist-bedrijven (Firecrawl) op openstaande BNS-rollen.";
+            ? "Freelance.nl via Firecrawl: zoekpagina’s per ingestelde rol."
+            : "Careers-pagina’s van de watchlist op openstaande rollen in jouw kader.";
 
     const stepId =
       action === "market" ? "linkedin-jobs" : action === "platforms" ? "platforms" : action;
@@ -647,7 +648,7 @@ export default function RadarApp() {
         statusLine: "Stap 1/3 · LinkedIn Jobs",
         activity: SYNC_ACTIVITY["linkedin-jobs"],
         explain:
-          "LinkedIn, daarna Indeed, daarna Freelance.nl — drie aparte rondes. Hits gefilterd op BNS-rollen + contract/ZZP.",
+          "LinkedIn, daarna Indeed, daarna Freelance.nl — drie aparte rondes. Hits gefilterd op jouw rollen + contract/ZZP.",
         searched: [
           ...(sync?.huntQueries || []).slice(0, 6).map((q) => `LinkedIn · ${q}`),
           "Indeed NL",
@@ -909,28 +910,26 @@ export default function RadarApp() {
       <header className="z-40 shrink-0 border-b border-[var(--line)]/80 bg-[var(--surface)]/95 backdrop-blur-md">
         <div className="mx-auto flex max-w-[1200px] items-center justify-between gap-4 px-5 py-3.5 md:px-8">
           <div className="flex items-center gap-3.5">
-            <Image
-              src="/assets/bns-logo.png"
-              alt="Brand New Start"
-              width={52}
-              height={52}
-              className="h-12 w-auto md:h-14"
-              priority
-            />
             <div>
               <p className="text-base font-semibold tracking-tight text-[var(--ink)] md:text-lg" style={{ fontFamily: "var(--display)" }}>
-                Brand New Start
+                {workspaceName}
               </p>
-              <p className="text-[0.72rem] text-[var(--muted)]">Radar · contracting-kansen</p>
+              <p className="text-[0.72rem] text-[var(--muted)]">Radar · contracting</p>
             </div>
           </div>
 
           <div className="relative flex items-center gap-2" ref={menuRef}>
             <a
+              href="/instellingen"
+              className="hidden text-xs font-semibold text-[var(--ink)] no-underline hover:underline sm:inline"
+            >
+              Instellingen
+            </a>
+            <a
               href="/regie"
               className="hidden text-xs font-semibold text-[var(--ink)] no-underline hover:underline sm:inline"
             >
-              Regie
+              Voorstel
             </a>
             {busy ? (
               <span className="inline-flex items-center gap-1.5 text-xs font-medium text-[var(--accent)]">
@@ -1033,12 +1032,20 @@ export default function RadarApp() {
                   </p>
                 </div>
                 <a
+                  href="/instellingen"
+                  role="menuitem"
+                  className="block px-3 py-2 text-xs text-[var(--muted)] no-underline hover:bg-[var(--surface-2)] hover:text-[var(--ink)]"
+                  onClick={() => setMenuOpen(false)}
+                >
+                  Instellingen →
+                </a>
+                <a
                   href="/regie"
                   role="menuitem"
                   className="block px-3 py-2 text-xs text-[var(--muted)] no-underline hover:bg-[var(--surface-2)] hover:text-[var(--ink)]"
                   onClick={() => setMenuOpen(false)}
                 >
-                  Regie · voorstel →
+                  Voorstel →
                 </a>
                 <a
                   href="/methode"
@@ -1688,7 +1695,7 @@ export default function RadarApp() {
 
       <footer className="shrink-0 border-t border-[var(--line)]/70 bg-[var(--surface)]/80">
         <div className="mx-auto flex max-w-[1200px] items-center justify-between gap-3 px-5 py-2.5 md:px-8">
-          <p className="text-[0.7rem] text-[var(--muted)]">Brand New Start · Radar</p>
+          <p className="text-[0.7rem] text-[var(--muted)]">{workspaceName} · Radar</p>
           <a
             href="https://blablabuild.com"
             target="_blank"

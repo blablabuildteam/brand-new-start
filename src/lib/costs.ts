@@ -1,6 +1,6 @@
 /**
  * Signal stack cost model — keep scrapers expensive-only where APIs fail.
- * Numbers are MVP planning estimates (EUR), small NL niche (BNS kernrollen).
+ * Numbers are MVP planning estimates (EUR) for a small NL contracting niche.
  */
 
 export type SourceTier = "free-api" | "owned" | "paid-hard" | "paid-open" | "human";
@@ -30,7 +30,7 @@ export const SOURCE_COST_MODEL: SourceCost[] = [
     cadence: "handmatig · advies 1×/3 dagen",
     /** ~10 runs/m × €0,40–2,50 */
     eurPerMonth: { low: 4, high: 25 },
-    efficiency: "Alleen BNS-rollen + contract/ZZP-filters. Dedup op URL. Losse sync.",
+    efficiency: "Alleen ingestelde rollen + optioneel contract/ZZP-filter. Dedup op URL. Losse sync.",
   },
   {
     id: "indeed",
@@ -38,7 +38,7 @@ export const SOURCE_COST_MODEL: SourceCost[] = [
     tier: "paid-hard",
     tool: "apify",
     quality: "hoog",
-    cadence: "handmatig · advies 1×/3 dagen · alle BNS-rollen",
+    cadence: "handmatig · advies 1×/3 dagen · alle ingestelde rollen",
     /** ~10 runs/m × €0,80–4,50 */
     eurPerMonth: { low: 8, high: 45 },
     efficiency: "Eigen sync-ronde. Alle rollen per run via Apify startUrls.",
@@ -172,14 +172,14 @@ export const INGEST_POLICY = {
   dedupeByFingerprint: true,
   preferApiOverScrape: true,
   /**
-   * Sync-caps: collect-first — liever alle BNS-rollen per boards-run,
+   * Sync-caps: collect-first — liever alle ingestelde rollen per boards-run,
    * minder vaak (advies ~1×/3 dagen) dan 1 rol/dag.
    */
   syncMarketUrls: 30,
   syncMarketJobs: 80,
   /** Totaal Indeed-items over alle rol-queries samen */
   syncIndeedMax: 80,
-  /** Aantal BNS-rollen per Indeed-sync (alle = BOARD_QUERIES.length) */
+  /** Aantal rollen per Indeed-sync (cap; live = huntRoles().length) */
   syncIndeedQueries: 12,
   syncFreelanceQueries: 12,
   /** Max Freelance.nl opdracht-detailpagina’s per sync (Firecrawl) voor contact/afdeling */

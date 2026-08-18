@@ -1,6 +1,6 @@
 /**
  * Platforms / careers pages we want Firecrawl to watch.
- * Edit this list with BNS — no secrets needed.
+ * Edit this list — no secrets needed.
  */
 export type PlatformTarget = {
   id: string;

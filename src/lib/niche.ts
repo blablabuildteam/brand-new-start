@@ -1,14 +1,13 @@
 /**
- * BNS niche derived from Brand New Start practice areas + Jeffrey Köhnke job posts.
- * Source of truth: https://brandnewstart.eu/ + LinkedIn vacancy activity.
- * Radar matches these roles and close variants — not the whole IT market.
+ * Contracting-kader: ingestelde rollen (Instellingen) + interne families voor matching.
  */
 
+import { huntRoles, huntSettings } from "@/lib/hunt";
+
 export const NICHE = {
-  id: "bns-core-nl",
-  label: "Brand New Start · kernrollen NL",
+  id: "contracting-nl",
+  label: "Contracting NL",
   market: "Nederland",
-  ownerProfile: "https://www.linkedin.com/in/jeffrey-köhnke-88239270/",
 } as const;
 
 export type RoleFamily =
@@ -22,7 +21,7 @@ export type RoleFamily =
   | "test"
   | "architecture-apps";
 
-/** Practice areas Jeffrey recruits for (site + posts). */
+/** Practice areas — intern voor familie-detectie, niet de hunt-gate. */
 export const ROLE_FAMILIES: {
   id: RoleFamily;
   label: string;
@@ -193,11 +192,28 @@ export const TENDER_KEYWORDS = [
   "applicatiebeheer",
 ] as const;
 
-const ALL_ROLE_KEYWORDS = ROLE_FAMILIES.flatMap((f) => f.keywords);
+function compact(s: string) {
+  return s.toLowerCase().replace(/[\s./-]+/g, "");
+}
+
+function roleNeedles(role: string): string[] {
+  const r = role.toLowerCase().trim();
+  if (r.length < 2) return [];
+  const swapped = r.replace(/\banalist\b/g, "analyst").replace(/\banalyst\b/g, "analist");
+  return [...new Set([r, compact(r), swapped, compact(swapped)].filter((x) => x.length >= 2))];
+}
 
 export function matchesRole(text: string): boolean {
   const t = text.toLowerCase();
-  return ALL_ROLE_KEYWORDS.some((k) => t.includes(k));
+  const tc = compact(text);
+  for (const role of huntRoles()) {
+    for (const n of roleNeedles(role)) {
+      if (t.includes(n)) return true;
+      const nc = compact(n);
+      if (nc.length >= 5 && tc.includes(nc)) return true;
+    }
+  }
+  return false;
 }
 
 export function matchesContract(text: string): boolean {
@@ -256,7 +272,7 @@ export function detectRoleLabel(text: string): string {
   }
   const family = detectFamily(t);
   if (family) {
-    return ROLE_FAMILIES.find((f) => f.id === family)?.label || "BNS kernrol";
+    return ROLE_FAMILIES.find((f) => f.id === family)?.label || "IT contracting";
   }
   return "IT contracting";
 }

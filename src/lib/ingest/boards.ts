@@ -8,24 +8,13 @@ import { detectRoleLabel, matchesContract, matchesRole } from "@/lib/niche";
 import { ingestSignal } from "@/lib/store";
 import { recordSync, type SyncChannel, type SyncHit } from "@/lib/sync-log";
 import { INGEST_POLICY } from "@/lib/costs";
+import { DEFAULT_ROLES, huntRoles, huntSettings } from "@/lib/hunt";
 import { extractOrgContext, orgContextToRaw } from "@/lib/org-context";
 
 const INDEED_ACTOR = process.env.APIFY_INDEED_ACTOR || "misceres/indeed-scraper";
 
-/** Board hunt terms — Indeed uses role; ZZP/interim filtered in-app + keyword variants. */
-export const BOARD_QUERIES = [
-  "Scrum Master",
-  "Agile Coach",
-  "Business Analist",
-  "Business Analyst",
-  "Product Owner",
-  "DevOps Engineer",
-  "Platform Engineer",
-  "Test Lead",
-  "Release Train Engineer",
-  "Change Manager",
-  "Solution Architect",
-] as const;
+/** Fallback — live sync gebruikt huntRoles() uit Instellingen. */
+export const BOARD_QUERIES = DEFAULT_ROLES;
 
 type BoardJob = {
   company: string;
@@ -58,7 +47,7 @@ async function ingestBoardJobs(jobs: BoardJob[]) {
     }
 
     const contractish = matchesContract(blob) || /contract|interim|zzp|freelance|tijdelijk/i.test(blob);
-    if (!contractish) {
+    if (huntSettings().requireContract && !contractish) {
       skipped += 1;
       hits.push({ company: job.company, title: job.title, url: job.url, kept: false, isNew: false });
       continue;
@@ -177,16 +166,17 @@ async function fetchIndeedJobs(opts?: {
 
   const maxQueries = Math.min(
     opts?.maxQueries ?? INGEST_POLICY.syncIndeedQueries,
-    BOARD_QUERIES.length
+    huntRoles().length
   );
   const maxItems = opts?.maxItems ?? INGEST_POLICY.syncIndeedMax;
-  const queries = BOARD_QUERIES.slice(0, maxQueries);
+  const queries = huntRoles().slice(0, maxQueries);
   const perQuery = Math.max(4, Math.ceil(maxItems / Math.max(1, queries.length)));
 
   // Eén Apify-run met alle Indeed-URL’s (i.p.v. 12× sequential — timeout/leeg op Vercel)
-  const searched = queries.map((role) => `Indeed NL · ${role} ZZP`);
+  const suffix = huntSettings().requireContract ? " ZZP" : "";
+  const searched = queries.map((role) => `Indeed NL · ${role}${suffix}`);
   const startUrls = queries.map((role) => ({
-    url: `https://nl.indeed.com/jobs?q=${encodeURIComponent(`${role} ZZP`)}&l=Nederland`,
+    url: `https://nl.indeed.com/jobs?q=${encodeURIComponent(`${role}${suffix}`)}&l=Nederland`,
   }));
 
   try {
@@ -345,7 +335,7 @@ async function fetchFreelanceNlJobs(maxQueries = 2): Promise<{ jobs: BoardJob[];
   }
 
   const jobs: BoardJob[] = [];
-  const queries = BOARD_QUERIES.slice(0, maxQueries);
+  const queries = huntRoles().slice(0, maxQueries);
 
   for (const q of queries) {
     const url = `https://www.freelance.nl/opdrachten?zoekwoord=${encodeURIComponent(q)}`;
@@ -419,7 +409,7 @@ export async function syncJobBoards(opts?: {
         skipped: indeedIngest.skipped,
         searched: indeedSearched.length
           ? indeedSearched
-          : BOARD_QUERIES.slice(0, maxIndeedQ).map((q) => `Indeed NL · ${q} ZZP`),
+          : huntRoles().slice(0, maxIndeedQ).map((q) => `Indeed NL · ${q}`),
         hits: indeedIngest.hits,
       })
     : null;
@@ -455,7 +445,7 @@ export async function syncJobBoards(opts?: {
         fetched: flJobs.length,
         kept: flIngest.kept,
         skipped: flIngest.skipped,
-        searched: BOARD_QUERIES.slice(0, maxFl).map((q) => `Freelance.nl · ${q}`),
+        searched: huntRoles().slice(0, maxFl).map((q) => `Freelance.nl · ${q}`),
         hits: flIngest.hits,
       })
     : null;
@@ -469,7 +459,7 @@ export async function syncJobBoards(opts?: {
 
   return {
     mode,
-    queries: [...BOARD_QUERIES],
+    queries: [...huntRoles()],
     run: runs[0] || null,
     runs,
     errors,

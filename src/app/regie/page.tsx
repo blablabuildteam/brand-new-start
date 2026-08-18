@@ -2,8 +2,8 @@ import { Suspense } from "react";
 import RegieDesk from "./regie-desk";
 
 export const metadata = {
-  title: "Regie — vacature naar plaatsing",
-  description: "Hiring manager + drie ZZP’ers + berichten. Bench inwisselbaar per licentie.",
+  title: "Voorstel — Regie",
+  description: "Hiring manager + drie namen + bericht. Jij verstuurt.",
 };
 
 export default function RegiePage() {
