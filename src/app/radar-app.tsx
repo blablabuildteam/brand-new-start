@@ -419,9 +419,9 @@ function HiringManagerBlock({
             onClick={hunt}
             className="rounded-[var(--radius)] border border-[var(--line)] bg-[var(--surface-2)] px-3 py-1.5 text-xs font-semibold text-[var(--ink)] disabled:opacity-50"
           >
-            {busy ? "Zoeken…" : "Zoek 3 mensen"}
+            {busy ? "Zoeken…" : "Zoek 3 managers"}
           </button>
-          <span className="text-[0.68rem] text-[var(--muted)]">≈ €0,10</span>
+          <span className="text-[0.68rem] text-[var(--muted)]">om te berichten · ≈ €0,10</span>
         </div>
       ) : null}
       {err ? <p className="mt-1 text-[0.75rem] text-[var(--warn)]">{err}</p> : null}

@@ -242,10 +242,10 @@ export const SYNC_COST_PER_RUN = {
       what: "LinkedIn + Indeed + Freelance.nl (careers apart)",
     },
     "hm-search": {
-      label: "Zoek 3 mensen",
+      label: "Zoek 3 managers",
       tool: "Apify",
       eur: { low: 0.1, high: 0.4 },
-      what: "1 LinkedIn people-pagina · max 8 hits · top 3",
+      what: "1 LinkedIn people-pagina · top 3 hiring managers om te berichten",
     },
   },
 } as const;

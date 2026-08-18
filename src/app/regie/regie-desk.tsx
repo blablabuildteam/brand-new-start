@@ -326,10 +326,10 @@ export default function RegieDesk({
                       onClick={() => void huntHm()}
                       className="rounded-md bg-[var(--ink)] px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
                     >
-                      {huntBusy ? "Zoeken…" : "Zoek 3 mensen"}
+                      {huntBusy ? "Zoeken…" : "Zoek 3 managers"}
                     </button>
                     <p className="text-[0.72rem] text-[var(--muted)]">
-                      {huntErr || "People search bij dit bedrijf · ≈ €0,10"}
+                      {huntErr || "Namen om te berichten · ≈ €0,10"}
                     </p>
                   </div>
                 ) : null}
