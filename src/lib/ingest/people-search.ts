@@ -1,6 +1,6 @@
 import { hasApifyToken, runApifyActor } from "@/lib/apify";
-import { hmSearchPlan, rankHmCandidates, type HmCandidate } from "@/lib/hm-hunt";
-import { linkedinCompanyQuery, linkedinCompanySlug } from "@/lib/approach";
+import { hmSearchPlan, rankHmCandidates, sameEmployer, type HmCandidate } from "@/lib/hm-hunt";
+import { linkedinCompanyUrls } from "@/lib/approach";
 import { INGEST_POLICY } from "@/lib/costs";
 
 const PEOPLE_ACTOR =
@@ -14,6 +14,12 @@ export type PeopleSearchInput = {
   sector?: string | null;
   companyLinkedinUrl?: string | null;
 };
+
+function str(v: unknown): string | null {
+  if (typeof v !== "string") return null;
+  const s = v.replace(/\s+/g, " ").trim();
+  return s.length >= 2 ? s : null;
+}
 
 function personName(item: Record<string, unknown>): string | null {
   const full = typeof item.fullName === "string" ? item.fullName : typeof item.name === "string" ? item.name : "";
@@ -36,9 +42,9 @@ function titleFromUnknown(v: unknown): string | null {
 
 function personTitle(item: Record<string, unknown>): string | null {
   return (
-    titleFromUnknown(item.headline) ||
     titleFromUnknown(item.currentPosition) ||
     titleFromUnknown(item.jobTitle) ||
+    titleFromUnknown(item.headline) ||
     titleFromUnknown(item.experience)
   );
 }
@@ -55,6 +61,43 @@ function personUrl(item: Record<string, unknown>): string | null {
   return null;
 }
 
+function companyFromObject(v: unknown): string | null {
+  if (!v) return null;
+  if (typeof v === "string") return str(v);
+  if (Array.isArray(v)) return companyFromObject(v[0]);
+  if (typeof v === "object") {
+    const o = v as Record<string, unknown>;
+    return (
+      str(o.companyName) ||
+      str(o.company) ||
+      (typeof o.company === "object" && o.company ? str((o.company as { name?: unknown }).name) : null)
+    );
+  }
+  return null;
+}
+
+function personCurrentCompany(item: Record<string, unknown>, headline: string | null): string | null {
+  const fromPos = companyFromObject(item.currentPosition) || companyFromObject(item.currentCompany);
+  if (fromPos) return fromPos;
+  const exp = item.experience;
+  if (Array.isArray(exp)) {
+    for (const row of exp) {
+      if (!row || typeof row !== "object") continue;
+      const o = row as Record<string, unknown>;
+      const end = `${o.endDate || o.end || ""}`;
+      if (/present|huidig|now|current/i.test(end) || !end) {
+        const name = companyFromObject(o);
+        if (name) return name;
+      }
+    }
+  }
+  if (headline) {
+    const m = headline.match(/\s+(?:at|bij|@)\s+([^|•·\n]{2,80})$/i);
+    if (m?.[1]) return m[1].trim();
+  }
+  return null;
+}
+
 export async function searchHiringManagers(input: PeopleSearchInput): Promise<{
   people: HmCandidate[];
   plan: ReturnType<typeof hmSearchPlan>;
@@ -66,38 +109,47 @@ export async function searchHiringManagers(input: PeopleSearchInput): Promise<{
     return { people: [], plan, fetched: 0, detail: "no-apify-token" };
   }
 
-  const slug = linkedinCompanySlug(input.companyLinkedinUrl);
-  const companyQ = linkedinCompanyQuery(input.company);
-  const companyUrl = slug ? `https://www.linkedin.com/company/${slug}` : null;
-  const searchQuery = companyUrl ? plan.keywords : `${plan.keywords} "${companyQ}"`;
+  const companyUrls = linkedinCompanyUrls(input.company, input.companyLinkedinUrl);
+  if (!companyUrls.length) {
+    return { people: [], plan, fetched: 0, detail: "no-company-linkedin" };
+  }
 
   const actorInput: Record<string, unknown> = {
     profileScraperMode: "Short",
-    searchQuery,
+    searchQuery: plan.keywords,
     maxItems: INGEST_POLICY.hmSearchMax,
     takePages: 1,
     locations: ["Netherlands"],
+    currentCompanies: companyUrls,
   };
-  if (companyUrl) actorInput.currentCompanies = [companyUrl];
-  if (plan.mode === "title") actorInput.currentJobTitles = [plan.keywords];
 
   const { items } = await runApifyActor<Record<string, unknown>>(PEOPLE_ACTOR, actorInput, {
     waitSecs: 90,
   });
 
   const parsed = items
-    .map((item) => ({
-      name: personName(item) || "",
-      title: personTitle(item),
-      url: personUrl(item),
-      headline: typeof item.headline === "string" ? item.headline : null,
-    }))
+    .map((item) => {
+      const headline = typeof item.headline === "string" ? item.headline : null;
+      const company = personCurrentCompany(item, headline);
+      const alumni = Boolean(
+        headline && /\b(ex-|former|voorheen|previously|alumni)\b/i.test(headline)
+      );
+      const atCompany = Boolean(company && sameEmployer(company, input.company) && !alumni);
+      return {
+        name: personName(item) || "",
+        title: personTitle(item),
+        url: personUrl(item),
+        headline,
+        company,
+        atCompany,
+      };
+    })
     .filter((p) => p.name);
 
   return {
-    people: rankHmCandidates(parsed, plan),
+    people: rankHmCandidates(parsed, plan, input.company),
     plan,
     fetched: items.length,
-    detail: `actor=${PEOPLE_ACTOR} q=${searchQuery}`,
+    detail: `actor=${PEOPLE_ACTOR} q=${plan.keywords} companies=${companyUrls.join(",")}`,
   };
 }

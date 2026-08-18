@@ -63,17 +63,55 @@ export function linkedinCompanyQuery(name: string): string {
   return s;
 }
 
+const EXTRA_SLUGS: Record<string, string[]> = {
+  "nn group": ["nn-group", "nationale-nederlanden"],
+  nn: ["nn-group"],
+  "nationale nederlanden": ["nn-group", "nationale-nederlanden"],
+};
+
+function slugifyCompanyName(name: string): string {
+  return linkedinCompanyQuery(name)
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+}
+
+/** LinkedIn company-pagina’s om current-company te filteren (geen keyword-zoek op de naam). */
+export function linkedinCompanyUrls(name: string, knownUrl?: string | null): string[] {
+  const slugs: string[] = [];
+  const seen = new Set<string>();
+  const add = (slug: string) => {
+    const s = slug.replace(/^\/+|\/+$/g, "").toLowerCase();
+    if (!s || seen.has(s) || /^(jobs|search|feed|in|school)$/i.test(s)) return;
+    seen.add(s);
+    slugs.push(s);
+  };
+  const known = linkedinCompanySlug(knownUrl);
+  if (known) add(known);
+  const q = linkedinCompanyQuery(name).toLowerCase();
+  for (const extra of EXTRA_SLUGS[q] || []) add(extra);
+  const guessed = slugifyCompanyName(name);
+  if (guessed) add(guessed);
+  return slugs.map((s) => `https://www.linkedin.com/company/${s}`);
+}
+
 export function linkedinPeopleAtCompany(opts: {
   company: string;
   companyLinkedinUrl?: string | null;
   keywords: string;
 }): string {
   const keywords = opts.keywords.replace(/\s+/g, " ").trim();
+  const simple = keywords.replace(/[()"]/g, " ").replace(/\bOR\b/gi, " ").replace(/\s+/g, " ").trim();
+  const urls = linkedinCompanyUrls(opts.company, opts.companyLinkedinUrl);
+  const slug = urls[0] ? linkedinCompanySlug(urls[0]) : null;
+  if (slug) {
+    const base = `https://www.linkedin.com/company/${encodeURIComponent(slug)}/people/`;
+    return simple ? `${base}?keywords=${encodeURIComponent(simple)}` : base;
+  }
   const companyQ = linkedinCompanyQuery(opts.company);
-  const alreadyHasCompany = companyQ
-    ? keywords.toLowerCase().includes(companyQ.toLowerCase())
-    : false;
-  const q = [keywords, alreadyHasCompany ? "" : `"${companyQ}"`].filter(Boolean).join(" ");
+  const q = [simple, `"${companyQ}"`].filter(Boolean).join(" ");
   return (
     `https://www.linkedin.com/search/results/people/?keywords=${encodeURIComponent(q)}` +
     `&geoUrn=${encodeURIComponent(`["${NL_GEO}"]`)}&origin=FACETED_SEARCH`
@@ -128,7 +166,7 @@ export function buildApproach(opts: {
       targets.push({
         kind: "person",
         label: hit.name,
-        subtitle: hit.title || "Ook mogelijk",
+        subtitle: hit.title || (hit.company ? `bij ${hit.company}` : "Ook mogelijk"),
         url: linkedinPersonUrl({
           name: hit.name,
           company: opts.company,

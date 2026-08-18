@@ -6,6 +6,7 @@ import { orgContextFromSignals } from "@/lib/org-context";
 import { buildApproach, companyLinkedinFromSignals } from "@/lib/approach";
 import { searchHiringManagers } from "@/lib/ingest/people-search";
 import { recordSync } from "@/lib/sync-log";
+import { HM_SEARCH_VER } from "@/lib/hm-hunt";
 
 export const maxDuration = 120;
 
@@ -96,12 +97,13 @@ export async function POST(req: Request) {
       name: p.name,
       title: p.title,
       url: p.url,
+      company: p.company,
     }));
     const nextOrg = {
       ...org,
-      hiringManager: org.hiringManager || hmHits[0]!.name,
-      hiringManagerTitle: org.hiringManagerTitle || hmHits[0]!.title,
-      contactUrl: org.contactUrl || hmHits[0]!.url,
+      hiringManager: hmHits[0]!.name,
+      hiringManagerTitle: hmHits[0]!.title,
+      contactUrl: hmHits[0]!.url,
       hmHits,
     };
 
@@ -112,6 +114,7 @@ export async function POST(req: Request) {
         hiringManagerTitle: nextOrg.hiringManagerTitle,
         contactUrl: nextOrg.contactUrl,
         hmHits,
+        hmSearchVer: HM_SEARCH_VER,
       });
     }
 

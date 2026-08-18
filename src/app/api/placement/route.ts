@@ -22,6 +22,7 @@ export type DeskItem = {
   title: string;
   roleLabel: string;
   kans: number;
+  hmSearched?: boolean;
   proposal: PlacementProposal;
 };
 
@@ -70,6 +71,7 @@ export async function GET() {
         title: opening.openingTitle || opening.roleLabel,
         roleLabel: opening.roleLabel,
         kans: opening.kans,
+        hmSearched: Boolean(org.hmHits?.length),
         proposal: placementFromSignals({
           company: r.company.name,
           openingTitle: opening.openingTitle || opening.roleLabel,

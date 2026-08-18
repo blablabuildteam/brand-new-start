@@ -350,6 +350,7 @@ function HiringManagerBlock({
   const targets = openingApproach(company, opening, sector);
   if (!targets.length) return null;
   const needsHunt = targets[0]?.cta === "zoek";
+  const hunted = Boolean(openingOrg(opening).hmHits?.length);
 
   async function hunt() {
     setBusy(true);
@@ -358,7 +359,7 @@ function HiringManagerBlock({
       const res = await fetch("/api/hm-search", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ companyId, openingId: opening.id }),
+        body: JSON.stringify({ companyId, openingId: opening.id, force: hunted }),
       });
       const data = (await res.json()) as {
         error?: string;
@@ -371,7 +372,9 @@ function HiringManagerBlock({
         setErr(
           data.detail === "no-apify-token"
             ? "Geen Apify-token — gebruik Vind op LinkedIn."
-            : "Geen mensen gevonden. Probeer Vind op LinkedIn."
+            : data.detail === "no-company-linkedin"
+              ? "Geen LinkedIn-bedrijfspagina — gebruik Vind op LinkedIn."
+              : "Geen mensen gevonden die nu bij dit bedrijf werken."
         );
         return;
       }
@@ -411,7 +414,7 @@ function HiringManagerBlock({
           </li>
         ))}
       </ul>
-      {needsHunt ? (
+      {needsHunt || hunted ? (
         <div className="mt-2 flex flex-wrap items-center gap-2">
           <button
             type="button"
@@ -419,9 +422,11 @@ function HiringManagerBlock({
             onClick={hunt}
             className="rounded-[var(--radius)] border border-[var(--line)] bg-[var(--surface-2)] px-3 py-1.5 text-xs font-semibold text-[var(--ink)] disabled:opacity-50"
           >
-            {busy ? "Zoeken…" : "Zoek 3 managers"}
+            {busy ? "Zoeken…" : needsHunt ? "Zoek 3 managers" : "Opnieuw zoeken"}
           </button>
-          <span className="text-[0.68rem] text-[var(--muted)]">om te berichten · ≈ €0,10</span>
+          <span className="text-[0.68rem] text-[var(--muted)]">
+            {needsHunt ? "nu bij dit bedrijf · ≈ €0,10" : "≈ €0,10"}
+          </span>
         </div>
       ) : null}
       {err ? <p className="mt-1 text-[0.75rem] text-[var(--warn)]">{err}</p> : null}

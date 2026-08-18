@@ -7,6 +7,7 @@ export type HmHit = {
   name: string;
   title: string | null;
   url: string | null;
+  company?: string | null;
 };
 
 export type OrgContext = {
@@ -126,6 +127,7 @@ function parseHmHits(raw: Record<string, unknown>): HmHit[] {
       name,
       title: str(o.title),
       url: str(o.url),
+      company: str(o.company),
     });
   }
   return out;
@@ -149,14 +151,24 @@ function fromRaw(raw: Record<string, unknown> | null | undefined): OrgContext {
   const recruiter = isRecruiter(posterTitle);
   const managerish = Boolean(posterTitle && MANAGER_TITLE.test(posterTitle) && !recruiter);
   const storedMgr = str(r.hiringManager);
-  const hmHits = parseHmHits(r);
+  const allHits = parseHmHits(r);
+  const ver = typeof r.hmSearchVer === "number" ? r.hmSearchVer : Number(r.hmSearchVer) || 0;
+  const hmHits = ver >= 2 ? allHits : [];
+  const staleSearchName =
+    ver < 2 &&
+    allHits.length > 0 &&
+    storedMgr &&
+    allHits.some((h) => h.name.toLowerCase() === storedMgr.toLowerCase());
   const hit = hmHits[0];
 
   return {
     department,
-    hiringManager: storedMgr || (managerish ? posterName : null) || hit?.name || null,
-    hiringManagerTitle:
-      str(r.hiringManagerTitle) || (managerish ? posterTitle : null) || hit?.title || null,
+    hiringManager: staleSearchName
+      ? null
+      : storedMgr || (managerish ? posterName : null) || hit?.name || null,
+    hiringManagerTitle: staleSearchName
+      ? null
+      : str(r.hiringManagerTitle) || (managerish ? posterTitle : null) || hit?.title || null,
     contactName: recruiter || (!managerish && posterName && posterName !== storedMgr) ? posterName : null,
     contactTitle: recruiter || (!managerish && posterTitle) ? posterTitle : null,
     contactUrl: posterUrl || hit?.url || null,

@@ -24,13 +24,18 @@ export function isPublicSector(company: string, sector?: string | null): boolean
   return PUBLIC_SECTOR.test(`${company} ${sector || ""}`);
 }
 
+export const HM_SEARCH_VER = 2;
+
 export type HmSearchPlan = {
-  /** LinkedIn-zoekterm: een titel die mensen écht op hun profiel zetten. */
+  /** LinkedIn-zoekterm. Bedrijfsnaam hoort hier nooit in — dat treft alumni. */
   keywords: string;
   hint: string;
   mode: "title" | "department";
   department?: string | null;
 };
+
+const ROLE_STOP =
+  /^(business|analyst|analist|freelancer|freelance|zzp|interim|consultant|senior|medior|junior|contract|engineer|developer|specialist|the|and|voor|een|van|bij|met)$/i;
 
 function searchableDept(dept: string): string | null {
   const s = dept.trim();
@@ -39,9 +44,22 @@ function searchableDept(dept: string): string | null {
   return s;
 }
 
+/** “Hyper Automation” uit de vacaturetitel, niet “Business Analyst (Freelancer)”. */
+export function distinctiveTeam(openingTitle?: string, department?: string | null): string | null {
+  const dept = searchableDept(department || "");
+  if (dept) return dept;
+  const kept = (openingTitle || "")
+    .replace(/[()]/g, " ")
+    .split(/\s+/)
+    .map((w) => w.trim())
+    .filter((w) => w.length >= 3 && !ROLE_STOP.test(w));
+  if (!kept.length) return null;
+  return kept.join(" ").slice(0, 80);
+}
+
 /**
- * Zoekterm voor LinkedIn: altijd een functietitel, nooit een interne afdelingsnaam.
- * Afdeling is hint/ranking — “hyper automation” levert op LinkedIn bijna nooit hits.
+ * Zoek in het team + een manager-woord, of een beslisser-titel.
+ * Nooit de bedrijfsnaam — LinkedIn matcht die op oude werkgevers.
  */
 export function hmSearchPlan(opts: {
   company: string;
@@ -50,10 +68,10 @@ export function hmSearchPlan(opts: {
   department?: string | null;
   sector?: string | null;
 }): HmSearchPlan {
-  const dept = searchableDept(opts.department || "");
+  const team = distinctiveTeam(opts.openingTitle, opts.department);
   const family =
     detectFamily(`${opts.openingTitle || ""} ${opts.roleLabel}`) ||
-    detectFamily(dept || "");
+    detectFamily(team || "");
   const overheid = isPublicSector(opts.company, opts.sector);
   const title = family
     ? overheid
@@ -62,11 +80,19 @@ export function hmSearchPlan(opts: {
     : overheid
       ? "teamleider"
       : "manager";
+  if (team) {
+    return {
+      keywords: `"${team}" (manager OR lead OR head OR chapter OR owner)`,
+      hint: team,
+      mode: "department",
+      department: team,
+    };
+  }
   return {
     keywords: title,
-    hint: dept ? `${title} in ${dept}` : title,
+    hint: title,
     mode: "title",
-    department: dept,
+    department: null,
   };
 }
 
@@ -77,19 +103,16 @@ type WithOrg = {
   org: OrgContext;
 };
 
-/** Zelfde bedrijf, zelfde afdeling of rol-familie: hergebruik een bekende naam. */
+/** Zelfde bedrijf én dezelfde afdeling: hergebruik een bekende naam. */
 export function borrowHiringManager<T extends WithOrg>(openings: T[]): T[] {
   return openings.map((o) => {
     if (o.org.hiringManager) return o;
-    const family = detectFamily(`${o.openingTitle} ${o.roleLabel}`);
     const donor = openings.find((x) => {
       if (x.id === o.id || !x.org.hiringManager) return false;
-      const sameDept =
+      return (
         Boolean(x.org.department && o.org.department) &&
-        x.org.department!.toLowerCase() === o.org.department!.toLowerCase();
-      const donorFamily = detectFamily(`${x.openingTitle} ${x.roleLabel}`);
-      const sameFamily = Boolean(family && donorFamily && family === donorFamily);
-      return sameDept || sameFamily;
+        x.org.department!.toLowerCase() === o.org.department!.toLowerCase()
+      );
     });
     if (!donor) return o;
     return {
@@ -109,30 +132,86 @@ export type HmCandidate = {
   name: string;
   title: string | null;
   url: string | null;
+  company: string | null;
   score: number;
 };
 
 const DECIDER_HINT =
   /\b(manager|lead|director|head|hoofd|opdrachtgever|informatiemanager|owner|ciso|architect|chapter|tribe|delivery)\b/i;
 
+const COMPANY_CANON: Record<string, string> = {
+  nn: "nn",
+  "nn group": "nn",
+  "nationale nederlanden": "nn",
+  "nationale-nederlanden": "nn",
+};
+
+export function normalizeCompany(name: string): string {
+  return name
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\b(b\.?\s*v\.?|n\.?\s*v\.?|inc|ltd|groep|group|nederland|netherlands|the)\b/gi, " ")
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+export function companyCanon(name: string): string {
+  const raw = name.toLowerCase().replace(/[-_]/g, " ").replace(/\s+/g, " ").trim();
+  if (/\bnn\b/.test(raw) || /nationale nederlanden/.test(raw)) return "nn";
+  const n = normalizeCompany(name);
+  return COMPANY_CANON[n] || n;
+}
+
+export function sameEmployer(a: string | null | undefined, b: string | null | undefined): boolean {
+  if (!a || !b) return false;
+  const ca = companyCanon(a);
+  const cb = companyCanon(b);
+  if (!ca || !cb) return false;
+  if (ca === cb) return true;
+  if (ca.length >= 4 && cb.length >= 4 && (ca.includes(cb) || cb.includes(ca))) return true;
+  return false;
+}
+
+function looksLikeAlumni(text: string, targetCompany: string): boolean {
+  if (!/\b(ex-|former|voorheen|previously|alumni)\b/i.test(text)) return false;
+  const token = companyCanon(targetCompany).split(" ")[0];
+  return Boolean(token) && token.length >= 2 && text.toLowerCase().includes(token);
+}
+
 export function rankHmCandidates(
-  people: { name: string; title: string | null; url: string | null; headline?: string | null }[],
-  plan: HmSearchPlan
+  people: {
+    name: string;
+    title: string | null;
+    url: string | null;
+    headline?: string | null;
+    company?: string | null;
+    atCompany: boolean;
+  }[],
+  plan: HmSearchPlan,
+  companyName: string
 ): HmCandidate[] {
-  const needle = plan.keywords.toLowerCase();
   const dept = plan.department?.toLowerCase() || "";
   const ranked: HmCandidate[] = [];
   for (const p of people) {
+    if (!p.atCompany) continue;
     const title = `${p.title || ""} ${p.headline || ""}`.trim();
     if (/recruiter|talent acquisition|sourcer|werving|staffing|intercedent/i.test(title)) continue;
     if (!p.name || !p.name.includes(" ")) continue;
+    if (looksLikeAlumni(title, companyName)) continue;
     let score = 1;
     const hay = title.toLowerCase();
-    if (hay.includes(needle)) score += 40;
-    if (dept && hay.includes(dept)) score += 22;
+    if (dept && hay.includes(dept)) score += 36;
     if (DECIDER_HINT.test(title)) score += 18;
     if (p.url) score += 6;
-    ranked.push({ name: p.name, title: p.title, url: p.url, score });
+    ranked.push({
+      name: p.name,
+      title: p.title,
+      url: p.url,
+      company: p.company || null,
+      score,
+    });
   }
   ranked.sort((a, b) => b.score - a.score);
   const seen = new Set<string>();

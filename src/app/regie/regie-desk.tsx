@@ -14,6 +14,7 @@ type DeskItem = {
   title: string;
   roleLabel: string;
   kans: number;
+  hmSearched?: boolean;
   proposal: PlacementProposal;
 };
 
@@ -120,7 +121,7 @@ export default function RegieDesk({
     writeUrl(companyId, oid);
   }
 
-  async function huntHm() {
+  async function huntHm(force = false) {
     if (!item) return;
     setHuntBusy(true);
     setHuntErr("");
@@ -128,7 +129,7 @@ export default function RegieDesk({
       const res = await fetch("/api/hm-search", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ companyId: item.companyId, openingId: item.openingId }),
+        body: JSON.stringify({ companyId: item.companyId, openingId: item.openingId, force }),
       });
       const data = (await res.json()) as {
         error?: string;
@@ -143,7 +144,9 @@ export default function RegieDesk({
             ? "Geen Apify-token — gebruik Vind op LinkedIn."
             : data.detail === "demo"
               ? "Demo-opening — sync eerst echte kansen."
-              : "Geen mensen gevonden. Probeer Vind op LinkedIn."
+              : data.detail === "no-company-linkedin"
+                ? "Geen LinkedIn-bedrijfspagina — gebruik Vind op LinkedIn."
+                : "Geen mensen gevonden die nu bij dit bedrijf werken."
         );
         return;
       }
@@ -151,12 +154,13 @@ export default function RegieDesk({
       const companyId = item.companyId;
       const named = data.targets.find((t) => t.kind === "person" && t.cta === "bericht");
       const first = named?.label.split(/\s+/)[0];
-      setItems((rows) =>
-        rows.map((r) =>
-          r.openingId === openingId && r.companyId === companyId
-            ? {
-                ...r,
-                proposal: {
+        setItems((rows) =>
+          rows.map((r) =>
+            r.openingId === openingId && r.companyId === companyId
+              ? {
+                  ...r,
+                  hmSearched: true,
+                  proposal: {
                   ...r.proposal,
                   hiring: data.targets!,
                   hmMessage: first
@@ -323,14 +327,26 @@ export default function RegieDesk({
                     <button
                       type="button"
                       disabled={huntBusy}
-                      onClick={() => void huntHm()}
+                      onClick={() => void huntHm(false)}
                       className="rounded-md bg-[var(--ink)] px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
                     >
                       {huntBusy ? "Zoeken…" : "Zoek 3 managers"}
                     </button>
                     <p className="text-[0.72rem] text-[var(--muted)]">
-                      {huntErr || "Namen om te berichten · ≈ €0,10"}
+                      {huntErr || "Alleen mensen die nu bij dit bedrijf werken · ≈ €0,10"}
                     </p>
+                  </div>
+                ) : known && item.hmSearched && item.companyId !== "demo" ? (
+                  <div className="flex flex-wrap items-center gap-3 border-t border-[var(--line)]/70 px-5 py-3">
+                    <button
+                      type="button"
+                      disabled={huntBusy}
+                      onClick={() => void huntHm(true)}
+                      className="rounded-md border border-[var(--line)] bg-[var(--surface-2)] px-3 py-1.5 text-xs font-semibold text-[var(--ink)] disabled:opacity-50"
+                    >
+                      {huntBusy ? "Zoeken…" : "Opnieuw zoeken"}
+                    </button>
+                    <p className="text-[0.72rem] text-[var(--muted)]">{huntErr || "≈ €0,10"}</p>
                   </div>
                 ) : null}
               </section>
