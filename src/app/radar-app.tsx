@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { SourceLogo, SourceLogos, sourceChannelsFromRow } from "@/components/source-logo";
+import { ScoreChip } from "@/components/score-chip";
 import { BlablaLogo } from "@/components/blabla-logo";
 import { INGEST_POLICY, SYNC_COST_PER_RUN } from "@/lib/costs";
 import { orgContextFromSignals } from "@/lib/org-context";
@@ -123,21 +124,12 @@ const STATUS_HELP: Record<string, string> = {
   cold: "Zwak signaal — lage prioriteit, alleen meenemen als er niets beters is.",
 };
 
-const SCORE_MAX = 98;
-
 function cleanAngle(angle: string | null | undefined) {
   if (!angle) return null;
   if (/Pulse|employment-type/i.test(angle)) {
     return "Nog geen hard contract-bewijs in de tekst — check de vacature of wacht op een sterker signaal.";
   }
   return angle;
-}
-
-function scoreTone(kans: number) {
-  if (kans >= 75) return "hot";
-  if (kans >= 55) return "warm";
-  if (kans >= 35) return "watch";
-  return "cold";
 }
 
 const SYNC_ACTIVITY: Record<string, string> = {
@@ -207,29 +199,6 @@ function SyncStepVisual({ id, label }: { id: string; label: string }) {
     );
   }
   return <span className="font-medium">{label}</span>;
-}
-
-function ScoreChip({ kans, large }: { kans: number; large?: boolean }) {
-  const tone = scoreTone(kans);
-  const cls =
-    tone === "hot"
-      ? "border-[var(--green)]/40 bg-[var(--green-soft)] text-[var(--green)]"
-      : tone === "warm"
-        ? "border-[var(--accent)]/35 bg-[var(--accent-soft)] text-[var(--accent)]"
-        : "border-[var(--line)] bg-[var(--surface-2)] text-[var(--muted)]";
-  return (
-    <span
-      className={`inline-flex flex-col items-center justify-center rounded-md border ${cls} ${
-        large ? "min-w-[3.6rem] px-2.5 py-1.5" : "min-w-[2.8rem] px-2 py-1"
-      }`}
-      title={undefined}
-      data-tip={`Kans-score ${kans}/${SCORE_MAX} — som van factoren`}
-      style={{ fontFamily: "var(--mono)" }}
-    >
-      <span className={`font-semibold tabular-nums ${large ? "text-lg" : "text-sm"}`}>{kans}</span>
-      <span className="text-[0.58rem] opacity-80">/{SCORE_MAX}</span>
-    </span>
-  );
 }
 
 function timeAgo(iso: string) {

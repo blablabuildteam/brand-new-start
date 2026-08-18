@@ -1,19 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
 import { WorkspaceBar } from "@/components/workspace-bar";
+import { ScoreChip, SCORE_BAND, scoreTone } from "@/components/score-chip";
 import type { PlacementProposal } from "@/lib/placement";
 
-type RailItem = {
-  companyId: string;
-  openingId: string;
-  company: string;
-  title: string;
-  kans: number;
-};
-
-type OpeningMeta = {
+type DeskItem = {
   companyId: string;
   openingId: string;
   company: string;
@@ -21,13 +13,7 @@ type OpeningMeta = {
   title: string;
   roleLabel: string;
   kans: number;
-};
-
-type Payload = {
-  rail: RailItem[];
-  demo?: boolean;
-  opening: OpeningMeta | null;
-  proposal: PlacementProposal | null;
+  proposal: PlacementProposal;
 };
 
 const AVAIL = { nu: "Direct", "2w": "2 weken", "1m": "4 weken" } as const;
@@ -41,35 +27,17 @@ function initials(name: string) {
     .join("");
 }
 
-function usePlacement(id: string | null, opening: string | null) {
-  const [data, setData] = useState<Payload | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  useEffect(() => {
-    const q = new URLSearchParams();
-    if (id) q.set("id", id);
-    if (opening) q.set("opening", opening);
-    fetch(`/api/placement?${q}`)
-      .then(async (res) => {
-        if (res.status === 401) {
-          window.location.href = "/login?next=/regie";
-          return null;
-        }
-        if (!res.ok) throw new Error("niet gevonden");
-        return res.json() as Promise<Payload>;
-      })
-      .then((j) => {
-        if (j) {
-          setData(j);
-          setError(null);
-        }
-      })
-      .catch((e: unknown) => setError(e instanceof Error ? e.message : "fout"));
-  }, [id, opening]);
-  return { data, error };
+function hmKnown(proposal: PlacementProposal | null) {
+  return proposal?.hiring[0]?.cta === "bericht";
 }
 
-function groupRail(items: RailItem[]) {
-  const groups: { companyId: string; company: string; openings: RailItem[] }[] = [];
+function defaultTab(proposal: PlacementProposal | null): "hm" | string {
+  if (hmKnown(proposal)) return "hm";
+  return proposal?.shortlist[0]?.person.id || "hm";
+}
+
+function groupRail(items: DeskItem[]) {
+  const groups: { companyId: string; company: string; openings: DeskItem[] }[] = [];
   for (const item of items) {
     const last = groups[groups.length - 1];
     if (last && last.companyId === item.companyId) last.openings.push(item);
@@ -78,30 +46,64 @@ function groupRail(items: RailItem[]) {
   return groups;
 }
 
-export default function RegieDesk() {
-  const router = useRouter();
-  const params = useSearchParams();
-  const id = params.get("id");
-  const openingId = params.get("opening");
-  const { data, error } = usePlacement(id, openingId);
+function writeUrl(companyId: string, openingId: string) {
+  const url = `/regie?id=${encodeURIComponent(companyId)}&opening=${encodeURIComponent(openingId)}`;
+  window.history.replaceState(window.history.state, "", url);
+}
+
+export default function RegieDesk({
+  initialId,
+  initialOpening,
+}: {
+  initialId: string | null;
+  initialOpening: string | null;
+}) {
+  const [items, setItems] = useState<DeskItem[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [sel, setSel] = useState({ companyId: initialId, openingId: initialOpening });
   const [tab, setTab] = useState<"hm" | string>("hm");
   const [draft, setDraft] = useState("");
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
-    if (id || !data?.opening || data.opening.companyId === "demo") return;
-    router.replace(
-      `/regie?id=${encodeURIComponent(data.opening.companyId)}&opening=${encodeURIComponent(data.opening.openingId)}`
-    );
-  }, [id, data, router]);
+    fetch("/api/placement")
+      .then(async (res) => {
+        if (res.status === 401) {
+          window.location.href = "/login?next=/regie";
+          return null;
+        }
+        if (!res.ok) throw new Error("niet gevonden");
+        return res.json() as Promise<{ items: DeskItem[] }>;
+      })
+      .then((j) => {
+        if (!j) return;
+        setItems(j.items);
+        setError(null);
+      })
+      .catch((e: unknown) => setError(e instanceof Error ? e.message : "fout"))
+      .finally(() => setLoading(false));
+  }, []);
 
-  const proposal = data?.proposal ?? null;
-  const opening = data?.opening ?? null;
-  const groups = useMemo(() => groupRail(data?.rail || []), [data?.rail]);
+  const item =
+    items.find((i) => i.companyId === sel.companyId && i.openingId === sel.openingId) ||
+    items.find((i) => i.companyId === sel.companyId) ||
+    items[0] ||
+    null;
 
   useEffect(() => {
-    setTab("hm");
-  }, [opening?.openingId]);
+    if (!item) return;
+    if (sel.companyId === item.companyId && sel.openingId === item.openingId) return;
+    setSel({ companyId: item.companyId, openingId: item.openingId });
+    if (item.companyId !== "demo") writeUrl(item.companyId, item.openingId);
+  }, [item, sel.companyId, sel.openingId]);
+
+  const proposal = item?.proposal ?? null;
+  const groups = useMemo(() => groupRail(items), [items]);
+
+  useEffect(() => {
+    setTab(defaultTab(proposal));
+  }, [item?.openingId]);
 
   useEffect(() => {
     if (!proposal) return;
@@ -109,7 +111,8 @@ export default function RegieDesk() {
   }, [proposal, tab]);
 
   function select(companyId: string, oid: string) {
-    router.replace(`/regie?id=${encodeURIComponent(companyId)}&opening=${encodeURIComponent(oid)}`);
+    setSel({ companyId, openingId: oid });
+    writeUrl(companyId, oid);
   }
 
   async function copyDraft() {
@@ -123,6 +126,7 @@ export default function RegieDesk() {
   }
 
   const hm = proposal?.hiring[0];
+  const known = hmKnown(proposal);
   const linkedInUrl =
     tab === "hm" ? hm?.url : proposal?.shortlist.find((s) => s.person.id === tab)?.linkedinUrl;
 
@@ -134,30 +138,42 @@ export default function RegieDesk() {
         <aside className="radar-scroll-pane min-h-0">
           <div className="radar-scroll-pane__head">
             <p className="text-[0.68rem] font-medium uppercase tracking-[0.08em] text-[var(--muted)]">Openingen</p>
-            <p className="tabular-nums text-[0.68rem] text-[var(--muted)]">{data?.rail.length || 0}</p>
+            <p className="tabular-nums text-[0.68rem] text-[var(--muted)]">{items.length || 0}</p>
           </div>
           <div className="radar-scroll-pane__body !px-1.5">
             {groups.map((g) => {
-              const companyActive = opening?.companyId === g.companyId;
+              const companyActive = item?.companyId === g.companyId;
               return (
                 <div key={g.companyId} className="mb-3 last:mb-0">
                   <p className="px-2 pb-1 pt-1 text-[0.7rem] font-semibold text-[var(--ink)]">{g.company}</p>
                   <ul className="space-y-0.5">
                     {g.openings.map((r) => {
-                      const active = opening?.openingId === r.openingId && companyActive;
+                      const active = item?.openingId === r.openingId && companyActive;
                       return (
                         <li key={r.openingId}>
                           <button
                             type="button"
                             onClick={() => select(r.companyId, r.openingId)}
                             aria-current={active ? "true" : undefined}
-                            className={`w-full truncate rounded-md border px-2.5 py-1.5 text-left text-[0.78rem] transition ${
+                            className={`flex w-full items-center gap-2 rounded-md border px-2.5 py-1.5 text-left transition ${
                               active
-                                ? "border-[var(--accent)] bg-[var(--accent-soft)]/50 font-semibold text-[var(--ink)] shadow-[inset_3px_0_0_0_var(--accent)]"
-                                : "border-transparent text-[var(--muted)] hover:border-[var(--line)] hover:bg-[var(--surface-2)] hover:text-[var(--ink)]"
+                                ? "border-[var(--accent)] bg-[var(--accent-soft)]/50 shadow-[inset_3px_0_0_0_var(--accent)]"
+                                : "border-transparent hover:border-[var(--line)] hover:bg-[var(--surface-2)]"
                             }`}
                           >
-                            {r.title}
+                            <span
+                              className={`min-w-0 flex-1 truncate text-[0.78rem] ${
+                                active ? "font-semibold text-[var(--ink)]" : "text-[var(--muted)]"
+                              }`}
+                            >
+                              {r.title}
+                            </span>
+                            <span
+                              className="shrink-0 tabular-nums text-[0.65rem] text-[var(--muted)]"
+                              style={{ fontFamily: "var(--mono)" }}
+                            >
+                              {r.kans}
+                            </span>
                           </button>
                         </li>
                       );
@@ -171,71 +187,71 @@ export default function RegieDesk() {
 
         <main className="min-h-0 overflow-y-auto pb-6">
           {error ? <p className="text-sm text-[var(--warn)]">{error}</p> : null}
-          {!proposal || !opening ? (
+          {loading || !item || !proposal ? (
             <p className="text-sm text-[var(--muted)]">Laden…</p>
           ) : (
             <div className="flex flex-col gap-4">
-              <section className="animate-fade-in overflow-hidden rounded-md border border-[var(--line)] bg-[var(--surface)] px-5 py-4 shadow-[var(--shadow)]">
-                <p className="text-[0.68rem] uppercase tracking-[0.08em] text-[var(--muted)]">{opening.company}</p>
-                <div className="mt-1 flex flex-wrap items-end justify-between gap-3">
-                  <h1 className="text-2xl font-bold tracking-tight" style={{ fontFamily: "var(--display)" }}>
-                    {opening.title}
-                  </h1>
-                  <p className="tabular-nums text-sm text-[var(--muted)]">Kans {opening.kans}</p>
+              <section className="overflow-hidden rounded-md border border-[var(--line)] bg-[var(--surface)] px-5 py-4 shadow-[var(--shadow)]">
+                <p className="text-[0.68rem] uppercase tracking-[0.08em] text-[var(--muted)]">{item.company}</p>
+                <div className="mt-1 flex flex-wrap items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <h1 className="text-2xl font-bold tracking-tight" style={{ fontFamily: "var(--display)" }}>
+                      {item.title}
+                    </h1>
+                    {item.roleLabel && item.roleLabel !== item.title ? (
+                      <p className="mt-1 text-sm text-[var(--muted)]">{item.roleLabel}</p>
+                    ) : null}
+                  </div>
+                  <div className="flex items-center gap-2.5">
+                    <ScoreChip kans={item.kans} large />
+                    <p className="text-sm font-semibold text-[var(--ink)]">{SCORE_BAND[scoreTone(item.kans)]}</p>
+                  </div>
                 </div>
-                {opening.roleLabel && opening.roleLabel !== opening.title ? (
-                  <p className="mt-1 text-sm text-[var(--muted)]">{opening.roleLabel}</p>
-                ) : null}
               </section>
 
-              <section className="animate-fade-in overflow-hidden rounded-md border border-[var(--line)] bg-[var(--surface)] shadow-[var(--shadow)]" style={{ animationDelay: "40ms" }}>
+              <section className="overflow-hidden rounded-md border border-[var(--line)] bg-[var(--surface)] shadow-[var(--shadow)]">
                 <div className="border-b border-[var(--line)]/80 px-5 py-2.5">
                   <p className="text-[0.68rem] uppercase tracking-[0.08em] text-[var(--muted)]">Hiring manager</p>
                 </div>
-                {proposal.hiring.slice(0, 1).map((t) => {
-                  const on = tab === "hm";
-                  return (
-                    <div key={t.label} className="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
-                      <button type="button" onClick={() => setTab("hm")} className="flex min-w-0 items-center gap-3 text-left">
-                        <span
-                          className={`grid h-10 w-10 shrink-0 place-items-center rounded-md text-xs font-semibold ${
-                            on ? "bg-[var(--accent)] text-white" : "bg-[var(--accent-soft)] text-[var(--accent)]"
-                          }`}
-                        >
-                          {initials(t.label) || "HM"}
-                        </span>
-                        <span className="min-w-0">
-                          <span className="block text-sm font-semibold text-[var(--ink)]">{t.label}</span>
-                          {t.subtitle ? <span className="block text-[0.78rem] text-[var(--muted)]">{t.subtitle}</span> : null}
-                        </span>
-                      </button>
-                      <div className="flex items-center gap-2">
+                {proposal.hiring.slice(0, 1).map((t) => (
+                  <div key={t.label} className="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
+                    <div className="flex min-w-0 items-center gap-3">
+                      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-md bg-[var(--accent-soft)] text-xs font-semibold text-[var(--accent)]">
+                        {known ? initials(t.label) : "?"}
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block text-sm font-semibold text-[var(--ink)]">{t.label}</span>
+                        {t.subtitle ? <span className="block text-[0.78rem] text-[var(--muted)]">{t.subtitle}</span> : null}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {known ? (
                         <button
                           type="button"
                           onClick={() => setTab("hm")}
                           className={`rounded-md border px-3 py-1.5 text-xs font-semibold ${
-                            on
+                            tab === "hm"
                               ? "border-[var(--ink)] bg-[var(--ink)] text-white"
                               : "border-[var(--line)] bg-[var(--surface)] text-[var(--ink)] hover:border-[var(--accent)]/40"
                           }`}
                         >
                           Bericht
                         </button>
-                        <a
-                          href={t.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="rounded-md border border-[var(--line)] bg-[var(--surface-2)] px-3 py-1.5 text-xs font-semibold text-[var(--ink)] no-underline hover:border-[var(--accent)]/40"
-                        >
-                          {t.cta === "bericht" ? "LinkedIn" : "Vind op LinkedIn"}
-                        </a>
-                      </div>
+                      ) : null}
+                      <a
+                        href={t.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="rounded-md border border-[var(--line)] bg-[var(--surface-2)] px-3 py-1.5 text-xs font-semibold text-[var(--ink)] no-underline hover:border-[var(--accent)]/40"
+                      >
+                        {known ? "LinkedIn" : "Vind op LinkedIn"}
+                      </a>
                     </div>
-                  );
-                })}
+                  </div>
+                ))}
               </section>
 
-              <section className="animate-fade-in" style={{ animationDelay: "80ms" }}>
+              <section>
                 <p className="mb-2 text-[0.68rem] uppercase tracking-[0.08em] text-[var(--muted)]">Voorstel</p>
                 <ol className="grid gap-3 md:grid-cols-3">
                   {proposal.shortlist.map((s, i) => {
@@ -280,24 +296,23 @@ export default function RegieDesk() {
                 </ol>
               </section>
 
-              <section
-                className="animate-fade-in overflow-hidden rounded-md border border-[var(--line)] bg-[var(--surface)] shadow-[var(--shadow)]"
-                style={{ animationDelay: "120ms" }}
-              >
+              <section className="overflow-hidden rounded-md border border-[var(--line)] bg-[var(--surface)] shadow-[var(--shadow)]">
                 <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--line)]/80 px-5 py-2.5">
                   <p className="text-[0.68rem] uppercase tracking-[0.08em] text-[var(--muted)]">Bericht</p>
                   <div className="flex flex-wrap gap-1">
-                    <button
-                      type="button"
-                      onClick={() => setTab("hm")}
-                      className={`rounded-md px-2.5 py-1 text-xs font-semibold ${
-                        tab === "hm"
-                          ? "bg-[var(--ink)] text-white"
-                          : "text-[var(--muted)] hover:bg-[var(--surface-2)] hover:text-[var(--ink)]"
-                      }`}
-                    >
-                      Manager
-                    </button>
+                    {known ? (
+                      <button
+                        type="button"
+                        onClick={() => setTab("hm")}
+                        className={`rounded-md px-2.5 py-1 text-xs font-semibold ${
+                          tab === "hm"
+                            ? "bg-[var(--ink)] text-white"
+                            : "text-[var(--muted)] hover:bg-[var(--surface-2)] hover:text-[var(--ink)]"
+                        }`}
+                      >
+                        Manager
+                      </button>
+                    ) : null}
                     {proposal.candidateMessages.map((m) => (
                       <button
                         key={m.id}
