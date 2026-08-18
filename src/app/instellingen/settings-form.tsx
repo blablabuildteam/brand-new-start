@@ -116,7 +116,7 @@ export default function SettingsForm() {
             <div className="flex flex-wrap items-center gap-3">
               <button
                 type="submit"
-                className="rounded-[var(--radius)] bg-[var(--ink)] px-4 py-2 text-sm font-semibold text-white"
+                className="rounded-[var(--radius)] bg-[var(--ink)] px-4 py-2 text-sm font-semibold text-white hover:bg-[#152536]"
               >
                 Opslaan
               </button>

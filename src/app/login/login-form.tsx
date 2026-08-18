@@ -79,7 +79,7 @@ export default function LoginForm() {
         <button
           type="submit"
           disabled={loading}
-          className="w-full rounded-[var(--radius)] border border-[var(--accent)] bg-gradient-to-b from-[var(--accent-bright)] to-[var(--accent)] px-4 py-2.5 text-sm font-semibold text-white shadow-[0_2px_10px_-3px_rgba(0,121,193,0.55)] disabled:opacity-60"
+          className="w-full rounded-[var(--radius)] border border-[var(--accent)] bg-gradient-to-b from-[var(--accent-bright)] to-[var(--accent)] px-4 py-2.5 text-sm font-semibold text-white shadow-[0_2px_10px_-3px_rgba(0,121,193,0.55)] hover:from-[#1a9adb] hover:to-[#006eaf] disabled:opacity-60"
         >
           {loading ? "Bezig…" : "Naar radar"}
         </button>
@@ -88,7 +88,7 @@ export default function LoginForm() {
           href="https://blablabuild.com"
           target="_blank"
           rel="noopener noreferrer"
-          className="mt-5 flex items-center justify-center gap-2 text-[0.7rem] text-[var(--muted)] no-underline hover:text-[var(--ink)]"
+          className="mt-5 flex items-center justify-center gap-2 text-[0.7rem] text-[var(--muted)] no-underline hover:text-[var(--ink)] hover:underline"
         >
           <span>Gebouwd door</span>
           <BlablaLogo className="h-4 w-4" />

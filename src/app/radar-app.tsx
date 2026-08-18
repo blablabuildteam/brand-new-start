@@ -410,7 +410,7 @@ function HiringManagerBlock({
             type="button"
             disabled={busy}
             onClick={hunt}
-            className="rounded-[var(--radius)] border border-[var(--line)] bg-[var(--surface)] px-2.5 py-1 text-xs font-medium text-[var(--ink)] hover:border-[var(--ink)]/25 disabled:opacity-50"
+            className="rounded-[var(--radius)] border border-[var(--line)] bg-[var(--surface)] px-2.5 py-1 text-xs font-medium text-[var(--ink)] hover:border-[var(--accent)]/40 hover:bg-[var(--surface-2)] disabled:opacity-50"
           >
             {busy ? "Zoeken…" : "Zoek 3 namen"}
           </button>
@@ -423,7 +423,7 @@ function HiringManagerBlock({
                   href={search.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-[var(--muted)] no-underline hover:text-[var(--ink)] hover:underline"
+                  className="text-[var(--muted)] no-underline hover:text-[var(--accent)] hover:underline"
                 >
                   LinkedIn
                 </a>
@@ -444,7 +444,7 @@ function HiringManagerBlock({
                   href={t.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="shrink-0 text-xs font-semibold no-underline hover:underline"
+                  className="shrink-0 text-xs font-semibold text-[var(--accent)] no-underline hover:text-[var(--ink)] hover:underline"
                 >
                   {targetAction(t)}
                 </a>
@@ -457,7 +457,7 @@ function HiringManagerBlock({
                 type="button"
                 disabled={busy}
                 onClick={hunt}
-                className="font-medium text-[var(--ink)] disabled:opacity-50"
+                className="font-medium text-[var(--ink)] hover:text-[var(--accent)] hover:underline disabled:opacity-50"
               >
                 {busy ? "Zoeken…" : "Opnieuw zoeken"}
               </button>
@@ -998,13 +998,13 @@ export default function RadarApp() {
           <div className="relative flex items-center gap-2" ref={menuRef}>
             <a
               href="/instellingen"
-              className="hidden text-xs font-semibold text-[var(--ink)] no-underline hover:underline sm:inline"
+              className="hidden text-xs font-semibold text-[var(--ink)] no-underline hover:text-[var(--accent)] hover:underline sm:inline"
             >
               Instellingen
             </a>
             <a
               href="/regie"
-              className="hidden text-xs font-semibold text-[var(--ink)] no-underline hover:underline sm:inline"
+              className="hidden text-xs font-semibold text-[var(--ink)] no-underline hover:text-[var(--accent)] hover:underline sm:inline"
             >
               Voorstel
             </a>
@@ -1745,14 +1745,14 @@ export default function RadarApp() {
                             href={evidence.evidenceUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="no-underline hover:underline"
+                            className="text-[var(--accent)] no-underline hover:text-[var(--ink)] hover:underline"
                           >
                             Vacature
                           </a>
                         ) : null}
                         <a
                           href={`/regie?id=${encodeURIComponent(active.id)}&opening=${encodeURIComponent(o.id)}`}
-                          className="no-underline hover:underline"
+                          className="text-[var(--accent)] no-underline hover:text-[var(--ink)] hover:underline"
                         >
                           Voorstel
                         </a>

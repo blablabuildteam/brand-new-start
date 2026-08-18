@@ -41,7 +41,7 @@ export function WorkspaceBar({ current }: { current: (typeof LINKS)[number]["id"
         </div>
         <nav className="flex items-center gap-4 text-xs font-semibold">
           {LINKS.filter((l) => l.id !== current).map((l) => (
-            <Link key={l.id} href={l.href} className="text-[var(--muted)] no-underline hover:text-[var(--ink)]">
+            <Link key={l.id} href={l.href} className="text-[var(--muted)] no-underline hover:text-[var(--accent)] hover:underline">
               {l.label}
             </Link>
           ))}
