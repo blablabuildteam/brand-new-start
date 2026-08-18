@@ -3,6 +3,7 @@ import { ingestSignal } from "@/lib/store";
 import { INGEST_POLICY } from "@/lib/costs";
 import { enabledPlatforms, type PlatformTarget } from "@/lib/platforms";
 import { recordSync, type SyncHit } from "@/lib/sync-log";
+import { extractOrgContext, orgContextToRaw } from "@/lib/org-context";
 
 /**
  * Firecrawl = open web (careers pages). Not for LinkedIn.
@@ -95,15 +96,23 @@ export async function scrapeCareersWithFirecrawl(
       const title =
         data.data?.metadata?.title || `${detectRoleLabel(md)} — ${company} careers`;
 
+      const org = extractOrgContext({ text: md, raw: {} });
       const result = await ingestSignal({
         source: "job-type",
         company,
         title: title.slice(0, 180),
-        summary: md.slice(0, 320),
+        summary: md.slice(0, 480),
         evidenceUrl: url,
         employmentHint: "contract",
         sector: platform?.sector,
-        raw: { firecrawl: true, channel: "firecrawl-careers", platformId: platform?.id, url },
+        raw: {
+          firecrawl: true,
+          channel: "firecrawl-careers",
+          platformId: platform?.id,
+          url,
+          description: md.slice(0, 2500),
+          ...orgContextToRaw(org),
+        },
       });
       const ok = Boolean(result.ok);
       if (ok) kept += 1;

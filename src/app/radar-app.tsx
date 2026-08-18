@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { SourceLogo, SourceLogos, sourceChannelsFromRow } from "@/components/source-logo";
 import { BlablaLogo } from "@/components/blabla-logo";
 import { INGEST_POLICY, SYNC_COST_PER_RUN } from "@/lib/costs";
+import { orgContextFromSignals } from "@/lib/org-context";
 
 type Factor = { label: string; points: number; source?: string };
 type Signal = {
@@ -23,6 +24,14 @@ type Signal = {
   channelLabel?: string;
   raw?: Record<string, unknown> | null;
 };
+type OrgContext = {
+  department: string | null;
+  hiringManager: string | null;
+  hiringManagerTitle: string | null;
+  contactName: string | null;
+  contactTitle: string | null;
+  contactUrl: string | null;
+};
 type Opening = {
   id: string;
   roleLabel: string;
@@ -33,6 +42,7 @@ type Opening = {
   sources: string[];
   factors: Factor[];
   signals: Signal[];
+  org?: OrgContext;
 };
 type RadarRow = {
   id: string;
@@ -315,6 +325,27 @@ function rowMeta(r: RadarRow) {
     else if (postedRaw.length < 40) postedLabel = postedRaw;
   }
   return { logo, applicants, postedLabel };
+}
+
+function openingOrg(o: { org?: OrgContext; signals: Signal[] }): OrgContext {
+  if (o.org && (o.org.department || o.org.hiringManager || o.org.contactName)) return o.org;
+  return orgContextFromSignals(o.signals);
+}
+
+function OrgLine({ org }: { org: OrgContext }) {
+  const bits: string[] = [];
+  if (org.department) bits.push(org.department);
+  if (org.hiringManager) {
+    bits.push(
+      org.hiringManagerTitle ? `${org.hiringManager} · ${org.hiringManagerTitle}` : org.hiringManager
+    );
+  } else if (org.contactName) {
+    bits.push(
+      org.contactTitle ? `${org.contactName} · ${org.contactTitle}` : org.contactName
+    );
+  }
+  if (!bits.length) return null;
+  return <span>{bits.join(" · ")}</span>;
 }
 
 const EMPLOYMENT_NL: Record<string, string> = {
@@ -1344,6 +1375,7 @@ export default function RadarApp() {
                     const employment = rowEmployment(r);
                     const fresh = isFresh(r, freshSince);
                     const meta = rowMeta(r);
+                    const org = openingOrg(r.openings?.[0] || { signals: r.signals });
                     return (
                       <li key={r.id} className="animate-fade-in" style={{ animationDelay: `${Math.min(idx, 12) * 30}ms` }}>
                         <button
@@ -1403,6 +1435,11 @@ export default function RadarApp() {
                               {r.roleLabel}
                               {r.company.sector ? ` · ${r.company.sector}` : ""}
                             </span>
+                            {org.department || org.hiringManager || org.contactName ? (
+                              <span className="mt-0.5 block text-[0.75rem] text-[var(--ink)]/70">
+                                <OrgLine org={org} />
+                              </span>
+                            ) : null}
                             <span className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[0.7rem] text-[var(--muted)]">
                               <span>{STATUS_NL[r.status] || r.status}</span>
                               {employment ? <span>· {employment}</span> : null}
@@ -1482,6 +1519,7 @@ export default function RadarApp() {
                     ]
                 ).map((o) => {
                   const oMeta = rowMeta({ ...active, signals: o.signals });
+                  const org = openingOrg(o);
                   return (
                     <div
                       key={o.id}
@@ -1506,6 +1544,62 @@ export default function RadarApp() {
                         </div>
                         <ScoreChip kans={o.kans} />
                       </div>
+
+                      {org.department || org.hiringManager || org.contactName ? (
+                        <dl className="mt-4 grid gap-2 text-sm sm:grid-cols-2">
+                          {org.department ? (
+                            <div>
+                              <dt className="text-[0.65rem] uppercase tracking-wide text-[var(--muted)]">
+                                Afdeling
+                              </dt>
+                              <dd className="mt-0.5 font-medium text-[var(--ink)]">{org.department}</dd>
+                            </div>
+                          ) : null}
+                          {org.hiringManager ? (
+                            <div>
+                              <dt className="text-[0.65rem] uppercase tracking-wide text-[var(--muted)]">
+                                Manager
+                              </dt>
+                              <dd className="mt-0.5 font-medium text-[var(--ink)]">
+                                {org.hiringManager}
+                                {org.hiringManagerTitle ? (
+                                  <span className="font-normal text-[var(--muted)]">
+                                    {" "}
+                                    · {org.hiringManagerTitle}
+                                  </span>
+                                ) : null}
+                              </dd>
+                            </div>
+                          ) : null}
+                          {org.contactName ? (
+                            <div>
+                              <dt className="text-[0.65rem] uppercase tracking-wide text-[var(--muted)]">
+                                Geplaatst door
+                              </dt>
+                              <dd className="mt-0.5 font-medium text-[var(--ink)]">
+                                {org.contactUrl ? (
+                                  <a
+                                    href={org.contactUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="font-medium no-underline hover:underline"
+                                  >
+                                    {org.contactName}
+                                  </a>
+                                ) : (
+                                  org.contactName
+                                )}
+                                {org.contactTitle ? (
+                                  <span className="font-normal text-[var(--muted)]">
+                                    {" "}
+                                    · {org.contactTitle}
+                                  </span>
+                                ) : null}
+                              </dd>
+                            </div>
+                          ) : null}
+                        </dl>
+                      ) : null}
 
                       {cleanAngle(o.angle) ? (
                         <p className="mt-3 border-l-2 border-[var(--accent)] pl-3 text-sm leading-relaxed text-[var(--ink)]">

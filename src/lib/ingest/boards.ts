@@ -8,6 +8,7 @@ import { detectRoleLabel, matchesContract, matchesRole } from "@/lib/niche";
 import { ingestSignal } from "@/lib/store";
 import { recordSync, type SyncChannel, type SyncHit } from "@/lib/sync-log";
 import { INGEST_POLICY } from "@/lib/costs";
+import { extractOrgContext, orgContextToRaw } from "@/lib/org-context";
 
 const INDEED_ACTOR = process.env.APIFY_INDEED_ACTOR || "misceres/indeed-scraper";
 
@@ -36,6 +37,9 @@ type BoardJob = {
   postedAt?: string;
   applicants?: number | null;
   companyLogo?: string | null;
+  jobPosterName?: string | null;
+  jobPosterTitle?: string | null;
+  department?: string | null;
 };
 
 async function ingestBoardJobs(jobs: BoardJob[]) {
@@ -60,11 +64,20 @@ async function ingestBoardJobs(jobs: BoardJob[]) {
       continue;
     }
 
+    const org = extractOrgContext({
+      text: blob,
+      raw: {
+        jobPosterName: job.jobPosterName,
+        jobPosterTitle: job.jobPosterTitle,
+        department: job.department,
+      },
+    });
+
     const result = await ingestSignal({
       source: "job-type",
       company: job.company,
       title: job.title,
-      summary: (job.description || job.title).slice(0, 320),
+      summary: (job.description || job.title).slice(0, 480),
       evidenceUrl: job.url,
       employmentHint: "contract",
       sector: job.location,
@@ -76,6 +89,10 @@ async function ingestBoardJobs(jobs: BoardJob[]) {
         postedAt: job.postedAt || null,
         applicants: job.applicants ?? null,
         companyLogo: job.companyLogo || null,
+        description: (job.description || "").slice(0, 2500) || null,
+        jobPosterName: job.jobPosterName || null,
+        jobPosterTitle: job.jobPosterTitle || null,
+        ...orgContextToRaw(org),
       },
     });
     const ok = Boolean(result.ok);
@@ -127,6 +144,9 @@ function normalizeIndeedItem(item: Record<string, unknown>): BoardJob | null {
     postedAt: String(item.postedAt || item.postingDateParsed || item.pubDate || "") || undefined,
     applicants,
     companyLogo: logo.startsWith("http") ? logo : null,
+    jobPosterName: String(item.recruiter || item.hiringManager || item.postedBy || "") || null,
+    jobPosterTitle: String(item.recruiterTitle || "") || null,
+    department: String(item.department || "") || null,
   };
 }
 

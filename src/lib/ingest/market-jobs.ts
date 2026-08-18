@@ -3,6 +3,7 @@ import { matchesContract, matchesRole, detectRoleLabel } from "@/lib/niche";
 import { ingestSignal } from "@/lib/store";
 import { recordSync, type SyncHit } from "@/lib/sync-log";
 import { INGEST_POLICY } from "@/lib/costs";
+import { extractOrgContext, orgContextToRaw } from "@/lib/org-context";
 
 const JOBS_ACTOR =
   process.env.APIFY_JOBS_ACTOR || "curious_coder/linkedin-jobs-scraper";
@@ -17,6 +18,11 @@ export type MarketJob = {
   postedAt?: string;
   applicants?: number | null;
   companyLogo?: string | null;
+  jobPosterName?: string | null;
+  jobPosterTitle?: string | null;
+  jobPosterProfileUrl?: string | null;
+  jobFunction?: string | null;
+  department?: string | null;
 };
 
 function parseApplicants(item: Record<string, unknown>): number | null {
@@ -92,6 +98,16 @@ function normalizeJobItem(item: Record<string, unknown>): MarketJob | null {
       undefined,
     applicants: parseApplicants(item),
     companyLogo: parseLogo(item),
+    jobPosterName:
+      (item.jobPosterName as string) ||
+      (item.posterName as string) ||
+      (item.postedBy as string) ||
+      null,
+    jobPosterTitle: (item.jobPosterTitle as string) || (item.posterTitle as string) || null,
+    jobPosterProfileUrl:
+      (item.jobPosterProfileUrl as string) || (item.posterProfileUrl as string) || null,
+    jobFunction: (item.jobFunction as string) || null,
+    department: (item.department as string) || (item.jobDepartment as string) || null,
   };
 }
 
@@ -167,11 +183,22 @@ export async function ingestMarketJobs(
       continue;
     }
 
+    const org = extractOrgContext({
+      text: blob,
+      raw: {
+        jobPosterName: job.jobPosterName,
+        jobPosterTitle: job.jobPosterTitle,
+        jobPosterProfileUrl: job.jobPosterProfileUrl,
+        jobFunction: job.jobFunction,
+        department: job.department,
+      },
+    });
+
     const result = await ingestSignal({
       source: "job-type",
       company: job.company,
       title: job.title,
-      summary: (job.description || job.title).slice(0, 320),
+      summary: (job.description || job.title).slice(0, 480),
       evidenceUrl: job.url,
       employmentHint: "contract",
       sector: job.location,
@@ -184,6 +211,12 @@ export async function ingestMarketJobs(
         applicants: job.applicants ?? null,
         companyLogo: job.companyLogo || null,
         employmentType: job.employmentType || null,
+        description: (job.description || "").slice(0, 2500) || null,
+        jobPosterName: job.jobPosterName || null,
+        jobPosterTitle: job.jobPosterTitle || null,
+        jobPosterProfileUrl: job.jobPosterProfileUrl || null,
+        jobFunction: job.jobFunction || null,
+        ...orgContextToRaw(org),
       },
     });
     const ok = Boolean(result.ok);
