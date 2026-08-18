@@ -336,7 +336,6 @@ function HiringManagerBlock({
   sector,
   companyId,
   opening,
-  deskHref,
   onOrg,
 }: {
   company: string;
@@ -349,7 +348,6 @@ function HiringManagerBlock({
     org?: OrgContext;
     signals: Signal[];
   };
-  deskHref: string;
   onOrg?: (openingId: string, org: OrgContext) => void;
 }) {
   const [busy, setBusy] = useState(false);
@@ -396,67 +394,78 @@ function HiringManagerBlock({
   }
 
   return (
-    <div className="mt-4">
-      <p className="text-[0.65rem] uppercase tracking-[0.08em] text-[var(--muted)]">Manager</p>
+    <div className="mt-4 border-t border-[var(--line)]/70 pt-3">
+      <div className="flex items-baseline justify-between gap-3">
+        <p className="text-[0.65rem] uppercase tracking-[0.08em] text-[var(--muted)]">Manager</p>
+        {needsHunt ? (
+          <p className="text-[0.78rem] text-[var(--muted)]">
+            Onbekend
+            {search?.subtitle ? ` · ${search.subtitle}` : ""}
+          </p>
+        ) : null}
+      </div>
       {needsHunt ? (
-        <p className="mt-1.5 text-sm text-[var(--ink)]">
-          <span className="font-semibold">Nog niet bekend</span>
-          {search?.subtitle ? (
-            <span className="text-[var(--muted)]"> · {search.subtitle}</span>
-          ) : null}
-        </p>
-      ) : (
-        <ul className="mt-1.5 space-y-1">
-          {people.map((t) => (
-            <li key={`${t.kind}-${t.label}`} className="flex items-baseline justify-between gap-3">
-              <p className="min-w-0 truncate text-sm">
-                <span className="font-semibold text-[var(--ink)]">{t.label}</span>
-                {t.subtitle ? <span className="text-[var(--muted)]"> · {t.subtitle}</span> : null}
-              </p>
-              <a
-                href={t.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="shrink-0 text-xs font-semibold no-underline hover:underline"
-              >
-                {targetAction(t)}
-              </a>
-            </li>
-          ))}
-        </ul>
-      )}
-      <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
-        {needsHunt || hunted ? (
+        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5">
           <button
             type="button"
             disabled={busy}
             onClick={hunt}
-            className={`rounded-[var(--radius)] px-3 py-1.5 text-xs font-semibold disabled:opacity-50 ${
-              needsHunt
-                ? "bg-[var(--ink)] text-white"
-                : "border border-[var(--line)] bg-[var(--surface)] text-[var(--ink)]"
-            }`}
+            className="rounded-[var(--radius)] bg-[var(--ink)] px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
           >
-            {busy ? "Zoeken…" : needsHunt ? "Zoek 3 managers · €0,10" : "Opnieuw · €0,10"}
+            {busy ? "Zoeken…" : "Zoek 3 namen"}
           </button>
-        ) : null}
-        {search ? (
-          <a
-            href={search.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-xs font-medium text-[var(--muted)] no-underline hover:text-[var(--ink)] hover:underline"
-          >
-            Zelf op LinkedIn
-          </a>
-        ) : null}
-        <a
-          href={deskHref}
-          className="ml-auto text-xs font-semibold no-underline hover:underline"
-        >
-          Voorstel →
-        </a>
-      </div>
+          <p className="text-[0.72rem] text-[var(--muted)]">
+            €0,10
+            {search ? (
+              <>
+                {" · "}
+                <a
+                  href={search.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[var(--muted)] no-underline hover:text-[var(--ink)] hover:underline"
+                >
+                  LinkedIn
+                </a>
+              </>
+            ) : null}
+          </p>
+        </div>
+      ) : (
+        <>
+          <ul className="mt-1.5 space-y-1">
+            {people.map((t) => (
+              <li key={`${t.kind}-${t.label}`} className="flex items-baseline justify-between gap-3">
+                <p className="min-w-0 truncate text-sm">
+                  <span className="font-semibold text-[var(--ink)]">{t.label}</span>
+                  {t.subtitle ? <span className="text-[var(--muted)]"> · {t.subtitle}</span> : null}
+                </p>
+                <a
+                  href={t.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="shrink-0 text-xs font-semibold no-underline hover:underline"
+                >
+                  {targetAction(t)}
+                </a>
+              </li>
+            ))}
+          </ul>
+          {hunted ? (
+            <p className="mt-2 text-[0.72rem] text-[var(--muted)]">
+              <button
+                type="button"
+                disabled={busy}
+                onClick={hunt}
+                className="font-medium text-[var(--ink)] disabled:opacity-50"
+              >
+                {busy ? "Zoeken…" : "Opnieuw zoeken"}
+              </button>
+              {" · "}€0,10
+            </p>
+          ) : null}
+        </>
+      )}
       {err ? <p className="mt-2 text-[0.75rem] text-[var(--warn)]">{err}</p> : null}
     </div>
   );
@@ -1701,7 +1710,6 @@ export default function RadarApp() {
                         sector={active.company.sector}
                         companyId={active.id}
                         opening={o}
-                        deskHref={`/regie?id=${encodeURIComponent(active.id)}&opening=${encodeURIComponent(o.id)}`}
                         onOrg={(openingId, nextOrg) => {
                           setRadar((rows) =>
                             rows.map((r) =>
@@ -1731,18 +1739,24 @@ export default function RadarApp() {
                         </ul>
                       ) : null}
 
-                      {evidence?.evidenceUrl ? (
-                        <p className="mt-3 text-[0.72rem]">
+                      <p className="mt-3 flex flex-wrap gap-x-4 text-[0.78rem] font-semibold">
+                        {evidence?.evidenceUrl ? (
                           <a
                             href={evidence.evidenceUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="font-medium no-underline hover:underline"
+                            className="no-underline hover:underline"
                           >
-                            Vacature →
+                            Vacature
                           </a>
-                        </p>
-                      ) : null}
+                        ) : null}
+                        <a
+                          href={`/regie?id=${encodeURIComponent(active.id)}&opening=${encodeURIComponent(o.id)}`}
+                          className="no-underline hover:underline"
+                        >
+                          Voorstel
+                        </a>
+                      </p>
                     </article>
                   );
                 })}
