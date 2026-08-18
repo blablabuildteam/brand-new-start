@@ -182,6 +182,8 @@ export const INGEST_POLICY = {
   /** Aantal BNS-rollen per Indeed-sync (alle = BOARD_QUERIES.length) */
   syncIndeedQueries: 12,
   syncFreelanceQueries: 12,
+  /** Max Freelance.nl opdracht-detailpagina’s per sync (Firecrawl) voor contact/afdeling */
+  syncFreelanceDetails: 8,
   /** Advies-cadans boards (Indeed + Freelance.nl), niet de dagelijkse cron */
   boardsCadenceDays: 3,
 } as const;

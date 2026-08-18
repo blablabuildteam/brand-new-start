@@ -110,6 +110,18 @@ async function ingestBoardJobs(jobs: BoardJob[]) {
   return { scanned, kept, skipped, hits };
 }
 
+function nestedStr(item: Record<string, unknown>, ...keys: string[]): string | null {
+  for (const key of keys) {
+    const v = item[key];
+    if (typeof v === "string" && v.trim().length >= 2) return v.trim();
+    if (v && typeof v === "object" && "name" in (v as object)) {
+      const n = (v as { name?: unknown }).name;
+      if (typeof n === "string" && n.trim().length >= 2) return n.trim();
+    }
+  }
+  return null;
+}
+
 function normalizeIndeedItem(item: Record<string, unknown>): BoardJob | null {
   const title = String(item.positionName || item.title || item.jobTitle || "")
     .replace(/^Vacature:\s*/i, "")
@@ -133,20 +145,27 @@ function normalizeIndeedItem(item: Record<string, unknown>): BoardJob | null {
     if (m) applicants = Number(m[1]);
   }
   const logo = String(item.companyLogo || item.companyLogoUrl || "").trim();
+  const description = String(
+    item.description || item.descriptionHTML || item.snippet || jobType || ""
+  )
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 
   return {
     company,
     title,
-    description: String(item.description || item.snippet || jobType || ""),
+    description,
     url: String(item.url || item.jobUrl || item.externalApplyLink || "") || undefined,
     location: String(item.location || item.jobLocation || "") || undefined,
     channel: "indeed",
     postedAt: String(item.postedAt || item.postingDateParsed || item.pubDate || "") || undefined,
     applicants,
     companyLogo: logo.startsWith("http") ? logo : null,
-    jobPosterName: String(item.recruiter || item.hiringManager || item.postedBy || "") || null,
-    jobPosterTitle: String(item.recruiterTitle || "") || null,
-    department: String(item.department || "") || null,
+    jobPosterName:
+      nestedStr(item, "recruiter", "hiringManager", "postedBy", "hiringInsights") || null,
+    jobPosterTitle: nestedStr(item, "recruiterTitle", "hiringManagerTitle") || null,
+    department: nestedStr(item, "department", "jobCategory") || null,
   };
 }
 
@@ -257,9 +276,10 @@ function parseFreelanceMarkdown(md: string, query: string): BoardJob[] {
     if (!url || seen.has(url)) continue;
     if (isJunkFreelanceTitle(title) || !matchesRole(title)) continue;
 
-    const start = Math.max(0, m.index - 220);
-    const end = Math.min(md.length, m.index + m[0].length + 280);
-    const company = extractFreelanceCompany(md.slice(start, end));
+    const start = Math.max(0, m.index - 400);
+    const end = Math.min(md.length, m.index + m[0].length + 500);
+    const context = md.slice(start, end);
+    const company = extractFreelanceCompany(context);
     // Zonder echte opdrachtgever niet onder “Freelance.nl” bundelen — skip.
     if (!company) continue;
 
@@ -267,12 +287,55 @@ function parseFreelanceMarkdown(md: string, query: string): BoardJob[] {
     jobs.push({
       company,
       title,
-      description: `${query} · via Freelance.nl · ZZP/interim opdracht`,
+      description: context.replace(/\s+/g, " ").trim().slice(0, 1200),
       url,
       channel: "freelance-nl",
     });
   }
   return jobs;
+}
+
+async function scrapeFreelanceMarkdown(url: string, key: string): Promise<string> {
+  const res = await fetch("https://api.firecrawl.dev/v1/scrape", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${key}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      url,
+      formats: ["markdown"],
+      onlyMainContent: true,
+      waitFor: 2000,
+    }),
+    signal: AbortSignal.timeout(20000),
+  });
+  if (!res.ok) return "";
+  const data = (await res.json()) as { data?: { markdown?: string } };
+  return data.data?.markdown || "";
+}
+
+/** Enkele opdracht-pagina’s voor contactpersoon / afdeling (niet alle hits). */
+async function enrichFreelanceDetails(jobs: BoardJob[], maxDetails: number): Promise<BoardJob[]> {
+  const key = process.env.FIRECRAWL_API_KEY;
+  if (!key || maxDetails <= 0) return jobs;
+  const targets = jobs.filter((j) => j.url).slice(0, maxDetails);
+  const extra = new Map<string, string>();
+  await Promise.all(
+    targets.map(async (j) => {
+      try {
+        const md = await scrapeFreelanceMarkdown(j.url!, key);
+        if (md.length > 40) extra.set(j.url!, md);
+      } catch {
+        // skip
+      }
+    })
+  );
+  return jobs.map((j) => {
+    const md = j.url ? extra.get(j.url) : null;
+    if (!md) return j;
+    return { ...j, description: md.slice(0, 2500) };
+  });
 }
 
 async function fetchFreelanceNlJobs(maxQueries = 2): Promise<{ jobs: BoardJob[]; detail: string }> {
@@ -287,36 +350,23 @@ async function fetchFreelanceNlJobs(maxQueries = 2): Promise<{ jobs: BoardJob[];
   for (const q of queries) {
     const url = `https://www.freelance.nl/opdrachten?zoekwoord=${encodeURIComponent(q)}`;
     try {
-      const res = await fetch("https://api.firecrawl.dev/v1/scrape", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${key}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          url,
-          formats: ["markdown"],
-          onlyMainContent: true,
-          waitFor: 2500,
-        }),
-        signal: AbortSignal.timeout(25000),
-      });
-      if (!res.ok) continue;
-      const data = (await res.json()) as { data?: { markdown?: string } };
-      const md = data.data?.markdown || "";
+      const md = await scrapeFreelanceMarkdown(url, key);
       jobs.push(...parseFreelanceMarkdown(md, q));
     } catch {
       // per-query ignore
     }
   }
 
-  // Dedup over queries
   const byUrl = new Map<string, BoardJob>();
   for (const j of jobs) {
     if (j.url) byUrl.set(j.url, j);
   }
   const unique = [...byUrl.values()];
-  return { jobs: unique, detail: `freelance:firecrawl→${unique.length}` };
+  const enriched = await enrichFreelanceDetails(unique, INGEST_POLICY.syncFreelanceDetails);
+  return {
+    jobs: enriched,
+    detail: `freelance:firecrawl→${enriched.length} (+${Math.min(INGEST_POLICY.syncFreelanceDetails, unique.length)} details)`,
+  };
 }
 
 export async function syncJobBoards(opts?: {

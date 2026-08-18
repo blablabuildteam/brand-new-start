@@ -59,7 +59,7 @@ function parseFromText(text: string): Pick<OrgContext, "department" | "hiringMan
   let hiringManagerTitle: string | null = null;
 
   const deptRes = [
-    /(?:afdeling|department|directoraat|business unit|organisatieonderdeel)\s*[:\-–]\s*([^\n.|]{2,80})/i,
+    /(?:afdeling|department|directoraat|business unit|organisatieonderdeel|functiegebied|vakgebied|unit)\s*[:\-–]\s*([^\n.|]{2,80})/i,
     /binnen (?:het|de|onze)\s+(?:team|afdeling|directie|tribe)\s+[\u201c"'']?([A-ZÁÉÍÓÚ][^\n.|]{2,70})/i,
     /(?:team|tribe|chapter)\s*[:\-–]\s*([^\n.|]{2,80})/i,
     /(?:working|work) (?:in|within) (?:the|our)\s+([A-Z][^\n.]{2,70}?)\s+(?:team|department|tribe)/i,
@@ -77,10 +77,11 @@ function parseFromText(text: string): Pick<OrgContext, "department" | "hiringMan
   }
 
   const mgrRes = [
-    /(?:hiring manager|leidinggevende|contactpersoon)\s*[:\-–]\s*([A-ZÁÉÍÓÚ][^\n|]{2,60})/i,
+    /(?:hiring manager|leidinggevende|contactpersoon|contact persoon|aanspreekpunt)\s*[:\-–]\s*([A-ZÁÉÍÓÚ][^\n|]{2,60})/i,
     /(?:je )?rapporteer(?:t|en)? aan\s*[:\-–]?\s*([A-ZÁÉÍÓÚ][a-zA-ZÀ-ÿ'’.\-]+(?:\s+[A-ZÁÉÍÓÚ][a-zA-ZÀ-ÿ'’.\-]+){0,3})/i,
     /reports? to\s*[:\-–]?\s*([A-Z][a-zA-Z'’.\-]+(?:\s+[A-Z][a-zA-Z'’.\-]+){0,3})/i,
     /reporting to\s*[:\-–]?\s*([A-Z][a-zA-Z'’.\-]+(?:\s+[A-Z][a-zA-Z'’.\-]+){0,3})/i,
+    /manager\s*[:\-–]\s*([A-ZÁÉÍÓÚ][a-zA-ZÀ-ÿ'’.\-]+(?:\s+(?:de|den|der|van|von|het|ten|ter|[A-ZÁÉÍÓÚ][a-zA-ZÀ-ÿ'’.\-]+)){0,4})/i,
   ];
   for (const re of mgrRes) {
     const m = t.match(re);

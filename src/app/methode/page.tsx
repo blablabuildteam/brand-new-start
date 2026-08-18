@@ -303,8 +303,9 @@ export default function MethodePage() {
           </p>
           <p className="text-[var(--muted)]">
             Uit de markdown trekken we alleen echte opdracht-links (
-            <code className="text-[0.75rem]">/opdracht/…</code>) mét opdrachtgever-naam. Freelance.nl
-            zelf is geen bedrijf op de radar. Hits krijgen kanaal <strong>freelance-nl</strong>.
+            <code className="text-[0.75rem]">/opdracht/…</code>) mét opdrachtgever-naam. Tot{" "}
+            {INGEST_POLICY.syncFreelanceDetails} opdracht-pagina’s extra voor contact/afdeling.
+            Freelance.nl zelf is geen bedrijf op de radar.
           </p>
           <p className="text-xs text-[var(--muted)]">
             Freelance.nl alleen ≈ €{SYNC_COST_PER_RUN.actions["freelance-nl"].eur.low}–
