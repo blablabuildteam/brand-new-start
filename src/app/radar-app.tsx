@@ -410,7 +410,7 @@ function HiringManagerBlock({
             type="button"
             disabled={busy}
             onClick={hunt}
-            className="rounded-[var(--radius)] bg-[var(--ink)] px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
+            className="rounded-[var(--radius)] border border-[var(--line)] bg-[var(--surface)] px-2.5 py-1 text-xs font-medium text-[var(--ink)] hover:border-[var(--ink)]/25 disabled:opacity-50"
           >
             {busy ? "Zoeken…" : "Zoek 3 namen"}
           </button>
