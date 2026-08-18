@@ -7,7 +7,7 @@ import { SourceLogo, SourceLogos, sourceChannelsFromRow } from "@/components/sou
 import { BlablaLogo } from "@/components/blabla-logo";
 import { INGEST_POLICY, SYNC_COST_PER_RUN } from "@/lib/costs";
 import { orgContextFromSignals } from "@/lib/org-context";
-import { buildApproach, type ApproachTarget } from "@/lib/approach";
+import { buildApproach, companyLinkedinFromSignals, type ApproachTarget } from "@/lib/approach";
 
 type Factor = { label: string; points: number; source?: string };
 type Signal = {
@@ -336,27 +336,18 @@ function openingOrg(o: { org?: OrgContext; signals: Signal[] }): OrgContext {
 
 function openingApproach(
   company: string,
-  o: { roleLabel: string; openingTitle?: string; org?: OrgContext; approach?: { targets: ApproachTarget[] }; signals: Signal[] }
+  o: { roleLabel: string; openingTitle?: string; org?: OrgContext; signals: Signal[] }
 ) {
-  if (o.approach?.targets?.length) return o.approach.targets;
   return buildApproach({
     company,
     roleLabel: o.roleLabel,
     openingTitle: o.openingTitle,
     org: openingOrg(o),
+    companyLinkedinUrl: companyLinkedinFromSignals(o.signals),
   }).targets;
 }
 
-function OrgLine({ org }: { org: OrgContext }) {
-  const bits: string[] = [];
-  if (org.department) bits.push(org.department);
-  if (org.hiringManager) bits.push(org.hiringManager);
-  else if (org.contactName) bits.push(org.contactName);
-  if (!bits.length) return null;
-  return <span>{bits.join(" · ")}</span>;
-}
-
-function ApproachBlock({
+function HiringManagerBlock({
   company,
   opening,
 }: {
@@ -365,75 +356,36 @@ function ApproachBlock({
     roleLabel: string;
     openingTitle?: string;
     org?: OrgContext;
-    approach?: { targets: ApproachTarget[] };
     signals: Signal[];
   };
 }) {
   const targets = openingApproach(company, opening);
-  const known = targets.filter((t) => t.kind === "person");
-  const searches = targets.filter((t) => t.kind === "search");
-  if (!known.length && !searches.length) return null;
+  if (!targets.length) return null;
 
   return (
-    <div className="mt-6">
-      <h5 className="text-[0.7rem] uppercase tracking-[0.06em] text-[var(--muted)]">Wie benaderen</h5>
-
-      {known.length ? (
-        <ul className="mt-3 space-y-2">
-          {known.map((t) => (
-            <li
-              key={`p-${t.label}`}
-              className="flex items-baseline justify-between gap-3 border-l-2 border-[var(--accent)] pl-3"
+    <div className="mt-4 border-t border-[var(--line)]/80 pt-3">
+      <p className="text-[0.7rem] uppercase tracking-[0.06em] text-[var(--muted)]">Hiring manager</p>
+      <ul className="mt-1.5">
+        {targets.map((t) => (
+          <li key={`${t.kind}-${t.label}`} className="flex items-center justify-between gap-3 py-1">
+            <p className="min-w-0">
+              <span className="text-sm font-semibold text-[var(--ink)]">{t.label}</span>
+              {t.subtitle ? (
+                <span className="mt-0.5 block text-[0.75rem] text-[var(--muted)]">{t.subtitle}</span>
+              ) : null}
+            </p>
+            <a
+              href={t.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="shrink-0 rounded-[var(--radius)] bg-[var(--ink)] px-3 py-1.5 text-xs font-semibold no-underline"
+              style={{ color: "#fff" }}
             >
-              <div className="min-w-0">
-                <p className="text-sm font-semibold text-[var(--ink)]">{t.label}</p>
-                <p className="text-[0.75rem] leading-snug text-[var(--muted)]">
-                  {[t.subtitle, t.why].filter(Boolean).join(" · ")}
-                </p>
-              </div>
-              <a
-                href={t.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="shrink-0 text-xs font-medium no-underline hover:underline"
-              >
-                LinkedIn →
-              </a>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p className="mt-2 text-[0.75rem] text-[var(--muted)]">Geen naam in de vacature.</p>
-      )}
-
-      {searches.length ? (
-        <div className={known.length ? "mt-4" : "mt-2"}>
-          <p className="text-[0.75rem] text-[var(--muted)]">
-            {known.length ? "Daarna zoeken op functie — niet de recruiter." : "Zoek de beslisser — niet de recruiter."}
-          </p>
-          <ul className="mt-1">
-            {searches.map((t, i) => (
-              <li key={`s-${t.label}`}>
-                <a
-                  href={t.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-baseline justify-between gap-3 py-1.5 no-underline hover:underline"
-                >
-                  <span className="min-w-0 text-sm text-[var(--ink)]">
-                    <span className="tabular-nums text-[var(--muted)]" style={{ fontFamily: "var(--mono)" }}>
-                      {i + 1}.{" "}
-                    </span>
-                    {t.label}
-                    {t.why ? <span className="text-[var(--muted)]"> · {t.why}</span> : null}
-                  </span>
-                  <span className="shrink-0 text-xs font-medium">Zoek →</span>
-                </a>
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
+              {t.cta === "bericht" ? "Bericht" : "Vind op LinkedIn"}
+            </a>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
@@ -1525,11 +1477,15 @@ export default function RadarApp() {
                               {r.roleLabel}
                               {r.company.sector ? ` · ${r.company.sector}` : ""}
                             </span>
-                            {org.department || org.hiringManager || org.contactName ? (
-                              <span className="mt-0.5 block text-[0.75rem] text-[var(--ink)]/70">
-                                <OrgLine org={org} />
+                            {org.hiringManager ? (
+                              <span className="mt-0.5 block text-[0.75rem] text-[var(--ink)]/80">
+                                Hiring manager · {org.hiringManager}
                               </span>
-                            ) : null}
+                            ) : (
+                              <span className="mt-0.5 block text-[0.75rem] text-[var(--muted)]">
+                                Hiring manager · zoeken
+                              </span>
+                            )}
                             <span className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[0.7rem] text-[var(--muted)]">
                               <span>{STATUS_NL[r.status] || r.status}</span>
                               {employment ? <span>· {employment}</span> : null}
@@ -1581,13 +1537,11 @@ export default function RadarApp() {
                         {active.company.name}
                       </h3>
                     </div>
-                    <p className="mt-1 text-sm text-[var(--muted)]">
-                      {active.company.sector ? `${active.company.sector} · ` : ""}
-                      Score per contract-mogelijkheid
-                      {(active.openingsAtCompany || 0) > 1
-                        ? ` · lijst toont hoogste (${active.kans})`
-                        : ""}
-                    </p>
+                    {active.company.sector || (active.openingsAtCompany || 0) > 1 ? (
+                      <p className="mt-1 text-sm text-[var(--muted)]">
+                        {active.company.sector || `${active.openingsAtCompany} openingen`}
+                      </p>
+                    ) : null}
                   </div>
                   {(active.openingsAtCompany || 0) <= 1 ? <ScoreChip kans={active.kans} large /> : null}
                 </div>
@@ -1636,23 +1590,19 @@ export default function RadarApp() {
                         <ScoreChip kans={o.kans} />
                       </div>
 
+                      <HiringManagerBlock company={active.company.name} opening={o} />
+
                       {cleanAngle(o.angle) ? (
                         <p className="mt-3 border-l-2 border-[var(--accent)] pl-3 text-sm leading-relaxed text-[var(--ink)]">
                           {cleanAngle(o.angle)}
                         </p>
                       ) : null}
 
-                      <ApproachBlock company={active.company.name} opening={o} />
-
                       <div className="mt-5">
-                        <h5 className="mb-1 text-[0.7rem] uppercase tracking-[0.06em] text-[var(--muted)]">
-                          Waarom deze score (max {SCORE_MAX})
+                        <h5 className="mb-2 text-[0.7rem] uppercase tracking-[0.06em] text-[var(--muted)]">
+                          Score
                         </h5>
-                        <p className="mb-3 text-[0.7rem] leading-relaxed text-[var(--muted)]">
-                          Per opening · opnieuw bij elke sync. Uitleg:{" "}
-                          <a href="/methode#score">Methode → score</a>.
-                        </p>
-                        <ul className="space-y-2">
+                        <ul className="space-y-1.5">
                           {o.factors.map((f, i) => (
                             <li key={i} className="flex justify-between gap-4 text-sm">
                               <span className="text-[var(--ink)]/90">{f.label}</span>
@@ -1668,10 +1618,10 @@ export default function RadarApp() {
                       </div>
 
                       <div className="mt-5">
-                        <h5 className="mb-3 text-[0.7rem] uppercase tracking-[0.06em] text-[var(--muted)]">
-                          Bronnen
+                        <h5 className="mb-2 text-[0.7rem] uppercase tracking-[0.06em] text-[var(--muted)]">
+                          Bron
                         </h5>
-                        <ul className="space-y-4">
+                        <ul className="space-y-3">
                           {o.signals.map((s) => {
                             const ch = s.channel || "";
                             const chLabel = s.channelLabel || ch || s.source;
@@ -1687,17 +1637,14 @@ export default function RadarApp() {
                                   </p>
                                 </div>
                                 <p className="mt-0.5 text-sm font-medium">{s.title}</p>
-                                <p className="mt-1 text-sm leading-relaxed text-[var(--muted)] line-clamp-3">
-                                  {s.summary}
-                                </p>
                                 {s.evidenceUrl ? (
                                   <a
                                     href={s.evidenceUrl}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="mt-1.5 inline-block text-xs font-medium"
+                                    className="mt-1 inline-block text-xs font-medium"
                                   >
-                                    Openen →
+                                    Vacature →
                                   </a>
                                 ) : null}
                               </li>

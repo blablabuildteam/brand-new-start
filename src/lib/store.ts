@@ -5,7 +5,7 @@ import { getDb, hasDatabase } from "@/lib/db/client";
 import { fingerprintOf, scoreSignals } from "@/lib/score";
 import { detectRoleLabel, matchesContract, matchesRole, matchesTender } from "@/lib/niche";
 import { orgContextFromSignals } from "@/lib/org-context";
-import { buildApproach } from "@/lib/approach";
+import { buildApproach, companyLinkedinFromSignals } from "@/lib/approach";
 
 function slugify(name: string) {
   return name
@@ -481,6 +481,7 @@ export async function listRadar() {
           roleLabel: scored.roleLabel,
           openingTitle: bundle.primary.title,
           org,
+          companyLinkedinUrl: companyLinkedinFromSignals(bundle.signals),
         });
         const id =
           bundle.key === "company"
