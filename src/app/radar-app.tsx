@@ -7,6 +7,7 @@ import { SourceLogo, SourceLogos, sourceChannelsFromRow } from "@/components/sou
 import { BlablaLogo } from "@/components/blabla-logo";
 import { INGEST_POLICY, SYNC_COST_PER_RUN } from "@/lib/costs";
 import { orgContextFromSignals } from "@/lib/org-context";
+import { buildApproach, type ApproachTarget } from "@/lib/approach";
 
 type Factor = { label: string; points: number; source?: string };
 type Signal = {
@@ -43,6 +44,7 @@ type Opening = {
   factors: Factor[];
   signals: Signal[];
   org?: OrgContext;
+  approach?: { department: string | null; targets: ApproachTarget[] };
 };
 type RadarRow = {
   id: string;
@@ -330,6 +332,19 @@ function rowMeta(r: RadarRow) {
 function openingOrg(o: { org?: OrgContext; signals: Signal[] }): OrgContext {
   if (o.org && (o.org.department || o.org.hiringManager || o.org.contactName)) return o.org;
   return orgContextFromSignals(o.signals);
+}
+
+function openingApproach(
+  company: string,
+  o: { roleLabel: string; openingTitle?: string; org?: OrgContext; approach?: { targets: ApproachTarget[] }; signals: Signal[] }
+) {
+  if (o.approach?.targets?.length) return o.approach.targets;
+  return buildApproach({
+    company,
+    roleLabel: o.roleLabel,
+    openingTitle: o.openingTitle,
+    org: openingOrg(o),
+  }).targets;
 }
 
 function OrgLine({ org }: { org: OrgContext }) {
@@ -1600,6 +1615,37 @@ export default function RadarApp() {
                           ) : null}
                         </dl>
                       ) : null}
+
+                      <div className="mt-5">
+                        <h5 className="mb-1 text-[0.7rem] uppercase tracking-[0.06em] text-[var(--muted)]">
+                          Wie benaderen
+                        </h5>
+                        <p className="mb-2.5 text-[0.7rem] leading-relaxed text-[var(--muted)]">
+                          Eerst wie we kennen uit de vacature, daarna LinkedIn-zoek op de
+                          waarschijnlijke beslisser — niet de recruiter.
+                        </p>
+                        <ol className="space-y-2.5">
+                          {openingApproach(active.company.name, o).map((t) => (
+                            <li key={`${t.kind}-${t.label}`} className="text-sm">
+                              <a
+                                href={t.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="font-medium text-[var(--ink)] no-underline hover:underline"
+                              >
+                                {t.label}
+                                {t.kind === "search" ? " op LinkedIn →" : " →"}
+                              </a>
+                              {t.subtitle ? (
+                                <span className="text-[var(--muted)]"> · {t.subtitle}</span>
+                              ) : null}
+                              <span className="mt-0.5 block text-[0.75rem] leading-snug text-[var(--muted)]">
+                                {t.why}
+                              </span>
+                            </li>
+                          ))}
+                        </ol>
+                      </div>
 
                       {cleanAngle(o.angle) ? (
                         <p className="mt-3 border-l-2 border-[var(--accent)] pl-3 text-sm leading-relaxed text-[var(--ink)]">

@@ -23,6 +23,7 @@ export type MarketJob = {
   jobPosterProfileUrl?: string | null;
   jobFunction?: string | null;
   department?: string | null;
+  companyLinkedinUrl?: string | null;
 };
 
 function parseApplicants(item: Record<string, unknown>): number | null {
@@ -108,6 +109,12 @@ function normalizeJobItem(item: Record<string, unknown>): MarketJob | null {
       (item.jobPosterProfileUrl as string) || (item.posterProfileUrl as string) || null,
     jobFunction: (item.jobFunction as string) || null,
     department: (item.department as string) || (item.jobDepartment as string) || null,
+    companyLinkedinUrl:
+      (item.companyLinkedinUrl as string) ||
+      (item.companyUrl as string) ||
+      ((item.company as { linkedinUrl?: string; url?: string })?.linkedinUrl) ||
+      ((item.company as { linkedinUrl?: string; url?: string })?.url) ||
+      null,
   };
 }
 
@@ -216,6 +223,7 @@ export async function ingestMarketJobs(
         jobPosterTitle: job.jobPosterTitle || null,
         jobPosterProfileUrl: job.jobPosterProfileUrl || null,
         jobFunction: job.jobFunction || null,
+        companyLinkedinUrl: job.companyLinkedinUrl || null,
         ...orgContextToRaw(org),
       },
     });

@@ -5,6 +5,7 @@ import { getDb, hasDatabase } from "@/lib/db/client";
 import { fingerprintOf, scoreSignals } from "@/lib/score";
 import { detectRoleLabel, matchesContract, matchesRole, matchesTender } from "@/lib/niche";
 import { orgContextFromSignals } from "@/lib/org-context";
+import { buildApproach } from "@/lib/approach";
 
 function slugify(name: string) {
   return name
@@ -475,6 +476,12 @@ export async function listRadar() {
           siblingOpenings: bundle.siblingOpenings,
         });
         const org = orgContextFromSignals(bundle.signals);
+        const approach = buildApproach({
+          company: company.name,
+          roleLabel: scored.roleLabel,
+          openingTitle: bundle.primary.title,
+          org,
+        });
         const id =
           bundle.key === "company"
             ? `rad_${companyId}_${slugify(scored.roleLabel)}`
@@ -490,6 +497,7 @@ export async function listRadar() {
           factors: scored.factors,
           signals: bundle.signals,
           org,
+          approach,
           hiringManager: org.hiringManager,
           updatedAt: bundle.signals[0]?.seenAt || new Date(),
         };
