@@ -68,14 +68,12 @@ export function linkedinPeopleAtCompany(opts: {
   companyLinkedinUrl?: string | null;
   keywords: string;
 }): string {
-  const slug = linkedinCompanySlug(opts.companyLinkedinUrl);
   const keywords = opts.keywords.replace(/\s+/g, " ").trim();
-  if (slug) {
-    const base = `https://www.linkedin.com/company/${encodeURIComponent(slug)}/people/`;
-    return keywords ? `${base}?keywords=${encodeURIComponent(keywords)}` : base;
-  }
   const companyQ = linkedinCompanyQuery(opts.company);
-  const q = [keywords, `"${companyQ}"`].filter(Boolean).join(" ");
+  const alreadyHasCompany = companyQ
+    ? keywords.toLowerCase().includes(companyQ.toLowerCase())
+    : false;
+  const q = [keywords, alreadyHasCompany ? "" : `"${companyQ}"`].filter(Boolean).join(" ");
   return (
     `https://www.linkedin.com/search/results/people/?keywords=${encodeURIComponent(q)}` +
     `&geoUrn=${encodeURIComponent(`["${NL_GEO}"]`)}&origin=FACETED_SEARCH`
@@ -153,7 +151,7 @@ export function buildApproach(opts: {
   targets.push({
     kind: "search",
     label: "Nog niet bekend",
-    subtitle: `Zoek ${plan.hint} bij ${short}`,
+    subtitle: `Zoek ${plan.keywords} bij ${short}`,
     url: linkedinPeopleAtCompany({
       company: opts.company,
       companyLinkedinUrl: companyUrl,

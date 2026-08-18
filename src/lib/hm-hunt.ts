@@ -11,8 +11,8 @@ const GENERIC_DEPT =
 const DECIDERS: Record<RoleFamily, { overheid: string; corporate: string }> = {
   agile: { overheid: "agile lead", corporate: "delivery manager" },
   "ba-pm": { overheid: "informatiemanager", corporate: "IT manager" },
-  "cloud-devops": { overheid: "teamleider IV", corporate: "engineering manager" },
-  software: { overheid: "teamleider ontwikkeling", corporate: "engineering manager" },
+  "cloud-devops": { overheid: "teamleider", corporate: "engineering manager" },
+  software: { overheid: "teamleider", corporate: "engineering manager" },
   data: { overheid: "data owner", corporate: "head of data" },
   "frontend-design": { overheid: "product owner", corporate: "head of design" },
   security: { overheid: "CISO", corporate: "CISO" },
@@ -25,14 +25,23 @@ export function isPublicSector(company: string, sector?: string | null): boolean
 }
 
 export type HmSearchPlan = {
+  /** LinkedIn-zoekterm: een titel die mensen écht op hun profiel zetten. */
   keywords: string;
   hint: string;
   mode: "title" | "department";
+  department?: string | null;
 };
 
+function searchableDept(dept: string): string | null {
+  const s = dept.trim();
+  if (s.length < 3 || GENERIC_DEPT.test(s)) return null;
+  if (/[\/|&]/.test(s)) return null;
+  return s;
+}
+
 /**
- * Eén gerichte LinkedIn-zoekterm: afdeling als die specifiek is, anders
- * de beslisser-titel die bij deze rol + dit type org hoort.
+ * Zoekterm voor LinkedIn: altijd een functietitel, nooit een interne afdelingsnaam.
+ * Afdeling is hint/ranking — “hyper automation” levert op LinkedIn bijna nooit hits.
  */
 export function hmSearchPlan(opts: {
   company: string;
@@ -41,23 +50,23 @@ export function hmSearchPlan(opts: {
   department?: string | null;
   sector?: string | null;
 }): HmSearchPlan {
-  const dept = opts.department?.trim() || "";
-  if (dept.length >= 3 && !GENERIC_DEPT.test(dept)) {
-    return { keywords: dept, hint: `in ${dept}`, mode: "department" };
-  }
-
+  const dept = searchableDept(opts.department || "");
   const family =
     detectFamily(`${opts.openingTitle || ""} ${opts.roleLabel}`) ||
-    detectFamily(dept);
+    detectFamily(dept || "");
   const overheid = isPublicSector(opts.company, opts.sector);
-  if (family) {
-    const title = overheid ? DECIDERS[family].overheid : DECIDERS[family].corporate;
-    return { keywords: title, hint: title, mode: "title" };
-  }
+  const title = family
+    ? overheid
+      ? DECIDERS[family].overheid
+      : DECIDERS[family].corporate
+    : overheid
+      ? "teamleider"
+      : "manager";
   return {
-    keywords: overheid ? "opdrachtgever" : "hiring manager",
-    hint: overheid ? "opdrachtgever" : "hiring manager",
+    keywords: title,
+    hint: dept ? `${title} in ${dept}` : title,
     mode: "title",
+    department: dept,
   };
 }
 
@@ -111,13 +120,16 @@ export function rankHmCandidates(
   plan: HmSearchPlan
 ): HmCandidate[] {
   const needle = plan.keywords.toLowerCase();
+  const dept = plan.department?.toLowerCase() || "";
   const ranked: HmCandidate[] = [];
   for (const p of people) {
     const title = `${p.title || ""} ${p.headline || ""}`.trim();
     if (/recruiter|talent acquisition|sourcer|werving|staffing|intercedent/i.test(title)) continue;
     if (!p.name || !p.name.includes(" ")) continue;
     let score = 1;
-    if (title.toLowerCase().includes(needle)) score += 40;
+    const hay = title.toLowerCase();
+    if (hay.includes(needle)) score += 40;
+    if (dept && hay.includes(dept)) score += 22;
     if (DECIDER_HINT.test(title)) score += 18;
     if (p.url) score += 6;
     ranked.push({ name: p.name, title: p.title, url: p.url, score });
