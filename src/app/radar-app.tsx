@@ -350,17 +350,92 @@ function openingApproach(
 function OrgLine({ org }: { org: OrgContext }) {
   const bits: string[] = [];
   if (org.department) bits.push(org.department);
-  if (org.hiringManager) {
-    bits.push(
-      org.hiringManagerTitle ? `${org.hiringManager} · ${org.hiringManagerTitle}` : org.hiringManager
-    );
-  } else if (org.contactName) {
-    bits.push(
-      org.contactTitle ? `${org.contactName} · ${org.contactTitle}` : org.contactName
-    );
-  }
+  if (org.hiringManager) bits.push(org.hiringManager);
+  else if (org.contactName) bits.push(org.contactName);
   if (!bits.length) return null;
   return <span>{bits.join(" · ")}</span>;
+}
+
+function ApproachBlock({
+  company,
+  opening,
+}: {
+  company: string;
+  opening: {
+    roleLabel: string;
+    openingTitle?: string;
+    org?: OrgContext;
+    approach?: { targets: ApproachTarget[] };
+    signals: Signal[];
+  };
+}) {
+  const targets = openingApproach(company, opening);
+  const known = targets.filter((t) => t.kind === "person");
+  const searches = targets.filter((t) => t.kind === "search");
+  if (!known.length && !searches.length) return null;
+
+  return (
+    <div className="mt-6">
+      <h5 className="text-[0.7rem] uppercase tracking-[0.06em] text-[var(--muted)]">Wie benaderen</h5>
+
+      {known.length ? (
+        <ul className="mt-3 space-y-2">
+          {known.map((t) => (
+            <li
+              key={`p-${t.label}`}
+              className="flex items-baseline justify-between gap-3 border-l-2 border-[var(--accent)] pl-3"
+            >
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-[var(--ink)]">{t.label}</p>
+                <p className="text-[0.75rem] leading-snug text-[var(--muted)]">
+                  {[t.subtitle, t.why].filter(Boolean).join(" · ")}
+                </p>
+              </div>
+              <a
+                href={t.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="shrink-0 text-xs font-medium no-underline hover:underline"
+              >
+                LinkedIn →
+              </a>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="mt-2 text-[0.75rem] text-[var(--muted)]">Geen naam in de vacature.</p>
+      )}
+
+      {searches.length ? (
+        <div className={known.length ? "mt-4" : "mt-2"}>
+          <p className="text-[0.75rem] text-[var(--muted)]">
+            {known.length ? "Daarna zoeken op functie — niet de recruiter." : "Zoek de beslisser — niet de recruiter."}
+          </p>
+          <ul className="mt-1">
+            {searches.map((t, i) => (
+              <li key={`s-${t.label}`}>
+                <a
+                  href={t.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-baseline justify-between gap-3 py-1.5 no-underline hover:underline"
+                >
+                  <span className="min-w-0 text-sm text-[var(--ink)]">
+                    <span className="tabular-nums text-[var(--muted)]" style={{ fontFamily: "var(--mono)" }}>
+                      {i + 1}.{" "}
+                    </span>
+                    {t.label}
+                    {t.why ? <span className="text-[var(--muted)]"> · {t.why}</span> : null}
+                  </span>
+                  <span className="shrink-0 text-xs font-medium">Zoek →</span>
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+    </div>
+  );
 }
 
 const EMPLOYMENT_NL: Record<string, string> = {
@@ -1517,7 +1592,7 @@ export default function RadarApp() {
                   {(active.openingsAtCompany || 0) <= 1 ? <ScoreChip kans={active.kans} large /> : null}
                 </div>
 
-                {(active.openings && active.openings.length > 1
+                {(active.openings?.length
                   ? active.openings
                   : [
                       {
@@ -1553,6 +1628,7 @@ export default function RadarApp() {
                           </h4>
                           <p className="mt-0.5 text-sm text-[var(--muted)]">
                             {o.roleLabel}
+                            {org.department ? ` · ${org.department}` : ""}
                             {oMeta.postedLabel ? ` · ${oMeta.postedLabel}` : ""}
                             {oMeta.applicants != null ? ` · ${oMeta.applicants} aanmeldingen` : ""}
                           </p>
@@ -1560,98 +1636,13 @@ export default function RadarApp() {
                         <ScoreChip kans={o.kans} />
                       </div>
 
-                      {org.department || org.hiringManager || org.contactName ? (
-                        <dl className="mt-4 grid gap-2 text-sm sm:grid-cols-2">
-                          {org.department ? (
-                            <div>
-                              <dt className="text-[0.65rem] uppercase tracking-wide text-[var(--muted)]">
-                                Afdeling
-                              </dt>
-                              <dd className="mt-0.5 font-medium text-[var(--ink)]">{org.department}</dd>
-                            </div>
-                          ) : null}
-                          {org.hiringManager ? (
-                            <div>
-                              <dt className="text-[0.65rem] uppercase tracking-wide text-[var(--muted)]">
-                                Manager
-                              </dt>
-                              <dd className="mt-0.5 font-medium text-[var(--ink)]">
-                                {org.hiringManager}
-                                {org.hiringManagerTitle ? (
-                                  <span className="font-normal text-[var(--muted)]">
-                                    {" "}
-                                    · {org.hiringManagerTitle}
-                                  </span>
-                                ) : null}
-                              </dd>
-                            </div>
-                          ) : null}
-                          {org.contactName ? (
-                            <div>
-                              <dt className="text-[0.65rem] uppercase tracking-wide text-[var(--muted)]">
-                                Geplaatst door
-                              </dt>
-                              <dd className="mt-0.5 font-medium text-[var(--ink)]">
-                                {org.contactUrl ? (
-                                  <a
-                                    href={org.contactUrl}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="font-medium no-underline hover:underline"
-                                  >
-                                    {org.contactName}
-                                  </a>
-                                ) : (
-                                  org.contactName
-                                )}
-                                {org.contactTitle ? (
-                                  <span className="font-normal text-[var(--muted)]">
-                                    {" "}
-                                    · {org.contactTitle}
-                                  </span>
-                                ) : null}
-                              </dd>
-                            </div>
-                          ) : null}
-                        </dl>
-                      ) : null}
-
-                      <div className="mt-5">
-                        <h5 className="mb-1 text-[0.7rem] uppercase tracking-[0.06em] text-[var(--muted)]">
-                          Wie benaderen
-                        </h5>
-                        <p className="mb-2.5 text-[0.7rem] leading-relaxed text-[var(--muted)]">
-                          Eerst wie we kennen uit de vacature, daarna LinkedIn-zoek op de
-                          waarschijnlijke beslisser — niet de recruiter.
-                        </p>
-                        <ol className="space-y-2.5">
-                          {openingApproach(active.company.name, o).map((t) => (
-                            <li key={`${t.kind}-${t.label}`} className="text-sm">
-                              <a
-                                href={t.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="font-medium text-[var(--ink)] no-underline hover:underline"
-                              >
-                                {t.label}
-                                {t.kind === "search" ? " op LinkedIn →" : " →"}
-                              </a>
-                              {t.subtitle ? (
-                                <span className="text-[var(--muted)]"> · {t.subtitle}</span>
-                              ) : null}
-                              <span className="mt-0.5 block text-[0.75rem] leading-snug text-[var(--muted)]">
-                                {t.why}
-                              </span>
-                            </li>
-                          ))}
-                        </ol>
-                      </div>
-
                       {cleanAngle(o.angle) ? (
                         <p className="mt-3 border-l-2 border-[var(--accent)] pl-3 text-sm leading-relaxed text-[var(--ink)]">
                           {cleanAngle(o.angle)}
                         </p>
                       ) : null}
+
+                      <ApproachBlock company={active.company.name} opening={o} />
 
                       <div className="mt-5">
                         <h5 className="mb-1 text-[0.7rem] uppercase tracking-[0.06em] text-[var(--muted)]">

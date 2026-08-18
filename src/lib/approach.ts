@@ -4,49 +4,49 @@ import type { OrgContext } from "@/lib/org-context";
 /** Wie je bij deze rol-familie meestal wilt hebben — niet de recruiter. */
 const DECIDERS: Record<RoleFamily, { title: string; why: string }[]> = {
   agile: [
-    { title: "Delivery Manager", why: "Stuurt agile delivery; vaak de echte hiring-beslisser." },
-    { title: "Head of Agile", why: "Eigenaar van de SM/coach-practice." },
-    { title: "Chapter Lead", why: "Lijn van Scrum Masters in de tribe." },
+    { title: "Delivery Manager", why: "Vaak de hiring-beslisser" },
+    { title: "Head of Agile", why: "Practice / chapter-eigenaar" },
+    { title: "Chapter Lead", why: "Lijn van Scrum Masters" },
   ],
   "ba-pm": [
-    { title: "IT Manager", why: "Vaak budgethouder voor BA/PM-inhuur." },
-    { title: "Product Owner", why: "Dagelijks opdrachtgever van de analist." },
-    { title: "Head of Business Analysis", why: "Practice-eigenaar als die er is." },
+    { title: "IT Manager", why: "Budgethouder inhuur" },
+    { title: "Product Owner", why: "Dagelijks opdrachtgever" },
+    { title: "Head of Business Analysis", why: "Practice-eigenaar" },
   ],
   "cloud-devops": [
-    { title: "Engineering Manager", why: "Teamlead van DevOps/platform." },
-    { title: "Head of Platform", why: "Beslist over platform/SRE-capaciteit." },
-    { title: "CTO", why: "Alleen bij kleinere orgs / geen duidelijke afdeling." },
+    { title: "Engineering Manager", why: "Teamlead DevOps/platform" },
+    { title: "Head of Platform", why: "Platform-capaciteit" },
+    { title: "CTO", why: "Als er geen EM is" },
   ],
   software: [
-    { title: "Engineering Manager", why: "Lijnmanager van het bouwteam." },
-    { title: "Tech Lead", why: "Inhoudelijke poortwachter." },
-    { title: "Head of Engineering", why: "Capaciteit en inhuur op schaal." },
+    { title: "Engineering Manager", why: "Lijn van het bouwteam" },
+    { title: "Tech Lead", why: "Inhoudelijke poortwachter" },
+    { title: "Head of Engineering", why: "Inhuur op schaal" },
   ],
   data: [
-    { title: "Head of Data", why: "Eigenaar data/BI-capaciteit." },
-    { title: "Data Engineering Manager", why: "Lijn van data engineers." },
-    { title: "CDO", why: "Als er geen data-manager in beeld is." },
+    { title: "Head of Data", why: "Data/BI-capaciteit" },
+    { title: "Data Engineering Manager", why: "Lijn data engineers" },
+    { title: "CDO", why: "Als er geen data-manager is" },
   ],
   "frontend-design": [
-    { title: "Head of Design", why: "UX/product design inhuur." },
-    { title: "Engineering Manager", why: "Frontend in een bouwteam." },
-    { title: "Product Manager", why: "Vaak de interne opdrachtgever." },
+    { title: "Head of Design", why: "UX/design-inhuur" },
+    { title: "Engineering Manager", why: "Frontend in een bouwteam" },
+    { title: "Product Manager", why: "Interne opdrachtgever" },
   ],
   security: [
-    { title: "CISO", why: "Beslisser information security." },
-    { title: "Security Manager", why: "Operationele inhuur in het security-team." },
-    { title: "BISO", why: "Business-kant van security, vaak de opdrachtgever." },
+    { title: "CISO", why: "Beslisser security" },
+    { title: "Security Manager", why: "Operationele inhuur" },
+    { title: "BISO", why: "Business-opdrachtgever" },
   ],
   test: [
-    { title: "Test Manager", why: "Stuurt testcapaciteit." },
-    { title: "QA Lead", why: "Inhoudelijke poortwachter kwaliteit." },
-    { title: "Delivery Manager", why: "Als test in de delivery-lijn hangt." },
+    { title: "Test Manager", why: "Stuurt testcapaciteit" },
+    { title: "QA Lead", why: "Poortwachter kwaliteit" },
+    { title: "Delivery Manager", why: "Als test onder delivery hangt" },
   ],
   "architecture-apps": [
-    { title: "Enterprise Architect", why: "Poortwachter architectuur-inhuur." },
-    { title: "IT Manager", why: "Applicatiebeheer / workplace inhuur." },
-    { title: "Head of Architecture", why: "Als die functie bestaat." },
+    { title: "Enterprise Architect", why: "Poortwachter architectuur" },
+    { title: "IT Manager", why: "Applicatiebeheer-inhuur" },
+    { title: "Head of Architecture", why: "Als die functie bestaat" },
   ],
 };
 
@@ -88,20 +88,21 @@ export function buildApproach(opts: {
       kind: "person",
       label: opts.org.hiringManager,
       subtitle: opts.org.hiringManagerTitle,
-      why: opts.org.department
-        ? `Genoemd in de vacature · ${opts.org.department}`
-        : "Genoemd als manager / rapportagelijn in de vacature.",
+      why: opts.org.department || "Genoemd in de vacature",
       url: linkedinPeopleSearch(opts.company, opts.org.hiringManager),
       source: "vacature",
     });
   }
 
   if (opts.org.contactName) {
+    const recruiter = /recruiter|talent acquisition|werving|staffing|intercedent/i.test(
+      opts.org.contactTitle || ""
+    );
     add({
       kind: "person",
       label: opts.org.contactName,
       subtitle: opts.org.contactTitle,
-      why: "Zette de opdracht online — vraag naar de hiring manager op de afdeling.",
+      why: recruiter ? "Recruiter — vraag naar de manager" : "Zette de opdracht online",
       url: opts.org.contactUrl || linkedinPeopleSearch(opts.company, opts.org.contactName),
       source: "poster",
     });
@@ -113,7 +114,7 @@ export function buildApproach(opts: {
     add({
       kind: "search",
       label: row.title,
-      subtitle: opts.company,
+      subtitle: null,
       why: row.why,
       url: linkedinPeopleSearch(opts.company, `${deptHint}${row.title}`),
       source: "linkedin-zoek",
