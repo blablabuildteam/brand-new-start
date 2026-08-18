@@ -28,7 +28,8 @@ function initials(name: string) {
 }
 
 function hmKnown(proposal: PlacementProposal | null) {
-  return proposal?.hiring[0]?.cta === "bericht";
+  const t = proposal?.hiring[0];
+  return t?.kind === "person" && t.cta === "bericht";
 }
 
 function defaultTab(proposal: PlacementProposal | null): "hm" | string {
@@ -213,42 +214,51 @@ export default function RegieDesk({
                 <div className="border-b border-[var(--line)]/80 px-5 py-2.5">
                   <p className="text-[0.68rem] uppercase tracking-[0.08em] text-[var(--muted)]">Hiring manager</p>
                 </div>
-                {proposal.hiring.slice(0, 1).map((t) => (
-                  <div key={t.label} className="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
-                    <div className="flex min-w-0 items-center gap-3">
-                      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-md bg-[var(--accent-soft)] text-xs font-semibold text-[var(--accent)]">
-                        {known ? initials(t.label) : "?"}
-                      </span>
-                      <span className="min-w-0">
-                        <span className="block text-sm font-semibold text-[var(--ink)]">{t.label}</span>
-                        {t.subtitle ? <span className="block text-[0.78rem] text-[var(--muted)]">{t.subtitle}</span> : null}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {known ? (
-                        <button
-                          type="button"
-                          onClick={() => setTab("hm")}
-                          className={`rounded-md border px-3 py-1.5 text-xs font-semibold ${
-                            tab === "hm"
-                              ? "border-[var(--ink)] bg-[var(--ink)] text-white"
-                              : "border-[var(--line)] bg-[var(--surface)] text-[var(--ink)] hover:border-[var(--accent)]/40"
-                          }`}
+                {proposal.hiring.slice(0, 2).map((t) => {
+                  const named = t.kind === "person" && t.cta === "bericht";
+                  const recruiter = /recruiter/i.test(t.subtitle || "");
+                  return (
+                    <div
+                      key={`${t.kind}-${t.label}`}
+                      className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--line)]/70 px-5 py-4 first:border-t-0"
+                    >
+                      <div className="flex min-w-0 items-center gap-3">
+                        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-md bg-[var(--accent-soft)] text-xs font-semibold text-[var(--accent)]">
+                          {named ? initials(t.label) : "?"}
+                        </span>
+                        <span className="min-w-0">
+                          <span className="block text-sm font-semibold text-[var(--ink)]">{t.label}</span>
+                          {t.subtitle ? (
+                            <span className="block text-[0.78rem] text-[var(--muted)]">{t.subtitle}</span>
+                          ) : null}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {named && !recruiter ? (
+                          <button
+                            type="button"
+                            onClick={() => setTab("hm")}
+                            className={`rounded-md border px-3 py-1.5 text-xs font-semibold ${
+                              tab === "hm"
+                                ? "border-[var(--ink)] bg-[var(--ink)] text-white"
+                                : "border-[var(--line)] bg-[var(--surface)] text-[var(--ink)] hover:border-[var(--accent)]/40"
+                            }`}
+                          >
+                            Bericht
+                          </button>
+                        ) : null}
+                        <a
+                          href={t.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="rounded-md border border-[var(--line)] bg-[var(--surface-2)] px-3 py-1.5 text-xs font-semibold text-[var(--ink)] no-underline hover:border-[var(--accent)]/40"
                         >
-                          Bericht
-                        </button>
-                      ) : null}
-                      <a
-                        href={t.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="rounded-md border border-[var(--line)] bg-[var(--surface-2)] px-3 py-1.5 text-xs font-semibold text-[var(--ink)] no-underline hover:border-[var(--accent)]/40"
-                      >
-                        {known ? "LinkedIn" : "Vind op LinkedIn"}
-                      </a>
+                          {named ? (recruiter ? "Vraag op LinkedIn" : "LinkedIn") : "Vind op LinkedIn"}
+                        </a>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </section>
 
               <section>

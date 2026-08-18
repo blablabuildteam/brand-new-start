@@ -304,7 +304,8 @@ function openingOrg(o: { org?: OrgContext; signals: Signal[] }): OrgContext {
 
 function openingApproach(
   company: string,
-  o: { roleLabel: string; openingTitle?: string; org?: OrgContext; signals: Signal[] }
+  o: { roleLabel: string; openingTitle?: string; org?: OrgContext; signals: Signal[] },
+  sector?: string | null
 ) {
   return buildApproach({
     company,
@@ -312,15 +313,18 @@ function openingApproach(
     openingTitle: o.openingTitle,
     org: openingOrg(o),
     companyLinkedinUrl: companyLinkedinFromSignals(o.signals),
+    sector,
   }).targets;
 }
 
 function HiringManagerBlock({
   company,
+  sector,
   opening,
   deskHref,
 }: {
   company: string;
+  sector?: string | null;
   opening: {
     roleLabel: string;
     openingTitle?: string;
@@ -329,7 +333,7 @@ function HiringManagerBlock({
   };
   deskHref: string;
 }) {
-  const targets = openingApproach(company, opening);
+  const targets = openingApproach(company, opening, sector);
   if (!targets.length) return null;
 
   return (
@@ -351,7 +355,11 @@ function HiringManagerBlock({
               className="shrink-0 rounded-[var(--radius)] bg-[var(--ink)] px-3 py-1.5 text-xs font-semibold no-underline"
               style={{ color: "#fff" }}
             >
-              {t.cta === "bericht" ? "Bericht" : "Vind op LinkedIn"}
+              {t.cta === "bericht"
+                ? /recruiter/i.test(t.subtitle || "")
+                  ? "Vraag op LinkedIn"
+                  : "Bericht"
+                : "Vind op LinkedIn"}
             </a>
           </li>
         ))}
@@ -1587,6 +1595,7 @@ export default function RadarApp() {
 
                       <HiringManagerBlock
                         company={active.company.name}
+                        sector={active.company.sector}
                         opening={o}
                         deskHref={`/regie?id=${encodeURIComponent(active.id)}&opening=${encodeURIComponent(o.id)}`}
                       />

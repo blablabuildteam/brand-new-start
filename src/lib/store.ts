@@ -6,6 +6,7 @@ import { fingerprintOf, scoreSignals } from "@/lib/score";
 import { detectRoleLabel, matchesContract, matchesRole, matchesTender } from "@/lib/niche";
 import { orgContextFromSignals } from "@/lib/org-context";
 import { buildApproach, companyLinkedinFromSignals } from "@/lib/approach";
+import { borrowHiringManager } from "@/lib/hm-hunt";
 import { huntSettings } from "@/lib/hunt";
 
 function slugify(name: string) {
@@ -483,6 +484,7 @@ export async function listRadar() {
           openingTitle: bundle.primary.title,
           org,
           companyLinkedinUrl: companyLinkedinFromSignals(bundle.signals),
+          sector: company.sector,
         });
         const id =
           bundle.key === "company"
@@ -505,39 +507,51 @@ export async function listRadar() {
         };
       });
       openings.sort((a, b) => b.kans - a.kans);
+      const withHm = borrowHiringManager(openings).map((o) => ({
+        ...o,
+        hiringManager: o.org.hiringManager,
+        approach: buildApproach({
+          company: company.name,
+          roleLabel: o.roleLabel,
+          openingTitle: o.openingTitle,
+          org: o.org,
+          companyLinkedinUrl: companyLinkedinFromSignals(o.signals),
+          sector: company.sector,
+        }),
+      }));
 
-      const best = openings[0]!;
-      const roleLabels = [...new Set(openings.map((o) => o.roleLabel))];
+      const best = withHm[0]!;
+      const roleLabels = [...new Set(withHm.map((o) => o.roleLabel))];
       rows.push({
         id: `rad_${companyId}`,
         companyId,
         roleLabel:
-          openings.length === 1
+          withHm.length === 1
             ? best.roleLabel
             : roleLabels.length <= 2
               ? roleLabels.join(" · ")
-              : `${openings.length} rollen`,
+              : `${withHm.length} rollen`,
         openingTitle:
-          openings.length === 1
+          withHm.length === 1
             ? best.openingTitle
-            : openings.map((o) => o.openingTitle).join(" · "),
-        openingsAtCompany: openings.length,
-        openings,
+            : withHm.map((o) => o.openingTitle).join(" · "),
+        openingsAtCompany: withHm.length,
+        openings: withHm,
         status: best.status,
         kans: best.kans,
         hiringManager: null as string | null,
         angle:
-          openings.length === 1
+          withHm.length === 1
             ? best.angle
-            : `${openings.length} contract-mogelijkheden bij dit bedrijf — score per opening.`,
-        sources: [...new Set(openings.flatMap((o) => o.sources))],
+            : `${withHm.length} contract-mogelijkheden bij dit bedrijf — score per opening.`,
+        sources: [...new Set(withHm.flatMap((o) => o.sources))],
         factors: best.factors,
-        updatedAt: openings.reduce(
+        updatedAt: withHm.reduce(
           (max, o) => (o.updatedAt > max ? o.updatedAt : max),
-          openings[0]!.updatedAt
+          withHm[0]!.updatedAt
         ),
         company,
-        signals: openings.flatMap((o) => o.signals),
+        signals: withHm.flatMap((o) => o.signals),
       });
     }
     return rows.sort(

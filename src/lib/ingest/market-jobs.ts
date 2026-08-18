@@ -43,6 +43,42 @@ function parseApplicants(item: Record<string, unknown>): number | null {
   return null;
 }
 
+function nestedPerson(item: Record<string, unknown>): {
+  name: string | null;
+  title: string | null;
+  url: string | null;
+} {
+  const keys = ["jobPoster", "poster", "postedBy", "recruiter", "hiringManager", "creator"];
+  for (const key of keys) {
+    const v = item[key];
+    if (typeof v === "string" && v.trim().length >= 2) {
+      if (!v.trim().includes(" ")) continue;
+      return { name: v.trim(), title: null, url: null };
+    }
+    if (v && typeof v === "object") {
+      const o = v as Record<string, unknown>;
+      const name =
+        (typeof o.name === "string" && o.name) ||
+        (typeof o.fullName === "string" && o.fullName) ||
+        null;
+      const title =
+        (typeof o.title === "string" && o.title) ||
+        (typeof o.headline === "string" && o.headline) ||
+        (typeof o.jobTitle === "string" && o.jobTitle) ||
+        null;
+      const url =
+        (typeof o.profileUrl === "string" && o.profileUrl) ||
+        (typeof o.linkedinUrl === "string" && o.linkedinUrl) ||
+        (typeof o.url === "string" && o.url) ||
+        null;
+      if (name && name.trim().length >= 2) {
+        return { name: name.trim(), title: title?.trim() || null, url: url?.trim() || null };
+      }
+    }
+  }
+  return { name: null, title: null, url: null };
+}
+
 function parseLogo(item: Record<string, unknown>): string | null {
   const logo =
     (item.companyLogo as string) ||
@@ -70,6 +106,8 @@ function normalizeJobItem(item: Record<string, unknown>): MarketJob | null {
     ((item.company as { name?: string })?.name) ||
     "";
   if (!title || !company) return null;
+
+  const poster = nestedPerson(item);
 
   return {
     company: String(company).trim(),
@@ -104,10 +142,13 @@ function normalizeJobItem(item: Record<string, unknown>): MarketJob | null {
       (item.jobPosterName as string) ||
       (item.posterName as string) ||
       (item.postedBy as string) ||
-      null,
-    jobPosterTitle: (item.jobPosterTitle as string) || (item.posterTitle as string) || null,
+      poster.name,
+    jobPosterTitle:
+      (item.jobPosterTitle as string) || (item.posterTitle as string) || poster.title,
     jobPosterProfileUrl:
-      (item.jobPosterProfileUrl as string) || (item.posterProfileUrl as string) || null,
+      (item.jobPosterProfileUrl as string) ||
+      (item.posterProfileUrl as string) ||
+      poster.url,
     jobFunction: (item.jobFunction as string) || null,
     department: (item.department as string) || (item.jobDepartment as string) || null,
     companyLinkedinUrl:

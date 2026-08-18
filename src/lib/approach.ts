@@ -1,3 +1,4 @@
+import { hmSearchPlan } from "@/lib/hm-hunt";
 import type { OrgContext } from "@/lib/org-context";
 
 /** LinkedIn geoUrn for the Netherlands. */
@@ -101,6 +102,7 @@ export function buildApproach(opts: {
   openingTitle?: string;
   org: OrgContext;
   companyLinkedinUrl?: string | null;
+  sector?: string | null;
 }): { department: string | null; targets: ApproachTarget[] } {
   const companyUrl = opts.companyLinkedinUrl || null;
   const short = linkedinCompanyQuery(opts.company);
@@ -125,15 +127,21 @@ export function buildApproach(opts: {
     return { department: opts.org.department, targets };
   }
 
-  const keyword = opts.org.department || "manager";
+  const plan = hmSearchPlan({
+    company: opts.company,
+    roleLabel: opts.roleLabel,
+    openingTitle: opts.openingTitle,
+    department: opts.org.department,
+    sector: opts.sector,
+  });
   targets.push({
     kind: "search",
     label: "Nog niet bekend",
-    subtitle: `Vind bij ${short}`,
+    subtitle: `Zoek ${plan.hint} bij ${short}`,
     url: linkedinPeopleAtCompany({
       company: opts.company,
       companyLinkedinUrl: companyUrl,
-      keywords: keyword,
+      keywords: plan.keywords,
     }),
     cta: "zoek",
   });
@@ -145,7 +153,7 @@ export function buildApproach(opts: {
     targets.push({
       kind: "person",
       label: opts.org.contactName,
-      subtitle: recruiter ? "Recruiter" : opts.org.contactTitle,
+      subtitle: recruiter ? "Recruiter · vraag wie de manager is" : opts.org.contactTitle,
       url: linkedinPersonUrl({
         name: opts.org.contactName,
         company: opts.company,

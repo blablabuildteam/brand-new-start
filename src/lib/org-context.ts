@@ -18,7 +18,7 @@ const RECRUITER_TITLE =
   /recruiter|talent acquisition|talent partner|sourcer|recruitment|werving|hr advisor|hr business|staffing|intercedent/i;
 
 const MANAGER_TITLE =
-  /\b(hiring manager|manager|lead|director|head of|hoofd|teamlead|team lead|chapter lead|product owner|opdrachtgever)\b/i;
+  /\b(hiring manager|manager|lead|director|head of|hoofd|teamlead|team lead|chapter lead|tribe lead|product owner|opdrachtgever|informatiemanager|afdelingshoofd|engineering manager|delivery manager|service owner|unit manager)\b/i;
 
 function str(v: unknown): string | null {
   if (typeof v !== "string") return null;
@@ -77,10 +77,12 @@ function parseFromText(text: string): Pick<OrgContext, "department" | "hiringMan
   }
 
   const mgrRes = [
-    /(?:hiring manager|leidinggevende|contactpersoon|contact persoon|aanspreekpunt)\s*[:\-–]\s*([A-ZÁÉÍÓÚ][^\n|]{2,60})/i,
+    /(?:hiring manager|leidinggevende|contactpersoon|contact persoon|aanspreekpunt|opdrachtgever)\s*[:\-–]\s*([A-ZÁÉÍÓÚ][^\n|]{2,60})/i,
     /(?:je )?rapporteer(?:t|en)? aan\s*[:\-–]?\s*([A-ZÁÉÍÓÚ][a-zA-ZÀ-ÿ'’.\-]+(?:\s+[A-ZÁÉÍÓÚ][a-zA-ZÀ-ÿ'’.\-]+){0,3})/i,
     /reports? to\s*[:\-–]?\s*([A-Z][a-zA-Z'’.\-]+(?:\s+[A-Z][a-zA-Z'’.\-]+){0,3})/i,
     /reporting to\s*[:\-–]?\s*([A-Z][a-zA-Z'’.\-]+(?:\s+[A-Z][a-zA-Z'’.\-]+){0,3})/i,
+    /(?:inhoudelijk(?:e vragen)?|voor vragen(?: kun je terecht)?(?: bij)?)\s*[:\-–]\s*([A-ZÁÉÍÓÚ][a-zA-ZÀ-ÿ'’.\-]+(?:\s+(?:de|den|der|van|von|het|ten|ter|[A-ZÁÉÍÓÚ][a-zA-ZÀ-ÿ'’.\-]+)){1,4})/i,
+    /(?:je )?(?:sparringpartner|leidinggevende|opdrachtgever) is\s+([A-ZÁÉÍÓÚ][a-zA-ZÀ-ÿ'’.\-]+(?:\s+(?:de|den|der|van|von|het|ten|ter|[A-ZÁÉÍÓÚ][a-zA-ZÀ-ÿ'’.\-]+)){1,4})/i,
     /manager\s*[:\-–]\s*([A-ZÁÉÍÓÚ][a-zA-ZÀ-ÿ'’.\-]+(?:\s+(?:de|den|der|van|von|het|ten|ter|[A-ZÁÉÍÓÚ][a-zA-ZÀ-ÿ'’.\-]+)){0,4})/i,
   ];
   for (const re of mgrRes) {
