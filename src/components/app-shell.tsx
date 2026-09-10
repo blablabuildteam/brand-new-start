@@ -5,17 +5,18 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { RegieMark } from "@/components/regie-mark";
 
-export type AppNavId = "radar" | "leads" | "voorstel" | "instellingen";
+export type AppNavId = "radar" | "leads" | "kansen" | "voorstel" | "instellingen";
 
-const PRIMARY: { href: string; id: AppNavId; label: string; icon: "radar" | "bureaus" | "voorstel" }[] = [
+const PRIMARY: { href: string; id: AppNavId; label: string; icon: "radar" | "bureaus" | "kansen" | "voorstel" }[] = [
   { href: "/radar", id: "radar", label: "Radar", icon: "radar" },
   { href: "/leads", id: "leads", label: "Bureaus", icon: "bureaus" },
+  { href: "/kansen", id: "kansen", label: "Kansen", icon: "kansen" },
   { href: "/regie", id: "voorstel", label: "Voorstel", icon: "voorstel" },
 ];
 
 type ShellUser = { email: string; role?: string };
 
-function SideIcon({ kind, on }: { kind: "radar" | "bureaus" | "voorstel" | "settings"; on: boolean }) {
+function SideIcon({ kind, on }: { kind: "radar" | "bureaus" | "kansen" | "voorstel" | "settings"; on: boolean }) {
   const stroke = on ? "var(--accent)" : "currentColor";
   if (kind === "radar") {
     return (
@@ -31,6 +32,14 @@ function SideIcon({ kind, on }: { kind: "radar" | "bureaus" | "voorstel" | "sett
       <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden className="shrink-0">
         <path d="M3 13V5.5L8 3l5 2.5V13" stroke={stroke} strokeWidth="1.4" strokeLinejoin="round" />
         <path d="M6 13V8h4v5" stroke={stroke} strokeWidth="1.4" />
+      </svg>
+    );
+  }
+  if (kind === "kansen") {
+    return (
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden className="shrink-0">
+        <path d="M3 12.5V5l5-2.5L13 5v7.5l-5 2.5L3 12.5Z" stroke={stroke} strokeWidth="1.4" strokeLinejoin="round" />
+        <path d="M8 5v10" stroke={on ? "#ebf212" : stroke} strokeWidth="1.3" />
       </svg>
     );
   }
@@ -253,7 +262,7 @@ export function AppShell({
         </div>
 
         <nav
-          className="app-mobile-nav fixed inset-x-0 bottom-0 z-40 grid grid-cols-3 border-t border-[var(--line)] md:hidden"
+          className="app-mobile-nav fixed inset-x-0 bottom-0 z-40 grid grid-cols-4 border-t border-[var(--line)] md:hidden"
           aria-label="Workspace"
         >
           {PRIMARY.map((l) => {
@@ -262,7 +271,7 @@ export function AppShell({
               <Link
                 key={l.id}
                 href={l.href}
-                className={`nav-link flex flex-col items-center justify-center gap-0.5 px-1 py-2 text-[0.65rem] font-semibold no-underline transition ${
+                className={`nav-link flex flex-col items-center justify-center gap-0.5 px-0.5 py-2 text-[0.62rem] font-semibold leading-tight no-underline transition touch-manipulation ${
                   on ? "text-[var(--accent)]" : "text-[var(--muted)]"
                 }`}
               >

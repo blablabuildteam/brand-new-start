@@ -153,6 +153,7 @@ export function channelLabel(ch: SyncChannel | string) {
     specialty: "Specialisatie (eenmalig kader)",
     "hm-search": "Hiring manager zoeken",
     lusha: "Lusha contact",
+    bureau: "Bureau",
   };
   return labels[ch] || ch;
 }

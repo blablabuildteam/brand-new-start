@@ -293,7 +293,7 @@ export default function LeadsDesk() {
         <main className="ws-main min-h-0 flex-1">
           <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
             <p className="max-w-xl text-[0.8rem] leading-relaxed text-[var(--muted)]">
-              Bureau-vacature → AI of regels raden de eindklant. Bevestig voordat je een manager zoekt.
+              Bureau-vacature → eindklant raden en bevestigen. Bevestigde kansen landen in Kansen.
             </p>
             {data ? (
               <p className="text-[0.7rem] text-[var(--muted)]" style={{ fontFamily: "var(--mono)" }}>
