@@ -1161,7 +1161,7 @@ export default function RadarApp() {
     <AppShell current="radar" title="Radar" subtitle="Interim- en ZZP-opdrachten" fill toolbar={syncToolbar}>
       <main className="radar-shell mx-auto flex min-h-0 w-full max-w-[1280px] flex-1 flex-col px-5 pt-4 md:px-7">
         {!live && sync?.last ? (
-          <section className="mb-3 shrink-0 overflow-hidden rounded-md border border-[var(--line)] bg-[var(--surface)] shadow-[var(--shadow)]">
+          <section className="mb-3 shrink-0 overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--surface)] shadow-[var(--shadow)]">
             <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1.5 border-b border-[var(--line)]/80 px-3.5 py-2">
               <p className="text-sm text-[var(--ink)]" title="Bedrijven op de radar · warme of sterke kans">
                 {stats ? (
@@ -1230,7 +1230,7 @@ export default function RadarApp() {
         )}
 
         {showPanel && live ? (
-          <section className="mb-4 shrink-0 animate-fade-in overflow-hidden rounded-md border border-[var(--line)] bg-[var(--surface)] shadow-[var(--shadow)]">
+          <section className="mb-4 shrink-0 animate-fade-in overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--surface)] shadow-[var(--shadow)]">
             <div className="flex items-start justify-between gap-3 border-b border-[var(--line)]/80 px-4 py-3">
               <div className="min-w-0">
                 <p

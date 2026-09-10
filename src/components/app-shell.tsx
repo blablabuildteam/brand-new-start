@@ -7,16 +7,56 @@ import { RegieMark } from "@/components/regie-mark";
 
 export type AppNavId = "radar" | "leads" | "voorstel" | "instellingen";
 
-const PRIMARY: { href: string; id: AppNavId; label: string }[] = [
-  { href: "/radar", id: "radar", label: "Radar" },
-  { href: "/leads", id: "leads", label: "Bureaus" },
-  { href: "/regie", id: "voorstel", label: "Voorstel" },
+const PRIMARY: { href: string; id: AppNavId; label: string; icon: "radar" | "bureaus" | "voorstel" }[] = [
+  { href: "/radar", id: "radar", label: "Radar", icon: "radar" },
+  { href: "/leads", id: "leads", label: "Bureaus", icon: "bureaus" },
+  { href: "/regie", id: "voorstel", label: "Voorstel", icon: "voorstel" },
 ];
 
 type ShellUser = { email: string; role?: string };
 
+function SideIcon({ kind, on }: { kind: "radar" | "bureaus" | "voorstel" | "settings"; on: boolean }) {
+  const stroke = on ? "var(--accent)" : "currentColor";
+  if (kind === "radar") {
+    return (
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden className="shrink-0">
+        <circle cx="8" cy="8" r="5.5" stroke={stroke} strokeWidth="1.4" />
+        <circle cx="8" cy="8" r="2" stroke={stroke} strokeWidth="1.3" />
+        <path d="M8 8 L13 4" stroke={on ? "#ebf212" : stroke} strokeWidth="1.5" strokeLinecap="round" />
+      </svg>
+    );
+  }
+  if (kind === "bureaus") {
+    return (
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden className="shrink-0">
+        <path d="M3 13V5.5L8 3l5 2.5V13" stroke={stroke} strokeWidth="1.4" strokeLinejoin="round" />
+        <path d="M6 13V8h4v5" stroke={stroke} strokeWidth="1.4" />
+      </svg>
+    );
+  }
+  if (kind === "voorstel") {
+    return (
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden className="shrink-0">
+        <path d="M3 4.5h10v8H5.5L3 14.5V4.5Z" stroke={stroke} strokeWidth="1.4" strokeLinejoin="round" />
+        <path d="M6 7.5h4M6 10h3" stroke={stroke} strokeWidth="1.3" strokeLinecap="round" />
+      </svg>
+    );
+  }
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden className="shrink-0">
+      <circle cx="8" cy="8" r="2.2" stroke={stroke} strokeWidth="1.4" />
+      <path
+        d="M8 2.5v1.2M8 12.3v1.2M2.5 8h1.2M12.3 8h1.2M4.1 4.1l.85.85M11.05 11.05l.85.85M11.9 4.1l-.85.85M4.95 11.05l-.85.85"
+        stroke={stroke}
+        strokeWidth="1.3"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
 function navClass(on: boolean) {
-  return `nav-link block rounded-lg px-2.5 py-2 text-[0.9rem] ${
+  return `nav-link flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-[0.9rem] transition ${
     on
       ? "bg-[var(--accent-soft)] font-semibold text-[var(--accent)]"
       : "font-medium text-[var(--ink)]/75 hover:bg-[var(--surface-2)] hover:text-[var(--ink)]"
@@ -83,6 +123,7 @@ export function AppShell({
       <nav className="mt-2 flex flex-col gap-0.5">
         {PRIMARY.map((l) => (
           <Link key={l.id} href={l.href} onClick={() => setOpen(false)} className={navClass(current === l.id)}>
+            <SideIcon kind={l.icon} on={current === l.id} />
             {l.label}
           </Link>
         ))}
@@ -100,6 +141,7 @@ export function AppShell({
           onClick={() => setOpen(false)}
           className={navClass(current === "instellingen")}
         >
+          <SideIcon kind="settings" on={current === "instellingen"} />
           Instellingen
         </Link>
       </nav>

@@ -29,6 +29,13 @@ function factsLine(l: AgencyLead) {
     .join(" · ");
 }
 
+function statusClass(status: LeadStatus) {
+  if (status === "confirmed") return "border-[var(--green)]/30 bg-[var(--green-soft)] text-[var(--green)]";
+  if (status === "suggest") return "border-[var(--accent)]/25 bg-[var(--accent-soft)] text-[var(--accent)]";
+  if (status === "rejected") return "border-[var(--line)] bg-[var(--surface-2)] text-[var(--muted)]";
+  return "border-[var(--warn)]/30 bg-[var(--warn-soft)] text-[var(--warn)]";
+}
+
 function LeadCard({
   lead,
   busy,
@@ -40,15 +47,19 @@ function LeadCard({
 }) {
   const client = lead.confirmedClient || lead.guess?.name;
   return (
-    <article className="overflow-hidden rounded-md border border-[var(--line)] bg-[var(--surface)] px-4 py-4 shadow-[var(--shadow)]">
+    <article className="group overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-5 shadow-[var(--shadow)] transition hover:border-[var(--accent)]/20">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-[0.65rem] uppercase tracking-[0.08em] text-[var(--muted)]" style={{ fontFamily: "var(--mono)" }}>
-            {lead.agency.name}
-            {lead.demo ? " · voorbeeld" : ""}
-          </p>
-          <h2 className="mt-1 text-base font-semibold text-[var(--ink)]">{lead.title}</h2>
-          <p className="mt-1 text-[0.78rem] text-[var(--muted)]">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-[0.7rem] font-semibold text-[var(--muted)]">{lead.agency.name}</p>
+            {lead.demo ? (
+              <span className="rounded-full border border-[var(--line)] px-2 py-0.5 text-[0.6rem] font-semibold uppercase tracking-wide text-[var(--muted)]">
+                Voorbeeld
+              </span>
+            ) : null}
+          </div>
+          <h2 className="mt-1 text-[1.05rem] font-semibold tracking-tight text-[var(--ink)]">{lead.title}</h2>
+          <p className="mt-1 text-[0.8rem] text-[var(--muted)]">
             {lead.roleLabel}
             {lead.recruiter.name ? (
               <>
@@ -66,58 +77,40 @@ function LeadCard({
                   lead.recruiter.name
                 )}
               </>
-            ) : (
-              " · recruiter onbekend"
-            )}
-            {lead.recruiter.title ? ` · ${lead.recruiter.title}` : ""}
+            ) : null}
           </p>
-          {factsLine(lead) ? <p className="mt-1 text-[0.75rem] text-[var(--muted)]">{factsLine(lead)}</p> : null}
+          {factsLine(lead) ? <p className="mt-1.5 text-[0.75rem] text-[var(--muted)]">{factsLine(lead)}</p> : null}
         </div>
-        <span
-          className={`shrink-0 rounded-md border px-2 py-1 text-[0.68rem] font-semibold ${
-            lead.status === "confirmed"
-              ? "border-[var(--green)]/40 bg-[var(--green-soft)] text-[var(--green)]"
-              : lead.status === "suggest"
-                ? "border-[var(--accent)]/35 bg-[var(--accent-soft)] text-[var(--accent)]"
-                : lead.status === "rejected"
-                  ? "border-[var(--line)] text-[var(--muted)]"
-                  : "border-[var(--warn)]/35 bg-[var(--warn-soft)] text-[var(--warn)]"
-          }`}
-        >
+        <span className={`shrink-0 rounded-full border px-2.5 py-1 text-[0.68rem] font-semibold ${statusClass(lead.status)}`}>
           {STATUS_NL[lead.status]}
           {lead.guess && lead.status !== "rejected" ? ` · ${lead.guess.confidence}%` : ""}
         </span>
       </div>
 
-      <div className="mt-3 border-t border-[var(--line)]/70 pt-3">
-        <p className="text-[0.65rem] uppercase tracking-[0.08em] text-[var(--muted)]">Eindklant</p>
+      <div className="mt-4 rounded-xl bg-[var(--surface-2)] px-3.5 py-3">
+        <p className="text-[0.62rem] font-semibold uppercase tracking-[0.1em] text-[var(--muted)]">Eindklant</p>
         <p className="mt-1 text-sm font-semibold text-[var(--ink)]">{client || "Nog niet te zeggen"}</p>
         {lead.guess?.evidence.length ? (
-          <ul className="mt-2 space-y-1">
-            {lead.guess.evidence.map((e, i) => (
-              <li key={i} className="text-[0.75rem] text-[var(--muted)]">
-                {e.label}
-                {e.quote ? <span className="block text-[var(--ink)]/80">“{e.quote}”</span> : null}
+          <ul className="mt-2 space-y-1.5">
+            {lead.guess.evidence.slice(0, 2).map((e, i) => (
+              <li key={i} className="text-[0.75rem] leading-snug text-[var(--muted)]">
+                <span className="font-medium text-[var(--ink)]/80">{e.label}</span>
+                {e.quote ? <span className="block">“{e.quote}”</span> : null}
               </li>
             ))}
           </ul>
         ) : (
-          <p className="mt-1 text-[0.75rem] text-[var(--muted)]">Geen harde hint in de tekst — handmatig beoordelen.</p>
+          <p className="mt-1 text-[0.75rem] text-[var(--muted)]">Geen harde hint — handmatig beoordelen.</p>
         )}
-        {lead.guess?.alternatives.length ? (
-          <p className="mt-2 text-[0.72rem] text-[var(--muted)]">
-            Ook mogelijk: {lead.guess.alternatives.map((a) => `${a.name} (${a.confidence}%)`).join(", ")}
-          </p>
-        ) : null}
       </div>
 
       {lead.status === "confirmed" || lead.status === "rejected" ? null : (
-        <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5">
+        <div className="mt-4 flex flex-wrap items-center gap-2">
           <button
             type="button"
             disabled={busy || !client}
             onClick={() => onReview(lead.id, "confirmed")}
-            className="rounded-[var(--radius)] border border-[var(--line)] bg-[var(--surface)] px-2.5 py-1 text-xs font-medium text-[var(--ink)] hover:border-[var(--accent)]/40 hover:bg-[var(--surface-2)] disabled:opacity-50"
+            className="btn-ink rounded-full px-3.5 py-1.5 text-xs font-semibold disabled:opacity-50"
           >
             Bevestig {client || "klant"}
           </button>
@@ -125,7 +118,7 @@ function LeadCard({
             type="button"
             disabled={busy}
             onClick={() => onReview(lead.id, "rejected")}
-            className="text-xs font-medium text-[var(--muted)] hover:text-[var(--ink)] hover:underline disabled:opacity-50"
+            className="rounded-full border border-[var(--line)] px-3.5 py-1.5 text-xs font-semibold text-[var(--muted)] hover:text-[var(--ink)] disabled:opacity-50"
           >
             Niet deze
           </button>
@@ -134,9 +127,9 @@ function LeadCard({
               href={lead.evidenceUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-xs font-semibold text-[var(--accent)] no-underline hover:text-[var(--ink)] hover:underline"
+              className="ml-auto text-xs font-semibold text-[var(--accent)] no-underline hover:underline"
             >
-              Vacature
+              Vacature →
             </a>
           ) : null}
         </div>
@@ -186,27 +179,32 @@ export default function LeadsDesk() {
   }
 
   return (
-    <AppShell current="leads" title="Bureaus" subtitle="Vacature → echte eindklant">
+    <AppShell current="leads" title="Bureaus" subtitle="Eerst eindklant, dan pas manager">
       <main className="mx-auto w-full max-w-[1200px] flex-1 px-5 py-5 md:px-7">
-        <p className="mb-5 max-w-xl text-sm text-[var(--muted)]">
-          Vacatures van je watchlist. De eindklant is een gok met bewijs — onder de drempel blijft het review. Hiring
-          manager zoeken we pas ná bevestiging, bij díe organisatie. De kaarten hieronder zijn echte publieke teksten,
-          uit verschillende niches — nog geen scrape.
-        </p>
+        <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
+          <p className="max-w-xl text-sm leading-relaxed text-[var(--muted)]">
+            Bureau-vacatures → geraden eindklant met bewijs. Bevestig voordat je een manager zoekt.
+          </p>
+          {data ? (
+            <p className="text-[0.75rem] text-[var(--muted)]" style={{ fontFamily: "var(--mono)" }}>
+              {data.live.length} live · {data.demo.length} voorbeelden
+            </p>
+          ) : null}
+        </div>
 
         {error ? <p className="text-sm text-[var(--warn)]">{error}</p> : null}
         {!data ? (
           <p className="text-sm text-[var(--muted)]">Laden…</p>
         ) : (
-          <div className="grid gap-6 lg:grid-cols-[16rem_1fr]">
-            <aside>
-              <p className="text-[0.65rem] uppercase tracking-[0.08em] text-[var(--muted)]">Watchlist</p>
-              <ul className="mt-2 space-y-3">
+          <div className="grid gap-6 lg:grid-cols-[15rem_1fr]">
+            <aside className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-4 shadow-[var(--shadow)]">
+              <p className="text-[0.65rem] font-semibold uppercase tracking-[0.1em] text-[var(--muted)]">Watchlist</p>
+              <ul className="mt-3 space-y-4">
                 {data.watchlist.map((a) => (
                   <li key={a.id}>
                     <p className="text-sm font-semibold text-[var(--ink)]">{a.name}</p>
                     {a.note ? <p className="mt-0.5 text-[0.7rem] leading-snug text-[var(--muted)]">{a.note}</p> : null}
-                    <ul className="mt-1.5 space-y-1">
+                    <ul className="mt-2 space-y-1">
                       {a.recruiters.map((r) => (
                         <li key={r.name} className="text-[0.72rem] leading-snug text-[var(--muted)]">
                           {r.linkedinUrl ? (
@@ -222,7 +220,6 @@ export default function LeadsDesk() {
                             <span className="font-medium text-[var(--ink)]">{r.name}</span>
                           )}
                           {r.brand ? ` · ${r.brand}` : ""}
-                          {r.title ? ` · ${r.title}` : ""}
                         </li>
                       ))}
                     </ul>
@@ -233,9 +230,14 @@ export default function LeadsDesk() {
 
             <div className="space-y-6">
               <section>
-                <p className="mb-2 text-[0.65rem] uppercase tracking-[0.08em] text-[var(--muted)]">
-                  Uit je radar {data.live.length ? `(${data.live.length})` : ""}
-                </p>
+                <div className="mb-3 flex items-center justify-between gap-2">
+                  <p className="text-[0.7rem] font-semibold uppercase tracking-[0.1em] text-[var(--muted)]">
+                    Uit je radar
+                  </p>
+                  <span className="text-[0.7rem] text-[var(--muted)]" style={{ fontFamily: "var(--mono)" }}>
+                    {data.live.length}
+                  </span>
+                </div>
                 {data.live.length ? (
                   <div className="space-y-3">
                     {data.live.map((l) => (
@@ -243,16 +245,21 @@ export default function LeadsDesk() {
                     ))}
                   </div>
                 ) : (
-                  <p className="rounded-md border border-[var(--line)] bg-[var(--surface)] px-4 py-3 text-sm text-[var(--muted)]">
-                    Nog geen bureau-vacatures in de radar. Sync LinkedIn — of beoordeel eerst de voorbeelden.
+                  <p className="rounded-2xl border border-dashed border-[var(--line)] bg-[var(--surface)] px-4 py-6 text-sm text-[var(--muted)]">
+                    Nog geen bureau-hits in de radar. Beoordeel eerst de voorbeelden hieronder.
                   </p>
                 )}
               </section>
 
               <section>
-                <p className="mb-2 text-[0.65rem] uppercase tracking-[0.08em] text-[var(--muted)]">
-                  Publieke teksten · alle hoeken
-                </p>
+                <div className="mb-3 flex items-center justify-between gap-2">
+                  <p className="text-[0.7rem] font-semibold uppercase tracking-[0.1em] text-[var(--muted)]">
+                    Voorbeelden
+                  </p>
+                  <span className="text-[0.7rem] text-[var(--muted)]" style={{ fontFamily: "var(--mono)" }}>
+                    {data.demo.length}
+                  </span>
+                </div>
                 <div className="space-y-3">
                   {data.demo.map((l) => (
                     <LeadCard key={l.id} lead={l} busy={busy} onReview={onReview} />

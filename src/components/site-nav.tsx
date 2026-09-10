@@ -27,8 +27,8 @@ export function SiteNav({
           <RegieWordmark name={name} />
         </Link>
         <nav className="hidden items-center gap-7 text-[0.9rem] font-medium text-[var(--muted)] md:flex">
-          <a href="#vakken" className="nav-link hover:text-[var(--ink)]">
-            Vakken
+          <a href="#hoe" className="nav-link hover:text-[var(--ink)]">
+            Hoe het werkt
           </a>
           <Link href="/radar" className="nav-link hover:text-[var(--ink)]">
             Contracting
@@ -68,8 +68,8 @@ export function SiteNav({
       </div>
       {open ? (
         <nav className="border-t border-[var(--line)] px-5 py-3 md:hidden">
-          <a href="#vakken" className="nav-link block py-2 text-sm text-[var(--ink)]" onClick={() => setOpen(false)}>
-            Vakken
+          <a href="#hoe" className="nav-link block py-2 text-sm text-[var(--ink)]" onClick={() => setOpen(false)}>
+            Hoe het werkt
           </a>
           <Link href="/radar" className="nav-link block py-2 text-sm text-[var(--ink)]" onClick={() => setOpen(false)}>
             Contracting

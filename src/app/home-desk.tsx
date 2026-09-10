@@ -10,23 +10,38 @@ import { SiteNav } from "@/components/site-nav";
 const STEPS = [
   {
     n: "1",
-    title: "Kans binnen",
-    text: "Via LinkedIn, Indeed, Freelance.nl — of via een bureau op je watchlist.",
+    title: "Kans",
+    text: "Opdrachten via LinkedIn, Indeed, Freelance.nl — of via een bureau.",
   },
   {
     n: "2",
     title: "Eindklant",
-    text: "Zelf geplaatst: dat bedrijf. Bureau: eerst bevestigen wie de echte klant is.",
+    text: "Zelf geplaatst: dat bedrijf. Bureau: eerst bevestigen.",
   },
   {
     n: "3",
     title: "Manager",
-    text: "Drie namen bij díe organisatie. Mail of tel alleen als jij dat wilt.",
+    text: "Namen bij díe organisatie. Contact alleen als jij klikt.",
   },
   {
     n: "4",
     title: "Voorstel",
-    text: "Bericht klaarzetten met een passend profiel. Jij verstuurt.",
+    text: "Bericht klaarzetten. Jij verstuurt — niets gaat automatisch.",
+  },
+];
+
+const PRINCIPLES = [
+  {
+    title: "Alleen de eindklant",
+    text: "Geen manager zoeken bij een bureau als de opdracht voor een bank of retailer is.",
+  },
+  {
+    title: "Jij houdt de regie",
+    text: "Sync, zoeken en versturen gebeurt op jouw klik. Geen auto-outreach.",
+  },
+  {
+    title: "Bronnen samen",
+    text: "Jobboards en watchlist-bureaus landen in één flow naar hetzelfde gesprek.",
   },
 ];
 
@@ -73,8 +88,8 @@ export default function HomeDesk() {
               Van opdracht naar de juiste manager.
             </h1>
             <p className="mt-5 max-w-md text-[1.05rem] leading-relaxed text-[var(--muted)]">
-              Vind interim- en ZZP-kansen, zet de eindklant vast, en benader de hiring manager met
-              een passend profiel.
+              Interim- en ZZP-kansen ophalen, de eindklant vastzetten, en de hiring manager benaderen
+              met een passend profiel.
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-3">
               <Link
@@ -84,11 +99,21 @@ export default function HomeDesk() {
                 Open contracting
               </Link>
               <a
-                href="#vakken"
+                href="#hoe"
                 className="nav-link inline-flex items-center rounded-full border border-[var(--line)] bg-[var(--surface)] px-5 py-2.5 text-sm font-semibold text-[var(--ink)] transition hover:bg-[var(--surface-2)] hover:text-[var(--ink)]"
               >
-                Bekijk de vakken
+                Hoe het werkt
               </a>
+            </div>
+            <div className="mt-10 flex flex-wrap gap-2">
+              {["LinkedIn", "Indeed", "Freelance.nl", "Bureaus"].map((s) => (
+                <span
+                  key={s}
+                  className="rounded-full border border-[var(--line)] bg-[var(--surface-2)] px-3 py-1 text-[0.72rem] font-medium text-[var(--muted)]"
+                >
+                  {s}
+                </span>
+              ))}
             </div>
           </div>
 
@@ -99,7 +124,58 @@ export default function HomeDesk() {
       </section>
 
       <main className="mx-auto max-w-[1120px] px-5 py-14 md:px-8 md:py-16">
-        <section id="vakken" className="scroll-mt-24">
+        <section id="hoe" className="scroll-mt-24">
+          <h2
+            className="text-[2rem] tracking-tight text-[var(--accent)] md:text-[2.35rem]"
+            style={{ fontFamily: "var(--display)" }}
+          >
+            Hoe het werkt
+          </h2>
+          <p className="mt-2 max-w-lg text-sm leading-relaxed text-[var(--muted)]">
+            Eén lijn: kans → eindklant → manager → voorstel.
+          </p>
+          <ol className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {STEPS.map((s, i) => (
+              <li
+                key={s.n}
+                className={`reveal reveal-delay-${i + 1} rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-5 shadow-[var(--shadow)]`}
+              >
+                <span
+                  className="inline-flex h-7 min-w-7 items-center justify-center rounded-full bg-[var(--signal)] px-2 text-[0.75rem] font-semibold text-[var(--ink)]"
+                  style={{ fontFamily: "var(--mono)" }}
+                >
+                  {s.n}
+                </span>
+                <p className="mt-3 text-sm font-semibold text-[var(--ink)]">{s.title}</p>
+                <p className="mt-1 text-[0.85rem] leading-relaxed text-[var(--muted)]">{s.text}</p>
+              </li>
+            ))}
+          </ol>
+        </section>
+
+        <section className="mt-16">
+          <h2
+            className="text-[2rem] tracking-tight text-[var(--accent)] md:text-[2.35rem]"
+            style={{ fontFamily: "var(--display)" }}
+          >
+            Beginselen
+          </h2>
+          <div className="mt-8 grid gap-4 md:grid-cols-3">
+            {PRINCIPLES.map((p, i) => (
+              <article
+                key={p.title}
+                className={`reveal reveal-delay-${i + 1} rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-6`}
+              >
+                <p className="text-[1.25rem] tracking-tight text-[var(--ink)]" style={{ fontFamily: "var(--display)" }}>
+                  {p.title}
+                </p>
+                <p className="mt-2 text-sm leading-relaxed text-[var(--muted)]">{p.text}</p>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section id="vakken" className="mt-16 scroll-mt-24 border-t border-[var(--line)] pt-12">
           <h2
             className="text-[2rem] tracking-tight text-[var(--accent)] md:text-[2.35rem]"
             style={{ fontFamily: "var(--display)" }}
@@ -107,7 +183,7 @@ export default function HomeDesk() {
             Kies je vak
           </h2>
           <p className="mt-2 max-w-lg text-sm leading-relaxed text-[var(--muted)]">
-            Contracting staat live. Permanent volgt eraan.
+            Contracting staat live. Permanent volgt.
           </p>
 
           <div className="mt-8 grid items-stretch gap-5 lg:grid-cols-2">
@@ -122,8 +198,7 @@ export default function HomeDesk() {
               </div>
               <p className="mt-1 text-sm font-medium text-[var(--muted)]">Werving & selectie</p>
               <p className="mt-4 text-sm leading-relaxed text-[var(--muted)]">
-                Vaste functies bij de werkgever op de vacature. Manager zoeken, kandidaat
-                voorstellen.
+                Vaste functies. Manager bij de werkgever, voorstel voor vast.
               </p>
               <p className="mt-8 rounded-full bg-[var(--surface-2)] px-4 py-2.5 text-center text-sm font-semibold text-[var(--muted)]">
                 Nog niet beschikbaar
@@ -141,19 +216,8 @@ export default function HomeDesk() {
               </div>
               <p className="mt-1 text-sm font-medium text-[var(--muted)]">Interim & ZZP</p>
               <p className="mt-4 text-sm leading-relaxed text-[var(--muted)]">
-                Kansen van jobboards en bureaus. Eerst de eindklant, dan de manager, dan het
-                voorstel.
+                Jobboards en bureaus. Eerst eindklant, dan manager, dan voorstel.
               </p>
-              <ul className="mt-5 space-y-2 text-sm text-[var(--ink)]">
-                {["LinkedIn, Indeed, Freelance.nl", "Bureaus → eindklant bevestigen", "Manager + voorstel"].map(
-                  (t) => (
-                    <li key={t} className="flex gap-2.5">
-                      <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent)]" aria-hidden />
-                      {t}
-                    </li>
-                  )
-                )}
-              </ul>
               <Link
                 href="/radar"
                 className="nav-link btn-ink mt-8 inline-flex w-full items-center justify-center rounded-full px-4 py-2.5 text-sm font-semibold transition hover:scale-[1.01]"
@@ -162,29 +226,6 @@ export default function HomeDesk() {
               </Link>
             </article>
           </div>
-        </section>
-
-        <section className="mt-16 border-t border-[var(--line)] pt-12">
-          <h3
-            className="text-[1.75rem] tracking-tight text-[var(--accent)]"
-            style={{ fontFamily: "var(--display)" }}
-          >
-            Zo werkt contracting
-          </h3>
-          <ol className="mt-8 grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
-            {STEPS.map((s, i) => (
-              <li key={s.n} className={`reveal reveal-delay-${i + 1}`}>
-                <span
-                  className="inline-flex h-7 min-w-7 items-center justify-center rounded-full bg-[var(--signal)] px-2 text-[0.75rem] font-semibold text-[var(--ink)]"
-                  style={{ fontFamily: "var(--mono)" }}
-                >
-                  {s.n}
-                </span>
-                <p className="mt-3 text-sm font-semibold text-[var(--ink)]">{s.title}</p>
-                <p className="mt-1 text-[0.85rem] leading-relaxed text-[var(--muted)]">{s.text}</p>
-              </li>
-            ))}
-          </ol>
         </section>
       </main>
 
