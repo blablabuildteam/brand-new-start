@@ -247,7 +247,7 @@ export default function RegieDesk({
     tab === "hm" ? hm?.url : proposal?.shortlist.find((s) => s.person.id === tab)?.linkedinUrl;
 
   return (
-    <AppShell current="voorstel" title="Voorstel" subtitle="Bericht klaarzetten" fill>
+    <AppShell current="voorstel" title="Voorstel" subtitle="Bericht klaarzetten voor manager of kandidaat" fill>
       <div className="ws-shell ws-shell--split ws-shell--split-wide !gap-3 lg:!gap-4">
         <aside
           className={`radar-scroll-pane min-h-0 max-lg:flex-1 ${mobilePane === "detail" ? "max-lg:hidden" : ""}`}

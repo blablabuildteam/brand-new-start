@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getSession } from "@/lib/auth";
+import { loadHuntSettings } from "@/lib/hunt";
 import { listAgencyLeads, reviewLead } from "@/lib/opportunity";
 
 export async function GET() {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  await loadHuntSettings();
   const data = await listAgencyLeads();
   return NextResponse.json(data);
 }

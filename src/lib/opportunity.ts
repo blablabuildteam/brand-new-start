@@ -1,4 +1,12 @@
-import { AGENCY_WATCHLIST, matchAgency, type Agency, type AgencyRecruiter } from "@/lib/agency";
+import {
+  AGENCY_WATCHLIST,
+  isWatchedAgency,
+  matchAgency,
+  watchedAgencies,
+  watchedRecruitersFor,
+  type Agency,
+  type AgencyRecruiter,
+} from "@/lib/agency";
 import {
   extractVacancyFacts,
   guessEndClient,
@@ -283,7 +291,7 @@ export async function listAgencyLeads(): Promise<{
   const live: AgencyLead[] = [];
   for (const s of rows) {
     const agency = matchAgency(s.company?.name);
-    if (!agency) continue;
+    if (!agency || !isWatchedAgency(agency.id)) continue;
     const raw = (s.raw && typeof s.raw === "object" ? s.raw : {}) as Record<string, unknown>;
     const text = [s.summary, typeof raw.description === "string" ? raw.description : ""].join("\n");
     const poster =
@@ -314,11 +322,11 @@ export async function listAgencyLeads(): Promise<{
     return rank[a.status] - rank[b.status];
   });
   return {
-    watchlist: AGENCY_WATCHLIST.map((a) => ({
+    watchlist: watchedAgencies().map((a) => ({
       id: a.id,
       name: a.name,
       note: a.note,
-      recruiters: a.recruiters.map((r) => ({
+      recruiters: watchedRecruitersFor(a).map((r) => ({
         name: r.name,
         title: r.title,
         brand: r.brand,

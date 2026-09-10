@@ -236,7 +236,7 @@ export default function LeadsDesk() {
   }
 
   return (
-    <AppShell current="leads" title="Bureaus" subtitle="Eerst eindklant, dan pas manager" fill>
+    <AppShell current="leads" title="Bureaus" subtitle="Eerst eindklant, dan hiring manager" fill>
       <div className="ws-shell ws-shell--split">
         <aside className={`radar-scroll-pane min-h-0 shrink-0 lg:max-h-none ${watchOpen ? "max-lg:max-h-64" : "max-lg:max-h-none"}`}>
           <button
@@ -245,7 +245,7 @@ export default function LeadsDesk() {
             onClick={() => setWatchOpen((v) => !v)}
             aria-expanded={watchOpen}
           >
-            <p className="ws-label">Watchlist</p>
+            <p className="ws-label">Die je volgt</p>
             <span className="flex items-center gap-2">
               <span className="tabular-nums text-[0.68rem] text-[var(--muted)]" style={{ fontFamily: "var(--mono)" }}>
                 {data?.watchlist.length ?? 0}

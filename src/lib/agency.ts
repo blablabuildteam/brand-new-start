@@ -1,3 +1,5 @@
+import { huntSettings, recruiterKey } from "@/lib/hunt";
+
 export type AgencyRecruiter = {
   name: string;
   title?: string;
@@ -17,8 +19,8 @@ export type Agency = {
 };
 
 /**
- * Vaste contracting-watchlist — later naar Instellingen.
- * Alleen publiek gevonden, client-facing consultants (geen interne TA).
+ * Catalogus van contracting-bureaus (bronlijst).
+ * Welke je volgt, kies je in Instellingen.
  */
 export const AGENCY_WATCHLIST: Agency[] = [
   {
@@ -153,6 +155,32 @@ function norm(s: string) {
     .trim();
 }
 
+/** Alle bureau-ids in de catalogus. */
+export function allAgencyIds() {
+  return AGENCY_WATCHLIST.map((a) => a.id);
+}
+
+/** Alle recruiter-keys in de catalogus. */
+export function allRecruiterIds() {
+  return AGENCY_WATCHLIST.flatMap((a) => a.recruiters.map((r) => recruiterKey(a.id, r.name)));
+}
+
+/** Bureaus die je in Instellingen volgt. */
+export function watchedAgencies(): Agency[] {
+  const sel = huntSettings().agencyIds;
+  if (!sel) return AGENCY_WATCHLIST;
+  const set = new Set(sel);
+  return AGENCY_WATCHLIST.filter((a) => set.has(a.id));
+}
+
+/** Recruiters die je volgt, gegroepeerd per bureau. */
+export function watchedRecruitersFor(agency: Agency): AgencyRecruiter[] {
+  const sel = huntSettings().recruiterIds;
+  if (!sel) return agency.recruiters;
+  const set = new Set(sel);
+  return agency.recruiters.filter((r) => set.has(recruiterKey(agency.id, r.name)));
+}
+
 export function matchAgency(companyName: string | null | undefined): Agency | null {
   const n = norm(companyName || "");
   if (!n) return null;
@@ -174,4 +202,11 @@ export function matchAgency(companyName: string | null | undefined): Agency | nu
 
 export function isAgencyName(name: string | null | undefined): boolean {
   return Boolean(matchAgency(name));
+}
+
+/** Of dit bureau op jouw volglijst staat (niet alleen in de catalogus). */
+export function isWatchedAgency(agencyId: string): boolean {
+  const sel = huntSettings().agencyIds;
+  if (!sel) return true;
+  return sel.includes(agencyId);
 }

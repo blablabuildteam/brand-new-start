@@ -139,11 +139,11 @@ export function AppShell({
       </nav>
 
       <p className="mt-7 px-2.5 text-[0.68rem] font-semibold uppercase tracking-[0.12em] text-[var(--muted)]">
-        Desk
+        Overig
       </p>
       <nav className="mt-2 flex flex-col gap-0.5">
         <Link href="/" onClick={() => setOpen(false)} className={navClass(false)}>
-          Vak kiezen
+          Home
         </Link>
         <Link
           href="/instellingen"

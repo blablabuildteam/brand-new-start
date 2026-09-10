@@ -79,6 +79,10 @@ export const workspaceSettings = pgTable("workspace_settings", {
     market: string;
     roles: string[];
     requireContract: boolean;
+    employmentKinds?: string[];
+    agencyIds?: string[];
+    recruiterIds?: string[];
+    companyIds?: string[];
   }>().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
 });

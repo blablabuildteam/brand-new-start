@@ -1158,7 +1158,7 @@ export default function RadarApp() {
   );
 
   return (
-    <AppShell current="radar" title="Radar" subtitle="Interim- en ZZP-opdrachten" fill toolbar={syncToolbar}>
+    <AppShell current="radar" title="Radar" subtitle="Directe opdrachten bij eindklanten" fill toolbar={syncToolbar}>
       <main className="ws-shell radar-shell !gap-3">
         {!live && sync?.last ? (
           <section className={`ws-panel mb-0 shrink-0 ${mobilePane === "detail" ? "max-lg:hidden" : ""}`}>
