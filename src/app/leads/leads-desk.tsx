@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { WorkspaceBar } from "@/components/workspace-bar";
+import { AppShell } from "@/components/app-shell";
 import type { AgencyLead, LeadStatus } from "@/lib/opportunity";
 
 type Payload = {
@@ -186,20 +186,13 @@ export default function LeadsDesk() {
   }
 
   return (
-    <div className="flex min-h-dvh flex-col">
-      <WorkspaceBar current="leads" />
-      <main className="mx-auto w-full max-w-[1200px] flex-1 px-5 py-5 md:px-8">
-        <div className="mb-5">
-          <p className="text-[0.65rem] uppercase tracking-[0.08em] text-[var(--muted)]">Contracting · bureaus</p>
-          <h1 className="mt-1 text-2xl font-bold tracking-tight" style={{ fontFamily: "var(--display)" }}>
-            Bureau → eindklant
-          </h1>
-          <p className="mt-1 max-w-xl text-sm text-[var(--muted)]">
-            Vacatures van je watchlist. De eindklant is een gok met bewijs — onder de drempel blijft het review. Hiring
-            manager zoeken we pas ná bevestiging, bij díe organisatie. De kaarten hieronder zijn echte publieke teksten,
-            uit verschillende niches — nog geen scrape.
-          </p>
-        </div>
+    <AppShell current="leads" title="Bureaus" subtitle="Vacature → echte eindklant">
+      <main className="mx-auto w-full max-w-[1200px] flex-1 px-5 py-5 md:px-7">
+        <p className="mb-5 max-w-xl text-sm text-[var(--muted)]">
+          Vacatures van je watchlist. De eindklant is een gok met bewijs — onder de drempel blijft het review. Hiring
+          manager zoeken we pas ná bevestiging, bij díe organisatie. De kaarten hieronder zijn echte publieke teksten,
+          uit verschillende niches — nog geen scrape.
+        </p>
 
         {error ? <p className="text-sm text-[var(--warn)]">{error}</p> : null}
         {!data ? (
@@ -270,6 +263,6 @@ export default function LeadsDesk() {
           </div>
         )}
       </main>
-    </div>
+    </AppShell>
   );
 }

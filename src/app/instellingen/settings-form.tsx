@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import { WorkspaceBar } from "@/components/workspace-bar";
+import { AppShell } from "@/components/app-shell";
 import { DEFAULT_ROLES, type HuntSettings } from "@/lib/hunt";
 
 export default function SettingsForm() {
@@ -19,9 +19,14 @@ export default function SettingsForm() {
         }
         return r.json();
       })
-      .then((j: HuntSettings | null) => {
+      .then((j: (HuntSettings & { user?: unknown }) | null) => {
         if (!j) return;
-        setHunt(j);
+        setHunt({
+          name: j.name,
+          market: j.market,
+          roles: j.roles,
+          requireContract: j.requireContract,
+        });
         setRolesText(j.roles.join("\n"));
       });
   }, []);
@@ -56,13 +61,9 @@ export default function SettingsForm() {
   }
 
   return (
-    <div className="flex min-h-dvh flex-col">
-      <WorkspaceBar current="instellingen" />
-      <main className="mx-auto w-full max-w-[640px] flex-1 px-5 py-8 md:px-8">
-        <h1 className="text-2xl font-bold" style={{ fontFamily: "var(--display)" }}>
-          Kader
-        </h1>
-        <p className="mt-2 text-sm leading-relaxed text-[var(--muted)]">
+    <AppShell current="instellingen" title="Instellingen" subtitle="Rollen en contracting-kader">
+      <main className="mx-auto w-full max-w-[640px] flex-1 px-5 py-8 md:px-7">
+        <p className="text-sm leading-relaxed text-[var(--muted)]">
           Rollen die je zoekt, en of het contracting moet zijn. Sync en radar filteren hierop.
         </p>
 
@@ -134,6 +135,6 @@ export default function SettingsForm() {
           </form>
         )}
       </main>
-    </div>
+    </AppShell>
   );
 }

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { SourceLogo, SourceLogos, sourceChannelsFromRow } from "@/components/source-logo";
 import { ScoreChip } from "@/components/score-chip";
-import { BlablaLogo } from "@/components/blabla-logo";
+import { AppShell } from "@/components/app-shell";
 import { INGEST_POLICY, SYNC_COST_PER_RUN } from "@/lib/costs";
 import { orgContextFromSignals } from "@/lib/org-context";
 import { buildApproach, companyLinkedinFromSignals, type ApproachTarget } from "@/lib/approach";
@@ -577,7 +577,6 @@ export default function RadarApp() {
     signals: number;
   } | null>(null);
   const [user, setUser] = useState<{ email: string; role: "admin" | "recruiter" } | null>(null);
-  const [workspaceName, setWorkspaceName] = useState("Regie");
   const [sync, setSync] = useState<SyncInfo | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -602,7 +601,6 @@ export default function RadarApp() {
     setRadar(data.radar);
     setStats(data.stats);
     if (data.user) setUser(data.user);
-    if (data.workspace?.name) setWorkspaceName(data.workspace.name);
     setSync(data.sync);
     setActiveId((prev) => {
       if (opts?.keepActive && prev && data.radar.some((r: RadarRow) => r.id === prev)) return prev;
@@ -1016,11 +1014,6 @@ export default function RadarApp() {
     }
   }
 
-  async function logout() {
-    await fetch("/api/auth/login", { method: "DELETE" });
-    router.replace("/login");
-  }
-
   function selectRow(id: string) {
     setActiveId(id);
     if (typeof window !== "undefined" && window.matchMedia("(max-width: 1023px)").matches) {
@@ -1052,229 +1045,121 @@ export default function RadarApp() {
   const canSync = user?.role === "admin";
   const menuLabel = canSync ? "Sync & meer" : "Meer";
 
-  return (
-    <div className="radar-shell flex h-dvh flex-col overflow-hidden">
-      <header className="z-40 shrink-0 border-b border-[var(--line)]/80 bg-[var(--surface)]/95 backdrop-blur-md">
-        <div className="mx-auto flex max-w-[1200px] items-center justify-between gap-4 px-5 py-3.5 md:px-8">
-          <div className="flex items-center gap-3.5">
-            <div>
-              <a
-                href="/"
-                className="text-base font-semibold tracking-tight text-[var(--ink)] no-underline hover:text-[var(--accent)] hover:no-underline md:text-lg"
-                style={{ fontFamily: "var(--display)" }}
-              >
-                {workspaceName}
-              </a>
-              <p className="text-[0.72rem] text-[var(--muted)]">Contracting · radar</p>
-            </div>
-          </div>
-
-          <div className="relative flex items-center gap-2" ref={menuRef}>
-            <a
-              href="/"
-              className="hidden text-xs font-semibold text-[var(--ink)] no-underline hover:text-[var(--accent)] hover:underline sm:inline"
-            >
-              Desk
-            </a>
-            <a
-              href="/leads"
-              className="hidden text-xs font-semibold text-[var(--ink)] no-underline hover:text-[var(--accent)] hover:underline sm:inline"
-            >
-              Bureaus
-            </a>
-            <a
-              href="/instellingen"
-              className="hidden text-xs font-semibold text-[var(--ink)] no-underline hover:text-[var(--accent)] hover:underline sm:inline"
-            >
-              Instellingen
-            </a>
-            <a
-              href="/regie"
-              className="hidden text-xs font-semibold text-[var(--ink)] no-underline hover:text-[var(--accent)] hover:underline sm:inline"
-            >
-              Voorstel
-            </a>
-            {busy ? (
-              <span className="inline-flex items-center gap-1.5 text-xs font-medium text-[var(--accent)]">
-                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[var(--accent)]" />
-                Syncen…
-              </span>
-            ) : null}
-            <button
-              type="button"
-              aria-expanded={menuOpen}
-              aria-haspopup="menu"
-              data-tip={canSync ? "Sync, kosten en uitloggen" : "Methode, kosten en uitloggen"}
-              onClick={() => setMenuOpen((v) => !v)}
-              className="rounded-md border border-[var(--line)] bg-[var(--surface)] px-2.5 py-1.5 text-xs font-medium text-[var(--muted)] hover:border-[var(--accent)]/40 hover:text-[var(--ink)]"
-            >
-              {menuLabel}
-            </button>
-            {menuOpen ? (
-              <div
-                role="menu"
-                className="absolute right-0 top-full z-50 mt-1.5 w-[16.5rem] rounded-md border border-[var(--line)] bg-[var(--surface)] py-1 shadow-[var(--shadow)]"
-              >
-                {canSync ? (
-                  <>
-                    <div className="border-b border-[var(--line)]/80 px-3 py-2">
-                      <p className="text-[0.65rem] font-medium uppercase tracking-wide text-[var(--warn)]" style={{ fontFamily: "var(--mono)" }}>
-                        Sync starten · kost geld
-                      </p>
-                      <p className="mt-0.5 text-[0.7rem] leading-snug text-[var(--muted)]">
-                        Klik = bronnen ophalen (Apify/Firecrawl). Advies 1×/{INGEST_POLICY.boardsCadenceDays}d · geen auto-cron.
-                      </p>
-                    </div>
-                    <div className="space-y-1 px-2 py-2">
-                      <button
-                        type="button"
-                        role="menuitem"
-                        disabled={busy}
-                        className="flex w-full items-start gap-2 rounded-md border border-[var(--accent)]/35 bg-[var(--accent-soft)]/40 px-2.5 py-2 text-left text-xs transition hover:bg-[var(--accent-soft)]/80 disabled:opacity-50"
-                        onClick={() => {
-                          setMenuOpen(false);
-                          run("all");
-                        }}
-                      >
-                        <span className="mt-0.5 shrink-0 rounded bg-[var(--accent)] px-1.5 py-0.5 text-[0.6rem] font-bold uppercase tracking-wide text-white">
-                          Sync
-                        </span>
-                        <span className="min-w-0">
-                          <span className="block font-semibold text-[var(--ink)]">Alles</span>
-                          <span className="block text-[0.7rem] text-[var(--muted)]">
-                            LinkedIn + Indeed + Freelance.nl · ≈ €{SYNC_COST_PER_RUN.actions.all.eur.low}–
-                            {SYNC_COST_PER_RUN.actions.all.eur.high}
-                          </span>
-                        </span>
-                      </button>
-                      {(
-                        [
-                          ["market", "LinkedIn Jobs", SYNC_COST_PER_RUN.actions.market] as const,
-                          ["indeed", "Indeed NL", SYNC_COST_PER_RUN.actions.indeed] as const,
-                          ["freelance-nl", "Freelance.nl", SYNC_COST_PER_RUN.actions["freelance-nl"]] as const,
-                          ["platforms", "Careers / platforms", SYNC_COST_PER_RUN.actions.platforms] as const,
-                        ] as const
-                      ).map(([id, label, cost]) => (
-                        <button
-                          key={id}
-                          type="button"
-                          role="menuitem"
-                          disabled={busy}
-                          className="flex w-full items-start gap-2 rounded-md border border-[var(--line)] bg-[var(--surface)] px-2.5 py-2 text-left text-xs transition hover:border-[var(--accent)]/40 hover:bg-[var(--surface-2)] disabled:opacity-50"
-                          onClick={() => {
-                            setMenuOpen(false);
-                            run(id);
-                          }}
-                        >
-                          <span className="mt-0.5 shrink-0 rounded border border-[var(--accent)]/30 bg-[var(--accent-soft)]/50 px-1.5 py-0.5 text-[0.6rem] font-bold uppercase tracking-wide text-[var(--accent)]">
-                            Sync
-                          </span>
-                          <span className="min-w-0">
-                            <span className="block font-semibold text-[var(--ink)]">{label}</span>
-                            <span className="block text-[0.7rem] text-[var(--muted)]">
-                              ≈ €{cost.eur.low}–{cost.eur.high} / run
-                            </span>
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                  </>
-                ) : (
-                  <div className="border-b border-[var(--line)]/80 px-3 py-2">
-                    <p className="text-[0.65rem] font-medium uppercase tracking-wide text-[var(--muted)]" style={{ fontFamily: "var(--mono)" }}>
-                      Recruiter
-                    </p>
-                    <p className="mt-0.5 text-[0.7rem] leading-snug text-[var(--muted)]">
-                      Sync is alleen voor admin. Vraag blablabuild als de radar ververst moet worden.
-                    </p>
-                  </div>
-                )}
-                <div className="border-t border-[var(--line)]/80 px-3 py-1.5">
-                  <p className="text-[0.62rem] uppercase tracking-wide text-[var(--muted)]" style={{ fontFamily: "var(--mono)" }}>
-                    Pagina’s
-                  </p>
-                </div>
-                <a
-                  href="/"
-                  role="menuitem"
-                  className="block px-3 py-2 text-xs text-[var(--muted)] no-underline hover:bg-[var(--surface-2)] hover:text-[var(--ink)]"
-                  onClick={() => setMenuOpen(false)}
-                >
-                  Desk →
-                </a>
-                <a
-                  href="/leads"
-                  role="menuitem"
-                  className="block px-3 py-2 text-xs text-[var(--muted)] no-underline hover:bg-[var(--surface-2)] hover:text-[var(--ink)]"
-                  onClick={() => setMenuOpen(false)}
-                >
-                  Bureaus →
-                </a>
-                <a
-                  href="/instellingen"
-                  role="menuitem"
-                  className="block px-3 py-2 text-xs text-[var(--muted)] no-underline hover:bg-[var(--surface-2)] hover:text-[var(--ink)]"
-                  onClick={() => setMenuOpen(false)}
-                >
-                  Instellingen →
-                </a>
-                <a
-                  href="/regie"
-                  role="menuitem"
-                  className="block px-3 py-2 text-xs text-[var(--muted)] no-underline hover:bg-[var(--surface-2)] hover:text-[var(--ink)]"
-                  onClick={() => setMenuOpen(false)}
-                >
-                  Voorstel →
-                </a>
-                <a
-                  href="/methode"
-                  role="menuitem"
-                  className="block px-3 py-2 text-xs text-[var(--muted)] no-underline hover:bg-[var(--surface-2)] hover:text-[var(--ink)]"
-                  onClick={() => setMenuOpen(false)}
-                >
-                  Methode & kosten →
-                </a>
-                <a
-                  href="/costs"
-                  role="menuitem"
-                  className="block px-3 py-2 text-xs text-[var(--muted)] no-underline hover:bg-[var(--surface-2)] hover:text-[var(--ink)]"
-                  onClick={() => setMenuOpen(false)}
-                >
-                  ROI / kostenmodel →
-                </a>
-                {canSync ? (
-                  <a
-                    href="/samenwerking"
-                    role="menuitem"
-                    className="block px-3 py-2 text-xs text-[var(--muted)] no-underline hover:bg-[var(--surface-2)] hover:text-[var(--ink)]"
-                    onClick={() => setMenuOpen(false)}
-                  >
-                    Samenwerkingsvoorstel →
-                  </a>
-                ) : null}
-                {user?.email ? (
-                  <p className="border-t border-[var(--line)]/80 px-3 py-1.5 text-[0.65rem] text-[var(--muted)]" style={{ fontFamily: "var(--mono)" }}>
-                    {user.email}
-                  </p>
-                ) : null}
+  const syncToolbar = (
+    <div className="relative flex items-center gap-2" ref={menuRef}>
+      {busy ? (
+        <span className="inline-flex items-center gap-1.5 text-xs font-medium text-[var(--accent)]">
+          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[var(--accent)]" />
+          Syncen…
+        </span>
+      ) : null}
+      <button
+        type="button"
+        aria-expanded={menuOpen}
+        aria-haspopup="menu"
+        data-tip={canSync ? "Bronnen ophalen" : "Sync is alleen voor admin"}
+        onClick={() => setMenuOpen((v) => !v)}
+        className="rounded-md border border-[var(--line)] bg-[var(--surface)] px-2.5 py-1.5 text-xs font-medium text-[var(--muted)] hover:border-[var(--accent)]/40 hover:text-[var(--ink)]"
+      >
+        {menuLabel}
+      </button>
+      {menuOpen ? (
+        <div
+          role="menu"
+          className="absolute right-0 top-full z-50 mt-1.5 w-[16.5rem] rounded-md border border-[var(--line)] bg-[var(--surface)] py-1 shadow-[var(--shadow)]"
+        >
+          {canSync ? (
+            <>
+              <div className="border-b border-[var(--line)]/80 px-3 py-2">
+                <p className="text-[0.65rem] font-medium uppercase tracking-wide text-[var(--warn)]" style={{ fontFamily: "var(--mono)" }}>
+                  Sync starten · kost geld
+                </p>
+                <p className="mt-0.5 text-[0.7rem] leading-snug text-[var(--muted)]">
+                  Klik = bronnen ophalen (Apify/Firecrawl). Advies 1×/{INGEST_POLICY.boardsCadenceDays}d · geen auto-cron.
+                </p>
+              </div>
+              <div className="space-y-1 px-2 py-2">
                 <button
                   type="button"
                   role="menuitem"
-                  className="block w-full px-3 py-2 text-left text-xs text-[var(--warn)] hover:bg-[var(--surface-2)]"
+                  disabled={busy}
+                  className="flex w-full items-start gap-2 rounded-md border border-[var(--accent)]/35 bg-[var(--accent-soft)]/40 px-2.5 py-2 text-left text-xs transition hover:bg-[var(--accent-soft)]/80 disabled:opacity-50"
                   onClick={() => {
                     setMenuOpen(false);
-                    logout();
+                    run("all");
                   }}
                 >
-                  Uitloggen
+                  <span className="mt-0.5 shrink-0 rounded bg-[var(--accent)] px-1.5 py-0.5 text-[0.6rem] font-bold uppercase tracking-wide text-white">
+                    Sync
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block font-semibold text-[var(--ink)]">Alles</span>
+                    <span className="block text-[0.7rem] text-[var(--muted)]">
+                      LinkedIn + Indeed + Freelance.nl · ≈ €{SYNC_COST_PER_RUN.actions.all.eur.low}–
+                      {SYNC_COST_PER_RUN.actions.all.eur.high}
+                    </span>
+                  </span>
                 </button>
+                {(
+                  [
+                    ["market", "LinkedIn Jobs", SYNC_COST_PER_RUN.actions.market] as const,
+                    ["indeed", "Indeed NL", SYNC_COST_PER_RUN.actions.indeed] as const,
+                    ["freelance-nl", "Freelance.nl", SYNC_COST_PER_RUN.actions["freelance-nl"]] as const,
+                    ["platforms", "Careers / platforms", SYNC_COST_PER_RUN.actions.platforms] as const,
+                  ] as const
+                ).map(([id, label, cost]) => (
+                  <button
+                    key={id}
+                    type="button"
+                    role="menuitem"
+                    disabled={busy}
+                    className="flex w-full items-start gap-2 rounded-md border border-[var(--line)] bg-[var(--surface)] px-2.5 py-2 text-left text-xs transition hover:border-[var(--accent)]/40 hover:bg-[var(--surface-2)] disabled:opacity-50"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      run(id);
+                    }}
+                  >
+                    <span className="mt-0.5 shrink-0 rounded border border-[var(--accent)]/30 bg-[var(--accent-soft)]/50 px-1.5 py-0.5 text-[0.6rem] font-bold uppercase tracking-wide text-[var(--accent)]">
+                      Sync
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block font-semibold text-[var(--ink)]">{label}</span>
+                      <span className="block text-[0.7rem] text-[var(--muted)]">
+                        ≈ €{cost.eur.low}–{cost.eur.high} / run
+                      </span>
+                    </span>
+                  </button>
+                ))}
               </div>
-            ) : null}
-          </div>
+            </>
+          ) : (
+            <div className="px-3 py-2">
+              <p className="text-[0.65rem] font-medium uppercase tracking-wide text-[var(--muted)]" style={{ fontFamily: "var(--mono)" }}>
+                Recruiter
+              </p>
+              <p className="mt-0.5 text-[0.7rem] leading-snug text-[var(--muted)]">
+                Sync is alleen voor admin. Vraag blablabuild als de radar ververst moet worden.
+              </p>
+            </div>
+          )}
+          {canSync ? (
+            <a
+              href="/samenwerking"
+              role="menuitem"
+              className="block border-t border-[var(--line)]/80 px-3 py-2 text-xs text-[var(--muted)] no-underline hover:bg-[var(--surface-2)] hover:text-[var(--ink)]"
+              onClick={() => setMenuOpen(false)}
+            >
+              Samenwerkingsvoorstel →
+            </a>
+          ) : null}
         </div>
-      </header>
+      ) : null}
+    </div>
+  );
 
-      <main className="mx-auto flex min-h-0 w-full max-w-[1200px] flex-1 flex-col px-5 pt-4 md:px-8">
+  return (
+    <AppShell current="radar" title="Radar" subtitle="Interim- en ZZP-opdrachten" fill toolbar={syncToolbar}>
+      <main className="radar-shell mx-auto flex min-h-0 w-full max-w-[1280px] flex-1 flex-col px-5 pt-4 md:px-7">
         {!live && sync?.last ? (
           <section className="mb-3 shrink-0 overflow-hidden rounded-md border border-[var(--line)] bg-[var(--surface)] shadow-[var(--shadow)]">
             <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1.5 border-b border-[var(--line)]/80 px-3.5 py-2">
@@ -1869,22 +1754,6 @@ export default function RadarApp() {
           </aside>
         </div>
       </main>
-
-      <footer className="shrink-0 border-t border-[var(--line)]/70 bg-[var(--surface)]/80">
-        <div className="mx-auto flex max-w-[1200px] items-center justify-between gap-3 px-5 py-2.5 md:px-8">
-          <p className="text-[0.7rem] text-[var(--muted)]">{workspaceName} · Radar</p>
-          <a
-            href="https://blablabuild.com"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 text-[0.7rem] text-[var(--muted)] no-underline hover:text-[var(--ink)]"
-          >
-            <span>Tool gebouwd door</span>
-            <BlablaLogo className="h-4 w-4" />
-            <span className="font-semibold tracking-tight text-[var(--ink)]">blablabuild</span>
-          </a>
-        </div>
-      </footer>
-    </div>
+    </AppShell>
   );
 }

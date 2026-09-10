@@ -3,6 +3,7 @@
 import { FormEvent, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { BlablaLogo } from "@/components/blabla-logo";
+import { RegieWordmark } from "@/components/regie-mark";
 
 export default function LoginForm() {
   const router = useRouter();
@@ -24,7 +25,7 @@ export default function LoginForm() {
     });
     setLoading(false);
     if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
+      const data = (await res.json().catch(() => ({}))) as { error?: string };
       setError(data.error || "Login mislukt");
       return;
     }
@@ -33,68 +34,68 @@ export default function LoginForm() {
   }
 
   return (
-    <main className="min-h-dvh grid place-items-center p-6">
-      <form
-        onSubmit={onSubmit}
-        className="w-full max-w-md rounded-[var(--radius)] border border-[var(--line)] bg-[var(--surface)] p-7 shadow-[var(--shadow)]"
-      >
-        <p
-          className="text-[0.65rem] uppercase tracking-[0.08em] text-[var(--muted)]"
-          style={{ fontFamily: "var(--mono)" }}
+    <div className="min-h-dvh bg-[#0b1c30]">
+      <header className="mx-auto flex h-16 max-w-[1120px] items-center px-5 md:px-8">
+        <RegieWordmark dark />
+      </header>
+      <main className="grid min-h-[calc(100dvh-4rem)] place-items-center px-5 pb-16">
+        <form
+          onSubmit={onSubmit}
+          className="w-full max-w-[400px] rounded-xl border border-white/10 bg-white p-7 shadow-[0_24px_60px_-28px_rgba(0,0,0,0.45)]"
         >
-          Recruitment-desk
-        </p>
-        <h1 className="mt-1 text-2xl font-bold" style={{ fontFamily: "var(--display)" }}>
-          Regie
-        </h1>
-        <p className="mt-3 mb-5 text-sm text-[var(--muted)]">
-          Eén desk voor werving & selectie (permanent) en contracting (interim & ZZP). Je kiest je vak
-          na het inloggen.
-        </p>
+          <p className="text-[0.65rem] uppercase tracking-[0.12em] text-[var(--muted)]" style={{ fontFamily: "var(--mono)" }}>
+            Recruitment-desk
+          </p>
+          <h1 className="mt-1 text-2xl font-bold" style={{ fontFamily: "var(--display)" }}>
+            Inloggen
+          </h1>
+          <p className="mt-2 mb-6 text-sm leading-relaxed text-[var(--muted)]">
+            Werving & selectie en contracting. Na inloggen kies je je vak.
+          </p>
 
-        <label className="mb-3 block text-sm font-medium">
-          E-mail
-          <input
-            className="mt-1 w-full rounded-[var(--radius)] border border-[var(--line)] bg-[var(--surface-2)] px-3 py-2"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            type="email"
-            autoComplete="username"
-          />
-        </label>
+          <label className="mb-3 block text-sm font-medium">
+            E-mail
+            <input
+              className="mt-1 w-full rounded-md border border-[var(--line)] bg-[var(--surface-2)] px-3 py-2"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              type="email"
+              autoComplete="username"
+            />
+          </label>
 
-        <label className="mb-4 block text-sm font-medium">
-          Wachtwoord
-          <input
-            className="mt-1 w-full rounded-[var(--radius)] border border-[var(--line)] bg-[var(--surface-2)] px-3 py-2"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            type="password"
-            autoComplete="current-password"
-          />
-        </label>
+          <label className="mb-4 block text-sm font-medium">
+            Wachtwoord
+            <input
+              className="mt-1 w-full rounded-md border border-[var(--line)] bg-[var(--surface-2)] px-3 py-2"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              type="password"
+              autoComplete="current-password"
+            />
+          </label>
 
-        {error ? <p className="mb-3 text-sm text-[var(--warn)]">{error}</p> : null}
+          {error ? <p className="mb-3 text-sm text-[var(--warn)]">{error}</p> : null}
 
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full rounded-[var(--radius)] border border-[var(--accent)] bg-gradient-to-b from-[var(--accent-bright)] to-[var(--accent)] px-4 py-2.5 text-sm font-semibold text-white shadow-[0_2px_10px_-3px_rgba(0,121,193,0.55)] hover:from-[#1a9adb] hover:to-[#006eaf] disabled:opacity-60"
-        >
-          {loading ? "Bezig…" : "Inloggen"}
-        </button>
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full rounded-md bg-[#0b1c30] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#123049] disabled:opacity-60"
+          >
+            {loading ? "Bezig…" : "Naar de desk"}
+          </button>
 
-        <a
-          href="https://blablabuild.com"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="mt-5 flex items-center justify-center gap-2 text-[0.7rem] text-[var(--muted)] no-underline hover:text-[var(--ink)] hover:underline"
-        >
-          <span>Gebouwd door</span>
-          <BlablaLogo className="h-4 w-4" />
-          <span className="font-semibold text-[var(--ink)]">blablabuild</span>
-        </a>
-      </form>
-    </main>
+          <a
+            href="https://blablabuild.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-5 flex items-center justify-center gap-2 text-[0.7rem] text-[var(--muted)] no-underline hover:text-[var(--ink)]"
+          >
+            <BlablaLogo className="h-4 w-4" />
+            <span>Gebouwd door blablabuild</span>
+          </a>
+        </form>
+      </main>
+    </div>
   );
 }

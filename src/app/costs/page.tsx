@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { AppShell } from "@/components/app-shell";
 import { BlablaLogo } from "@/components/blabla-logo";
 
 type CostsPayload = {
@@ -54,18 +55,8 @@ export default function CostsPage() {
   }, [router]);
 
   return (
-    <main className="mx-auto min-h-dvh max-w-[900px] px-5 py-8 md:px-8">
-      <div className="mb-6 flex items-center justify-between gap-3">
-        <div>
-          <p className="text-[0.68rem] uppercase tracking-[0.06em] text-[var(--muted)]">Kosten · MVP</p>
-          <h1 className="text-2xl font-bold" style={{ fontFamily: "var(--display)" }}>
-            Wat kost deze stap?
-          </h1>
-        </div>
-        <Link href="/" className="text-sm font-medium text-[var(--accent)]">
-          ← Terug naar desk
-        </Link>
-      </div>
+    <AppShell title="Kosten" subtitle="Stack, cadans en ROI">
+    <main className="mx-auto max-w-[900px] px-5 py-8 md:px-7">
 
       {!data ? (
         <p className="text-sm text-[var(--muted)]">Laden…</p>
@@ -245,5 +236,6 @@ export default function CostsPage() {
         </>
       )}
     </main>
+    </AppShell>
   );
 }

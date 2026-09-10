@@ -14,7 +14,10 @@ export async function GET() {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const hunt = await loadHuntSettings();
-  return NextResponse.json(hunt);
+  return NextResponse.json({
+    ...hunt,
+    user: { email: session.email, role: session.role },
+  });
 }
 
 export async function PUT(req: Request) {

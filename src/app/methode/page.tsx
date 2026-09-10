@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AppShell } from "@/components/app-shell";
 import { BlablaLogo } from "@/components/blabla-logo";
 import { SourceLogo } from "@/components/source-logo";
 import { buildLinkedInJobSearchUrls } from "@/lib/ingest/market-jobs";
@@ -48,35 +49,12 @@ export default async function MethodePage() {
   const roleNames = [...new Set(hunt.roles)].sort((a, b) => a.localeCompare(b, "nl"));
 
   return (
-    <main className="mx-auto min-h-dvh max-w-[900px] px-5 py-8 md:px-8">
-      <div className="mb-8 flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <p
-            className="text-[0.68rem] uppercase tracking-[0.08em] text-[var(--muted)]"
-            style={{ fontFamily: "var(--mono)" }}
-          >
-            Transparantie · live config
-          </p>
-          <h1
-            className="mt-1 text-2xl font-bold text-[var(--ink)] md:text-3xl"
-            style={{ fontFamily: "var(--display)" }}
-          >
-            Hoe zoeken we?
-          </h1>
-          <p className="mt-2 max-w-xl text-sm leading-relaxed text-[var(--muted)]">
-            Geen automatische sync. LinkedIn, Indeed en Freelance.nl alleen handmatig — advies ~1×/
-            {INGEST_POLICY.boardsCadenceDays} dagen.
-          </p>
-        </div>
-        <div className="flex flex-col items-end gap-1.5 text-sm">
-          <Link href="/" className="font-medium text-[var(--accent)]">
-            ← Desk
-          </Link>
-          <Link href="/costs" className="text-[var(--muted)] hover:text-[var(--ink)]">
-            Kosten / ROI
-          </Link>
-        </div>
-      </div>
+    <AppShell title="Methode" subtitle="Bronnen, filters en queries">
+    <main className="mx-auto max-w-[900px] px-5 py-8 md:px-7">
+      <p className="mb-8 max-w-xl text-sm leading-relaxed text-[var(--muted)]">
+        Geen automatische sync. LinkedIn, Indeed en Freelance.nl alleen handmatig — advies ~1×/
+        {INGEST_POLICY.boardsCadenceDays} dagen.
+      </p>
 
       <section className="mb-6 overflow-hidden rounded-md border border-[var(--line)] bg-[var(--surface)]">
         <div className="border-b border-[var(--line)]/80 px-4 py-3 sm:px-5">
@@ -441,5 +419,6 @@ export default async function MethodePage() {
         <span className="font-semibold text-[var(--ink)]">blablabuild</span>
       </a>
     </main>
+    </AppShell>
   );
 }

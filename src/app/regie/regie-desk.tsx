@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { WorkspaceBar } from "@/components/workspace-bar";
+import { AppShell } from "@/components/app-shell";
 import { ScoreChip, SCORE_BAND, scoreTone } from "@/components/score-chip";
 import type { PlacementProposal } from "@/lib/placement";
 import type { ApproachTarget } from "@/lib/approach";
@@ -236,10 +236,8 @@ export default function RegieDesk({
     tab === "hm" ? hm?.url : proposal?.shortlist.find((s) => s.person.id === tab)?.linkedinUrl;
 
   return (
-    <div className="flex h-dvh flex-col overflow-hidden">
-      <WorkspaceBar current="voorstel" />
-
-      <div className="mx-auto grid min-h-0 w-full max-w-[1200px] flex-1 gap-4 overflow-hidden px-5 py-4 md:px-8 lg:grid-cols-[16.5rem_1fr]">
+    <AppShell current="voorstel" title="Voorstel" subtitle="Bericht klaarzetten" fill>
+      <div className="mx-auto grid min-h-0 w-full max-w-[1280px] flex-1 gap-4 overflow-hidden px-5 py-4 md:px-7 lg:grid-cols-[16.5rem_1fr]">
         <aside className="radar-scroll-pane min-h-0">
           <div className="radar-scroll-pane__head">
             <p className="text-[0.68rem] font-medium uppercase tracking-[0.08em] text-[var(--muted)]">Openingen</p>
@@ -540,6 +538,6 @@ export default function RegieDesk({
           )}
         </main>
       </div>
-    </div>
+    </AppShell>
   );
 }
