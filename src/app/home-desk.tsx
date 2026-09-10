@@ -9,8 +9,8 @@ import { SiteNav } from "@/components/site-nav";
 const STEPS = [
   {
     n: "01",
-    title: "Signaal",
-    text: "Opdrachten via LinkedIn, Indeed, Freelance.nl — of via bureaus op je watchlist.",
+    title: "Kans",
+    text: "Opdrachten komen binnen via LinkedIn, Indeed en Freelance.nl — of via bureaus op je watchlist.",
   },
   {
     n: "02",
@@ -24,8 +24,8 @@ const STEPS = [
   },
   {
     n: "04",
-    title: "Voorstel",
-    text: "Het bericht staat klaar. Jij verstuurt — niks gaat automatisch de deur uit.",
+    title: "Benaderen",
+    text: "Je gaat naar die manager met een geschikt profiel. Het bericht staat klaar — jij verstuurt.",
   },
 ];
 
@@ -35,7 +35,7 @@ const TRADES = [
     live: false,
     kicker: "Permanent",
     title: "Werving & selectie",
-    lead: "Voor vaste functies. De organisatie op de vacature is de werkgever — daar zoek je de manager.",
+    lead: "Vaste functies. De organisatie op de vacature is de werkgever — daar zoek je de manager en doe je een voorstel.",
     points: [
       "Vacature komt van de werkgever zelf",
       "Hiring manager zoeken bij dat bedrijf",
@@ -47,11 +47,11 @@ const TRADES = [
     live: true,
     kicker: "Contracting",
     title: "Interim & ZZP",
-    lead: "Voor tijdelijke opdrachten. Plaatst een bureau de vacature, dan bevestig je eerst de eindklant.",
+    lead: "Interim- en ZZP-kansen ophalen, de eindklant vastzetten, en de hiring manager benaderen met een passend profiel.",
     points: [
-      "Radar: opdrachten van eindklanten",
-      "Bureaus: eerst de echte klant, dan pas de manager",
-      "Voorstel: bericht klaarzetten, jij verstuurt",
+      "Kansen via LinkedIn, Indeed, Freelance.nl — of via bureaus op je watchlist",
+      "Eindklant kennen: zelf geplaatst = het bedrijf; bureau = eerst bevestigen",
+      "Daarna de manager van díe organisatie, met een voorstel klaar om te versturen",
     ],
   },
 ] as const;
@@ -113,8 +113,8 @@ export default function HomeDesk() {
               De desk voor wie de eindklant wil bereiken.
             </h1>
             <p className="mt-5 max-w-md text-[1.02rem] leading-relaxed text-white/62">
-              Permanent is werving & selectie. Contracting is interim en ZZP — inclusief de route via
-              bureaus, zodat je niet bij het verkeerde bedrijf belt.
+              Permanent is werving & selectie. Contracting haalt interim- en ZZP-kansen op — van
+              jobboards én bureaus — en brengt je bij de hiring manager van de eindklant.
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-3">
               <a
@@ -256,7 +256,7 @@ export default function HomeDesk() {
             Hoe contracting werkt
           </p>
           <h3 className="mt-2 text-xl font-bold tracking-tight" style={{ fontFamily: "var(--display)" }}>
-            Van opdracht naar het juiste gesprek
+            Van kans naar een gesprek met de manager
           </h3>
           <ol className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
             {STEPS.map((s) => (
