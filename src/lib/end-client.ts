@@ -95,6 +95,12 @@ const CLIENTS: Client[] = [
     sector: "overheid",
     tags: ["overheid", "politie", "iv"],
   },
+  {
+    name: "Havenbedrijf Rotterdam",
+    aliases: ["port of rotterdam", "havenbedrijf rotterdam", "hb rdam"],
+    sector: "haven",
+    tags: ["rotterdam", "sap", "s/4hana", "asset life cycle", "alc", "port", "iot", "gis", "servicenow"],
+  },
 ];
 
 const STACK = [
