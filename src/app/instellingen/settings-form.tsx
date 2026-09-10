@@ -1,39 +1,26 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState, type ReactNode } from "react";
+import { FormEvent, useEffect, useState, type ReactNode } from "react";
 import { AppShell } from "@/components/app-shell";
-import { DEFAULT_ROLES, type EmploymentKind, type HuntSettings } from "@/lib/hunt";
+import {
+  DEFAULT_ROLES,
+  slugAgencyId,
+  type EmploymentKind,
+  type ManagedAgency,
+  type ManagedRecruiter,
+} from "@/lib/hunt";
 
-type CatalogAgency = {
-  id: string;
+type SettingsPayload = {
   name: string;
-  note?: string;
-  recruiters: { id: string; name: string; title?: string; brand?: string }[];
+  market: string;
+  roles: string[];
+  requireContract: boolean;
+  employmentKinds: EmploymentKind[];
+  agencies: ManagedAgency[];
+  catalog: {
+    employmentKinds: { id: EmploymentKind; label: string; hint: string }[];
+  };
 };
-
-type CatalogCompany = {
-  id: string;
-  name: string;
-  label: string;
-  sector?: string;
-};
-
-type Catalog = {
-  employmentKinds: { id: EmploymentKind; label: string; hint: string }[];
-  agencies: CatalogAgency[];
-  companies: CatalogCompany[];
-};
-
-type SettingsPayload = HuntSettings & {
-  agencyIds: string[];
-  recruiterIds: string[];
-  companyIds: string[];
-  catalog: Catalog;
-};
-
-function toggleId(list: string[], id: string) {
-  return list.includes(id) ? list.filter((x) => x !== id) : [...list, id];
-}
 
 function Section({
   title,
@@ -53,31 +40,8 @@ function Section({
   );
 }
 
-function CheckRow({
-  checked,
-  onChange,
-  title,
-  subtitle,
-}: {
-  checked: boolean;
-  onChange: () => void;
-  title: string;
-  subtitle?: string;
-}) {
-  return (
-    <label className="flex cursor-pointer items-start gap-3 rounded-[var(--radius)] border border-[var(--line)] bg-[var(--surface)] px-3 py-2.5 hover:border-[var(--accent)]/25">
-      <input
-        type="checkbox"
-        className="mt-1 h-4 w-4 shrink-0 accent-[var(--accent)]"
-        checked={checked}
-        onChange={onChange}
-      />
-      <span className="min-w-0">
-        <span className="block text-sm font-medium text-[var(--ink)]">{title}</span>
-        {subtitle ? <span className="mt-0.5 block text-[0.72rem] leading-snug text-[var(--muted)]">{subtitle}</span> : null}
-      </span>
-    </label>
-  );
+function toggleKind(list: EmploymentKind[], id: EmploymentKind): EmploymentKind[] {
+  return list.includes(id) ? list.filter((x) => x !== id) : [...list, id];
 }
 
 export default function SettingsForm() {
@@ -86,6 +50,8 @@ export default function SettingsForm() {
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [newBureau, setNewBureau] = useState("");
+  const [newRecruiter, setNewRecruiter] = useState<Record<string, string>>({});
 
   useEffect(() => {
     fetch("/api/settings")
@@ -97,16 +63,85 @@ export default function SettingsForm() {
         return r.json();
       })
       .then((j: SettingsPayload | null) => {
-        if (!j?.catalog) return;
+        if (!j?.agencies || !j.catalog) return;
         setHunt(j);
         setRolesText(j.roles.join("\n"));
       });
   }, []);
 
-  const selectedAgencies = useMemo(() => new Set(hunt?.agencyIds || []), [hunt?.agencyIds]);
-  const selectedRecruiters = useMemo(() => new Set(hunt?.recruiterIds || []), [hunt?.recruiterIds]);
-  const selectedCompanies = useMemo(() => new Set(hunt?.companyIds || []), [hunt?.companyIds]);
-  const selectedKinds = useMemo(() => new Set(hunt?.employmentKinds || []), [hunt?.employmentKinds]);
+  function updateAgencies(next: ManagedAgency[]) {
+    if (!hunt) return;
+    setHunt({ ...hunt, agencies: next });
+  }
+
+  function setAgencyEnabled(id: string, enabled: boolean) {
+    if (!hunt) return;
+    updateAgencies(hunt.agencies.map((a) => (a.id === id ? { ...a, enabled } : a)));
+  }
+
+  function setRecruiterEnabled(agencyId: string, name: string, enabled: boolean) {
+    if (!hunt) return;
+    updateAgencies(
+      hunt.agencies.map((a) =>
+        a.id !== agencyId
+          ? a
+          : {
+              ...a,
+              recruiters: a.recruiters.map((r) => (r.name === name ? { ...r, enabled } : r)),
+            }
+      )
+    );
+  }
+
+  function removeAgency(id: string) {
+    if (!hunt) return;
+    updateAgencies(hunt.agencies.filter((a) => a.id !== id));
+  }
+
+  function removeRecruiter(agencyId: string, name: string) {
+    if (!hunt) return;
+    updateAgencies(
+      hunt.agencies.map((a) =>
+        a.id !== agencyId ? a : { ...a, recruiters: a.recruiters.filter((r) => r.name !== name) }
+      )
+    );
+  }
+
+  function addBureau() {
+    if (!hunt) return;
+    const name = newBureau.trim();
+    if (name.length < 2) return;
+    if (hunt.agencies.some((a) => a.name.toLowerCase() === name.toLowerCase())) {
+      setError("Dit bureau staat er al in");
+      return;
+    }
+    const agency: ManagedAgency = {
+      id: slugAgencyId(name),
+      name,
+      aliases: [name.toLowerCase()],
+      enabled: true,
+      custom: true,
+      recruiters: [],
+    };
+    updateAgencies([agency, ...hunt.agencies]);
+    setNewBureau("");
+    setError("");
+  }
+
+  function addRecruiter(agencyId: string) {
+    if (!hunt) return;
+    const name = (newRecruiter[agencyId] || "").trim();
+    if (name.length < 2) return;
+    updateAgencies(
+      hunt.agencies.map((a) => {
+        if (a.id !== agencyId) return a;
+        if (a.recruiters.some((r) => r.name.toLowerCase() === name.toLowerCase())) return a;
+        const rec: ManagedRecruiter = { name, enabled: true };
+        return { ...a, recruiters: [...a.recruiters, rec], enabled: true };
+      })
+    );
+    setNewRecruiter((prev) => ({ ...prev, [agencyId]: "" }));
+  }
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -128,9 +163,7 @@ export default function SettingsForm() {
           roles,
           requireContract: hunt.requireContract,
           employmentKinds: hunt.employmentKinds,
-          agencyIds: hunt.agencyIds,
-          recruiterIds: hunt.recruiterIds,
-          companyIds: hunt.companyIds,
+          agencies: hunt.agencies,
         }),
       });
       if (!res.ok) {
@@ -138,7 +171,16 @@ export default function SettingsForm() {
         return;
       }
       const next = (await res.json()) as SettingsPayload;
-      setHunt((prev) => (prev ? { ...prev, ...next, catalog: prev.catalog } : prev));
+      setHunt((prev) =>
+        prev
+          ? {
+              ...prev,
+              ...next,
+              agencies: next.agencies || prev.agencies,
+              catalog: prev.catalog,
+            }
+          : prev
+      );
       setRolesText(next.roles.join("\n"));
       setSaved(true);
     } finally {
@@ -146,27 +188,12 @@ export default function SettingsForm() {
     }
   }
 
-  function setAgency(id: string, on: boolean) {
-    if (!hunt) return;
-    const agencyIds = on ? [...new Set([...hunt.agencyIds, id])] : hunt.agencyIds.filter((x) => x !== id);
-    let recruiterIds = hunt.recruiterIds;
-    const agency = hunt.catalog.agencies.find((a) => a.id === id);
-    if (!on && agency) {
-      const drop = new Set(agency.recruiters.map((r) => r.id));
-      recruiterIds = recruiterIds.filter((r) => !drop.has(r));
-    }
-    if (on && agency) {
-      recruiterIds = [...new Set([...recruiterIds, ...agency.recruiters.map((r) => r.id)])];
-    }
-    setHunt({ ...hunt, agencyIds, recruiterIds });
-  }
-
   return (
-    <AppShell current="instellingen" title="Instellingen" subtitle="Wat je zoekt en wie je volgt" fill={false}>
+    <AppShell current="instellingen" title="Instellingen" subtitle="Wat je zoekt en wie je volgt">
       <main className="mx-auto w-full max-w-[720px] flex-1 px-4 py-6 sm:px-6 md:px-7 md:py-8">
         <p className="text-sm leading-relaxed text-[var(--muted)]">
-          Hier stuur je de desk: welke functies en soorten opdrachten je wilt, welke bureaus en
-          recruiters je volgt, en welke eindklanten op de radar mogen.
+          Stuur de desk met functies, soort opdracht, en de bureaus/recruiters die je volgt.
+          Eindklanten komen vanzelf uit de radar — die vink je niet handmatig aan.
         </p>
 
         {!hunt ? (
@@ -193,10 +220,7 @@ export default function SettingsForm() {
               </label>
             </Section>
 
-            <Section
-              title="Wat je zoekt"
-              hint="Functies en soort opdracht. Sync en radar filteren hierop."
-            >
+            <Section title="Wat je zoekt" hint="Functies en soort opdracht. Sync en radar filteren hierop.">
               <label className="block text-sm font-medium">
                 Functies
                 <span className="mt-0.5 block text-[0.75rem] font-normal text-[var(--muted)]">
@@ -211,21 +235,28 @@ export default function SettingsForm() {
               </label>
               <div>
                 <p className="text-sm font-medium">Soort opdracht</p>
-                <p className="mt-0.5 text-[0.75rem] text-[var(--muted)]">Meerdere mogelijk.</p>
                 <div className="mt-2 grid gap-2 sm:grid-cols-2">
                   {hunt.catalog.employmentKinds.map((k) => (
-                    <CheckRow
+                    <label
                       key={k.id}
-                      checked={selectedKinds.has(k.id)}
-                      title={k.label}
-                      subtitle={k.hint}
-                      onChange={() =>
-                        setHunt({
-                          ...hunt,
-                          employmentKinds: toggleId(hunt.employmentKinds, k.id) as EmploymentKind[],
-                        })
-                      }
-                    />
+                      className="flex cursor-pointer items-start gap-3 rounded-[var(--radius)] border border-[var(--line)] px-3 py-2.5 hover:border-[var(--accent)]/25"
+                    >
+                      <input
+                        type="checkbox"
+                        className="mt-1 h-4 w-4 accent-[var(--accent)]"
+                        checked={hunt.employmentKinds.includes(k.id)}
+                        onChange={() =>
+                          setHunt({
+                            ...hunt,
+                            employmentKinds: toggleKind(hunt.employmentKinds, k.id),
+                          })
+                        }
+                      />
+                      <span>
+                        <span className="block text-sm font-medium">{k.label}</span>
+                        <span className="block text-[0.72rem] text-[var(--muted)]">{k.hint}</span>
+                      </span>
+                    </label>
                   ))}
                 </div>
               </div>
@@ -239,7 +270,7 @@ export default function SettingsForm() {
                 <span>
                   <span className="font-medium text-[var(--ink)]">Alleen contracting</span>
                   <span className="mt-0.5 block text-[0.75rem] text-[var(--muted)]">
-                    Vaste banen uitfilteren — ZZP, interim, contract en detachering blijven over.
+                    Vaste banen uitfilteren.
                   </span>
                 </span>
               </label>
@@ -256,108 +287,161 @@ export default function SettingsForm() {
             </Section>
 
             <Section
-              title="Bureaus"
-              hint="Welke agencies je volgt op Bureaus. Uit = geen leads van dat bureau."
+              title="Bureaus & recruiters"
+              hint="Zet bureaus aan/uit, voeg er zelf toe, en vink direct de recruiters aan die je volgt."
             >
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  className="btn-ghost btn-tool"
-                  onClick={() =>
-                    setHunt({
-                      ...hunt,
-                      agencyIds: hunt.catalog.agencies.map((a) => a.id),
-                      recruiterIds: hunt.catalog.agencies.flatMap((a) => a.recruiters.map((r) => r.id)),
-                    })
-                  }
-                >
-                  Alles aan
-                </button>
-                <button
-                  type="button"
-                  className="btn-ghost btn-tool"
-                  onClick={() => setHunt({ ...hunt, agencyIds: [], recruiterIds: [] })}
-                >
-                  Alles uit
-                </button>
-              </div>
-              <div className="grid gap-2">
-                {hunt.catalog.agencies.map((a) => (
-                  <CheckRow
-                    key={a.id}
-                    checked={selectedAgencies.has(a.id)}
-                    title={a.name}
-                    subtitle={a.note || `${a.recruiters.length} recruiters`}
-                    onChange={() => setAgency(a.id, !selectedAgencies.has(a.id))}
-                  />
-                ))}
-              </div>
-            </Section>
-
-            <Section
-              title="Recruiters"
-              hint="Mensen die je wilt volgen binnen de bureaus hierboven."
-            >
-              <div className="space-y-4">
-                {hunt.catalog.agencies
-                  .filter((a) => selectedAgencies.has(a.id))
-                  .map((a) => (
-                    <div key={a.id}>
-                      <p className="ws-label mb-2">{a.name}</p>
-                      <div className="grid gap-2">
-                        {a.recruiters.map((r) => (
-                          <CheckRow
-                            key={r.id}
-                            checked={selectedRecruiters.has(r.id)}
-                            title={r.name}
-                            subtitle={[r.brand, r.title].filter(Boolean).join(" · ")}
-                            onChange={() =>
-                              setHunt({ ...hunt, recruiterIds: toggleId(hunt.recruiterIds, r.id) })
-                            }
-                          />
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                {!hunt.catalog.agencies.some((a) => selectedAgencies.has(a.id)) ? (
-                  <p className="text-sm text-[var(--muted)]">Zet eerst een bureau aan.</p>
-                ) : null}
-              </div>
-            </Section>
-
-            <Section
-              title="Eindklanten"
-              hint="Bedrijven waarvan we de careers-pagina meenemen bij een sync (directe lane)."
-            >
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  className="btn-ghost btn-tool"
-                  onClick={() =>
-                    setHunt({ ...hunt, companyIds: hunt.catalog.companies.map((c) => c.id) })
-                  }
-                >
-                  Alles aan
-                </button>
-                <button
-                  type="button"
-                  className="btn-ghost btn-tool"
-                  onClick={() => setHunt({ ...hunt, companyIds: [] })}
-                >
-                  Alles uit
-                </button>
-              </div>
-              <div className="grid gap-2 sm:grid-cols-2">
-                {hunt.catalog.companies.map((c) => (
-                  <CheckRow
-                    key={c.id}
-                    checked={selectedCompanies.has(c.id)}
-                    title={c.name}
-                    subtitle={[c.sector, c.label].filter(Boolean).join(" · ")}
-                    onChange={() =>
-                      setHunt({ ...hunt, companyIds: toggleId(hunt.companyIds, c.id) })
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <input
+                  className="min-w-0 flex-1 rounded-[var(--radius)] border border-[var(--line)] bg-[var(--surface)] px-3 py-2.5 text-sm"
+                  placeholder="Nieuw bureau, bv. Yacht"
+                  value={newBureau}
+                  onChange={(e) => setNewBureau(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      addBureau();
                     }
-                  />
+                  }}
+                />
+                <button type="button" className="btn-ink btn-tool shrink-0" onClick={addBureau}>
+                  Bureau toevoegen
+                </button>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  className="btn-ghost btn-tool"
+                  onClick={() =>
+                    updateAgencies(
+                      hunt.agencies.map((a) => ({
+                        ...a,
+                        enabled: true,
+                        recruiters: a.recruiters.map((r) => ({ ...r, enabled: true })),
+                      }))
+                    )
+                  }
+                >
+                  Alles aan
+                </button>
+                <button
+                  type="button"
+                  className="btn-ghost btn-tool"
+                  onClick={() =>
+                    updateAgencies(
+                      hunt.agencies.map((a) => ({
+                        ...a,
+                        enabled: false,
+                        recruiters: a.recruiters.map((r) => ({ ...r, enabled: false })),
+                      }))
+                    )
+                  }
+                >
+                  Alles uit
+                </button>
+              </div>
+
+              <div className="space-y-3">
+                {hunt.agencies.map((a) => (
+                  <div
+                    key={a.id}
+                    className={`rounded-[var(--radius)] border px-3 py-3 ${
+                      a.enabled
+                        ? "border-[var(--line)] bg-[var(--surface)]"
+                        : "border-[var(--line)]/70 bg-[var(--surface-2)] opacity-80"
+                    }`}
+                  >
+                    <div className="flex flex-wrap items-start gap-3">
+                      <label className="flex min-w-0 flex-1 cursor-pointer items-start gap-3">
+                        <input
+                          type="checkbox"
+                          className="mt-1 h-4 w-4 accent-[var(--accent)]"
+                          checked={a.enabled}
+                          onChange={(e) => setAgencyEnabled(a.id, e.target.checked)}
+                        />
+                        <span className="min-w-0">
+                          <span className="block text-sm font-semibold text-[var(--ink)]">{a.name}</span>
+                          {a.note ? (
+                            <span className="mt-0.5 block text-[0.72rem] text-[var(--muted)]">{a.note}</span>
+                          ) : (
+                            <span className="mt-0.5 block text-[0.72rem] text-[var(--muted)]">
+                              {a.recruiters.filter((r) => r.enabled).length}/{a.recruiters.length}{" "}
+                              recruiters aan
+                              {a.custom ? " · zelf toegevoegd" : ""}
+                            </span>
+                          )}
+                        </span>
+                      </label>
+                      {a.custom ? (
+                        <button
+                          type="button"
+                          className="text-xs font-semibold text-[var(--muted)] hover:text-[var(--warn)]"
+                          onClick={() => removeAgency(a.id)}
+                        >
+                          Verwijderen
+                        </button>
+                      ) : null}
+                    </div>
+
+                    {a.enabled ? (
+                      <div className="mt-3 space-y-2 border-t border-[var(--line)]/70 pt-3">
+                        {a.recruiters.map((r) => (
+                          <div key={`${a.id}-${r.name}`} className="flex items-start gap-2 pl-1">
+                            <label className="flex min-w-0 flex-1 cursor-pointer items-start gap-2.5">
+                              <input
+                                type="checkbox"
+                                className="mt-0.5 h-4 w-4 accent-[var(--accent)]"
+                                checked={r.enabled}
+                                onChange={(e) => setRecruiterEnabled(a.id, r.name, e.target.checked)}
+                              />
+                              <span className="min-w-0">
+                                <span className="block text-[0.85rem] font-medium text-[var(--ink)]">
+                                  {r.name}
+                                </span>
+                                {[r.brand, r.title].filter(Boolean).length ? (
+                                  <span className="block text-[0.7rem] text-[var(--muted)]">
+                                    {[r.brand, r.title].filter(Boolean).join(" · ")}
+                                  </span>
+                                ) : null}
+                              </span>
+                            </label>
+                            <button
+                              type="button"
+                              className="shrink-0 text-[0.7rem] text-[var(--muted)] hover:text-[var(--warn)]"
+                              onClick={() => removeRecruiter(a.id, r.name)}
+                              aria-label={`${r.name} verwijderen`}
+                            >
+                              ×
+                            </button>
+                          </div>
+                        ))}
+
+                        <div className="flex flex-col gap-2 pt-1 sm:flex-row">
+                          <input
+                            className="min-w-0 flex-1 rounded-[var(--radius)] border border-[var(--line)] bg-[var(--surface-2)] px-2.5 py-2 text-sm"
+                            placeholder="Recruiter toevoegen…"
+                            value={newRecruiter[a.id] || ""}
+                            onChange={(e) =>
+                              setNewRecruiter((prev) => ({ ...prev, [a.id]: e.target.value }))
+                            }
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                e.preventDefault();
+                                addRecruiter(a.id);
+                              }
+                            }}
+                          />
+                          <button
+                            type="button"
+                            className="btn-ghost btn-tool shrink-0"
+                            onClick={() => addRecruiter(a.id)}
+                          >
+                            + Recruiter
+                          </button>
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
                 ))}
               </div>
             </Section>
@@ -365,7 +449,7 @@ export default function SettingsForm() {
             {error ? <p className="text-sm text-[var(--warn)]">{error}</p> : null}
             {saved ? (
               <p className="text-sm text-[var(--green)]">
-                Opgeslagen. Volgende sync en Bureaus volgen dit kader.
+                Opgeslagen. Bureaus volgt wie je hier aanzet.
               </p>
             ) : null}
 

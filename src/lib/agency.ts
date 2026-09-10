@@ -1,4 +1,9 @@
-import { huntSettings, recruiterKey } from "@/lib/hunt";
+import {
+  huntSettings,
+  recruiterKey,
+  type ManagedAgency,
+  type ManagedRecruiter,
+} from "@/lib/hunt";
 
 export type AgencyRecruiter = {
   name: string;
@@ -19,8 +24,8 @@ export type Agency = {
 };
 
 /**
- * Catalogus van contracting-bureaus (bronlijst).
- * Welke je volgt, kies je in Instellingen.
+ * Standaardcatalogus van contracting-bureaus.
+ * In Instellingen kun je deze aan/uit zetten en eigen bureaus toevoegen.
  */
 export const AGENCY_WATCHLIST: Agency[] = [
   {
@@ -155,37 +160,88 @@ function norm(s: string) {
     .trim();
 }
 
-/** Alle bureau-ids in de catalogus. */
+function asAgency(m: ManagedAgency): Agency {
+  return {
+    id: m.id,
+    name: m.name,
+    aliases: m.aliases.length ? m.aliases : [m.name.toLowerCase()],
+    note: m.note,
+    recruiters: m.recruiters.map((r) => ({
+      name: r.name,
+      title: r.title,
+      brand: r.brand,
+      linkedinUrl: r.linkedinUrl,
+    })),
+  };
+}
+
+/** Standaardlijst → managed (alles aan). */
+export function seedManagedAgencies(
+  agencyIds?: string[],
+  recruiterIds?: string[]
+): ManagedAgency[] {
+  const agencySet = agencyIds ? new Set(agencyIds) : null;
+  const recSet = recruiterIds ? new Set(recruiterIds) : null;
+  return AGENCY_WATCHLIST.map((a) => ({
+    id: a.id,
+    name: a.name,
+    aliases: a.aliases,
+    note: a.note,
+    enabled: agencySet ? agencySet.has(a.id) : true,
+    custom: false,
+    recruiters: a.recruiters.map(
+      (r): ManagedRecruiter => ({
+        name: r.name,
+        title: r.title,
+        brand: r.brand,
+        linkedinUrl: r.linkedinUrl,
+        enabled: recSet ? recSet.has(recruiterKey(a.id, r.name)) : true,
+      })
+    ),
+  }));
+}
+
+/** Volledige catalogus (seed + zelf toegevoegd), inclusief uitgeschakelde. */
+export function agencyCatalog(): ManagedAgency[] {
+  const stored = huntSettings().agencies;
+  if (stored?.length) return stored;
+  return seedManagedAgencies(huntSettings().agencyIds, huntSettings().recruiterIds);
+}
+
+/** Alle bureau-ids in de actieve catalogus. */
 export function allAgencyIds() {
-  return AGENCY_WATCHLIST.map((a) => a.id);
+  return agencyCatalog().map((a) => a.id);
 }
 
-/** Alle recruiter-keys in de catalogus. */
+/** Alle recruiter-keys in de actieve catalogus. */
 export function allRecruiterIds() {
-  return AGENCY_WATCHLIST.flatMap((a) => a.recruiters.map((r) => recruiterKey(a.id, r.name)));
+  return agencyCatalog().flatMap((a) => a.recruiters.map((r) => recruiterKey(a.id, r.name)));
 }
 
-/** Bureaus die je in Instellingen volgt. */
+/** Bureaus die je volgt (aan). */
 export function watchedAgencies(): Agency[] {
-  const sel = huntSettings().agencyIds;
-  if (!sel) return AGENCY_WATCHLIST;
-  const set = new Set(sel);
-  return AGENCY_WATCHLIST.filter((a) => set.has(a.id));
+  return agencyCatalog().filter((a) => a.enabled).map(asAgency);
 }
 
-/** Recruiters die je volgt, gegroepeerd per bureau. */
+/** Recruiters die je volgt binnen een bureau. */
 export function watchedRecruitersFor(agency: Agency): AgencyRecruiter[] {
-  const sel = huntSettings().recruiterIds;
-  if (!sel) return agency.recruiters;
-  const set = new Set(sel);
-  return agency.recruiters.filter((r) => set.has(recruiterKey(agency.id, r.name)));
+  const managed = agencyCatalog().find((a) => a.id === agency.id);
+  if (!managed) return agency.recruiters;
+  return managed.recruiters
+    .filter((r) => r.enabled)
+    .map((r) => ({
+      name: r.name,
+      title: r.title,
+      brand: r.brand,
+      linkedinUrl: r.linkedinUrl,
+    }));
 }
 
 export function matchAgency(companyName: string | null | undefined): Agency | null {
   const n = norm(companyName || "");
   if (!n) return null;
-  for (const a of AGENCY_WATCHLIST) {
-    if (norm(a.name) === n) return a;
+  for (const a of agencyCatalog()) {
+    if (norm(a.name) === n) return asAgency(a);
     if (
       a.aliases.some((al) => {
         const a1 = norm(al);
@@ -194,7 +250,7 @@ export function matchAgency(companyName: string | null | undefined): Agency | nu
         return a1.length >= 4 && n.includes(a1);
       })
     ) {
-      return a;
+      return asAgency(a);
     }
   }
   return null;
@@ -204,9 +260,8 @@ export function isAgencyName(name: string | null | undefined): boolean {
   return Boolean(matchAgency(name));
 }
 
-/** Of dit bureau op jouw volglijst staat (niet alleen in de catalogus). */
+/** Of dit bureau op jouw volglijst staat. */
 export function isWatchedAgency(agencyId: string): boolean {
-  const sel = huntSettings().agencyIds;
-  if (!sel) return true;
-  return sel.includes(agencyId);
+  const a = agencyCatalog().find((x) => x.id === agencyId);
+  return a ? a.enabled : false;
 }

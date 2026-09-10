@@ -80,9 +80,10 @@ export const workspaceSettings = pgTable("workspace_settings", {
     roles: string[];
     requireContract: boolean;
     employmentKinds?: string[];
+    agencies?: unknown[];
+    companyIds?: string[];
     agencyIds?: string[];
     recruiterIds?: string[];
-    companyIds?: string[];
   }>().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
 });

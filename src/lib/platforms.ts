@@ -1,8 +1,6 @@
-import { huntSettings } from "@/lib/hunt";
-
 /**
- * Eindklanten / careers-pagina’s die Firecrawl kan volgen.
- * Welke aan staan, kies je in Instellingen.
+ * Vaste careers-URL’s voor Firecrawl-sync (technisch, beperkt).
+ * Eindklanten zelf komen van de radar — niet via een checklist in Instellingen.
  */
 export type PlatformTarget = {
   id: string;
@@ -11,7 +9,6 @@ export type PlatformTarget = {
   /** Careers of jobs-URL (open web — Firecrawl) */
   careersUrl: string;
   sector?: string;
-  /** Standaard aan tot Instellingen iets anders zegt. */
   enabled: boolean;
 };
 
@@ -138,10 +135,7 @@ export function defaultCompanyIds() {
   return PLATFORM_TARGETS.filter((p) => p.enabled).map((p) => p.id);
 }
 
-/** Eindklanten die je in Instellingen volgt (careers-sync). */
+/** Careers-bronnen die bij sync meegaan (vaste technische lijst). */
 export function enabledPlatforms() {
-  const sel = huntSettings().companyIds;
-  if (!sel) return PLATFORM_TARGETS.filter((p) => p.enabled);
-  const set = new Set(sel);
-  return PLATFORM_TARGETS.filter((p) => set.has(p.id));
+  return PLATFORM_TARGETS.filter((p) => p.enabled);
 }

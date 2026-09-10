@@ -12,6 +12,25 @@ export const EMPLOYMENT_KINDS: { id: EmploymentKind; label: string; hint: string
   { id: "detachering", label: "Detachering", hint: "Via bureau gedetacheerd" },
 ];
 
+export type ManagedRecruiter = {
+  name: string;
+  title?: string;
+  brand?: string;
+  linkedinUrl?: string;
+  enabled: boolean;
+};
+
+export type ManagedAgency = {
+  id: string;
+  name: string;
+  aliases: string[];
+  note?: string;
+  enabled: boolean;
+  /** Zelf toegevoegd → mag verwijderd worden. */
+  custom?: boolean;
+  recruiters: ManagedRecruiter[];
+};
+
 export type HuntSettings = {
   /** Naam van de desk (sidebar / topbar). */
   name: string;
@@ -23,21 +42,17 @@ export type HuntSettings = {
   employmentKinds: EmploymentKind[];
   /** Vaste banen uitsluiten. */
   requireContract: boolean;
-  /**
-   * Bureaus die je volgt (ids uit de catalogus).
-   * `undefined` = nog niet gezet → alle bureaus.
-   */
-  agencyIds?: string[];
-  /**
-   * Recruiters die je volgt (`bureauId::naam`).
-   * `undefined` = nog niet gezet → alle recruiters.
-   */
-  recruiterIds?: string[];
+  /** Bureaus + recruiters (aan/uit + zelf toevoegen). */
+  agencies?: ManagedAgency[];
   /**
    * Eindklanten / careers-pagina’s die je volgt.
    * `undefined` = nog niet gezet → standaard aan.
    */
   companyIds?: string[];
+  /** @deprecated legacy — gemigreerd naar agencies[].enabled */
+  agencyIds?: string[];
+  /** @deprecated legacy — gemigreerd naar recruiters[].enabled */
+  recruiterIds?: string[];
 };
 
 /** Standaard functies — aanpasbaar in Instellingen. */
@@ -95,6 +110,17 @@ export function recruiterKey(agencyId: string, name: string) {
   return `${agencyId}::${name.trim().toLowerCase()}`;
 }
 
+export function slugAgencyId(name: string) {
+  const base = name
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 32);
+  return `custom_${base || "bureau"}_${Date.now().toString(36)}`;
+}
+
 function normalizeKinds(raw: unknown): EmploymentKind[] {
   if (!Array.isArray(raw)) return DEFAULT_EMPLOYMENT;
   const kinds = [
@@ -113,6 +139,58 @@ function normalizeIds(raw: unknown): string[] | undefined {
   return [...new Set(raw.map((id) => String(id).trim()).filter(Boolean))].slice(0, 80);
 }
 
+function cleanRecruiter(raw: unknown): ManagedRecruiter | null {
+  if (!raw || typeof raw !== "object") return null;
+  const o = raw as Record<string, unknown>;
+  const name = typeof o.name === "string" ? o.name.trim() : "";
+  if (name.length < 2) return null;
+  return {
+    name: name.slice(0, 80),
+    title: typeof o.title === "string" && o.title.trim() ? o.title.trim().slice(0, 80) : undefined,
+    brand: typeof o.brand === "string" && o.brand.trim() ? o.brand.trim().slice(0, 60) : undefined,
+    linkedinUrl:
+      typeof o.linkedinUrl === "string" && o.linkedinUrl.trim()
+        ? o.linkedinUrl.trim().slice(0, 200)
+        : undefined,
+    enabled: o.enabled !== false,
+  };
+}
+
+export function normalizeManagedAgencies(raw: unknown): ManagedAgency[] | undefined {
+  if (raw === undefined) return undefined;
+  if (!Array.isArray(raw)) return undefined;
+  const out: ManagedAgency[] = [];
+  for (const item of raw.slice(0, 40)) {
+    if (!item || typeof item !== "object") continue;
+    const o = item as Record<string, unknown>;
+    const name = typeof o.name === "string" ? o.name.trim() : "";
+    if (name.length < 2) continue;
+    const id =
+      typeof o.id === "string" && o.id.trim()
+        ? o.id.trim().slice(0, 64)
+        : slugAgencyId(name);
+    const aliases = Array.isArray(o.aliases)
+      ? o.aliases
+          .map((a) => String(a).trim().toLowerCase())
+          .filter((a) => a.length >= 2)
+          .slice(0, 20)
+      : [name.toLowerCase()];
+    const recruiters = Array.isArray(o.recruiters)
+      ? o.recruiters.map(cleanRecruiter).filter((r): r is ManagedRecruiter => Boolean(r)).slice(0, 30)
+      : [];
+    out.push({
+      id,
+      name: name.slice(0, 80),
+      aliases: aliases.length ? aliases : [name.toLowerCase()],
+      note: typeof o.note === "string" && o.note.trim() ? o.note.trim().slice(0, 200) : undefined,
+      enabled: o.enabled !== false,
+      custom: o.custom === true || id.startsWith("custom_"),
+      recruiters,
+    });
+  }
+  return out;
+}
+
 function normalize(raw: Partial<HuntSettings> | null | undefined): HuntSettings {
   const roles = Array.isArray(raw?.roles)
     ? [...new Set(raw.roles.map((r) => r.trim()).filter((r) => r.length >= 2))].slice(0, 24)
@@ -123,9 +201,10 @@ function normalize(raw: Partial<HuntSettings> | null | undefined): HuntSettings 
     roles: roles.length ? roles : DEFAULT_ROLES,
     employmentKinds: normalizeKinds(raw?.employmentKinds),
     requireContract: raw?.requireContract !== false,
+    agencies: normalizeManagedAgencies(raw?.agencies),
+    companyIds: normalizeIds(raw?.companyIds),
     agencyIds: normalizeIds(raw?.agencyIds),
     recruiterIds: normalizeIds(raw?.recruiterIds),
-    companyIds: normalizeIds(raw?.companyIds),
   };
 }
 
