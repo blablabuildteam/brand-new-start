@@ -997,6 +997,12 @@ export default function RadarApp() {
 
           <div className="relative flex items-center gap-2" ref={menuRef}>
             <a
+              href="/leads"
+              className="hidden text-xs font-semibold text-[var(--ink)] no-underline hover:text-[var(--accent)] hover:underline sm:inline"
+            >
+              Bureaus
+            </a>
+            <a
               href="/instellingen"
               className="hidden text-xs font-semibold text-[var(--ink)] no-underline hover:text-[var(--accent)] hover:underline sm:inline"
             >
@@ -1108,6 +1114,14 @@ export default function RadarApp() {
                     Pagina’s
                   </p>
                 </div>
+                <a
+                  href="/leads"
+                  role="menuitem"
+                  className="block px-3 py-2 text-xs text-[var(--muted)] no-underline hover:bg-[var(--surface-2)] hover:text-[var(--ink)]"
+                  onClick={() => setMenuOpen(false)}
+                >
+                  Bureaus →
+                </a>
                 <a
                   href="/instellingen"
                   role="menuitem"

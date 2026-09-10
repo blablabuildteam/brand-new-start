@@ -5,12 +5,14 @@ import Link from "next/link";
 
 const LINKS = [
   { href: "/", id: "radar", label: "Radar" },
+  { href: "/leads", id: "leads", label: "Bureaus" },
   { href: "/regie", id: "voorstel", label: "Voorstel" },
   { href: "/instellingen", id: "instellingen", label: "Instellingen" },
 ] as const;
 
 const SUB: Record<(typeof LINKS)[number]["id"], string> = {
   radar: "Radar · contracting",
+  leads: "Bureaus · eindklant",
   voorstel: "Voorstel",
   instellingen: "Instellingen",
 };
