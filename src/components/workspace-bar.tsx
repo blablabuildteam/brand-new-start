@@ -4,16 +4,18 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 
 const LINKS = [
-  { href: "/", id: "radar", label: "Radar" },
+  { href: "/", id: "desk", label: "Desk" },
+  { href: "/radar", id: "radar", label: "Radar" },
   { href: "/leads", id: "leads", label: "Bureaus" },
   { href: "/regie", id: "voorstel", label: "Voorstel" },
   { href: "/instellingen", id: "instellingen", label: "Instellingen" },
 ] as const;
 
 const SUB: Record<(typeof LINKS)[number]["id"], string> = {
-  radar: "Radar · contracting",
-  leads: "Bureaus · eindklant",
-  voorstel: "Voorstel",
+  desk: "Recruitment-desk",
+  radar: "Contracting · radar",
+  leads: "Contracting · bureaus",
+  voorstel: "Contracting · voorstel",
   instellingen: "Instellingen",
 };
 
@@ -33,12 +35,13 @@ export function WorkspaceBar({ current }: { current: (typeof LINKS)[number]["id"
     <header className="z-40 shrink-0 border-b border-[var(--line)]/80 bg-[var(--surface)]/95">
       <div className="mx-auto flex max-w-[1200px] items-center justify-between gap-4 px-5 py-3.5 md:px-8">
         <div>
-          <p
-            className="text-base font-semibold tracking-tight text-[var(--ink)] md:text-lg"
+          <Link
+            href="/"
+            className="text-base font-semibold tracking-tight text-[var(--ink)] no-underline hover:text-[var(--accent)] hover:no-underline md:text-lg"
             style={{ fontFamily: "var(--display)" }}
           >
             {name}
-          </p>
+          </Link>
           <p className="text-[0.72rem] text-[var(--muted)]">{SUB[current]}</p>
         </div>
         <nav className="flex items-center gap-4 text-xs font-semibold">

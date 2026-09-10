@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Regie — Contracting radar",
-  description: "Contract- en ZZP-kansen vinden, hiring manager koppelen, voorstel klaarzetten.",
+  title: "Regie — Recruitment-desk",
+  description: "Werving & selectie en contracting: opdrachten, eindklant, hiring manager, voorstel.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

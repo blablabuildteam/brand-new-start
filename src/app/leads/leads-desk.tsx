@@ -190,7 +190,7 @@ export default function LeadsDesk() {
       <WorkspaceBar current="leads" />
       <main className="mx-auto w-full max-w-[1200px] flex-1 px-5 py-5 md:px-8">
         <div className="mb-5">
-          <p className="text-[0.65rem] uppercase tracking-[0.08em] text-[var(--muted)]">Contracting</p>
+          <p className="text-[0.65rem] uppercase tracking-[0.08em] text-[var(--muted)]">Contracting · bureaus</p>
           <h1 className="mt-1 text-2xl font-bold tracking-tight" style={{ fontFamily: "var(--display)" }}>
             Bureau → eindklant
           </h1>

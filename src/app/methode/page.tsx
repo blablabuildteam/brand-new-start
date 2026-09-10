@@ -8,7 +8,7 @@ import { loadHuntSettings } from "@/lib/hunt";
 import { SCORE_MAX, SCORE_METHOD } from "@/lib/score";
 
 export const metadata = {
-  title: "Methode & queries — Contracting radar",
+  title: "Methode & queries — Contracting",
   description: "Per bron: wat we scrapen, hoe we filteren, en wat een sync kost.",
 };
 
@@ -70,7 +70,7 @@ export default async function MethodePage() {
         </div>
         <div className="flex flex-col items-end gap-1.5 text-sm">
           <Link href="/" className="font-medium text-[var(--accent)]">
-            ← Radar
+            ← Desk
           </Link>
           <Link href="/costs" className="text-[var(--muted)] hover:text-[var(--ink)]">
             Kosten / ROI

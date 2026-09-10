@@ -595,7 +595,7 @@ export default function RadarApp() {
     setLoading(true);
     const res = await fetch("/api/radar");
     if (res.status === 401) {
-      router.replace("/login");
+      router.replace("/login?next=/radar");
       return null;
     }
     const data = await res.json();
@@ -1058,14 +1058,24 @@ export default function RadarApp() {
         <div className="mx-auto flex max-w-[1200px] items-center justify-between gap-4 px-5 py-3.5 md:px-8">
           <div className="flex items-center gap-3.5">
             <div>
-              <p className="text-base font-semibold tracking-tight text-[var(--ink)] md:text-lg" style={{ fontFamily: "var(--display)" }}>
+              <a
+                href="/"
+                className="text-base font-semibold tracking-tight text-[var(--ink)] no-underline hover:text-[var(--accent)] hover:no-underline md:text-lg"
+                style={{ fontFamily: "var(--display)" }}
+              >
                 {workspaceName}
-              </p>
-              <p className="text-[0.72rem] text-[var(--muted)]">Radar · contracting</p>
+              </a>
+              <p className="text-[0.72rem] text-[var(--muted)]">Contracting · radar</p>
             </div>
           </div>
 
           <div className="relative flex items-center gap-2" ref={menuRef}>
+            <a
+              href="/"
+              className="hidden text-xs font-semibold text-[var(--ink)] no-underline hover:text-[var(--accent)] hover:underline sm:inline"
+            >
+              Desk
+            </a>
             <a
               href="/leads"
               className="hidden text-xs font-semibold text-[var(--ink)] no-underline hover:text-[var(--accent)] hover:underline sm:inline"
@@ -1184,6 +1194,14 @@ export default function RadarApp() {
                     Pagina’s
                   </p>
                 </div>
+                <a
+                  href="/"
+                  role="menuitem"
+                  className="block px-3 py-2 text-xs text-[var(--muted)] no-underline hover:bg-[var(--surface-2)] hover:text-[var(--ink)]"
+                  onClick={() => setMenuOpen(false)}
+                >
+                  Desk →
+                </a>
                 <a
                   href="/leads"
                   role="menuitem"

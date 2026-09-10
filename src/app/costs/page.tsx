@@ -63,7 +63,7 @@ export default function CostsPage() {
           </h1>
         </div>
         <Link href="/" className="text-sm font-medium text-[var(--accent)]">
-          ← Terug naar radar
+          ← Terug naar desk
         </Link>
       </div>
 

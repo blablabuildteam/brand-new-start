@@ -36,7 +36,7 @@ export default function SamenwerkingPage() {
         </div>
         <div className="flex flex-col items-end gap-1.5 text-sm">
           <Link href="/" className="font-medium text-[var(--accent)]">
-            ← Radar
+            ← Desk
           </Link>
           <Link href="/costs" className="text-[var(--muted)] hover:text-[var(--ink)]">
             Kosten / ROI
