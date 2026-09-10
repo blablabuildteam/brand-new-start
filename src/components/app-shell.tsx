@@ -16,10 +16,10 @@ const PRIMARY: { href: string; id: AppNavId; label: string }[] = [
 type ShellUser = { email: string; role?: string };
 
 function navClass(on: boolean) {
-  return `nav-link block rounded-md px-2.5 py-2 text-[0.88rem] ${
+  return `nav-link block rounded-lg px-2.5 py-2 text-[0.9rem] ${
     on
-      ? "bg-[var(--ink)] font-semibold text-[#f6f1e7]"
-      : "font-medium text-[var(--ink)]/80 hover:bg-[var(--surface-2)] hover:text-[var(--ink)]"
+      ? "bg-[var(--accent-soft)] font-semibold text-[var(--accent)]"
+      : "font-medium text-[var(--ink)]/75 hover:bg-[var(--surface-2)] hover:text-[var(--ink)]"
   }`;
 }
 
@@ -68,7 +68,7 @@ export function AppShell({
         <RegieMark className="h-8 w-8" />
         <span className="min-w-0">
           <span
-            className="block truncate text-[1.05rem] font-bold tracking-tight text-[var(--ink)]"
+            className="block truncate text-[1.15rem] tracking-tight text-[var(--ink)]"
             style={{ fontFamily: "var(--display)" }}
           >
             {name}
@@ -77,13 +77,10 @@ export function AppShell({
         </span>
       </Link>
 
-      <p
-        className="mt-8 px-2.5 text-[0.68rem] font-semibold uppercase tracking-[0.14em] text-[var(--muted)]"
-        style={{ fontFamily: "var(--mono)" }}
-      >
+      <p className="mt-8 px-2.5 text-[0.68rem] font-semibold uppercase tracking-[0.12em] text-[var(--muted)]">
         Workspace
       </p>
-      <nav className="mt-2 flex flex-col gap-1">
+      <nav className="mt-2 flex flex-col gap-0.5">
         {PRIMARY.map((l) => (
           <Link key={l.id} href={l.href} onClick={() => setOpen(false)} className={navClass(current === l.id)}>
             {l.label}
@@ -91,13 +88,10 @@ export function AppShell({
         ))}
       </nav>
 
-      <p
-        className="mt-7 px-2.5 text-[0.68rem] font-semibold uppercase tracking-[0.14em] text-[var(--muted)]"
-        style={{ fontFamily: "var(--mono)" }}
-      >
+      <p className="mt-7 px-2.5 text-[0.68rem] font-semibold uppercase tracking-[0.12em] text-[var(--muted)]">
         Desk
       </p>
-      <nav className="mt-2 flex flex-col gap-1">
+      <nav className="mt-2 flex flex-col gap-0.5">
         <Link href="/" onClick={() => setOpen(false)} className={navClass(false)}>
           Vak kiezen
         </Link>
@@ -113,13 +107,13 @@ export function AppShell({
       <div className="mt-auto border-t border-[var(--line)] pt-3">
         <Link
           href="/methode"
-          className="nav-link block rounded-md px-2.5 py-1.5 text-[0.8rem] text-[var(--muted)] hover:bg-[var(--surface-2)] hover:text-[var(--ink)]"
+          className="nav-link block rounded-lg px-2.5 py-1.5 text-[0.8rem] text-[var(--muted)] hover:bg-[var(--surface-2)] hover:text-[var(--ink)]"
         >
           Methode
         </Link>
         <Link
           href="/costs"
-          className="nav-link block rounded-md px-2.5 py-1.5 text-[0.8rem] text-[var(--muted)] hover:bg-[var(--surface-2)] hover:text-[var(--ink)]"
+          className="nav-link block rounded-lg px-2.5 py-1.5 text-[0.8rem] text-[var(--muted)] hover:bg-[var(--surface-2)] hover:text-[var(--ink)]"
         >
           Kosten
         </Link>
@@ -131,7 +125,7 @@ export function AppShell({
         <button
           type="button"
           onClick={() => void logout()}
-          className="mt-1 w-full rounded-md px-2.5 py-1.5 text-left text-[0.8rem] font-medium text-[var(--muted)] hover:bg-[var(--surface-2)] hover:text-[var(--ink)]"
+          className="mt-1 w-full rounded-lg px-2.5 py-1.5 text-left text-[0.8rem] font-medium text-[var(--muted)] hover:bg-[var(--surface-2)] hover:text-[var(--ink)]"
         >
           Uitloggen
         </button>
@@ -148,7 +142,7 @@ export function AppShell({
       {open ? (
         <button
           type="button"
-          className="fixed inset-0 z-40 bg-[var(--header)]/40 md:hidden"
+          className="fixed inset-0 z-40 bg-[var(--ink)]/30 md:hidden"
           aria-label="Menu sluiten"
           onClick={() => setOpen(false)}
         />
@@ -173,7 +167,7 @@ export function AppShell({
           </button>
           <div className="min-w-0 flex-1">
             {title ? (
-              <p className="truncate text-sm font-semibold text-[var(--ink)]" style={{ fontFamily: "var(--display)" }}>
+              <p className="truncate text-[1.05rem] text-[var(--ink)]" style={{ fontFamily: "var(--display)" }}>
                 {title}
               </p>
             ) : null}

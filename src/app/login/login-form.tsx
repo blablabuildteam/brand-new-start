@@ -34,19 +34,19 @@ export default function LoginForm() {
   }
 
   return (
-    <div className="min-h-dvh bg-[var(--header)]">
-      <header className="mx-auto flex h-16 max-w-[1120px] items-center px-5 md:px-8">
-        <RegieWordmark dark />
+    <div className="min-h-dvh bg-[var(--bg)]">
+      <header className="mx-auto flex h-14 max-w-[1120px] items-center px-5 md:px-8">
+        <RegieWordmark />
       </header>
-      <main className="grid min-h-[calc(100dvh-4rem)] place-items-center px-5 pb-16">
+      <main className="grid min-h-[calc(100dvh-3.5rem)] place-items-center px-5 pb-16">
         <form
           onSubmit={onSubmit}
-          className="w-full max-w-[400px] rounded-xl border border-[var(--line)] bg-[var(--surface)] p-7 shadow-[0_24px_60px_-28px_rgba(0,0,0,0.45)]"
+          className="w-full max-w-[400px] rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-7 shadow-[var(--shadow)]"
         >
-          <p className="text-[0.65rem] uppercase tracking-[0.12em] text-[var(--muted)]" style={{ fontFamily: "var(--mono)" }}>
+          <p className="text-[0.65rem] font-semibold uppercase tracking-[0.12em] text-[var(--muted)]">
             Recruitment-desk
           </p>
-          <h1 className="mt-1 text-2xl font-bold" style={{ fontFamily: "var(--display)" }}>
+          <h1 className="mt-1 text-[2rem] tracking-tight text-[var(--accent)]" style={{ fontFamily: "var(--display)" }}>
             Inloggen
           </h1>
           <p className="mt-2 mb-6 text-sm leading-relaxed text-[var(--muted)]">
@@ -56,7 +56,7 @@ export default function LoginForm() {
           <label className="mb-3 block text-sm font-medium">
             E-mail
             <input
-              className="mt-1 w-full rounded-md border border-[var(--line)] bg-[var(--surface-2)] px-3 py-2"
+              className="mt-1 w-full rounded-xl border border-[var(--line)] bg-[var(--surface-2)] px-3 py-2.5"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               type="email"
@@ -67,7 +67,7 @@ export default function LoginForm() {
           <label className="mb-4 block text-sm font-medium">
             Wachtwoord
             <input
-              className="mt-1 w-full rounded-md border border-[var(--line)] bg-[var(--surface-2)] px-3 py-2"
+              className="mt-1 w-full rounded-xl border border-[var(--line)] bg-[var(--surface-2)] px-3 py-2.5"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               type="password"
@@ -80,7 +80,7 @@ export default function LoginForm() {
           <button
             type="submit"
             disabled={loading}
-            className="btn-ink w-full rounded-md px-4 py-2.5 text-sm font-semibold disabled:opacity-60"
+            className="btn-ink w-full rounded-full px-4 py-2.5 text-sm font-semibold disabled:opacity-60"
           >
             {loading ? "Bezig…" : "Naar de desk"}
           </button>
