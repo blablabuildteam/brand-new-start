@@ -9,7 +9,7 @@ export type SourceCost = {
   id: string;
   label: string;
   tier: SourceTier;
-  tool: "none" | "apify" | "firecrawl" | "tenderned" | "pulse" | "paste";
+  tool: "none" | "apify" | "firecrawl" | "tenderned" | "pulse" | "paste" | "lusha";
   /** Why this source is worth paying for */
   quality: "kritisch" | "hoog" | "middel" | "laag";
   /** Efficient cadence for MVP */
@@ -83,6 +83,16 @@ export const SOURCE_COST_MODEL: SourceCost[] = [
     cadence: "realtime (handmatig)",
     eurPerMonth: { low: 0, high: 0 },
     efficiency: "Eigen input — geen scraperkosten. UI volgt later.",
+  },
+  {
+    id: "lusha",
+    label: "Lusha (mail/tel)",
+    tier: "paid-open",
+    tool: "lusha",
+    quality: "hoog",
+    cadence: "per persoon · na een naam",
+    eurPerMonth: { low: 2, high: 25 },
+    efficiency: "Alleen op klik, ná Harvest-naam. Geen bulk. Mail + tel per hiring manager.",
   },
 ];
 
@@ -246,6 +256,12 @@ export const SYNC_COST_PER_RUN = {
       tool: "Apify",
       eur: { low: 0.1, high: 0.4 },
       what: "1 LinkedIn people-pagina · top 3 hiring managers om te berichten",
+    },
+    lusha: {
+      label: "Lusha mail/tel",
+      tool: "Lusha",
+      eur: { low: 0.1, high: 0.35 },
+      what: "1 persoon · werkmail + telefoon · alleen na een LinkedIn-naam",
     },
   },
 } as const;

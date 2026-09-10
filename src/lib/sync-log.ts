@@ -11,7 +11,8 @@ export type SyncChannel =
   | "pulse"
   | "seed"
   | "specialty"
-  | "hm-search";
+  | "hm-search"
+  | "lusha";
 
 export type SyncHit = {
   company: string;
@@ -151,6 +152,7 @@ export function channelLabel(ch: SyncChannel | string) {
     seed: "Demo-seed",
     specialty: "Specialisatie (eenmalig kader)",
     "hm-search": "Hiring manager zoeken",
+    lusha: "Lusha contact",
   };
   return labels[ch] || ch;
 }

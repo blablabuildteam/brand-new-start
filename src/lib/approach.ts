@@ -11,6 +11,9 @@ export type ApproachTarget = {
   url: string;
   /** Wat de recruiter nu moet doen. */
   cta: "bericht" | "zoek";
+  email?: string | null;
+  phone?: string | null;
+  lushaStatus?: "ok" | "empty" | "restricted" | null;
 };
 
 export function companyLinkedinFromSignals(
@@ -145,6 +148,7 @@ export function buildApproach(opts: {
   const targets: ApproachTarget[] = [];
 
   if (opts.org.hiringManager) {
+    const primary = opts.org.hmHits?.find((h) => h.name === opts.org.hiringManager);
     targets.push({
       kind: "person",
       label: opts.org.hiringManager,
@@ -154,12 +158,15 @@ export function buildApproach(opts: {
         company: opts.company,
         companyLinkedinUrl: companyUrl,
         profileUrl:
-          opts.org.hmHits?.find((h) => h.name === opts.org.hiringManager)?.url ||
+          primary?.url ||
           (!opts.org.contactName || opts.org.contactName === opts.org.hiringManager
             ? opts.org.contactUrl
             : null),
       }),
       cta: "bericht",
+      email: primary?.email,
+      phone: primary?.phone,
+      lushaStatus: primary?.lushaStatus,
     });
     for (const hit of opts.org.hmHits || []) {
       if (hit.name === opts.org.hiringManager) continue;
@@ -174,6 +181,9 @@ export function buildApproach(opts: {
           profileUrl: hit.url,
         }),
         cta: "bericht",
+        email: hit.email,
+        phone: hit.phone,
+        lushaStatus: hit.lushaStatus,
       });
     }
     return { department: opts.org.department, targets };

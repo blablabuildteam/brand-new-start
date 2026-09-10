@@ -15,12 +15,17 @@
 2. API key → `FIRECRAWL_API_KEY=...`  
 3. Hobby is genoeg voor MVP (alleen watchlist careers, geen full crawl)  
 
-### 3. TenderNed — **gratis, apart**
+### 3. Lusha — **mail/tel, per persoon**
+1. Dashboard: https://dashboard.lusha.com/enrich/api  
+2. API key → `LUSHA_API_KEY=...` (lokaal + Vercel)  
+3. Alleen ná “Zoek 3 namen”: knop **Mail/tel** op de radar. Geen bulk, geen Apollo.  
+
+### 4. TenderNed — **gratis, apart**
 1. Mail `functioneelbeheer@tenderned.nl` voor API user/pass  
 2. `TENDERNED_USER` / `TENDERNED_PASS`  
 
-### 4. Vercel (als je deployt)
-- Project env: `RECRUITER_PASSWORD`, `ADMIN_PASSWORD`, `AUTH_SECRET`, `APIFY_TOKEN`, later Firecrawl + TenderNed  
+### 5. Vercel (als je deployt)
+- Project env: `RECRUITER_PASSWORD`, `ADMIN_PASSWORD`, `AUTH_SECRET`, `APIFY_TOKEN`, `LUSHA_API_KEY`, later Firecrawl + TenderNed  
   - `admin@blablabuild.com` → admin (sync + samenwerking)  
   - `recruiter@brandnewstart.nl` → recruiter (radar alleen)  
 - Cron in `vercel.json` staat uit — syncs alleen handmatig via Sync & meer (admin)  

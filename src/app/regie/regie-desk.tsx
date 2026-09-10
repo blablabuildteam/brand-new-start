@@ -70,6 +70,7 @@ export default function RegieDesk({
   const [copied, setCopied] = useState(false);
   const [huntBusy, setHuntBusy] = useState(false);
   const [huntErr, setHuntErr] = useState("");
+  const [lushaBusy, setLushaBusy] = useState("");
 
   useEffect(() => {
     fetch("/api/placement")
@@ -176,6 +177,46 @@ export default function RegieDesk({
       setHuntErr(e instanceof Error ? e.message : "zoeken mislukt");
     } finally {
       setHuntBusy(false);
+    }
+  }
+
+  async function enrich(linkedinUrl: string) {
+    if (!item || item.companyId === "demo") return;
+    setLushaBusy(linkedinUrl);
+    setHuntErr("");
+    try {
+      const res = await fetch("/api/lusha", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          companyId: item.companyId,
+          openingId: item.openingId,
+          linkedinUrl,
+        }),
+      });
+      const data = (await res.json()) as { error?: string; detail?: string; targets?: ApproachTarget[] };
+      if (!res.ok) {
+        throw new Error(
+          data.detail === "no-lusha-key" || data.error?.includes("LUSHA_API_KEY")
+            ? "Geen Lusha-key — zet LUSHA_API_KEY in Vercel."
+            : data.error || "Lusha mislukt"
+        );
+      }
+      if (data.targets?.length) {
+        const openingId = item.openingId;
+        const companyId = item.companyId;
+        setItems((rows) =>
+          rows.map((r) =>
+            r.openingId === openingId && r.companyId === companyId
+              ? { ...r, proposal: { ...r.proposal, hiring: data.targets! } }
+              : r
+          )
+        );
+      }
+    } catch (e) {
+      setHuntErr(e instanceof Error ? e.message : "Lusha mislukt");
+    } finally {
+      setLushaBusy("");
     }
   }
 
@@ -294,9 +335,47 @@ export default function RegieDesk({
                           {t.subtitle ? (
                             <span className="block text-[0.78rem] text-[var(--muted)]">{t.subtitle}</span>
                           ) : null}
+                          {t.email ? (
+                            <span className="block text-[0.72rem] text-[var(--muted)]">{t.email}</span>
+                          ) : null}
+                          {t.phone ? (
+                            <span className="block text-[0.72rem] text-[var(--muted)]">{t.phone}</span>
+                          ) : null}
                         </span>
                       </div>
                       <div className="flex items-center gap-2">
+                        {named && !recruiter && t.email ? (
+                          <a
+                            href={`mailto:${t.email}`}
+                            className="rounded-md border border-[var(--line)] bg-[var(--surface)] px-3 py-1.5 text-xs font-semibold text-[var(--ink)] no-underline hover:border-[var(--accent)]/40"
+                          >
+                            Mail
+                          </a>
+                        ) : null}
+                        {named && !recruiter && t.phone ? (
+                          <a
+                            href={`tel:${t.phone}`}
+                            className="rounded-md border border-[var(--line)] bg-[var(--surface)] px-3 py-1.5 text-xs font-semibold text-[var(--ink)] no-underline hover:border-[var(--accent)]/40"
+                          >
+                            Bel
+                          </a>
+                        ) : null}
+                        {named &&
+                        !recruiter &&
+                        !t.email &&
+                        !t.phone &&
+                        /linkedin\.com\/in\//i.test(t.url) &&
+                        t.lushaStatus !== "empty" &&
+                        t.lushaStatus !== "restricted" ? (
+                          <button
+                            type="button"
+                            disabled={Boolean(lushaBusy)}
+                            onClick={() => void enrich(t.url)}
+                            className="rounded-md border border-[var(--line)] bg-[var(--surface)] px-3 py-1.5 text-xs font-semibold text-[var(--ink)] hover:border-[var(--accent)]/40 disabled:opacity-50"
+                          >
+                            {lushaBusy === t.url ? "Lusha…" : "Mail/tel"}
+                          </button>
+                        ) : null}
                         {named && !recruiter ? (
                           <button
                             type="button"

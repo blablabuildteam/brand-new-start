@@ -32,7 +32,14 @@ type OrgContext = {
   contactName: string | null;
   contactTitle: string | null;
   contactUrl: string | null;
-  hmHits?: { name: string; title: string | null; url: string | null }[];
+  hmHits?: {
+    name: string;
+    title: string | null;
+    url: string | null;
+    email?: string | null;
+    phone?: string | null;
+    lushaStatus?: "ok" | "empty" | "restricted" | null;
+  }[];
 };
 type Opening = {
   id: string;
@@ -174,6 +181,7 @@ function channelLabelUi(ch: string) {
     tenderned: "TenderNed",
     pulse: "Pulse",
     "hm-search": "Hiring manager",
+    lusha: "Lusha",
   };
   return labels[ch] || ch;
 }
@@ -351,6 +359,7 @@ function HiringManagerBlock({
   onOrg?: (openingId: string, org: OrgContext) => void;
 }) {
   const [busy, setBusy] = useState(false);
+  const [enriching, setEnriching] = useState("");
   const [err, setErr] = useState("");
   const targets = openingApproach(company, opening, sector);
   if (!targets.length) return null;
@@ -390,6 +399,31 @@ function HiringManagerBlock({
       setErr(e instanceof Error ? e.message : "zoeken mislukt");
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function enrich(linkedinUrl: string) {
+    setEnriching(linkedinUrl);
+    setErr("");
+    try {
+      const res = await fetch("/api/lusha", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ companyId, openingId: opening.id, linkedinUrl }),
+      });
+      const data = (await res.json()) as { error?: string; detail?: string; org?: OrgContext };
+      if (!res.ok) {
+        throw new Error(
+          data.detail === "no-lusha-key" || data.error?.includes("LUSHA_API_KEY")
+            ? "Geen Lusha-key — zet LUSHA_API_KEY in Vercel."
+            : data.error || "Lusha mislukt"
+        );
+      }
+      if (data.org) onOrg?.(opening.id, data.org);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Lusha mislukt");
+    } finally {
+      setEnriching("");
     }
   }
 
@@ -433,23 +467,59 @@ function HiringManagerBlock({
         </div>
       ) : (
         <>
-          <ul className="mt-1.5 space-y-1">
-            {people.map((t) => (
-              <li key={`${t.kind}-${t.label}`} className="flex items-baseline justify-between gap-3">
-                <p className="min-w-0 truncate text-sm">
-                  <span className="font-semibold text-[var(--ink)]">{t.label}</span>
-                  {t.subtitle ? <span className="text-[var(--muted)]"> · {t.subtitle}</span> : null}
-                </p>
-                <a
-                  href={t.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="shrink-0 text-xs font-semibold text-[var(--accent)] no-underline hover:text-[var(--ink)] hover:underline"
-                >
-                  {targetAction(t)}
-                </a>
-              </li>
-            ))}
+          <ul className="mt-1.5 space-y-1.5">
+            {people.map((t) => {
+              const profile = /linkedin\.com\/in\//i.test(t.url) ? t.url : "";
+              return (
+                <li key={`${t.kind}-${t.label}`} className="flex items-baseline justify-between gap-3">
+                  <p className="min-w-0 truncate text-sm">
+                    <span className="font-semibold text-[var(--ink)]">{t.label}</span>
+                    {t.subtitle ? <span className="text-[var(--muted)]"> · {t.subtitle}</span> : null}
+                    {t.email ? <span className="block truncate text-[0.72rem] text-[var(--muted)]">{t.email}</span> : null}
+                    {t.phone ? <span className="block text-[0.72rem] text-[var(--muted)]">{t.phone}</span> : null}
+                  </p>
+                  <span className="flex shrink-0 items-baseline gap-2">
+                    {t.email ? (
+                      <a
+                        href={`mailto:${t.email}`}
+                        className="text-xs font-semibold text-[var(--accent)] no-underline hover:text-[var(--ink)] hover:underline"
+                      >
+                        Mail
+                      </a>
+                    ) : null}
+                    {t.phone ? (
+                      <a
+                        href={`tel:${t.phone}`}
+                        className="text-xs font-semibold text-[var(--accent)] no-underline hover:text-[var(--ink)] hover:underline"
+                      >
+                        Bel
+                      </a>
+                    ) : null}
+                    {!t.email && !t.phone && profile && t.lushaStatus !== "restricted" && t.lushaStatus !== "empty" ? (
+                      <button
+                        type="button"
+                        disabled={Boolean(enriching)}
+                        onClick={() => void enrich(profile)}
+                        className="text-xs font-medium text-[var(--ink)] hover:text-[var(--accent)] hover:underline disabled:opacity-50"
+                      >
+                        {enriching === profile ? "Lusha…" : "Mail/tel"}
+                      </button>
+                    ) : null}
+                    {!t.email && !t.phone && (t.lushaStatus === "empty" || t.lushaStatus === "restricted") ? (
+                      <span className="text-[0.7rem] text-[var(--muted)]">geen contact</span>
+                    ) : null}
+                    <a
+                      href={t.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs font-semibold text-[var(--accent)] no-underline hover:text-[var(--ink)] hover:underline"
+                    >
+                      {targetAction(t)}
+                    </a>
+                  </span>
+                </li>
+              );
+            })}
           </ul>
           {hunted ? (
             <p className="mt-2 text-[0.72rem] text-[var(--muted)]">

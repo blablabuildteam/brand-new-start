@@ -8,6 +8,10 @@ export type HmHit = {
   title: string | null;
   url: string | null;
   company?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  lushaAt?: string | null;
+  lushaStatus?: "ok" | "empty" | "restricted" | null;
 };
 
 export type OrgContext = {
@@ -123,11 +127,19 @@ function parseHmHits(raw: Record<string, unknown>): HmHit[] {
     const o = item as Record<string, unknown>;
     const name = str(o.name);
     if (!name) continue;
+    const lushaStatus =
+      o.lushaStatus === "ok" || o.lushaStatus === "empty" || o.lushaStatus === "restricted"
+        ? o.lushaStatus
+        : null;
     out.push({
       name,
       title: str(o.title),
       url: str(o.url),
       company: str(o.company),
+      email: str(o.email),
+      phone: str(o.phone),
+      lushaAt: str(o.lushaAt),
+      lushaStatus,
     });
   }
   return out;
