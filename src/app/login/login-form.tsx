@@ -41,7 +41,7 @@ export default function LoginForm() {
       <main className="grid min-h-[calc(100dvh-4rem)] place-items-center px-5 pb-16">
         <form
           onSubmit={onSubmit}
-          className="w-full max-w-[400px] rounded-xl border border-white/10 bg-white p-7 shadow-[0_24px_60px_-28px_rgba(0,0,0,0.45)]"
+          className="w-full max-w-[400px] rounded-xl border border-[var(--line)] bg-[var(--surface)] p-7 shadow-[0_24px_60px_-28px_rgba(0,0,0,0.45)]"
         >
           <p className="text-[0.65rem] uppercase tracking-[0.12em] text-[var(--muted)]" style={{ fontFamily: "var(--mono)" }}>
             Recruitment-desk
@@ -80,7 +80,7 @@ export default function LoginForm() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full rounded-md bg-[#0b1c30] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#123049] disabled:opacity-60"
+            className="btn-ink w-full rounded-md px-4 py-2.5 text-sm font-semibold disabled:opacity-60"
           >
             {loading ? "Bezig…" : "Naar de desk"}
           </button>

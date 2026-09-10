@@ -81,51 +81,51 @@ export default function HomeDesk() {
     <div className="desk-home min-h-dvh">
       <SiteNav name={name} email={email} />
 
-      <section className="relative overflow-hidden bg-[var(--header)] text-white">
+      <section className="relative overflow-hidden bg-[var(--header)] text-[#f3eee4]">
         <div
           className="pointer-events-none absolute inset-0"
           style={{
             background:
-              "radial-gradient(ellipse 80% 70% at 88% -20%, rgba(0,121,193,0.42), transparent 52%)",
+              "radial-gradient(ellipse 70% 60% at 92% -10%, rgba(206,255,0,0.16), transparent 48%)",
           }}
         />
         <div
-          className="pointer-events-none absolute inset-0 opacity-[0.07]"
+          className="pointer-events-none absolute inset-0 opacity-[0.045]"
           style={{
             backgroundImage:
-              "linear-gradient(rgba(255,255,255,0.35) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.35) 1px, transparent 1px)",
-            backgroundSize: "72px 72px",
+              "linear-gradient(rgba(243,238,228,0.7) 1px, transparent 1px), linear-gradient(90deg, rgba(243,238,228,0.7) 1px, transparent 1px)",
+            backgroundSize: "80px 80px",
           }}
         />
 
         <div className="relative mx-auto grid max-w-[1120px] items-end gap-12 px-5 py-16 md:px-8 md:py-20 lg:grid-cols-[1.05fr_0.95fr] lg:py-24">
           <div>
             <p
-              className="text-[0.68rem] font-medium uppercase tracking-[0.16em] text-white/45"
+              className="text-[0.68rem] font-medium uppercase tracking-[0.18em] text-[#f3eee4]/50"
               style={{ fontFamily: "var(--mono)" }}
             >
               Recruitment software
             </p>
             <h1
-              className="mt-3 max-w-xl text-[2.25rem] font-bold leading-[1.06] tracking-tight md:text-[3.15rem]"
+              className="mt-3 max-w-xl text-[2.4rem] font-extrabold leading-[1.02] tracking-tight md:text-[3.35rem]"
               style={{ fontFamily: "var(--display)" }}
             >
               De desk voor wie de eindklant wil bereiken.
             </h1>
-            <p className="mt-5 max-w-md text-[1.02rem] leading-relaxed text-white/62">
+            <p className="mt-5 max-w-md text-[1.02rem] leading-relaxed text-[#f3eee4]/68">
               Permanent is werving & selectie. Contracting haalt interim- en ZZP-kansen op — van
               jobboards én bureaus — en brengt je bij de hiring manager van de eindklant.
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-3">
               <a
                 href="#product"
-                className="nav-link inline-flex items-center rounded-md bg-[#0079c1] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#0a8fd4] hover:text-white"
+                className="nav-link btn-signal inline-flex items-center rounded-md px-4 py-2.5 text-sm font-semibold"
               >
                 Kies je vak
               </a>
               <Link
                 href="/radar"
-                className="nav-link inline-flex items-center rounded-md border border-white/20 px-4 py-2.5 text-sm font-semibold text-white/90 hover:border-white/40 hover:text-white"
+                className="nav-link inline-flex items-center rounded-md border border-[#f3eee4]/25 px-4 py-2.5 text-sm font-semibold text-[#f3eee4] hover:border-[#f3eee4]/50 hover:text-[#f3eee4]"
               >
                 Direct naar contracting
               </Link>
@@ -133,22 +133,22 @@ export default function HomeDesk() {
           </div>
 
           <div className="relative hidden lg:block">
-            <div className="overflow-hidden rounded-xl border border-white/12 bg-[#081221] shadow-[0_32px_80px_-28px_rgba(0,0,0,0.65)]">
-              <div className="flex items-center gap-1.5 border-b border-white/8 px-3.5 py-2.5">
-                <span className="h-2 w-2 rounded-full bg-white/15" />
-                <span className="h-2 w-2 rounded-full bg-white/15" />
-                <span className="h-2 w-2 rounded-full bg-white/15" />
-                <span className="ml-2 text-[0.65rem] text-white/35" style={{ fontFamily: "var(--mono)" }}>
+            <div className="overflow-hidden rounded-xl border border-[#f3eee4]/12 bg-[#1b1914] shadow-[0_32px_80px_-28px_rgba(0,0,0,0.55)]">
+              <div className="flex items-center gap-1.5 border-b border-[#f3eee4]/8 px-3.5 py-2.5">
+                <span className="h-2 w-2 rounded-full bg-[#f3eee4]/20" />
+                <span className="h-2 w-2 rounded-full bg-[#f3eee4]/20" />
+                <span className="h-2 w-2 rounded-full bg-[#f3eee4]/20" />
+                <span className="ml-2 text-[0.65rem] text-[#f3eee4]/40" style={{ fontFamily: "var(--mono)" }}>
                   Radar · contracting
                 </span>
               </div>
               <div className="grid grid-cols-[7.5rem_1fr]">
-                <div className="space-y-1 border-r border-white/8 p-3">
+                <div className="space-y-1 border-r border-[#f3eee4]/8 p-3">
                   {["Radar", "Bureaus", "Voorstel"].map((l, i) => (
                     <div
                       key={l}
                       className={`rounded px-2 py-1.5 text-[0.68rem] ${
-                        i === 0 ? "bg-white/10 font-semibold text-white" : "text-white/40"
+                        i === 0 ? "bg-[#f3eee4]/10 font-semibold text-[#f3eee4]" : "text-[#f3eee4]/40"
                       }`}
                     >
                       {l}
@@ -161,12 +161,12 @@ export default function HomeDesk() {
                     ["Booking.com", "Platform engineer", "71"],
                     ["ING", "Business analist", "64"],
                   ].map(([co, role, score]) => (
-                    <div key={co} className="flex items-center justify-between rounded-md bg-white/[0.04] px-2.5 py-2">
+                    <div key={co} className="flex items-center justify-between rounded-md bg-[#f3eee4]/[0.05] px-2.5 py-2">
                       <div>
-                        <p className="text-[0.72rem] font-semibold text-white/90">{co}</p>
-                        <p className="text-[0.62rem] text-white/40">{role}</p>
+                        <p className="text-[0.72rem] font-semibold text-[#f3eee4]/90">{co}</p>
+                        <p className="text-[0.62rem] text-[#f3eee4]/40">{role}</p>
                       </div>
-                      <span className="text-[0.68rem] font-semibold text-[#7ec8ee]" style={{ fontFamily: "var(--mono)" }}>
+                      <span className="text-[0.68rem] font-semibold text-[var(--signal)]" style={{ fontFamily: "var(--mono)" }}>
                         {score}
                       </span>
                     </div>
@@ -194,7 +194,7 @@ export default function HomeDesk() {
             {TRADES.map((t) => (
               <article
                 key={t.id}
-                className={`desk-card rounded-xl border bg-white p-7 md:p-8 ${
+                className={`desk-card rounded-xl border bg-[var(--surface)] p-7 md:p-8 ${
                   t.live ? "desk-card--live border-[var(--accent)]/35" : "border-[var(--line)]"
                 }`}
               >
@@ -237,7 +237,7 @@ export default function HomeDesk() {
                 {t.live ? (
                   <Link
                     href="/radar"
-                    className="nav-link mt-8 inline-flex w-full items-center justify-center rounded-md bg-[var(--header)] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#123049] hover:text-white"
+                    className="nav-link btn-ink mt-8 inline-flex w-full items-center justify-center rounded-md px-4 py-2.5 text-sm font-semibold"
                   >
                     Open contracting
                   </Link>
@@ -272,7 +272,7 @@ export default function HomeDesk() {
         </section>
       </main>
 
-      <footer className="border-t border-[var(--line)] bg-white">
+      <footer className="border-t border-[var(--line)] bg-[var(--surface)]">
         <div className="mx-auto flex max-w-[1120px] items-center justify-between gap-4 px-5 py-5 md:px-8">
           <a
             href="https://blablabuild.com"

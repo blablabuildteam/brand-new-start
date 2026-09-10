@@ -16,10 +16,10 @@ const PRIMARY: { href: string; id: AppNavId; label: string }[] = [
 type ShellUser = { email: string; role?: string };
 
 function navClass(on: boolean) {
-  return `nav-link block rounded-md px-2.5 py-2 text-[0.9rem] ${
+  return `nav-link block rounded-md px-2.5 py-2 text-[0.88rem] ${
     on
-      ? "bg-[#0079c1] font-semibold text-white"
-      : "font-medium text-white/88 hover:bg-white/10 hover:text-white"
+      ? "bg-[var(--ink)] font-semibold text-[#f6f1e7]"
+      : "font-medium text-[var(--ink)]/80 hover:bg-[var(--surface-2)] hover:text-[var(--ink)]"
   }`;
 }
 
@@ -60,20 +60,27 @@ export function AppShell({
 
   const nav = (
     <>
-      <Link href="/" className="nav-link flex items-center gap-2.5 px-1 py-0.5 text-white" onClick={() => setOpen(false)}>
-        <RegieMark onDark className="h-8 w-8" />
+      <Link
+        href="/"
+        className="nav-link flex items-center gap-2.5 px-1 py-0.5 text-[var(--ink)]"
+        onClick={() => setOpen(false)}
+      >
+        <RegieMark className="h-8 w-8" />
         <span className="min-w-0">
           <span
-            className="block truncate text-[0.95rem] font-semibold tracking-tight text-white"
+            className="block truncate text-[1.05rem] font-bold tracking-tight text-[var(--ink)]"
             style={{ fontFamily: "var(--display)" }}
           >
             {name}
           </span>
-          <span className="block text-[0.7rem] text-white/70">Contracting</span>
+          <span className="block text-[0.7rem] text-[var(--muted)]">Contracting</span>
         </span>
       </Link>
 
-      <p className="mt-8 px-2.5 text-[0.68rem] font-semibold uppercase tracking-[0.12em] text-white/55">
+      <p
+        className="mt-8 px-2.5 text-[0.68rem] font-semibold uppercase tracking-[0.14em] text-[var(--muted)]"
+        style={{ fontFamily: "var(--mono)" }}
+      >
         Workspace
       </p>
       <nav className="mt-2 flex flex-col gap-1">
@@ -84,7 +91,10 @@ export function AppShell({
         ))}
       </nav>
 
-      <p className="mt-7 px-2.5 text-[0.68rem] font-semibold uppercase tracking-[0.12em] text-white/55">
+      <p
+        className="mt-7 px-2.5 text-[0.68rem] font-semibold uppercase tracking-[0.14em] text-[var(--muted)]"
+        style={{ fontFamily: "var(--mono)" }}
+      >
         Desk
       </p>
       <nav className="mt-2 flex flex-col gap-1">
@@ -100,28 +110,28 @@ export function AppShell({
         </Link>
       </nav>
 
-      <div className="mt-auto border-t border-white/15 pt-3">
+      <div className="mt-auto border-t border-[var(--line)] pt-3">
         <Link
           href="/methode"
-          className="nav-link block rounded-md px-2.5 py-1.5 text-[0.8rem] text-white/75 hover:bg-white/10 hover:text-white"
+          className="nav-link block rounded-md px-2.5 py-1.5 text-[0.8rem] text-[var(--muted)] hover:bg-[var(--surface-2)] hover:text-[var(--ink)]"
         >
           Methode
         </Link>
         <Link
           href="/costs"
-          className="nav-link block rounded-md px-2.5 py-1.5 text-[0.8rem] text-white/75 hover:bg-white/10 hover:text-white"
+          className="nav-link block rounded-md px-2.5 py-1.5 text-[0.8rem] text-[var(--muted)] hover:bg-[var(--surface-2)] hover:text-[var(--ink)]"
         >
           Kosten
         </Link>
         {user?.email ? (
-          <p className="mt-2 truncate px-2.5 text-[0.7rem] text-white/60" style={{ fontFamily: "var(--mono)" }}>
+          <p className="mt-2 truncate px-2.5 text-[0.7rem] text-[var(--muted)]" style={{ fontFamily: "var(--mono)" }}>
             {user.email}
           </p>
         ) : null}
         <button
           type="button"
           onClick={() => void logout()}
-          className="mt-1 w-full rounded-md px-2.5 py-1.5 text-left text-[0.8rem] font-medium text-white/75 hover:bg-white/10 hover:text-white"
+          className="mt-1 w-full rounded-md px-2.5 py-1.5 text-left text-[0.8rem] font-medium text-[var(--muted)] hover:bg-[var(--surface-2)] hover:text-[var(--ink)]"
         >
           Uitloggen
         </button>
@@ -138,7 +148,7 @@ export function AppShell({
       {open ? (
         <button
           type="button"
-          className="fixed inset-0 z-40 bg-[#0b1c30]/50 md:hidden"
+          className="fixed inset-0 z-40 bg-[var(--header)]/40 md:hidden"
           aria-label="Menu sluiten"
           onClick={() => setOpen(false)}
         />
@@ -152,7 +162,7 @@ export function AppShell({
       </aside>
 
       <div className={`flex min-w-0 flex-1 flex-col ${fill ? "min-h-0" : ""}`}>
-        <header className="app-topbar z-30 flex h-12 shrink-0 items-center gap-3 border-b border-[var(--line)] bg-white px-4 md:px-6">
+        <header className="app-topbar z-30 flex h-12 shrink-0 items-center gap-3 border-b border-[var(--line)] bg-[var(--surface)] px-4 md:px-6">
           <button
             type="button"
             className="rounded-md border border-[var(--line)] px-2 py-1 text-xs font-semibold text-[var(--ink)] md:hidden"
@@ -162,7 +172,11 @@ export function AppShell({
             Menu
           </button>
           <div className="min-w-0 flex-1">
-            {title ? <p className="truncate text-sm font-semibold text-[var(--ink)]">{title}</p> : null}
+            {title ? (
+              <p className="truncate text-sm font-semibold text-[var(--ink)]" style={{ fontFamily: "var(--display)" }}>
+                {title}
+              </p>
+            ) : null}
             {subtitle ? <p className="truncate text-[0.7rem] text-[var(--muted)]">{subtitle}</p> : null}
           </div>
           {toolbar}

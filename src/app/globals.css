@@ -1,28 +1,29 @@
-@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Outfit:wght@400;500;600;700&family=Syne:wght@600;700;800&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=IBM+Plex+Mono:wght@400;500&family=Sora:wght@400;500;600;700&display=swap");
 @import "tailwindcss";
 
 :root {
-  --bg: #f3f5f7;
-  --bg-deep: #e8eef3;
-  --ink: #0a1626;
-  --header: #0b1c30;
-  --header-deep: #081221;
-  --muted: #5c6b7a;
-  --line: #d5dde6;
-  --surface: #ffffff;
-  --surface-2: #f4f7fa;
-  --accent: #0079c1;
-  --accent-bright: #0a8fd4;
-  --accent-soft: #e3f1fa;
-  --green: #00a860;
-  --green-bright: #00b86a;
-  --green-soft: #e5f6ee;
+  --bg: #f1ece2;
+  --bg-deep: #e6dfd2;
+  --ink: #1b1914;
+  --header: #14120f;
+  --header-deep: #0c0b09;
+  --muted: #6a6458;
+  --line: #d8d0c2;
+  --surface: #fffdf8;
+  --surface-2: #f6f1e7;
+  --accent: #b44a16;
+  --accent-bright: #c85a22;
+  --accent-soft: #f7e6db;
+  --signal: #ceff00;
+  --green: #2f7a45;
+  --green-bright: #359150;
+  --green-soft: #e4f3e8;
   --warn: #b85c00;
   --warn-soft: #f6e7d3;
-  --radius: 6px;
-  --shadow: 0 1px 2px rgba(10, 22, 38, 0.04), 0 8px 24px -16px rgba(10, 22, 38, 0.12);
-  --font: "Outfit", system-ui, sans-serif;
-  --display: "Syne", sans-serif;
+  --radius: 8px;
+  --shadow: 0 1px 2px rgba(27, 25, 20, 0.05), 0 14px 32px -20px rgba(27, 25, 20, 0.18);
+  --font: "Sora", system-ui, sans-serif;
+  --display: "Bricolage Grotesque", sans-serif;
   --mono: "IBM Plex Mono", ui-monospace, monospace;
 }
 
@@ -49,21 +50,18 @@ body {
   margin: 0;
   font-family: var(--font);
   color: var(--ink);
-  background:
-    radial-gradient(ellipse 70% 50% at 0% 0%, rgba(0, 121, 193, 0.06) 0%, transparent 55%),
-    linear-gradient(180deg, var(--bg) 0%, var(--bg-deep) 100%);
-  background-attachment: fixed;
+  background: var(--bg);
 }
 
 a {
   color: var(--accent);
-  text-underline-offset: 2px;
+  text-underline-offset: 3px;
   transition: color 0.12s ease, background-color 0.12s ease, border-color 0.12s ease;
 }
 
 a:hover,
 a:focus-visible {
-  color: color-mix(in srgb, var(--accent) 55%, var(--ink));
+  color: var(--ink);
   text-decoration: underline;
 }
 
@@ -79,8 +77,9 @@ a:focus-visible {
 
 .app-sidebar {
   min-height: 0;
-  color: #f4f7fb;
-  background: var(--header);
+  color: var(--ink);
+  background: var(--surface);
+  border-right: 1px solid var(--line);
 }
 
 .app-topbar button:hover:not(:disabled) {
@@ -99,7 +98,7 @@ button:not(:disabled) {
 }
 
 button:hover:not(:disabled) {
-  box-shadow: inset 0 0 0 999px rgba(10, 22, 38, 0.045);
+  box-shadow: inset 0 0 0 999px rgba(27, 25, 20, 0.04);
 }
 
 button:focus-visible {
@@ -157,10 +156,9 @@ button:focus-visible {
 }
 
 .radar-shell {
-  letter-spacing: 0.01em;
+  letter-spacing: 0;
 }
 
-/* Snelle hover-tooltips (native title is te traag / voelt kapot) */
 [data-tip] {
   position: relative;
 }
@@ -176,7 +174,7 @@ button:focus-visible {
   padding: 0.35rem 0.55rem;
   border-radius: 4px;
   background: var(--ink);
-  color: #fff;
+  color: #f6f1e7;
   font-size: 0.68rem;
   font-weight: 500;
   line-height: 1.35;
@@ -199,7 +197,6 @@ button:focus-visible {
   display: none;
 }
 
-/* Duidelijke scroll-pane voor de radarlijst */
 .radar-scroll-pane {
   position: relative;
   display: flex;
@@ -207,7 +204,7 @@ button:focus-visible {
   flex-direction: column;
   overflow: hidden;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: 10px;
   background: var(--surface);
   box-shadow: var(--shadow);
 }
@@ -219,7 +216,7 @@ button:focus-visible {
   justify-content: space-between;
   gap: 0.75rem;
   border-bottom: 1px solid color-mix(in srgb, var(--line) 80%, transparent);
-  background: color-mix(in srgb, var(--surface-2) 70%, white);
+  background: var(--surface-2);
   padding: 0.55rem 0.85rem;
 }
 
@@ -231,7 +228,7 @@ button:focus-visible {
   padding: 0.4rem 0.35rem 0.75rem;
   scrollbar-gutter: stable;
   scrollbar-width: thin;
-  scrollbar-color: color-mix(in srgb, var(--accent) 45%, var(--line)) var(--surface-2);
+  scrollbar-color: color-mix(in srgb, var(--ink) 25%, var(--line)) var(--surface-2);
 }
 
 .radar-scroll-pane__body::-webkit-scrollbar {
@@ -244,7 +241,7 @@ button:focus-visible {
 }
 
 .radar-scroll-pane__body::-webkit-scrollbar-thumb {
-  background: color-mix(in srgb, var(--accent) 40%, var(--line));
+  background: color-mix(in srgb, var(--ink) 22%, var(--line));
   border-radius: 999px;
   border: 2px solid var(--surface-2);
 }
@@ -272,7 +269,27 @@ button:focus-visible {
 }
 
 .desk-card--live {
-  box-shadow: var(--shadow), 0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent);
+  box-shadow: var(--shadow), 0 0 0 1px color-mix(in srgb, var(--accent) 22%, transparent);
+}
+
+.btn-ink {
+  background: var(--ink);
+  color: #f6f1e7;
+}
+
+.btn-ink:hover {
+  background: #2a2620;
+  color: #fffdf8;
+}
+
+.btn-signal {
+  background: var(--signal);
+  color: var(--ink);
+}
+
+.btn-signal:hover {
+  background: #d8ff33;
+  color: var(--ink);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -283,8 +300,7 @@ button:focus-visible {
 
 .regie-shell {
   background:
-    radial-gradient(ellipse 80% 40% at 100% 0%, rgba(0, 121, 193, 0.12) 0%, transparent 50%),
-    linear-gradient(180deg, #0b1c30 0 7.5rem, transparent 7.5rem),
+    linear-gradient(180deg, var(--header) 0 6.5rem, transparent 6.5rem),
     var(--bg);
 }
 
