@@ -52,24 +52,18 @@ function LeadCard({
   const client = lead.confirmedClient || lead.guess?.name;
   const open = lead.status !== "confirmed" && lead.status !== "rejected";
   return (
-    <article className="group overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-5 shadow-[var(--shadow)] transition hover:border-[var(--accent)]/20">
+    <article className="ws-panel px-4 py-3.5 transition hover:border-[var(--accent)]/25">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <p className="text-[0.7rem] font-semibold text-[var(--muted)]">{lead.agency.name}</p>
-            {lead.demo ? (
-              <span className="rounded-full border border-[var(--line)] px-2 py-0.5 text-[0.6rem] font-semibold uppercase tracking-wide text-[var(--muted)]">
-                Voorbeeld
-              </span>
-            ) : null}
+          <div className="flex flex-wrap items-center gap-1.5">
+            <p className="text-[0.7rem] font-medium text-[var(--muted)]">{lead.agency.name}</p>
+            {lead.demo ? <span className="ws-badge">Voorbeeld</span> : null}
             {lead.aiGuess ? (
-              <span className="rounded-full bg-[var(--signal)] px-2 py-0.5 text-[0.6rem] font-semibold uppercase tracking-wide text-[var(--ink)]">
-                AI
-              </span>
+              <span className="ws-badge border-transparent bg-[var(--signal)] text-[var(--ink)]">AI</span>
             ) : null}
           </div>
-          <h2 className="mt-1 text-[1.05rem] font-semibold tracking-tight text-[var(--ink)]">{lead.title}</h2>
-          <p className="mt-1 text-[0.8rem] text-[var(--muted)]">
+          <h2 className="mt-1 text-[0.95rem] font-semibold tracking-tight text-[var(--ink)]">{lead.title}</h2>
+          <p className="mt-0.5 text-[0.78rem] text-[var(--muted)]">
             {lead.roleLabel}
             {lead.recruiter.name ? (
               <>
@@ -89,16 +83,18 @@ function LeadCard({
               </>
             ) : null}
           </p>
-          {factsLine(lead) ? <p className="mt-1.5 text-[0.75rem] text-[var(--muted)]">{factsLine(lead)}</p> : null}
+          {factsLine(lead) ? <p className="mt-1 text-[0.72rem] text-[var(--muted)]">{factsLine(lead)}</p> : null}
         </div>
-        <span className={`shrink-0 rounded-full border px-2.5 py-1 text-[0.68rem] font-semibold ${statusClass(lead.status)}`}>
+        <span
+          className={`shrink-0 rounded-[calc(var(--radius)-2px)] border px-2 py-0.5 text-[0.65rem] font-semibold ${statusClass(lead.status)}`}
+        >
           {STATUS_NL[lead.status]}
           {lead.guess && lead.status !== "rejected" ? ` · ${lead.guess.confidence}%` : ""}
         </span>
       </div>
 
-      <div className="mt-4 rounded-xl bg-[var(--surface-2)] px-3.5 py-3">
-        <p className="text-[0.62rem] font-semibold uppercase tracking-[0.1em] text-[var(--muted)]">Eindklant</p>
+      <div className="mt-3 rounded-[var(--radius)] border border-[var(--line)]/80 bg-[var(--surface-2)] px-3 py-2.5">
+        <p className="ws-label">Eindklant</p>
         <p className="mt-1 text-sm font-semibold text-[var(--ink)]">{client || "Nog niet te zeggen"}</p>
         {lead.guess?.evidence.length ? (
           <ul className="mt-2 space-y-1.5">
@@ -110,9 +106,7 @@ function LeadCard({
             ))}
           </ul>
         ) : (
-          <p className="mt-1 text-[0.75rem] text-[var(--muted)]">
-            Te vaag voor regels — probeer AI eindklant.
-          </p>
+          <p className="mt-1 text-[0.75rem] text-[var(--muted)]">Te vaag voor regels — probeer AI eindklant.</p>
         )}
         {lead.guess?.alternatives.length ? (
           <p className="mt-2 text-[0.72rem] text-[var(--muted)]">
@@ -122,20 +116,15 @@ function LeadCard({
       </div>
 
       {open ? (
-        <div className="mt-4 flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            disabled={busy || aiBusy}
-            onClick={() => onAiGuess(lead.id)}
-            className="btn-signal rounded-full px-3.5 py-1.5 text-xs font-semibold disabled:opacity-50"
-          >
+        <div className="mt-3 flex flex-wrap items-center gap-2 max-sm:[&>button]:min-w-[calc(50%-0.25rem)] max-sm:[&>button]:flex-1">
+          <button type="button" disabled={busy || aiBusy} onClick={() => onAiGuess(lead.id)} className="btn-signal btn-tool">
             {aiBusy ? "AI bezig…" : lead.aiGuess ? "Opnieuw AI" : "AI eindklant"}
           </button>
           <button
             type="button"
             disabled={busy || aiBusy || !client}
             onClick={() => onReview(lead.id, "confirmed")}
-            className="btn-ink rounded-full px-3.5 py-1.5 text-xs font-semibold disabled:opacity-50"
+            className="btn-ink btn-tool"
           >
             Bevestig {client || "klant"}
           </button>
@@ -143,7 +132,7 @@ function LeadCard({
             type="button"
             disabled={busy || aiBusy}
             onClick={() => onReview(lead.id, "rejected")}
-            className="rounded-full border border-[var(--line)] px-3.5 py-1.5 text-xs font-semibold text-[var(--muted)] hover:text-[var(--ink)] disabled:opacity-50"
+            className="btn-ghost btn-tool"
           >
             Niet deze
           </button>
@@ -152,7 +141,7 @@ function LeadCard({
               href={lead.evidenceUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="ml-auto text-xs font-semibold text-[var(--accent)] no-underline hover:underline"
+              className="ml-auto text-xs font-semibold text-[var(--accent)] no-underline hover:underline max-sm:ml-0 max-sm:w-full max-sm:pt-1"
             >
               Vacature →
             </a>
@@ -168,6 +157,7 @@ export default function LeadsDesk() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [aiId, setAiId] = useState<string | null>(null);
+  const [watchOpen, setWatchOpen] = useState(false);
 
   function upsertLead(next: AgencyLead) {
     setData((prev) => {
@@ -246,34 +236,37 @@ export default function LeadsDesk() {
   }
 
   return (
-    <AppShell current="leads" title="Bureaus" subtitle="Eerst eindklant, dan pas manager">
-      <main className="mx-auto w-full max-w-[1200px] flex-1 px-5 py-5 md:px-7">
-        <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
-          <p className="max-w-xl text-sm leading-relaxed text-[var(--muted)]">
-            Bureau-vacature → AI of regels raden de eindklant. Bevestig voordat je een manager zoekt.
-          </p>
-          {data ? (
-            <p className="text-[0.75rem] text-[var(--muted)]" style={{ fontFamily: "var(--mono)" }}>
-              {data.live.length} live · {data.demo.length} voorbeelden
-            </p>
-          ) : null}
-        </div>
-
-        {error ? <p className="mb-3 text-sm text-[var(--warn)]">{error}</p> : null}
-        {!data ? (
-          <p className="text-sm text-[var(--muted)]">Laden…</p>
-        ) : (
-          <div className="grid gap-6 lg:grid-cols-[15rem_1fr]">
-            <aside className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-4 shadow-[var(--shadow)]">
-              <p className="text-[0.65rem] font-semibold uppercase tracking-[0.1em] text-[var(--muted)]">Watchlist</p>
-              <ul className="mt-3 space-y-4">
+    <AppShell current="leads" title="Bureaus" subtitle="Eerst eindklant, dan pas manager" fill>
+      <div className="ws-shell ws-shell--split">
+        <aside className={`radar-scroll-pane min-h-0 shrink-0 lg:max-h-none ${watchOpen ? "max-lg:max-h-64" : "max-lg:max-h-none"}`}>
+          <button
+            type="button"
+            className="radar-scroll-pane__head w-full text-left lg:pointer-events-none"
+            onClick={() => setWatchOpen((v) => !v)}
+            aria-expanded={watchOpen}
+          >
+            <p className="ws-label">Watchlist</p>
+            <span className="flex items-center gap-2">
+              <span className="tabular-nums text-[0.68rem] text-[var(--muted)]" style={{ fontFamily: "var(--mono)" }}>
+                {data?.watchlist.length ?? 0}
+              </span>
+              <span className="text-[0.7rem] text-[var(--accent)] lg:hidden" aria-hidden>
+                {watchOpen ? "▴" : "▾"}
+              </span>
+            </span>
+          </button>
+          <div className={`radar-scroll-pane__body !px-2 ${watchOpen ? "" : "max-lg:hidden"} lg:!block`}>
+            {!data ? (
+              <p className="px-2 py-2 text-[0.78rem] text-[var(--muted)]">Laden…</p>
+            ) : (
+              <ul className="space-y-0.5">
                 {data.watchlist.map((a) => (
-                  <li key={a.id}>
-                    <p className="text-sm font-semibold text-[var(--ink)]">{a.name}</p>
-                    {a.note ? <p className="mt-0.5 text-[0.7rem] leading-snug text-[var(--muted)]">{a.note}</p> : null}
-                    <ul className="mt-2 space-y-1">
+                  <li key={a.id} className="rounded-md px-2.5 py-2 hover:bg-[var(--surface-2)]">
+                    <p className="text-[0.82rem] font-semibold text-[var(--ink)]">{a.name}</p>
+                    {a.note ? <p className="mt-0.5 text-[0.68rem] leading-snug text-[var(--muted)]">{a.note}</p> : null}
+                    <ul className="mt-1.5 space-y-0.5">
                       {a.recruiters.map((r) => (
-                        <li key={r.name} className="text-[0.72rem] leading-snug text-[var(--muted)]">
+                        <li key={r.name} className="text-[0.7rem] leading-snug text-[var(--muted)]">
                           {r.linkedinUrl ? (
                             <a
                               href={r.linkedinUrl}
@@ -293,20 +286,37 @@ export default function LeadsDesk() {
                   </li>
                 ))}
               </ul>
-            </aside>
+            )}
+          </div>
+        </aside>
 
-            <div className="space-y-6">
+        <main className="ws-main min-h-0 flex-1">
+          <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
+            <p className="max-w-xl text-[0.8rem] leading-relaxed text-[var(--muted)]">
+              Bureau-vacature → AI of regels raden de eindklant. Bevestig voordat je een manager zoekt.
+            </p>
+            {data ? (
+              <p className="text-[0.7rem] text-[var(--muted)]" style={{ fontFamily: "var(--mono)" }}>
+                {data.live.length} live · {data.demo.length} voorbeelden
+              </p>
+            ) : null}
+          </div>
+
+          {error ? <p className="mb-3 text-sm text-[var(--warn)]">{error}</p> : null}
+
+          {!data ? (
+            <p className="text-sm text-[var(--muted)]">Laden…</p>
+          ) : (
+            <div className="space-y-5">
               <section>
-                <div className="mb-3 flex items-center justify-between gap-2">
-                  <p className="text-[0.7rem] font-semibold uppercase tracking-[0.1em] text-[var(--muted)]">
-                    Uit je radar
-                  </p>
-                  <span className="text-[0.7rem] text-[var(--muted)]" style={{ fontFamily: "var(--mono)" }}>
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <p className="ws-label">Uit je radar</p>
+                  <span className="tabular-nums text-[0.68rem] text-[var(--muted)]" style={{ fontFamily: "var(--mono)" }}>
                     {data.live.length}
                   </span>
                 </div>
                 {data.live.length ? (
-                  <div className="space-y-3">
+                  <div className="space-y-2.5">
                     {data.live.map((l) => (
                       <LeadCard
                         key={l.id}
@@ -319,22 +329,20 @@ export default function LeadsDesk() {
                     ))}
                   </div>
                 ) : (
-                  <p className="rounded-2xl border border-dashed border-[var(--line)] bg-[var(--surface)] px-4 py-6 text-sm text-[var(--muted)]">
+                  <p className="ws-empty">
                     Nog geen bureau-hits in de radar. Test AI op het SAP/Rotterdam-voorbeeld hieronder.
                   </p>
                 )}
               </section>
 
               <section>
-                <div className="mb-3 flex items-center justify-between gap-2">
-                  <p className="text-[0.7rem] font-semibold uppercase tracking-[0.1em] text-[var(--muted)]">
-                    Voorbeelden
-                  </p>
-                  <span className="text-[0.7rem] text-[var(--muted)]" style={{ fontFamily: "var(--mono)" }}>
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <p className="ws-label">Voorbeelden</p>
+                  <span className="tabular-nums text-[0.68rem] text-[var(--muted)]" style={{ fontFamily: "var(--mono)" }}>
                     {data.demo.length}
                   </span>
                 </div>
-                <div className="space-y-3">
+                <div className="space-y-2.5">
                   {data.demo.map((l) => (
                     <LeadCard
                       key={l.id}
@@ -348,9 +356,9 @@ export default function LeadsDesk() {
                 </div>
               </section>
             </div>
-          </div>
-        )}
-      </main>
+          )}
+        </main>
+      </div>
     </AppShell>
   );
 }

@@ -430,7 +430,7 @@ function HiringManagerBlock({
   return (
     <div className="mt-4 border-t border-[var(--line)]/70 pt-3">
       <div className="flex items-baseline justify-between gap-3">
-        <p className="text-[0.65rem] uppercase tracking-[0.08em] text-[var(--muted)]">Manager</p>
+        <p className="ws-label">Manager</p>
         {needsHunt ? (
           <p className="text-[0.78rem] text-[var(--muted)]">
             Onbekend
@@ -586,6 +586,7 @@ export default function RadarApp() {
   const [freshSince, setFreshSince] = useState<string | null>(null);
   const [syncElapsed, setSyncElapsed] = useState(0);
   const [listCanScrollMore, setListCanScrollMore] = useState(false);
+  const [mobilePane, setMobilePane] = useState<"list" | "detail">("list");
   const detailRef = useRef<HTMLElement>(null);
   const listScrollRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -1017,9 +1018,7 @@ export default function RadarApp() {
   function selectRow(id: string) {
     setActiveId(id);
     if (typeof window !== "undefined" && window.matchMedia("(max-width: 1023px)").matches) {
-      requestAnimationFrame(() => {
-        detailRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-      });
+      setMobilePane("detail");
     }
   }
 
@@ -1050,7 +1049,7 @@ export default function RadarApp() {
       {busy ? (
         <span className="inline-flex items-center gap-1.5 text-xs font-medium text-[var(--accent)]">
           <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[var(--accent)]" />
-          Syncen…
+          <span className="hidden xs:inline sm:inline">Syncen…</span>
         </span>
       ) : null}
       <button
@@ -1059,14 +1058,15 @@ export default function RadarApp() {
         aria-haspopup="menu"
         data-tip={canSync ? "Bronnen ophalen" : "Sync is alleen voor admin"}
         onClick={() => setMenuOpen((v) => !v)}
-        className="rounded-md border border-[var(--line)] bg-[var(--surface)] px-2.5 py-1.5 text-xs font-medium text-[var(--muted)] hover:border-[var(--accent)]/40 hover:text-[var(--ink)]"
+        className="rounded-md border border-[var(--line)] bg-[var(--surface)] px-2.5 py-2 text-xs font-medium text-[var(--muted)] hover:border-[var(--accent)]/40 hover:text-[var(--ink)] sm:py-1.5"
       >
-        {menuLabel}
+        <span className="sm:hidden">{canSync ? "Sync" : "Meer"}</span>
+        <span className="hidden sm:inline">{menuLabel}</span>
       </button>
       {menuOpen ? (
         <div
           role="menu"
-          className="absolute right-0 top-full z-50 mt-1.5 w-[16.5rem] rounded-md border border-[var(--line)] bg-[var(--surface)] py-1 shadow-[var(--shadow)]"
+          className="absolute right-0 top-full z-50 mt-1.5 w-[min(16.5rem,calc(100vw-1.5rem))] rounded-md border border-[var(--line)] bg-[var(--surface)] py-1 shadow-[var(--shadow)]"
         >
           {canSync ? (
             <>
@@ -1159,9 +1159,9 @@ export default function RadarApp() {
 
   return (
     <AppShell current="radar" title="Radar" subtitle="Interim- en ZZP-opdrachten" fill toolbar={syncToolbar}>
-      <main className="radar-shell mx-auto flex min-h-0 w-full max-w-[1280px] flex-1 flex-col px-5 pt-4 md:px-7">
+      <main className="ws-shell radar-shell !gap-3">
         {!live && sync?.last ? (
-          <section className="mb-3 shrink-0 overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--surface)] shadow-[var(--shadow)]">
+          <section className={`ws-panel mb-0 shrink-0 ${mobilePane === "detail" ? "max-lg:hidden" : ""}`}>
             <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1.5 border-b border-[var(--line)]/80 px-3.5 py-2">
               <p className="text-sm text-[var(--ink)]" title="Bedrijven op de radar · warme of sterke kans">
                 {stats ? (
@@ -1198,7 +1198,7 @@ export default function RadarApp() {
                   <button
                     type="button"
                     data-tip={`${channelLabelUi(r.channel)} · ${r.kept} gehouden van ${r.fetched} opgehaald`}
-                    className="flex w-full items-center gap-2 px-3.5 py-1.5 text-left transition hover:bg-[var(--surface-2)]/80"
+                    className="flex w-full items-center gap-2 px-3.5 py-2 text-left transition hover:bg-[var(--surface-2)]/80 sm:py-1.5"
                     onClick={() => setLive(openSyncRuns([r]))}
                   >
                     <SourceLogo channel={r.channel} size="sm" />
@@ -1217,26 +1217,27 @@ export default function RadarApp() {
             </ul>
           </section>
         ) : (
-          <div className="mb-3 shrink-0 flex flex-wrap items-center justify-between gap-2 text-sm text-[var(--muted)]">
+          <div
+            className={`mb-0 shrink-0 flex flex-wrap items-center justify-between gap-2 text-sm text-[var(--muted)] ${
+              mobilePane === "detail" ? "max-lg:hidden" : ""
+            }`}
+          >
             <p>
               {stats
                 ? `${stats.companies} bedrijven · ${warmPlus} warm+`
                 : "Laden…"}
             </p>
             <p className="text-[0.7rem]">
-              {canSync ? "Nog geen sync — via Sync & meer (max 1×/dag)." : "Nog geen sync-historie."}
+              {canSync ? "Nog geen sync — via Sync (max 1×/dag)." : "Nog geen sync-historie."}
             </p>
           </div>
         )}
 
         {showPanel && live ? (
-          <section className="mb-4 shrink-0 animate-fade-in overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--surface)] shadow-[var(--shadow)]">
+          <section className="ws-panel mb-0 shrink-0 animate-fade-in">
             <div className="flex items-start justify-between gap-3 border-b border-[var(--line)]/80 px-4 py-3">
               <div className="min-w-0">
-                <p
-                  className="text-[0.65rem] font-medium uppercase tracking-[0.08em] text-[var(--muted)]"
-                  style={{ fontFamily: "var(--mono)" }}
-                >
+                <p className="ws-label">
                   Sync
                   {live.phase === "running" && totalSteps
                     ? ` · stap ${Math.min(doneSteps + 1, totalSteps)}/${totalSteps}`
@@ -1459,19 +1460,14 @@ export default function RadarApp() {
           </section>
         ) : null}
 
-        <div className="grid min-h-0 flex-1 gap-5 pb-5 lg:grid-cols-[minmax(0,1.15fr)_minmax(280px,0.85fr)] lg:gap-6">
+        <div className="flex min-h-0 flex-1 flex-col gap-3 pb-2 lg:grid lg:grid-cols-[minmax(0,1.15fr)_minmax(280px,0.85fr)] lg:gap-6 lg:pb-5">
           <section
-            className={`radar-scroll-pane min-h-[42vh] lg:min-h-0 ${listCanScrollMore ? "has-more" : ""}`}
+            className={`radar-scroll-pane min-h-0 flex-1 ${mobilePane === "detail" ? "max-lg:hidden" : ""} ${listCanScrollMore ? "has-more" : ""}`}
             aria-label="Scrollbare radarlijst"
           >
             <div className="radar-scroll-pane__head">
               <div className="min-w-0">
-                <p
-                  className="text-[0.65rem] font-medium uppercase tracking-[0.08em] text-[var(--muted)]"
-                  style={{ fontFamily: "var(--mono)" }}
-                >
-                  Radarlijst
-                </p>
+                <p className="ws-label">Radarlijst</p>
                 <p className="text-sm font-semibold text-[var(--ink)]">
                   {filtered.length}
                   <span className="font-normal text-[var(--muted)]"> bedrijven</span>
@@ -1600,14 +1596,23 @@ export default function RadarApp() {
 
           <aside
             ref={detailRef}
-            className="min-h-0 overflow-y-auto overscroll-contain rounded-lg border border-[var(--line)]/80 bg-[var(--surface)]/60 px-4 py-4 lg:border-l lg:px-6"
+            className={`ws-panel ws-panel--soft min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 lg:px-5 ${
+              mobilePane === "list" ? "max-lg:hidden" : ""
+            }`}
           >
             {active ? (
               <div key={active.id} className="animate-fade-in pb-6">
+                <button
+                  type="button"
+                  className="btn-ghost btn-tool mb-3 lg:hidden"
+                  onClick={() => setMobilePane("list")}
+                >
+                  ← Lijst
+                </button>
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <p className="text-[0.68rem] uppercase tracking-[0.06em] text-[var(--muted)]" style={{ fontFamily: "var(--mono)" }}>
+                      <p className="ws-label">
                         {(active.openingsAtCompany || 0) > 1
                           ? `${active.openingsAtCompany} openingen`
                           : STATUS_NL[active.status] || active.status}
@@ -1657,18 +1662,10 @@ export default function RadarApp() {
                   const angle = cleanAngle(o.angle);
                   const evidence = o.signals.find((s) => s.evidenceUrl);
                   return (
-                    <article
-                      key={o.id}
-                      className="mt-5 overflow-hidden rounded-md border border-[var(--line)] bg-[var(--surface)] px-4 py-4 shadow-[var(--shadow)] first:mt-4"
-                    >
+                    <article key={o.id} className="ws-panel mt-5 px-4 py-4 first:mt-4">
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
-                          <p
-                            className="text-[0.65rem] uppercase tracking-[0.08em] text-[var(--muted)]"
-                            style={{ fontFamily: "var(--mono)" }}
-                          >
-                            {STATUS_NL[o.status] || o.status}
-                          </p>
+                          <p className="ws-label">{STATUS_NL[o.status] || o.status}</p>
                           <h4 className="mt-1 text-base font-semibold leading-snug text-[var(--ink)]">
                             {o.openingTitle || o.roleLabel}
                           </h4>

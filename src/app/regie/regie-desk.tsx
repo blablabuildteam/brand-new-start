@@ -71,6 +71,7 @@ export default function RegieDesk({
   const [huntBusy, setHuntBusy] = useState(false);
   const [huntErr, setHuntErr] = useState("");
   const [lushaBusy, setLushaBusy] = useState("");
+  const [mobilePane, setMobilePane] = useState<"list" | "detail">("list");
 
   useEffect(() => {
     fetch("/api/placement")
@@ -113,6 +114,13 @@ export default function RegieDesk({
   }, [item?.openingId]);
 
   useEffect(() => {
+    if (!initialId) return;
+    if (typeof window !== "undefined" && window.matchMedia("(max-width: 1023px)").matches) {
+      setMobilePane("detail");
+    }
+  }, [initialId]);
+
+  useEffect(() => {
     if (!proposal) return;
     setDraft(tab === "hm" ? proposal.hmMessage : proposal.candidateMessages.find((m) => m.id === tab)?.body || "");
   }, [proposal, tab]);
@@ -120,6 +128,9 @@ export default function RegieDesk({
   function select(companyId: string, oid: string) {
     setSel({ companyId, openingId: oid });
     writeUrl(companyId, oid);
+    if (typeof window !== "undefined" && window.matchMedia("(max-width: 1023px)").matches) {
+      setMobilePane("detail");
+    }
   }
 
   async function huntHm(force = false) {
@@ -237,11 +248,15 @@ export default function RegieDesk({
 
   return (
     <AppShell current="voorstel" title="Voorstel" subtitle="Bericht klaarzetten" fill>
-      <div className="mx-auto grid min-h-0 w-full max-w-[1280px] flex-1 gap-4 overflow-hidden px-5 py-4 md:px-7 lg:grid-cols-[16.5rem_1fr]">
-        <aside className="radar-scroll-pane min-h-0">
+      <div className="ws-shell ws-shell--split ws-shell--split-wide !gap-3 lg:!gap-4">
+        <aside
+          className={`radar-scroll-pane min-h-0 max-lg:flex-1 ${mobilePane === "detail" ? "max-lg:hidden" : ""}`}
+        >
           <div className="radar-scroll-pane__head">
-            <p className="text-[0.68rem] font-medium uppercase tracking-[0.08em] text-[var(--muted)]">Openingen</p>
-            <p className="tabular-nums text-[0.68rem] text-[var(--muted)]">{items.length || 0}</p>
+            <p className="ws-label">Openingen</p>
+            <p className="tabular-nums text-[0.68rem] text-[var(--muted)]" style={{ fontFamily: "var(--mono)" }}>
+              {items.length || 0}
+            </p>
           </div>
           <div className="radar-scroll-pane__body !px-1.5">
             {groups.map((g) => {
@@ -258,7 +273,7 @@ export default function RegieDesk({
                             type="button"
                             onClick={() => select(r.companyId, r.openingId)}
                             aria-current={active ? "true" : undefined}
-                            className={`flex w-full items-center gap-2 rounded-md border px-2.5 py-1.5 text-left transition ${
+                            className={`flex w-full min-h-10 items-center gap-2 rounded-md border px-2.5 py-2 text-left transition lg:min-h-0 lg:py-1.5 ${
                               active
                                 ? "border-[var(--accent)] bg-[var(--accent-soft)]/50 shadow-[inset_3px_0_0_0_var(--accent)]"
                                 : "border-transparent hover:border-[var(--line)] hover:bg-[var(--surface-2)]"
@@ -288,17 +303,24 @@ export default function RegieDesk({
           </div>
         </aside>
 
-        <main className="min-h-0 overflow-y-auto pb-6">
+        <main className={`ws-main ${mobilePane === "list" ? "max-lg:hidden" : ""}`}>
           {error ? <p className="text-sm text-[var(--warn)]">{error}</p> : null}
           {loading || !item || !proposal ? (
             <p className="text-sm text-[var(--muted)]">Laden…</p>
           ) : (
             <div className="flex flex-col gap-4">
-              <section className="overflow-hidden rounded-md border border-[var(--line)] bg-[var(--surface)] px-5 py-4 shadow-[var(--shadow)]">
-                <p className="text-[0.68rem] uppercase tracking-[0.08em] text-[var(--muted)]">{item.company}</p>
+              <button
+                type="button"
+                className="btn-ghost btn-tool self-start lg:hidden"
+                onClick={() => setMobilePane("list")}
+              >
+                ← Openingen
+              </button>
+              <section className="ws-panel px-4 py-4 sm:px-5">
+                <p className="ws-label">{item.company}</p>
                 <div className="mt-1 flex flex-wrap items-start justify-between gap-4">
                   <div className="min-w-0">
-                    <h1 className="text-2xl font-bold tracking-tight" style={{ fontFamily: "var(--display)" }}>
+                    <h1 className="text-xl font-bold tracking-tight sm:text-2xl" style={{ fontFamily: "var(--display)" }}>
                       {item.title}
                     </h1>
                     {item.roleLabel && item.roleLabel !== item.title ? (
@@ -312,9 +334,9 @@ export default function RegieDesk({
                 </div>
               </section>
 
-              <section className="overflow-hidden rounded-md border border-[var(--line)] bg-[var(--surface)] shadow-[var(--shadow)]">
+              <section className="ws-panel">
                 <div className="border-b border-[var(--line)]/80 px-5 py-2.5">
-                  <p className="text-[0.68rem] uppercase tracking-[0.08em] text-[var(--muted)]">Hiring manager</p>
+                  <p className="ws-label">Hiring manager</p>
                 </div>
                 {proposal.hiring.slice(0, 3).map((t) => {
                   const named = t.kind === "person" && t.cta === "bericht";
@@ -322,7 +344,7 @@ export default function RegieDesk({
                   return (
                     <div
                       key={`${t.kind}-${t.label}`}
-                      className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--line)]/70 px-5 py-4 first:border-t-0"
+                      className="flex flex-col gap-3 border-t border-[var(--line)]/70 px-4 py-4 first:border-t-0 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:px-5"
                     >
                       <div className="flex min-w-0 items-center gap-3">
                         <span className="grid h-10 w-10 shrink-0 place-items-center rounded-md bg-[var(--accent-soft)] text-xs font-semibold text-[var(--accent)]">
@@ -334,18 +356,18 @@ export default function RegieDesk({
                             <span className="block text-[0.78rem] text-[var(--muted)]">{t.subtitle}</span>
                           ) : null}
                           {t.email ? (
-                            <span className="block text-[0.72rem] text-[var(--muted)]">{t.email}</span>
+                            <span className="block break-all text-[0.72rem] text-[var(--muted)]">{t.email}</span>
                           ) : null}
                           {t.phone ? (
                             <span className="block text-[0.72rem] text-[var(--muted)]">{t.phone}</span>
                           ) : null}
                         </span>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         {named && !recruiter && t.email ? (
                           <a
                             href={`mailto:${t.email}`}
-                            className="rounded-md border border-[var(--line)] bg-[var(--surface)] px-3 py-1.5 text-xs font-semibold text-[var(--ink)] no-underline hover:border-[var(--accent)]/40"
+                            className="btn-ghost btn-tool no-underline"
                           >
                             Mail
                           </a>
@@ -353,7 +375,7 @@ export default function RegieDesk({
                         {named && !recruiter && t.phone ? (
                           <a
                             href={`tel:${t.phone}`}
-                            className="rounded-md border border-[var(--line)] bg-[var(--surface)] px-3 py-1.5 text-xs font-semibold text-[var(--ink)] no-underline hover:border-[var(--accent)]/40"
+                            className="btn-ghost btn-tool no-underline"
                           >
                             Bel
                           </a>
@@ -369,7 +391,7 @@ export default function RegieDesk({
                             type="button"
                             disabled={Boolean(lushaBusy)}
                             onClick={() => void enrich(t.url)}
-                            className="rounded-md border border-[var(--line)] bg-[var(--surface)] px-3 py-1.5 text-xs font-semibold text-[var(--ink)] hover:border-[var(--accent)]/40 disabled:opacity-50"
+                            className="btn-ghost btn-tool disabled:opacity-50"
                           >
                             {lushaBusy === t.url ? "Lusha…" : "Mail/tel"}
                           </button>
@@ -378,7 +400,7 @@ export default function RegieDesk({
                           <button
                             type="button"
                             onClick={() => setTab("hm")}
-                            className={`rounded-md border px-3 py-1.5 text-xs font-semibold ${
+                            className={`btn-tool border px-3 py-1.5 text-xs font-semibold ${
                               tab === "hm"
                                 ? "border-[var(--ink)] bg-[var(--ink)] text-white"
                                 : "border-[var(--line)] bg-[var(--surface)] text-[var(--ink)] hover:border-[var(--accent)]/40"
@@ -391,7 +413,7 @@ export default function RegieDesk({
                           href={t.url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="rounded-md border border-[var(--line)] bg-[var(--surface-2)] px-3 py-1.5 text-xs font-semibold text-[var(--ink)] no-underline hover:border-[var(--accent)]/40"
+                          className="btn-ghost btn-tool no-underline"
                         >
                           {named ? (recruiter ? "Vraag op LinkedIn" : "LinkedIn") : "Vind op LinkedIn"}
                         </a>
@@ -405,7 +427,7 @@ export default function RegieDesk({
                       type="button"
                       disabled={huntBusy}
                       onClick={() => void huntHm(false)}
-                      className="rounded-md border border-[var(--line)] bg-[var(--surface)] px-2.5 py-1 text-xs font-medium text-[var(--ink)] hover:border-[var(--accent)]/40 hover:bg-[var(--surface-2)] disabled:opacity-50"
+                      className="btn-ghost btn-tool disabled:opacity-50"
                     >
                       {huntBusy ? "Zoeken…" : "Zoek 3 namen"}
                     </button>
@@ -419,7 +441,7 @@ export default function RegieDesk({
                       type="button"
                       disabled={huntBusy}
                       onClick={() => void huntHm(true)}
-                      className="rounded-md border border-[var(--line)] bg-[var(--surface-2)] px-3 py-1.5 text-xs font-semibold text-[var(--ink)] disabled:opacity-50"
+                      className="btn-ghost btn-tool disabled:opacity-50"
                     >
                       {huntBusy ? "Zoeken…" : "Opnieuw zoeken"}
                     </button>
@@ -429,7 +451,7 @@ export default function RegieDesk({
               </section>
 
               <section>
-                <p className="mb-2 text-[0.68rem] uppercase tracking-[0.08em] text-[var(--muted)]">Voorstel</p>
+                <p className="ws-label mb-2">Voorstel</p>
                 <ol className="grid gap-3 md:grid-cols-3">
                   {proposal.shortlist.map((s, i) => {
                     const on = tab === s.person.id;
@@ -473,9 +495,9 @@ export default function RegieDesk({
                 </ol>
               </section>
 
-              <section className="overflow-hidden rounded-md border border-[var(--line)] bg-[var(--surface)] shadow-[var(--shadow)]">
+              <section className="ws-panel">
                 <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--line)]/80 px-5 py-2.5">
-                  <p className="text-[0.68rem] uppercase tracking-[0.08em] text-[var(--muted)]">Bericht</p>
+                  <p className="ws-label">Bericht</p>
                   <div className="flex flex-wrap gap-1">
                     {known ? (
                       <button
@@ -517,7 +539,7 @@ export default function RegieDesk({
                     <button
                       type="button"
                       onClick={copyDraft}
-                      className="rounded-md bg-[var(--ink)] px-3.5 py-1.5 text-xs font-semibold text-white"
+                      className="btn-ink btn-tool"
                     >
                       {copied ? "Gekopieerd" : "Kopieer"}
                     </button>
@@ -526,7 +548,7 @@ export default function RegieDesk({
                         href={linkedInUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="rounded-md border border-[var(--line)] bg-[var(--surface)] px-3.5 py-1.5 text-xs font-semibold text-[var(--ink)] no-underline hover:border-[var(--accent)]/40"
+                        className="btn-ghost btn-tool no-underline"
                       >
                         Open LinkedIn
                       </a>

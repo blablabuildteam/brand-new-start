@@ -56,7 +56,7 @@ function SideIcon({ kind, on }: { kind: "radar" | "bureaus" | "voorstel" | "sett
 }
 
 function navClass(on: boolean) {
-  return `nav-link flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-[0.9rem] transition ${
+  return `nav-link flex items-center gap-2.5 rounded-xl px-2.5 py-2.5 text-[0.9rem] transition ${
     on
       ? "bg-[var(--accent-soft)] font-semibold text-[var(--accent)]"
       : "font-medium text-[var(--ink)]/75 hover:bg-[var(--surface-2)] hover:text-[var(--ink)]"
@@ -92,6 +92,15 @@ export function AppShell({
       })
       .catch(() => null);
   }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open]);
 
   async function logout() {
     await fetch("/api/auth/login", { method: "DELETE" });
@@ -149,13 +158,15 @@ export function AppShell({
       <div className="mt-auto border-t border-[var(--line)] pt-3">
         <Link
           href="/methode"
-          className="nav-link block rounded-lg px-2.5 py-1.5 text-[0.8rem] text-[var(--muted)] hover:bg-[var(--surface-2)] hover:text-[var(--ink)]"
+          className="nav-link block rounded-lg px-2.5 py-2 text-[0.8rem] text-[var(--muted)] hover:bg-[var(--surface-2)] hover:text-[var(--ink)]"
+          onClick={() => setOpen(false)}
         >
           Methode
         </Link>
         <Link
           href="/costs"
-          className="nav-link block rounded-lg px-2.5 py-1.5 text-[0.8rem] text-[var(--muted)] hover:bg-[var(--surface-2)] hover:text-[var(--ink)]"
+          className="nav-link block rounded-lg px-2.5 py-2 text-[0.8rem] text-[var(--muted)] hover:bg-[var(--surface-2)] hover:text-[var(--ink)]"
+          onClick={() => setOpen(false)}
         >
           Kosten
         </Link>
@@ -167,7 +178,7 @@ export function AppShell({
         <button
           type="button"
           onClick={() => void logout()}
-          className="mt-1 w-full rounded-lg px-2.5 py-1.5 text-left text-[0.8rem] font-medium text-[var(--muted)] hover:bg-[var(--surface-2)] hover:text-[var(--ink)]"
+          className="mt-1 w-full rounded-lg px-2.5 py-2 text-left text-[0.8rem] font-medium text-[var(--muted)] hover:bg-[var(--surface-2)] hover:text-[var(--ink)]"
         >
           Uitloggen
         </button>
@@ -190,7 +201,7 @@ export function AppShell({
         />
       ) : null}
       <aside
-        className={`app-sidebar fixed inset-y-0 left-0 z-50 flex w-[220px] flex-col px-3 py-4 transition-transform md:hidden ${
+        className={`app-sidebar fixed inset-y-0 left-0 z-50 flex w-[min(18rem,88vw)] flex-col px-3 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] transition-transform md:hidden ${
           open ? "translate-x-0" : "-translate-x-full"
         }`}
       >
@@ -198,26 +209,58 @@ export function AppShell({
       </aside>
 
       <div className={`flex min-w-0 flex-1 flex-col ${fill ? "min-h-0" : ""}`}>
-        <header className="app-topbar z-30 flex h-12 shrink-0 items-center gap-3 border-b border-[var(--line)] bg-[var(--surface)] px-4 md:px-6">
+        <header className="app-topbar z-30 flex h-12 shrink-0 items-center gap-2 border-b border-[var(--line)] bg-[var(--surface)] px-3 pt-[env(safe-area-inset-top)] sm:gap-3 md:px-6">
           <button
             type="button"
-            className="rounded-md border border-[var(--line)] px-2 py-1 text-xs font-semibold text-[var(--ink)] md:hidden"
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-[var(--line)] text-[var(--ink)] md:hidden"
             aria-expanded={open}
+            aria-label={open ? "Menu sluiten" : "Menu openen"}
             onClick={() => setOpen((v) => !v)}
           >
-            Menu
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
+              {open ? (
+                <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+              ) : (
+                <path d="M3 4.5h10M3 8h10M3 11.5h10" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+              )}
+            </svg>
           </button>
           <div className="min-w-0 flex-1">
             {title ? (
-              <p className="truncate text-[1.05rem] text-[var(--ink)]" style={{ fontFamily: "var(--display)" }}>
+              <p className="truncate text-[1.05rem] leading-tight text-[var(--ink)]" style={{ fontFamily: "var(--display)" }}>
                 {title}
               </p>
             ) : null}
-            {subtitle ? <p className="truncate text-[0.7rem] text-[var(--muted)]">{subtitle}</p> : null}
+            {subtitle ? (
+              <p className="hidden truncate text-[0.7rem] text-[var(--muted)] sm:block">{subtitle}</p>
+            ) : null}
           </div>
-          {toolbar}
+          {toolbar ? <div className="app-topbar__tools shrink-0">{toolbar}</div> : null}
         </header>
-        <div className={`min-w-0 flex-1 ${fill ? "flex min-h-0 flex-col overflow-hidden" : ""}`}>{children}</div>
+        <div className={`min-w-0 flex-1 ${fill ? "flex min-h-0 flex-col overflow-hidden" : "pb-[calc(3.75rem+env(safe-area-inset-bottom))] md:pb-0"}`}>
+          {children}
+        </div>
+
+        <nav
+          className="app-mobile-nav z-30 grid shrink-0 grid-cols-3 border-t border-[var(--line)] bg-[var(--surface)] md:hidden"
+          aria-label="Workspace"
+        >
+          {PRIMARY.map((l) => {
+            const on = current === l.id;
+            return (
+              <Link
+                key={l.id}
+                href={l.href}
+                className={`nav-link flex flex-col items-center justify-center gap-0.5 px-1 py-2 text-[0.65rem] font-semibold no-underline transition ${
+                  on ? "text-[var(--accent)]" : "text-[var(--muted)]"
+                }`}
+              >
+                <SideIcon kind={l.icon} on={on} />
+                {l.label}
+              </Link>
+            );
+          })}
+        </nav>
       </div>
     </div>
   );
