@@ -399,7 +399,7 @@ export default function SettingsForm() {
               />
 
               {q && filteredFlat.length ? (
-                <div className="rounded-[var(--radius)] border border-[var(--accent)]/20 bg-[var(--accent-soft)]/40 px-3 py-3">
+                <div className="max-h-[40vh] overflow-y-auto overscroll-contain rounded-[var(--radius)] border border-[var(--accent)]/20 bg-[var(--accent-soft)]/40 px-3 py-3">
                   <p className="ws-label mb-2">Zoekresultaten · {filteredFlat.length}</p>
                   <ul className="space-y-2">
                     {filteredFlat.map((row) => (
@@ -451,6 +451,7 @@ export default function SettingsForm() {
                 </button>
               </div>
 
+              {!q ? (
               <div className="space-y-3">
                 {visibleAgencies.map((a) => {
                   const shownRecruiters = q
@@ -495,7 +496,7 @@ export default function SettingsForm() {
                           {a.custom ? (
                             <button
                               type="button"
-                              className="text-xs font-semibold text-[var(--muted)] hover:text-[var(--warn)]"
+                              className="inline-flex min-h-10 items-center rounded-md px-2 text-xs font-semibold text-[var(--muted)] hover:bg-[var(--surface-2)] hover:text-[var(--warn)]"
                               onClick={() => removeAgency(a.id)}
                             >
                               Verwijderen
@@ -579,7 +580,7 @@ export default function SettingsForm() {
                               </label>
                               <button
                                 type="button"
-                                className="shrink-0 text-[0.7rem] text-[var(--muted)] hover:text-[var(--warn)]"
+                                className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md text-base text-[var(--muted)] hover:bg-[var(--surface-2)] hover:text-[var(--warn)]"
                                 onClick={() => removeRecruiter(a.id, r.name)}
                                 aria-label={`${r.name} verwijderen`}
                               >
@@ -617,6 +618,7 @@ export default function SettingsForm() {
                   );
                 })}
               </div>
+              ) : null}
             </Section>
 
             {error ? <p className="text-sm text-[var(--warn)]">{error}</p> : null}
@@ -626,8 +628,8 @@ export default function SettingsForm() {
               </p>
             ) : null}
 
-            <div className="sticky bottom-[calc(3.75rem+env(safe-area-inset-bottom))] z-10 -mx-4 border-t border-[var(--line)] bg-[var(--bg)]/95 px-4 py-3 backdrop-blur md:static md:mx-0 md:border-0 md:bg-transparent md:px-0 md:py-0 md:backdrop-blur-none">
-              <button type="submit" disabled={busy} className="btn-ink btn-tool disabled:opacity-50">
+            <div className="sticky bottom-[var(--mobile-nav-pad)] z-10 -mx-4 border-t border-[var(--line)] bg-[var(--bg)]/95 px-4 py-3 backdrop-blur md:static md:bottom-auto md:mx-0 md:border-0 md:bg-transparent md:px-0 md:py-0 md:backdrop-blur-none">
+              <button type="submit" disabled={busy} className="btn-ink btn-tool w-full disabled:opacity-50 sm:w-auto">
                 {busy ? "Opslaan…" : "Instellingen opslaan"}
               </button>
             </div>

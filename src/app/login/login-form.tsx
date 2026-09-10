@@ -35,8 +35,10 @@ export default function LoginForm() {
 
   return (
     <div className="min-h-dvh bg-[var(--bg)]">
-      <header className="mx-auto flex h-14 max-w-[1120px] items-center px-5 md:px-8">
-        <RegieWordmark />
+      <header className="mx-auto flex h-14 max-w-[1120px] items-center px-5 pt-[env(safe-area-inset-top)] md:px-8">
+        <div className="flex h-14 w-full items-center">
+          <RegieWordmark />
+        </div>
       </header>
       <main className="grid min-h-[calc(100dvh-3.5rem)] place-items-center px-5 pb-16">
         <form

@@ -21,7 +21,7 @@ export function SiteNav({
   }
 
   return (
-    <header className="sticky top-0 z-50 border-b border-[var(--line)] bg-[var(--surface)]/90 text-[var(--ink)] backdrop-blur-md">
+    <header className="sticky top-0 z-50 border-b border-[var(--line)] bg-[var(--surface)]/90 text-[var(--ink)] backdrop-blur-md pt-[env(safe-area-inset-top)]">
       <div className="mx-auto flex h-14 max-w-[1120px] items-center justify-between gap-6 px-5 md:px-8">
         <Link href="/" className="nav-link shrink-0" aria-label={`${name} home`}>
           <RegieWordmark name={name} />
@@ -58,8 +58,9 @@ export function SiteNav({
           )}
           <button
             type="button"
-            className="rounded-md border border-[var(--line)] px-2 py-1 text-xs font-semibold text-[var(--ink)] md:hidden"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-[var(--line)] text-xs font-semibold text-[var(--ink)] md:hidden"
             aria-expanded={open}
+            aria-label={open ? "Menu sluiten" : "Menu openen"}
             onClick={() => setOpen((v) => !v)}
           >
             Menu

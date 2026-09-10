@@ -27,7 +27,8 @@
   --font: "DM Sans", system-ui, sans-serif;
   --display: "Instrument Serif", Georgia, serif;
   --mono: "IBM Plex Mono", ui-monospace, monospace;
-  --mobile-nav-h: 3.75rem;
+  --mobile-nav-h: 3.5rem;
+  --mobile-nav-pad: calc(var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px));
 }
 
 @theme inline {
@@ -91,7 +92,13 @@ a:focus-visible {
 }
 
 .app-mobile-nav {
+  /* total bar height includes home-indicator; link row keeps --mobile-nav-h */
+  min-height: var(--mobile-nav-pad);
   padding-bottom: env(safe-area-inset-bottom, 0px);
+  background: var(--surface);
+}
+
+.app-mobile-nav a {
   min-height: var(--mobile-nav-h);
 }
 
@@ -116,6 +123,10 @@ a:focus-visible {
 
   .ws-panel {
     -webkit-tap-highlight-color: transparent;
+  }
+
+  .app-body {
+    padding-bottom: var(--mobile-nav-pad);
   }
 }
 

@@ -98,8 +98,13 @@ export function AppShell({
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") setOpen(false);
     }
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = prev;
+      window.removeEventListener("keydown", onKey);
+    };
   }, [open]);
 
   async function logout() {
@@ -201,7 +206,7 @@ export function AppShell({
         />
       ) : null}
       <aside
-        className={`app-sidebar fixed inset-y-0 left-0 z-50 flex w-[min(18rem,88vw)] flex-col px-3 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] transition-transform md:hidden ${
+        className={`app-sidebar fixed inset-y-0 left-0 z-50 flex w-[min(18rem,88vw)] flex-col overflow-y-auto overscroll-contain px-3 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] transition-transform md:hidden ${
           open ? "translate-x-0" : "-translate-x-full"
         }`}
       >
@@ -209,10 +214,11 @@ export function AppShell({
       </aside>
 
       <div className={`flex min-w-0 flex-1 flex-col ${fill ? "min-h-0" : ""}`}>
-        <header className="app-topbar z-30 flex h-12 shrink-0 items-center gap-2 border-b border-[var(--line)] bg-[var(--surface)] px-3 pt-[env(safe-area-inset-top)] sm:gap-3 md:px-6">
+        <header className="app-topbar z-30 flex min-h-12 shrink-0 items-center gap-2 border-b border-[var(--line)] bg-[var(--surface)] px-3 pt-[env(safe-area-inset-top)] pb-0 sm:gap-3 md:px-6 md:pt-0">
+          <div className="flex min-h-12 w-full items-center gap-2 sm:gap-3">
           <button
             type="button"
-            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-[var(--line)] text-[var(--ink)] md:hidden"
+            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-[var(--line)] text-[var(--ink)] md:hidden"
             aria-expanded={open}
             aria-label={open ? "Menu sluiten" : "Menu openen"}
             onClick={() => setOpen((v) => !v)}
@@ -236,13 +242,18 @@ export function AppShell({
             ) : null}
           </div>
           {toolbar ? <div className="app-topbar__tools shrink-0">{toolbar}</div> : null}
+          </div>
         </header>
-        <div className={`min-w-0 flex-1 ${fill ? "flex min-h-0 flex-col overflow-hidden" : "pb-[calc(3.75rem+env(safe-area-inset-bottom))] md:pb-0"}`}>
+        <div
+          className={`app-body min-w-0 flex-1 ${
+            fill ? "flex min-h-0 flex-col overflow-hidden md:!pb-0" : "md:!pb-0"
+          }`}
+        >
           {children}
         </div>
 
         <nav
-          className="app-mobile-nav z-30 grid shrink-0 grid-cols-3 border-t border-[var(--line)] bg-[var(--surface)] md:hidden"
+          className="app-mobile-nav fixed inset-x-0 bottom-0 z-40 grid grid-cols-3 border-t border-[var(--line)] md:hidden"
           aria-label="Workspace"
         >
           {PRIMARY.map((l) => {

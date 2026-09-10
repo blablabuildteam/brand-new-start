@@ -1234,7 +1234,7 @@ export default function RadarApp() {
         )}
 
         {showPanel && live ? (
-          <section className="ws-panel mb-0 shrink-0 animate-fade-in">
+          <section className={`ws-panel mb-0 shrink-0 animate-fade-in ${mobilePane === "detail" ? "max-lg:hidden" : ""}`}>
             <div className="flex items-start justify-between gap-3 border-b border-[var(--line)]/80 px-4 py-3">
               <div className="min-w-0">
                 <p className="ws-label">
