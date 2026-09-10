@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useState, type ReactNode } from "react";
+import { FormEvent, useEffect, useMemo, useState, type ReactNode } from "react";
 import { AppShell } from "@/components/app-shell";
 import {
   DEFAULT_ROLES,
@@ -21,6 +21,8 @@ type SettingsPayload = {
     employmentKinds: { id: EmploymentKind; label: string; hint: string }[];
   };
 };
+
+type FoundPerson = { name: string; title: string | null; url: string | null };
 
 function Section({
   title,
@@ -44,6 +46,12 @@ function toggleKind(list: EmploymentKind[], id: EmploymentKind): EmploymentKind[
   return list.includes(id) ? list.filter((x) => x !== id) : [...list, id];
 }
 
+function matchesQuery(q: string, ...parts: (string | undefined | null)[]) {
+  if (!q) return true;
+  const hay = parts.filter(Boolean).join(" ").toLowerCase();
+  return hay.includes(q);
+}
+
 export default function SettingsForm() {
   const [hunt, setHunt] = useState<SettingsPayload | null>(null);
   const [rolesText, setRolesText] = useState("");
@@ -52,6 +60,10 @@ export default function SettingsForm() {
   const [busy, setBusy] = useState(false);
   const [newBureau, setNewBureau] = useState("");
   const [newRecruiter, setNewRecruiter] = useState<Record<string, string>>({});
+  const [query, setQuery] = useState("");
+  const [findBusy, setFindBusy] = useState<string | null>(null);
+  const [found, setFound] = useState<Record<string, FoundPerson[]>>({});
+  const [findMsg, setFindMsg] = useState<Record<string, string>>({});
 
   useEffect(() => {
     fetch("/api/settings")
@@ -68,6 +80,36 @@ export default function SettingsForm() {
         setRolesText(j.roles.join("\n"));
       });
   }, []);
+
+  const q = query.trim().toLowerCase();
+
+  const flatRecruiters = useMemo(() => {
+    if (!hunt) return [];
+    return hunt.agencies.flatMap((a) =>
+      a.recruiters.map((r) => ({
+        agencyId: a.id,
+        agencyName: a.name,
+        agencyEnabled: a.enabled,
+        recruiter: r,
+      }))
+    );
+  }, [hunt]);
+
+  const filteredFlat = useMemo(() => {
+    if (!q) return [];
+    return flatRecruiters.filter((row) =>
+      matchesQuery(q, row.recruiter.name, row.recruiter.title, row.recruiter.brand, row.agencyName)
+    );
+  }, [flatRecruiters, q]);
+
+  const visibleAgencies = useMemo(() => {
+    if (!hunt) return [];
+    if (!q) return hunt.agencies;
+    return hunt.agencies.filter((a) => {
+      if (matchesQuery(q, a.name, a.note)) return true;
+      return a.recruiters.some((r) => matchesQuery(q, r.name, r.title, r.brand));
+    });
+  }, [hunt, q]);
 
   function updateAgencies(next: ManagedAgency[]) {
     if (!hunt) return;
@@ -87,6 +129,7 @@ export default function SettingsForm() {
           ? a
           : {
               ...a,
+              enabled: enabled ? true : a.enabled,
               recruiters: a.recruiters.map((r) => (r.name === name ? { ...r, enabled } : r)),
             }
       )
@@ -141,6 +184,63 @@ export default function SettingsForm() {
       })
     );
     setNewRecruiter((prev) => ({ ...prev, [agencyId]: "" }));
+  }
+
+  function mergeFound(agencyId: string, people: FoundPerson[]) {
+    if (!hunt) return;
+    updateAgencies(
+      hunt.agencies.map((a) => {
+        if (a.id !== agencyId) return a;
+        const existing = new Set(a.recruiters.map((r) => r.name.toLowerCase()));
+        const extra: ManagedRecruiter[] = people
+          .filter((p) => p.name && !existing.has(p.name.toLowerCase()))
+          .map((p) => ({
+            name: p.name,
+            title: p.title || undefined,
+            linkedinUrl: p.url || undefined,
+            enabled: true,
+          }));
+        return {
+          ...a,
+          enabled: true,
+          recruiters: [...a.recruiters, ...extra],
+        };
+      })
+    );
+    setFound((prev) => ({ ...prev, [agencyId]: [] }));
+  }
+
+  async function findRecruiters(agencyId: string) {
+    setFindBusy(agencyId);
+    setFindMsg((prev) => ({ ...prev, [agencyId]: "" }));
+    setError("");
+    try {
+      const res = await fetch("/api/settings/recruiters-search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ agencyId }),
+      });
+      const j = (await res.json()) as {
+        ok?: boolean;
+        error?: string;
+        people?: FoundPerson[];
+      };
+      if (!res.ok || j.error) {
+        setFindMsg((prev) => ({ ...prev, [agencyId]: j.error || "Zoeken mislukt" }));
+        setFound((prev) => ({ ...prev, [agencyId]: j.people || [] }));
+        return;
+      }
+      const people = j.people || [];
+      setFound((prev) => ({ ...prev, [agencyId]: people }));
+      setFindMsg((prev) => ({
+        ...prev,
+        [agencyId]: people.length
+          ? `${people.length} gevonden — voeg toe wie je wilt.`
+          : "Geen recruiters gevonden bij dit bureau.",
+      }));
+    } finally {
+      setFindBusy(null);
+    }
   }
 
   async function onSubmit(e: FormEvent) {
@@ -288,8 +388,51 @@ export default function SettingsForm() {
 
             <Section
               title="Bureaus & recruiters"
-              hint="Zet bureaus aan/uit, voeg er zelf toe, en vink direct de recruiters aan die je volgt."
+              hint="Zoek in je lijst, haal recruiters op bij een bureau, en vink aan wie je volgt."
             >
+              <input
+                className="w-full rounded-[var(--radius)] border border-[var(--line)] bg-[var(--surface)] px-3 py-2.5 text-sm"
+                placeholder="Zoek recruiter of bureau…"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                aria-label="Zoek recruiters"
+              />
+
+              {q && filteredFlat.length ? (
+                <div className="rounded-[var(--radius)] border border-[var(--accent)]/20 bg-[var(--accent-soft)]/40 px-3 py-3">
+                  <p className="ws-label mb-2">Zoekresultaten · {filteredFlat.length}</p>
+                  <ul className="space-y-2">
+                    {filteredFlat.map((row) => (
+                      <li key={`${row.agencyId}-${row.recruiter.name}`}>
+                        <label className="flex cursor-pointer items-start gap-2.5">
+                          <input
+                            type="checkbox"
+                            className="mt-0.5 h-4 w-4 accent-[var(--accent)]"
+                            checked={row.recruiter.enabled && row.agencyEnabled}
+                            onChange={(e) =>
+                              setRecruiterEnabled(row.agencyId, row.recruiter.name, e.target.checked)
+                            }
+                          />
+                          <span className="min-w-0">
+                            <span className="block text-sm font-medium text-[var(--ink)]">
+                              {row.recruiter.name}
+                            </span>
+                            <span className="block text-[0.72rem] text-[var(--muted)]">
+                              {[row.agencyName, row.recruiter.brand, row.recruiter.title]
+                                .filter(Boolean)
+                                .join(" · ")}
+                            </span>
+                          </span>
+                        </label>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+              {q && !filteredFlat.length ? (
+                <p className="text-sm text-[var(--muted)]">Geen recruiters voor “{query}”.</p>
+              ) : null}
+
               <div className="flex flex-col gap-2 sm:flex-row">
                 <input
                   className="min-w-0 flex-1 rounded-[var(--radius)] border border-[var(--line)] bg-[var(--surface)] px-3 py-2.5 text-sm"
@@ -308,141 +451,171 @@ export default function SettingsForm() {
                 </button>
               </div>
 
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  className="btn-ghost btn-tool"
-                  onClick={() =>
-                    updateAgencies(
-                      hunt.agencies.map((a) => ({
-                        ...a,
-                        enabled: true,
-                        recruiters: a.recruiters.map((r) => ({ ...r, enabled: true })),
-                      }))
-                    )
-                  }
-                >
-                  Alles aan
-                </button>
-                <button
-                  type="button"
-                  className="btn-ghost btn-tool"
-                  onClick={() =>
-                    updateAgencies(
-                      hunt.agencies.map((a) => ({
-                        ...a,
-                        enabled: false,
-                        recruiters: a.recruiters.map((r) => ({ ...r, enabled: false })),
-                      }))
-                    )
-                  }
-                >
-                  Alles uit
-                </button>
-              </div>
-
               <div className="space-y-3">
-                {hunt.agencies.map((a) => (
-                  <div
-                    key={a.id}
-                    className={`rounded-[var(--radius)] border px-3 py-3 ${
-                      a.enabled
-                        ? "border-[var(--line)] bg-[var(--surface)]"
-                        : "border-[var(--line)]/70 bg-[var(--surface-2)] opacity-80"
-                    }`}
-                  >
-                    <div className="flex flex-wrap items-start gap-3">
-                      <label className="flex min-w-0 flex-1 cursor-pointer items-start gap-3">
-                        <input
-                          type="checkbox"
-                          className="mt-1 h-4 w-4 accent-[var(--accent)]"
-                          checked={a.enabled}
-                          onChange={(e) => setAgencyEnabled(a.id, e.target.checked)}
-                        />
-                        <span className="min-w-0">
-                          <span className="block text-sm font-semibold text-[var(--ink)]">{a.name}</span>
-                          {a.note ? (
-                            <span className="mt-0.5 block text-[0.72rem] text-[var(--muted)]">{a.note}</span>
-                          ) : (
+                {visibleAgencies.map((a) => {
+                  const shownRecruiters = q
+                    ? a.recruiters.filter((r) => matchesQuery(q, r.name, r.title, r.brand, a.name))
+                    : a.recruiters;
+                  const hits = found[a.id] || [];
+                  return (
+                    <div
+                      key={a.id}
+                      className={`rounded-[var(--radius)] border px-3 py-3 ${
+                        a.enabled
+                          ? "border-[var(--line)] bg-[var(--surface)]"
+                          : "border-[var(--line)]/70 bg-[var(--surface-2)] opacity-80"
+                      }`}
+                    >
+                      <div className="flex flex-wrap items-start gap-3">
+                        <label className="flex min-w-0 flex-1 cursor-pointer items-start gap-3">
+                          <input
+                            type="checkbox"
+                            className="mt-1 h-4 w-4 accent-[var(--accent)]"
+                            checked={a.enabled}
+                            onChange={(e) => setAgencyEnabled(a.id, e.target.checked)}
+                          />
+                          <span className="min-w-0">
+                            <span className="block text-sm font-semibold text-[var(--ink)]">{a.name}</span>
                             <span className="mt-0.5 block text-[0.72rem] text-[var(--muted)]">
                               {a.recruiters.filter((r) => r.enabled).length}/{a.recruiters.length}{" "}
                               recruiters aan
                               {a.custom ? " · zelf toegevoegd" : ""}
                             </span>
-                          )}
-                        </span>
-                      </label>
-                      {a.custom ? (
-                        <button
-                          type="button"
-                          className="text-xs font-semibold text-[var(--muted)] hover:text-[var(--warn)]"
-                          onClick={() => removeAgency(a.id)}
-                        >
-                          Verwijderen
-                        </button>
-                      ) : null}
-                    </div>
-
-                    {a.enabled ? (
-                      <div className="mt-3 space-y-2 border-t border-[var(--line)]/70 pt-3">
-                        {a.recruiters.map((r) => (
-                          <div key={`${a.id}-${r.name}`} className="flex items-start gap-2 pl-1">
-                            <label className="flex min-w-0 flex-1 cursor-pointer items-start gap-2.5">
-                              <input
-                                type="checkbox"
-                                className="mt-0.5 h-4 w-4 accent-[var(--accent)]"
-                                checked={r.enabled}
-                                onChange={(e) => setRecruiterEnabled(a.id, r.name, e.target.checked)}
-                              />
-                              <span className="min-w-0">
-                                <span className="block text-[0.85rem] font-medium text-[var(--ink)]">
-                                  {r.name}
-                                </span>
-                                {[r.brand, r.title].filter(Boolean).length ? (
-                                  <span className="block text-[0.7rem] text-[var(--muted)]">
-                                    {[r.brand, r.title].filter(Boolean).join(" · ")}
-                                  </span>
-                                ) : null}
-                              </span>
-                            </label>
-                            <button
-                              type="button"
-                              className="shrink-0 text-[0.7rem] text-[var(--muted)] hover:text-[var(--warn)]"
-                              onClick={() => removeRecruiter(a.id, r.name)}
-                              aria-label={`${r.name} verwijderen`}
-                            >
-                              ×
-                            </button>
-                          </div>
-                        ))}
-
-                        <div className="flex flex-col gap-2 pt-1 sm:flex-row">
-                          <input
-                            className="min-w-0 flex-1 rounded-[var(--radius)] border border-[var(--line)] bg-[var(--surface-2)] px-2.5 py-2 text-sm"
-                            placeholder="Recruiter toevoegen…"
-                            value={newRecruiter[a.id] || ""}
-                            onChange={(e) =>
-                              setNewRecruiter((prev) => ({ ...prev, [a.id]: e.target.value }))
-                            }
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") {
-                                e.preventDefault();
-                                addRecruiter(a.id);
-                              }
-                            }}
-                          />
+                          </span>
+                        </label>
+                        <div className="flex flex-wrap items-center gap-2">
                           <button
                             type="button"
-                            className="btn-ghost btn-tool shrink-0"
-                            onClick={() => addRecruiter(a.id)}
+                            className="btn-ghost btn-tool"
+                            disabled={findBusy === a.id}
+                            onClick={() => void findRecruiters(a.id)}
                           >
-                            + Recruiter
+                            {findBusy === a.id ? "Zoeken…" : "Zoek recruiters"}
                           </button>
+                          {a.custom ? (
+                            <button
+                              type="button"
+                              className="text-xs font-semibold text-[var(--muted)] hover:text-[var(--warn)]"
+                              onClick={() => removeAgency(a.id)}
+                            >
+                              Verwijderen
+                            </button>
+                          ) : null}
                         </div>
                       </div>
-                    ) : null}
-                  </div>
-                ))}
+
+                      {findMsg[a.id] ? (
+                        <p className="mt-2 text-[0.75rem] text-[var(--muted)]">{findMsg[a.id]}</p>
+                      ) : null}
+
+                      {hits.length ? (
+                        <div className="mt-3 rounded-[var(--radius)] border border-dashed border-[var(--line)] bg-[var(--surface-2)] px-3 py-2.5">
+                          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                            <p className="text-[0.72rem] font-semibold text-[var(--ink)]">
+                              Gevonden op LinkedIn
+                            </p>
+                            <button
+                              type="button"
+                              className="text-[0.72rem] font-semibold text-[var(--accent)] hover:underline"
+                              onClick={() => mergeFound(a.id, hits)}
+                            >
+                              Alles toevoegen
+                            </button>
+                          </div>
+                          <ul className="space-y-2">
+                            {hits.map((p) => {
+                              const already = a.recruiters.some(
+                                (r) => r.name.toLowerCase() === p.name.toLowerCase()
+                              );
+                              return (
+                                <li key={p.url || p.name} className="flex items-start justify-between gap-2">
+                                  <span className="min-w-0">
+                                    <span className="block text-[0.85rem] font-medium text-[var(--ink)]">
+                                      {p.name}
+                                    </span>
+                                    {p.title ? (
+                                      <span className="block text-[0.7rem] text-[var(--muted)]">{p.title}</span>
+                                    ) : null}
+                                  </span>
+                                  {already ? (
+                                    <span className="shrink-0 text-[0.7rem] text-[var(--muted)]">staat erin</span>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      className="shrink-0 text-[0.72rem] font-semibold text-[var(--accent)] hover:underline"
+                                      onClick={() => mergeFound(a.id, [p])}
+                                    >
+                                      Toevoegen
+                                    </button>
+                                  )}
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        </div>
+                      ) : null}
+
+                      {a.enabled ? (
+                        <div className="mt-3 space-y-2 border-t border-[var(--line)]/70 pt-3">
+                          {shownRecruiters.map((r) => (
+                            <div key={`${a.id}-${r.name}`} className="flex items-start gap-2 pl-1">
+                              <label className="flex min-w-0 flex-1 cursor-pointer items-start gap-2.5">
+                                <input
+                                  type="checkbox"
+                                  className="mt-0.5 h-4 w-4 accent-[var(--accent)]"
+                                  checked={r.enabled}
+                                  onChange={(e) => setRecruiterEnabled(a.id, r.name, e.target.checked)}
+                                />
+                                <span className="min-w-0">
+                                  <span className="block text-[0.85rem] font-medium text-[var(--ink)]">
+                                    {r.name}
+                                  </span>
+                                  {[r.brand, r.title].filter(Boolean).length ? (
+                                    <span className="block text-[0.7rem] text-[var(--muted)]">
+                                      {[r.brand, r.title].filter(Boolean).join(" · ")}
+                                    </span>
+                                  ) : null}
+                                </span>
+                              </label>
+                              <button
+                                type="button"
+                                className="shrink-0 text-[0.7rem] text-[var(--muted)] hover:text-[var(--warn)]"
+                                onClick={() => removeRecruiter(a.id, r.name)}
+                                aria-label={`${r.name} verwijderen`}
+                              >
+                                ×
+                              </button>
+                            </div>
+                          ))}
+
+                          <div className="flex flex-col gap-2 pt-1 sm:flex-row">
+                            <input
+                              className="min-w-0 flex-1 rounded-[var(--radius)] border border-[var(--line)] bg-[var(--surface-2)] px-2.5 py-2 text-sm"
+                              placeholder="Recruiter handmatig…"
+                              value={newRecruiter[a.id] || ""}
+                              onChange={(e) =>
+                                setNewRecruiter((prev) => ({ ...prev, [a.id]: e.target.value }))
+                              }
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                  e.preventDefault();
+                                  addRecruiter(a.id);
+                                }
+                              }}
+                            />
+                            <button
+                              type="button"
+                              className="btn-ghost btn-tool shrink-0"
+                              onClick={() => addRecruiter(a.id)}
+                            >
+                              + Recruiter
+                            </button>
+                          </div>
+                        </div>
+                      ) : null}
+                    </div>
+                  );
+                })}
               </div>
             </Section>
 

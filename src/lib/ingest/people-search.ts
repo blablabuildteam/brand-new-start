@@ -153,3 +153,63 @@ export async function searchHiringManagers(input: PeopleSearchInput): Promise<{
     detail: `actor=${PEOPLE_ACTOR} q=${plan.keywords} companies=${companyUrls.join(",")}`,
   };
 }
+
+const RECRUITER_QUERY =
+  'recruiter OR "talent acquisition" OR "account manager" OR consultant OR intercedent OR "delivery manager"';
+
+/** Zoek recruiters / consultants bij een bureau (Instellingen). */
+export async function searchAgencyRecruiters(input: {
+  company: string;
+  companyLinkedinUrl?: string | null;
+}): Promise<{
+  people: { name: string; title: string | null; url: string | null }[];
+  fetched: number;
+  detail: string;
+}> {
+  if (!hasApifyToken()) {
+    return { people: [], fetched: 0, detail: "no-apify-token" };
+  }
+
+  const companyUrls = linkedinCompanyUrls(input.company, input.companyLinkedinUrl);
+  if (!companyUrls.length) {
+    return { people: [], fetched: 0, detail: "no-company-linkedin" };
+  }
+
+  const actorInput: Record<string, unknown> = {
+    profileScraperMode: "Short",
+    searchQuery: RECRUITER_QUERY,
+    maxItems: Math.min(12, INGEST_POLICY.hmSearchMax + 4),
+    takePages: 1,
+    locations: ["Netherlands"],
+    currentCompanies: companyUrls,
+  };
+
+  const { items } = await runApifyActor<Record<string, unknown>>(PEOPLE_ACTOR, actorInput, {
+    waitSecs: 90,
+  });
+
+  const people = items
+    .map((item) => {
+      const headline = typeof item.headline === "string" ? item.headline : null;
+      const company = personCurrentCompany(item, headline);
+      const alumni = Boolean(
+        headline && /\b(ex-|former|voorheen|previously|alumni)\b/i.test(headline)
+      );
+      const atCompany = Boolean(company && sameEmployer(company, input.company) && !alumni);
+      return {
+        name: personName(item) || "",
+        title: personTitle(item) || headline,
+        url: personUrl(item),
+        atCompany,
+      };
+    })
+    .filter((p) => p.name && p.atCompany)
+    .slice(0, 12)
+    .map(({ name, title, url }) => ({ name, title, url }));
+
+  return {
+    people,
+    fetched: items.length,
+    detail: `agency-recruiters actor=${PEOPLE_ACTOR} companies=${companyUrls.join(",")}`,
+  };
+}

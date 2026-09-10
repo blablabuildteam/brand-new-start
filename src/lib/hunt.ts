@@ -25,6 +25,7 @@ export type ManagedAgency = {
   name: string;
   aliases: string[];
   note?: string;
+  linkedinSlug?: string;
   enabled: boolean;
   /** Zelf toegevoegd → mag verwijderd worden. */
   custom?: boolean;
@@ -183,6 +184,10 @@ export function normalizeManagedAgencies(raw: unknown): ManagedAgency[] | undefi
       name: name.slice(0, 80),
       aliases: aliases.length ? aliases : [name.toLowerCase()],
       note: typeof o.note === "string" && o.note.trim() ? o.note.trim().slice(0, 200) : undefined,
+      linkedinSlug:
+        typeof o.linkedinSlug === "string" && o.linkedinSlug.trim()
+          ? o.linkedinSlug.trim().slice(0, 80)
+          : undefined,
       enabled: o.enabled !== false,
       custom: o.custom === true || id.startsWith("custom_"),
       recruiters,

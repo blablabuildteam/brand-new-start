@@ -23,6 +23,7 @@ const AgencyZ = z.object({
   name: z.string().min(2).max(80),
   aliases: z.array(z.string()).max(20).optional(),
   note: z.string().max(200).optional(),
+  linkedinSlug: z.string().max(80).optional(),
   enabled: z.boolean(),
   custom: z.boolean().optional(),
   recruiters: z.array(RecruiterZ).max(30),

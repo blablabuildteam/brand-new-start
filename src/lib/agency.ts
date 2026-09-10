@@ -187,6 +187,7 @@ export function seedManagedAgencies(
     name: a.name,
     aliases: a.aliases,
     note: a.note,
+    linkedinSlug: a.linkedinSlug,
     enabled: agencySet ? agencySet.has(a.id) : true,
     custom: false,
     recruiters: a.recruiters.map(
