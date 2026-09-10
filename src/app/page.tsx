@@ -2,9 +2,8 @@ import type { Metadata } from "next";
 import HomeDesk from "./home-desk";
 
 export const metadata: Metadata = {
-  title: "Regie — Recruitment-desk",
-  description:
-    "Kies je vak: werving & selectie (permanent, binnenkort) of contracting (interim & ZZP).",
+  title: "Regie",
+  description: "Van opdracht naar de juiste hiring manager — contracting en permanent.",
 };
 
 export default function Home() {

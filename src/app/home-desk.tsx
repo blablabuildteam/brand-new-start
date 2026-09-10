@@ -4,57 +4,31 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { BlablaLogo } from "@/components/blabla-logo";
+import { HeroRadar } from "@/components/hero-radar";
 import { SiteNav } from "@/components/site-nav";
 
 const STEPS = [
   {
-    n: "01",
-    title: "Kans",
-    text: "Opdrachten komen binnen via LinkedIn, Indeed en Freelance.nl — of via bureaus op je watchlist.",
+    n: "1",
+    title: "Kans binnen",
+    text: "Via LinkedIn, Indeed, Freelance.nl — of via een bureau op je watchlist.",
   },
   {
-    n: "02",
+    n: "2",
     title: "Eindklant",
-    text: "Zelf geplaatst: het bedrijf ís de klant. Bureau: eerst de echte organisatie bevestigen.",
+    text: "Zelf geplaatst: dat bedrijf. Bureau: eerst bevestigen wie de echte klant is.",
   },
   {
-    n: "03",
+    n: "3",
     title: "Manager",
-    text: "Drie namen bij díe organisatie. Mail en telefoon via Lusha alleen als jij klikt.",
+    text: "Drie namen bij díe organisatie. Mail of tel alleen als jij dat wilt.",
   },
   {
-    n: "04",
-    title: "Benaderen",
-    text: "Je gaat naar die manager met een geschikt profiel. Het bericht staat klaar — jij verstuurt.",
+    n: "4",
+    title: "Voorstel",
+    text: "Bericht klaarzetten met een passend profiel. Jij verstuurt.",
   },
 ];
-
-const TRADES = [
-  {
-    id: "permanent",
-    live: false,
-    kicker: "Permanent",
-    title: "Werving & selectie",
-    lead: "Vaste functies. De organisatie op de vacature is de werkgever — daar zoek je de manager en doe je een voorstel.",
-    points: [
-      "Vacature komt van de werkgever zelf",
-      "Hiring manager zoeken bij dat bedrijf",
-      "Kandidaat voorstellen voor een vast contract",
-    ],
-  },
-  {
-    id: "contracting",
-    live: true,
-    kicker: "Contracting",
-    title: "Interim & ZZP",
-    lead: "Interim- en ZZP-kansen ophalen, de eindklant vastzetten, en de hiring manager benaderen met een passend profiel.",
-    points: [
-      "Kansen via LinkedIn, Indeed, Freelance.nl — of via bureaus op je watchlist",
-      "Eindklant kennen: zelf geplaatst = het bedrijf; bureau = eerst bevestigen",
-      "Daarna de manager van díe organisatie, met een voorstel klaar om te versturen",
-    ],
-  },
-] as const;
 
 export default function HomeDesk() {
   const router = useRouter();
@@ -86,194 +60,128 @@ export default function HomeDesk() {
           className="pointer-events-none absolute inset-0"
           style={{
             background:
-              "radial-gradient(ellipse 55% 70% at 100% 0%, rgba(235,242,18,0.22), transparent 55%), radial-gradient(ellipse 40% 50% at 0% 100%, rgba(63,54,83,0.06), transparent 50%)",
+              "radial-gradient(ellipse 55% 70% at 100% 0%, rgba(235,242,18,0.18), transparent 55%), radial-gradient(ellipse 40% 50% at 0% 100%, rgba(63,54,83,0.05), transparent 50%)",
           }}
         />
 
-        <div className="relative mx-auto grid max-w-[1120px] items-center gap-12 px-5 py-16 md:px-8 md:py-20 lg:grid-cols-[1.05fr_0.95fr] lg:py-24">
-          <div>
-            <p className="text-[0.72rem] font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">
-              Recruitment software
-            </p>
+        <div className="relative mx-auto grid max-w-[1120px] items-center gap-12 px-5 py-16 md:px-8 md:py-20 lg:grid-cols-[1.05fr_0.95fr] lg:gap-16 lg:py-24">
+          <div className="reveal">
             <h1
-              className="mt-4 max-w-xl text-[2.6rem] leading-[1.05] tracking-tight text-[var(--accent)] md:text-[3.5rem]"
+              className="max-w-xl text-[2.6rem] leading-[1.05] tracking-tight text-[var(--accent)] md:text-[3.5rem]"
               style={{ fontFamily: "var(--display)" }}
             >
-              De desk voor wie de eindklant wil bereiken.
+              Van opdracht naar de juiste manager.
             </h1>
             <p className="mt-5 max-w-md text-[1.05rem] leading-relaxed text-[var(--muted)]">
-              Permanent is werving & selectie. Contracting haalt interim- en ZZP-kansen op — van
-              jobboards én bureaus — en brengt je bij de hiring manager van de eindklant.
+              Vind interim- en ZZP-kansen, zet de eindklant vast, en benader de hiring manager met
+              een passend profiel.
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-3">
-              <a
-                href="#product"
-                className="nav-link btn-signal inline-flex items-center rounded-full px-5 py-2.5 text-sm font-semibold"
-              >
-                Kies je vak
-              </a>
               <Link
                 href="/radar"
-                className="nav-link inline-flex items-center rounded-full border border-[var(--line)] bg-[var(--surface)] px-5 py-2.5 text-sm font-semibold text-[var(--ink)] hover:bg-[var(--surface-2)] hover:text-[var(--ink)]"
+                className="nav-link btn-signal inline-flex items-center rounded-full px-5 py-2.5 text-sm font-semibold transition hover:scale-[1.02]"
               >
-                Direct naar contracting
+                Open contracting
               </Link>
+              <a
+                href="#vakken"
+                className="nav-link inline-flex items-center rounded-full border border-[var(--line)] bg-[var(--surface)] px-5 py-2.5 text-sm font-semibold text-[var(--ink)] transition hover:bg-[var(--surface-2)] hover:text-[var(--ink)]"
+              >
+                Bekijk de vakken
+              </a>
             </div>
           </div>
 
-          <div className="relative hidden lg:block">
-            <div className="overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--surface)] shadow-[var(--shadow)]">
-              <div className="flex items-center gap-1.5 border-b border-[var(--line)] bg-[var(--surface-2)] px-3.5 py-2.5">
-                <span className="h-2 w-2 rounded-full bg-[var(--line)]" />
-                <span className="h-2 w-2 rounded-full bg-[var(--line)]" />
-                <span className="h-2 w-2 rounded-full bg-[var(--line)]" />
-                <span className="ml-2 text-[0.65rem] text-[var(--muted)]" style={{ fontFamily: "var(--mono)" }}>
-                  Radar · contracting
-                </span>
-              </div>
-              <div className="grid grid-cols-[7.5rem_1fr]">
-                <div className="space-y-1 border-r border-[var(--line)] p-3">
-                  {["Radar", "Bureaus", "Voorstel"].map((l, i) => (
-                    <div
-                      key={l}
-                      className={`rounded-lg px-2 py-1.5 text-[0.68rem] ${
-                        i === 0
-                          ? "bg-[var(--accent-soft)] font-semibold text-[var(--accent)]"
-                          : "text-[var(--muted)]"
-                      }`}
-                    >
-                      {l}
-                    </div>
-                  ))}
-                </div>
-                <div className="space-y-2 p-3">
-                  {[
-                    ["Rabobank", "Scrum Master", "82"],
-                    ["Booking.com", "Platform engineer", "71"],
-                    ["ING", "Business analist", "64"],
-                  ].map(([co, role, score]) => (
-                    <div
-                      key={co}
-                      className="flex items-center justify-between rounded-xl border border-[var(--line)] bg-[var(--surface-2)] px-2.5 py-2"
-                    >
-                      <div>
-                        <p className="text-[0.72rem] font-semibold text-[var(--ink)]">{co}</p>
-                        <p className="text-[0.62rem] text-[var(--muted)]">{role}</p>
-                      </div>
-                      <span
-                        className="rounded-md bg-[var(--signal)] px-1.5 py-0.5 text-[0.68rem] font-semibold text-[var(--ink)]"
-                        style={{ fontFamily: "var(--mono)" }}
-                      >
-                        {score}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
+          <div className="reveal reveal-delay-2 hidden lg:block">
+            <HeroRadar />
           </div>
         </div>
       </section>
 
-      <main className="mx-auto max-w-[1120px] px-5 py-12 md:px-8 md:py-16">
-        <section id="product" className="scroll-mt-24">
-          <p className="text-[0.72rem] font-semibold uppercase tracking-[0.12em] text-[var(--muted)]">
-            Product
-          </p>
+      <main className="mx-auto max-w-[1120px] px-5 py-14 md:px-8 md:py-16">
+        <section id="vakken" className="scroll-mt-24">
           <h2
-            className="mt-2 text-[2rem] tracking-tight text-[var(--accent)] md:text-[2.4rem]"
+            className="text-[2rem] tracking-tight text-[var(--accent)] md:text-[2.35rem]"
             style={{ fontFamily: "var(--display)" }}
           >
             Kies je vak
           </h2>
-          <p className="mt-2 max-w-xl text-sm leading-relaxed text-[var(--muted)]">
-            Twee trades, één desk. Permanent komt eraan. Contracting kun je nu openen.
+          <p className="mt-2 max-w-lg text-sm leading-relaxed text-[var(--muted)]">
+            Contracting staat live. Permanent volgt eraan.
           </p>
 
           <div className="mt-8 grid items-stretch gap-5 lg:grid-cols-2">
-            {TRADES.map((t) => (
-              <article
-                key={t.id}
-                className={`desk-card rounded-2xl border bg-[var(--surface)] p-7 md:p-8 ${
-                  t.live ? "desk-card--live border-[var(--accent)]/20" : "border-[var(--line)]"
-                }`}
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <p
-                    className={`text-[0.65rem] font-semibold uppercase tracking-[0.12em] ${
-                      t.live ? "text-[var(--accent)]" : "text-[var(--muted)]"
-                    }`}
-                  >
-                    {t.kicker}
-                  </p>
-                  <span
-                    className={`rounded-full px-2.5 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide ${
-                      t.live
-                        ? "bg-[var(--signal)] text-[var(--ink)]"
-                        : "border border-[var(--line)] text-[var(--muted)]"
-                    }`}
-                  >
-                    {t.live ? "Live" : "Binnenkort"}
-                  </span>
-                </div>
-                <h3
-                  className="mt-3 text-[1.75rem] tracking-tight text-[var(--ink)]"
-                  style={{ fontFamily: "var(--display)" }}
-                >
-                  {t.title}
+            <article className="desk-card reveal rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-7 md:p-8">
+              <div className="flex items-start justify-between gap-3">
+                <h3 className="text-[1.65rem] tracking-tight text-[var(--ink)]" style={{ fontFamily: "var(--display)" }}>
+                  Permanent
                 </h3>
-                <p className="mt-3 text-sm leading-relaxed text-[var(--muted)]">{t.lead}</p>
-                <ul className="mt-6 flex-1 space-y-2.5">
-                  {t.points.map((point) => (
-                    <li key={point} className="flex gap-2.5 text-sm text-[var(--ink)]">
-                      <span
-                        className={`mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full ${
-                          t.live ? "bg-[var(--accent)]" : "bg-[var(--line)]"
-                        }`}
-                        aria-hidden
-                      />
-                      {point}
+                <span className="rounded-full border border-[var(--line)] px-2.5 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide text-[var(--muted)]">
+                  Binnenkort
+                </span>
+              </div>
+              <p className="mt-1 text-sm font-medium text-[var(--muted)]">Werving & selectie</p>
+              <p className="mt-4 text-sm leading-relaxed text-[var(--muted)]">
+                Vaste functies bij de werkgever op de vacature. Manager zoeken, kandidaat
+                voorstellen.
+              </p>
+              <p className="mt-8 rounded-full bg-[var(--surface-2)] px-4 py-2.5 text-center text-sm font-semibold text-[var(--muted)]">
+                Nog niet beschikbaar
+              </p>
+            </article>
+
+            <article className="desk-card desk-card--live reveal reveal-delay-1 rounded-2xl border border-[var(--accent)]/20 bg-[var(--surface)] p-7 md:p-8">
+              <div className="flex items-start justify-between gap-3">
+                <h3 className="text-[1.65rem] tracking-tight text-[var(--ink)]" style={{ fontFamily: "var(--display)" }}>
+                  Contracting
+                </h3>
+                <span className="rounded-full bg-[var(--signal)] px-2.5 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide text-[var(--ink)]">
+                  Live
+                </span>
+              </div>
+              <p className="mt-1 text-sm font-medium text-[var(--muted)]">Interim & ZZP</p>
+              <p className="mt-4 text-sm leading-relaxed text-[var(--muted)]">
+                Kansen van jobboards en bureaus. Eerst de eindklant, dan de manager, dan het
+                voorstel.
+              </p>
+              <ul className="mt-5 space-y-2 text-sm text-[var(--ink)]">
+                {["LinkedIn, Indeed, Freelance.nl", "Bureaus → eindklant bevestigen", "Manager + voorstel"].map(
+                  (t) => (
+                    <li key={t} className="flex gap-2.5">
+                      <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent)]" aria-hidden />
+                      {t}
                     </li>
-                  ))}
-                </ul>
-                {t.live ? (
-                  <Link
-                    href="/radar"
-                    className="nav-link btn-ink mt-8 inline-flex w-full items-center justify-center rounded-full px-4 py-2.5 text-sm font-semibold"
-                  >
-                    Open contracting
-                  </Link>
-                ) : (
-                  <p className="mt-8 rounded-full bg-[var(--surface-2)] px-4 py-2.5 text-center text-sm font-semibold text-[var(--muted)]">
-                    Nog niet beschikbaar
-                  </p>
+                  )
                 )}
-              </article>
-            ))}
+              </ul>
+              <Link
+                href="/radar"
+                className="nav-link btn-ink mt-8 inline-flex w-full items-center justify-center rounded-full px-4 py-2.5 text-sm font-semibold transition hover:scale-[1.01]"
+              >
+                Open de workspace
+              </Link>
+            </article>
           </div>
         </section>
 
         <section className="mt-16 border-t border-[var(--line)] pt-12">
-          <p className="text-[0.72rem] font-semibold uppercase tracking-[0.12em] text-[var(--muted)]">
-            Hoe contracting werkt
-          </p>
           <h3
-            className="mt-2 text-[1.75rem] tracking-tight text-[var(--accent)]"
+            className="text-[1.75rem] tracking-tight text-[var(--accent)]"
             style={{ fontFamily: "var(--display)" }}
           >
-            Van kans naar een gesprek met de manager
+            Zo werkt contracting
           </h3>
-          <ol className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-            {STEPS.map((s) => (
-              <li key={s.n}>
+          <ol className="mt-8 grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
+            {STEPS.map((s, i) => (
+              <li key={s.n} className={`reveal reveal-delay-${i + 1}`}>
                 <span
-                  className="inline-flex h-7 min-w-7 items-center justify-center rounded-full bg-[var(--signal)] px-2 text-[0.7rem] font-semibold text-[var(--ink)]"
+                  className="inline-flex h-7 min-w-7 items-center justify-center rounded-full bg-[var(--signal)] px-2 text-[0.75rem] font-semibold text-[var(--ink)]"
                   style={{ fontFamily: "var(--mono)" }}
                 >
                   {s.n}
                 </span>
                 <p className="mt-3 text-sm font-semibold text-[var(--ink)]">{s.title}</p>
-                <p className="mt-1 text-[0.8rem] leading-relaxed text-[var(--muted)]">{s.text}</p>
+                <p className="mt-1 text-[0.85rem] leading-relaxed text-[var(--muted)]">{s.text}</p>
               </li>
             ))}
           </ol>

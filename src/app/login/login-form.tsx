@@ -43,14 +43,11 @@ export default function LoginForm() {
           onSubmit={onSubmit}
           className="w-full max-w-[400px] rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-7 shadow-[var(--shadow)]"
         >
-          <p className="text-[0.65rem] font-semibold uppercase tracking-[0.12em] text-[var(--muted)]">
-            Recruitment-desk
-          </p>
-          <h1 className="mt-1 text-[2rem] tracking-tight text-[var(--accent)]" style={{ fontFamily: "var(--display)" }}>
+          <h1 className="text-[2rem] tracking-tight text-[var(--accent)]" style={{ fontFamily: "var(--display)" }}>
             Inloggen
           </h1>
           <p className="mt-2 mb-6 text-sm leading-relaxed text-[var(--muted)]">
-            Werving & selectie en contracting. Na inloggen kies je je vak.
+            Daarna kies je permanent of contracting.
           </p>
 
           <label className="mb-3 block text-sm font-medium">
