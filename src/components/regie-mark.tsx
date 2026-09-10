@@ -1,4 +1,10 @@
-export function RegieMark({ className = "h-7 w-7" }: { className?: string }) {
+export function RegieMark({
+  className = "h-7 w-7",
+  onDark = false,
+}: {
+  className?: string;
+  onDark?: boolean;
+}) {
   return (
     <svg
       viewBox="0 0 32 32"
@@ -7,7 +13,7 @@ export function RegieMark({ className = "h-7 w-7" }: { className?: string }) {
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
     >
-      <rect width="32" height="32" rx="8" fill="#0b1c30" />
+      <rect width="32" height="32" rx="8" fill={onDark ? "#16324c" : "#0b1c30"} />
       <circle cx="16" cy="16" r="7.5" stroke="#0079c1" strokeWidth="1.6" />
       <circle cx="16" cy="16" r="3.2" stroke="#7ec8ee" strokeWidth="1.4" />
       <path d="M16 16 L26 8" stroke="#CEFF00" strokeWidth="1.8" strokeLinecap="round" />
@@ -25,7 +31,7 @@ export function RegieWordmark({
 }) {
   return (
     <span className="flex items-center gap-2.5">
-      <RegieMark />
+      <RegieMark onDark={dark} />
       <span
         className={`text-[1.05rem] font-semibold tracking-tight ${dark ? "text-white" : "text-[var(--ink)]"}`}
         style={{ fontFamily: "var(--display)" }}

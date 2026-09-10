@@ -34,7 +34,7 @@ export default function LoginForm() {
   }
 
   return (
-    <div className="min-h-dvh bg-[#0b1c30]">
+    <div className="min-h-dvh bg-[var(--header)]">
       <header className="mx-auto flex h-16 max-w-[1120px] items-center px-5 md:px-8">
         <RegieWordmark dark />
       </header>

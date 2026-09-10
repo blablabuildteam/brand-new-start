@@ -21,16 +21,16 @@ export function SiteNav({
   }
 
   return (
-    <header className="sticky top-0 z-50 border-b border-white/10 bg-[#0b1c30]/95 text-white backdrop-blur-md">
+    <header className="sticky top-0 z-50 border-b border-white/10 bg-[var(--header)] text-white">
       <div className="mx-auto flex h-16 max-w-[1120px] items-center justify-between gap-6 px-5 md:px-8">
         <Link href="/" className="nav-link shrink-0" aria-label={`${name} home`}>
           <RegieWordmark name={name} dark />
         </Link>
         <nav className="hidden items-center gap-7 text-[0.82rem] font-medium md:flex">
-          <a href="#product" className="nav-link text-white/70 hover:text-white">
+          <a href="#product" className="nav-link text-white/85 hover:text-white">
             Product
           </a>
-          <Link href="/radar" className="nav-link text-white/70 hover:text-white">
+          <Link href="/radar" className="nav-link text-white/85 hover:text-white">
             Contracting
           </Link>
           <span className="cursor-default text-white/35" title="Binnenkort">

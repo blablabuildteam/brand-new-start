@@ -29,13 +29,32 @@ const STEPS = [
   },
 ];
 
-const LANES = [
-  { name: "Radar", what: "Opdrachten van eindklanten" },
-  { name: "Bureaus", what: "Agency-vacature → echte klant" },
-  { name: "Manager", what: "Drie namen bij het juiste bedrijf" },
-  { name: "Contact", what: "Mail of bel, per persoon" },
-  { name: "Voorstel", what: "Bericht klaarzetten" },
-];
+const TRADES = [
+  {
+    id: "permanent",
+    live: false,
+    kicker: "Permanent",
+    title: "Werving & selectie",
+    lead: "Voor vaste functies. De organisatie op de vacature is de werkgever — daar zoek je de manager.",
+    points: [
+      "Vacature komt van de werkgever zelf",
+      "Hiring manager zoeken bij dat bedrijf",
+      "Kandidaat voorstellen voor een vast contract",
+    ],
+  },
+  {
+    id: "contracting",
+    live: true,
+    kicker: "Contracting",
+    title: "Interim & ZZP",
+    lead: "Voor tijdelijke opdrachten. Plaatst een bureau de vacature, dan bevestig je eerst de eindklant.",
+    points: [
+      "Radar: opdrachten van eindklanten",
+      "Bureaus: eerst de echte klant, dan pas de manager",
+      "Voorstel: bericht klaarzetten, jij verstuurt",
+    ],
+  },
+] as const;
 
 export default function HomeDesk() {
   const router = useRouter();
@@ -59,15 +78,15 @@ export default function HomeDesk() {
   }, [router]);
 
   return (
-    <div className="desk-home min-h-dvh bg-[#f4f6f8]">
+    <div className="desk-home min-h-dvh">
       <SiteNav name={name} email={email} />
 
-      <section className="relative overflow-hidden bg-[#0b1c30] text-white">
+      <section className="relative overflow-hidden bg-[var(--header)] text-white">
         <div
           className="pointer-events-none absolute inset-0"
           style={{
             background:
-              "radial-gradient(ellipse 80% 70% at 88% -20%, rgba(0,121,193,0.5), transparent 52%), radial-gradient(ellipse 45% 55% at -5% 110%, rgba(206,255,0,0.09), transparent 48%)",
+              "radial-gradient(ellipse 80% 70% at 88% -20%, rgba(0,121,193,0.42), transparent 52%)",
           }}
         />
         <div
@@ -147,7 +166,7 @@ export default function HomeDesk() {
                         <p className="text-[0.72rem] font-semibold text-white/90">{co}</p>
                         <p className="text-[0.62rem] text-white/40">{role}</p>
                       </div>
-                      <span className="text-[0.68rem] font-semibold text-[#CEFF00]" style={{ fontFamily: "var(--mono)" }}>
+                      <span className="text-[0.68rem] font-semibold text-[#7ec8ee]" style={{ fontFamily: "var(--mono)" }}>
                         {score}
                       </span>
                     </div>
@@ -159,69 +178,78 @@ export default function HomeDesk() {
         </div>
       </section>
 
-      <main id="product" className="mx-auto max-w-[1120px] px-5 py-12 md:px-8 md:py-16">
-        <div className="grid gap-4 lg:grid-cols-2 lg:gap-6">
-          <article className="desk-card desk-card--soon rounded-xl border border-[var(--line)] bg-white p-7 md:p-8">
-            <div className="flex items-start justify-between gap-3">
-              <p className="text-[0.65rem] uppercase tracking-[0.12em] text-[var(--muted)]" style={{ fontFamily: "var(--mono)" }}>
-                Permanent
-              </p>
-              <span className="rounded-full border border-[var(--line)] px-2.5 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide text-[var(--muted)]">
-                Binnenkort
-              </span>
-            </div>
-            <h2 className="mt-3 text-2xl font-bold tracking-tight" style={{ fontFamily: "var(--display)" }}>
-              Werving & selectie
-            </h2>
-            <p className="mt-3 text-sm leading-relaxed text-[var(--muted)]">
-              Vaste functies. De organisatie op de vacature ís de werkgever. Je zoekt de hiring
-              manager daar, en doet een voorstel voor een vast contract.
-            </p>
-            <ul className="mt-6 space-y-2.5 text-sm text-[var(--muted)]">
-              {["Vacature van de werkgever zelf", "Manager zoeken bij dat bedrijf", "Kandidaat voorstellen voor vast"].map(
-                (t) => (
-                  <li key={t} className="flex gap-2.5">
-                    <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--line)]" aria-hidden />
-                    {t}
-                  </li>
-                )
-              )}
-            </ul>
-            <p className="mt-8 text-sm font-semibold text-[var(--muted)]">Nog in ontwikkeling</p>
-          </article>
+      <main className="mx-auto max-w-[1120px] px-5 py-12 md:px-8 md:py-16">
+        <section id="product" className="scroll-mt-28">
+          <p className="text-[0.65rem] uppercase tracking-[0.12em] text-[var(--muted)]" style={{ fontFamily: "var(--mono)" }}>
+            Product
+          </p>
+          <h2 className="mt-2 text-2xl font-bold tracking-tight" style={{ fontFamily: "var(--display)" }}>
+            Kies je vak
+          </h2>
+          <p className="mt-2 max-w-xl text-sm leading-relaxed text-[var(--muted)]">
+            Twee trades, één desk. Permanent komt eraan. Contracting kun je nu openen.
+          </p>
 
-          <article className="desk-card desk-card--live rounded-xl border border-[var(--accent)]/30 bg-white p-7 md:p-8">
-            <div className="flex items-start justify-between gap-3">
-              <p className="text-[0.65rem] uppercase tracking-[0.12em] text-[var(--accent)]" style={{ fontFamily: "var(--mono)" }}>
-                Contracting
-              </p>
-              <span className="rounded-full border border-[var(--accent)]/30 bg-[var(--accent-soft)] px-2.5 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide text-[var(--accent)]">
-                Live
-              </span>
-            </div>
-            <h2 className="mt-3 text-2xl font-bold tracking-tight" style={{ fontFamily: "var(--display)" }}>
-              Interim & ZZP
-            </h2>
-            <p className="mt-3 text-sm leading-relaxed text-[var(--muted)]">
-              Tijdelijke opdrachten. Soms plaatst de eindklant zelf. Soms een bureau — dan eerst de
-              echte klant, anders zoek je de manager bij het wervingsbureau.
-            </p>
-            <ul className="mt-6 grid gap-2 sm:grid-cols-2">
-              {LANES.map((l) => (
-                <li key={l.name} className="rounded-lg border border-[var(--line)]/80 bg-[var(--surface-2)] px-3 py-2.5">
-                  <p className="text-sm font-semibold text-[var(--ink)]">{l.name}</p>
-                  <p className="text-[0.72rem] leading-snug text-[var(--muted)]">{l.what}</p>
-                </li>
-              ))}
-            </ul>
-            <Link
-              href="/radar"
-              className="nav-link mt-7 inline-flex w-full items-center justify-center rounded-md bg-[#0b1c30] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#123049] hover:text-white"
-            >
-              Open de workspace
-            </Link>
-          </article>
-        </div>
+          <div className="mt-8 grid items-stretch gap-5 lg:grid-cols-2">
+            {TRADES.map((t) => (
+              <article
+                key={t.id}
+                className={`desk-card rounded-xl border bg-white p-7 md:p-8 ${
+                  t.live ? "desk-card--live border-[var(--accent)]/35" : "border-[var(--line)]"
+                }`}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <p
+                    className={`text-[0.65rem] uppercase tracking-[0.12em] ${
+                      t.live ? "text-[var(--accent)]" : "text-[var(--muted)]"
+                    }`}
+                    style={{ fontFamily: "var(--mono)" }}
+                  >
+                    {t.kicker}
+                  </p>
+                  <span
+                    className={`rounded-full px-2.5 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide ${
+                      t.live
+                        ? "border border-[var(--accent)]/30 bg-[var(--accent-soft)] text-[var(--accent)]"
+                        : "border border-[var(--line)] text-[var(--muted)]"
+                    }`}
+                  >
+                    {t.live ? "Live" : "Binnenkort"}
+                  </span>
+                </div>
+                <h3 className="mt-3 text-2xl font-bold tracking-tight text-[var(--ink)]" style={{ fontFamily: "var(--display)" }}>
+                  {t.title}
+                </h3>
+                <p className="mt-3 text-sm leading-relaxed text-[var(--muted)]">{t.lead}</p>
+                <ul className="mt-6 flex-1 space-y-2.5">
+                  {t.points.map((point) => (
+                    <li key={point} className="flex gap-2.5 text-sm text-[var(--ink)]">
+                      <span
+                        className={`mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full ${
+                          t.live ? "bg-[var(--accent)]" : "bg-[var(--line)]"
+                        }`}
+                        aria-hidden
+                      />
+                      {point}
+                    </li>
+                  ))}
+                </ul>
+                {t.live ? (
+                  <Link
+                    href="/radar"
+                    className="nav-link mt-8 inline-flex w-full items-center justify-center rounded-md bg-[var(--header)] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#123049] hover:text-white"
+                  >
+                    Open contracting
+                  </Link>
+                ) : (
+                  <p className="mt-8 rounded-md bg-[var(--surface-2)] px-4 py-2.5 text-center text-sm font-semibold text-[var(--muted)]">
+                    Nog niet beschikbaar
+                  </p>
+                )}
+              </article>
+            ))}
+          </div>
+        </section>
 
         <section className="mt-16 border-t border-[var(--line)] pt-12">
           <p className="text-[0.65rem] uppercase tracking-[0.12em] text-[var(--muted)]" style={{ fontFamily: "var(--mono)" }}>

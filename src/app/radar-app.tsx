@@ -1474,7 +1474,7 @@ export default function RadarApp() {
                 </p>
                 <p className="text-sm font-semibold text-[var(--ink)]">
                   {filtered.length}
-                  <span className="font-normal text-[var(--muted)]"> bedrijven · scroll hier</span>
+                  <span className="font-normal text-[var(--muted)]"> bedrijven</span>
                 </p>
               </div>
               {listCanScrollMore ? (
