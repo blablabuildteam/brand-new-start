@@ -5,7 +5,12 @@ import { WorkspaceBar } from "@/components/workspace-bar";
 import type { AgencyLead, LeadStatus } from "@/lib/opportunity";
 
 type Payload = {
-  watchlist: { id: string; name: string; recruiters: string[] }[];
+  watchlist: {
+    id: string;
+    name: string;
+    note?: string;
+    recruiters: { name: string; title?: string; brand?: string; linkedinUrl?: string }[];
+  }[];
   live: AgencyLead[];
   demo: AgencyLead[];
 };
@@ -45,7 +50,25 @@ function LeadCard({
           <h2 className="mt-1 text-base font-semibold text-[var(--ink)]">{lead.title}</h2>
           <p className="mt-1 text-[0.78rem] text-[var(--muted)]">
             {lead.roleLabel}
-            {lead.recruiter.name ? ` · ${lead.recruiter.name}` : " · recruiter onbekend"}
+            {lead.recruiter.name ? (
+              <>
+                {" · "}
+                {lead.recruiter.url ? (
+                  <a
+                    href={lead.recruiter.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-medium text-[var(--ink)] no-underline hover:underline"
+                  >
+                    {lead.recruiter.name}
+                  </a>
+                ) : (
+                  lead.recruiter.name
+                )}
+              </>
+            ) : (
+              " · recruiter onbekend"
+            )}
             {lead.recruiter.title ? ` · ${lead.recruiter.title}` : ""}
           </p>
           {factsLine(lead) ? <p className="mt-1 text-[0.75rem] text-[var(--muted)]">{factsLine(lead)}</p> : null}
@@ -173,7 +196,8 @@ export default function LeadsDesk() {
           </h1>
           <p className="mt-1 max-w-xl text-sm text-[var(--muted)]">
             Vacatures van je watchlist. De eindklant is een gok met bewijs — onder de drempel blijft het review. Hiring
-            manager zoeken we pas ná bevestiging, bij díe organisatie. AI-extractie komt later; dit is het regelwerk.
+            manager zoeken we pas ná bevestiging, bij díe organisatie. De kaarten hieronder zijn echte publieke teksten,
+            uit verschillende niches — nog geen scrape.
           </p>
         </div>
 
@@ -188,7 +212,27 @@ export default function LeadsDesk() {
                 {data.watchlist.map((a) => (
                   <li key={a.id}>
                     <p className="text-sm font-semibold text-[var(--ink)]">{a.name}</p>
-                    <p className="text-[0.72rem] text-[var(--muted)]">{a.recruiters.join(" · ") || "—"}</p>
+                    {a.note ? <p className="mt-0.5 text-[0.7rem] leading-snug text-[var(--muted)]">{a.note}</p> : null}
+                    <ul className="mt-1.5 space-y-1">
+                      {a.recruiters.map((r) => (
+                        <li key={r.name} className="text-[0.72rem] leading-snug text-[var(--muted)]">
+                          {r.linkedinUrl ? (
+                            <a
+                              href={r.linkedinUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="font-medium text-[var(--ink)] no-underline hover:underline"
+                            >
+                              {r.name}
+                            </a>
+                          ) : (
+                            <span className="font-medium text-[var(--ink)]">{r.name}</span>
+                          )}
+                          {r.brand ? ` · ${r.brand}` : ""}
+                          {r.title ? ` · ${r.title}` : ""}
+                        </li>
+                      ))}
+                    </ul>
                   </li>
                 ))}
               </ul>
@@ -214,7 +258,7 @@ export default function LeadsDesk() {
 
               <section>
                 <p className="mb-2 text-[0.65rem] uppercase tracking-[0.08em] text-[var(--muted)]">
-                  Voorbeelden · hoe de lane voelt
+                  Publieke teksten · alle hoeken
                 </p>
                 <div className="space-y-3">
                   {data.demo.map((l) => (

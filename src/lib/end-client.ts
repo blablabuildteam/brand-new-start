@@ -72,6 +72,12 @@ const CLIENTS: Client[] = [
     tags: ["fintech", "amsterdam", "payments", "java", "adyen"],
   },
   {
+    name: "Booking.com",
+    aliases: ["booking.com", "booking"],
+    sector: "ecom",
+    tags: ["e-commerce", "ecommerce", "diemen", "genai", "java"],
+  },
+  {
     name: "Gemeente Amsterdam",
     aliases: ["gemeente amsterdam", "city of amsterdam"],
     sector: "overheid",

@@ -1,4 +1,4 @@
-import { AGENCY_WATCHLIST, matchAgency, type Agency } from "@/lib/agency";
+import { AGENCY_WATCHLIST, matchAgency, type Agency, type AgencyRecruiter } from "@/lib/agency";
 import {
   extractVacancyFacts,
   guessEndClient,
@@ -83,47 +83,107 @@ function buildLead(opts: {
   };
 }
 
+function asLeadRecruiter(r: AgencyRecruiter | undefined): AgencyLead["recruiter"] {
+  if (!r) return { name: null, title: null, url: null };
+  const title = [r.brand, r.title].filter(Boolean).join(" · ") || null;
+  return { name: r.name, title, url: r.linkedinUrl || null };
+}
+
 function demoLeads(): AgencyLead[] {
   const vibe = AGENCY_WATCHLIST[0]!;
   const s3 = AGENCY_WATCHLIST[1]!;
   const moove = AGENCY_WATCHLIST[2]!;
   const elev = AGENCY_WATCHLIST[3]!;
+  const britt = vibe.recruiters[0];
+  const nathan = vibe.recruiters[2];
+  const quinten = vibe.recruiters[3];
+  const frederik = s3.recruiters[1];
+  const bo = moove.recruiters[0];
+  const lara = elev.recruiters[0];
   return [
     buildLead({
-      id: "demo_vibe_de",
-      demo: true,
-      agency: vibe,
-      recruiter: { name: "Lisa Hendriks", title: "Principal Recruiter", url: null },
-      title: "Data Engineer (ZZP)",
-      text:
-        "Voor een opdrachtgever zoeken we een Data Engineer. Standplaats Amsterdam Zuidas, 36 uur. Start 1 oktober, duur 6 maanden. Stack: Azure Data Factory, Databricks, Python. Het gaat om een grote Nederlandse bank op de Zuidas met een Azure-dataplatform.",
-    }),
-    buildLead({
-      id: "demo_s3_sm",
+      id: "demo_cf_booking",
       demo: true,
       agency: s3,
-      recruiter: { name: "Sanne Bakker", title: "Recruiter", url: null },
-      title: "Scrum Master SAFe",
+      recruiter: asLeadRecruiter(frederik),
+      title: "Booking — 12785 — SE2 GenAI",
       text:
-        "Interim Scrum Master voor een agile release train. Opdrachtgever is Gemeente Amsterdam. SAFe, Jira, 32-36 uur, looptijd 4 maanden. Start per direct. Standplaats Amsterdam.",
+        "GenAI Developer - Java | AWS | Kubernetes. For an international e-commerce client, we are looking for an experienced Gen AI Developer to help build and scale intelligent, cloud-native solutions used by millions of users. You will work in a modern microservices environment where Java, AWS, and Kubernetes form the backbone, and Generative AI is becoming a core part of the platform. Location: Diemen. Role type: Contract. Start: ASAP. Computer Futures.",
+      evidenceUrl: "https://www.computerfutures.com/en-nl/job/booking---12785---se2-genai/4057144/",
     }),
     buildLead({
-      id: "demo_moove_ba",
+      id: "demo_moove_hypotheken",
       demo: true,
       agency: moove,
-      recruiter: { name: "Thomas Kuipers", title: "Managing Partner", url: null },
-      title: "Business Analist schade",
+      recruiter: asLeadRecruiter(bo),
+      title: "Freelance Functioneel Tester (Hypotheken)",
       text:
-        "Business analist voor processen in schade. Gevestigd in Utrecht bij een schadeverzekeraar. BPMN, Jira, 6 maanden, 36 uur. Start half oktober. Contract / ZZP.",
+        "Momenteel voor een klant van The Next Moove op zoek naar een ervaren (functioneel) tester. Wat breng je mee? Minimaal 5 jaar ervaring als (functioneel) Tester. Ervaring met het werken in een Agile/Scrum omgeving. Ervaring met verschillende testsoorten. Ervaring met testframeworks voor het schrijven en uitvoeren van geautomatiseerde test (pre). Kennis van de hypotheeksector (harde eis). Sterke stakeholdermanagementvaardigheden. Playwright ervaring (pre). Freelance opdracht | Hypotheken. Randstad.",
+      evidenceUrl: "https://www.linkedin.com/in/boverschuren",
     }),
     buildLead({
-      id: "demo_elev_pe",
+      id: "demo_spilberg_java",
+      demo: true,
+      agency: vibe,
+      recruiter: {
+        name: "Nicky Klaver",
+        title: "Spilberg · Consultant",
+        url: null,
+      },
+      title: "Senior Software Engineer — Backend",
+      text:
+        "Are you looking for an Senior Software Engineer position at a large international company? Currently we have several open positions at our client located in Amsterdam. Position: Senior Software Engineer - Backend (8+ years of experience). Location: Amsterdam - Hybrid. Team: High Traffic environment. Startdate: As soon as possible. Hourly rate: €85-90. Technical stack: Java, Spring Boot, Docker, Kubernetes, Microservice, API integrations, Terraform, CI/CD, Kafka, Streaming platforms (Flink, Kafka Streams), AWS, JS Frameworks (React, Vue). Freelance/projects. Posted by Nicky Klaver, nklaver@spilberg.nl.",
+      evidenceUrl: "https://spilberg.com/senior-software-engineer-BBBH222439",
+    }),
+    buildLead({
+      id: "demo_tergos_cloud",
+      demo: true,
+      agency: vibe,
+      recruiter: asLeadRecruiter(quinten),
+      title: "Freelance Cloud Engineer — IAM & security",
+      text:
+        "Voor een relatie van Tergos ben ik per direct op zoek naar een freelance Cloud Engineer met affiniteit voor Identity & Access Management en security tooling. Wat ga je doen? Bouwen en beheren van security- en IAM-toolkits via Terraform (IaC). Ondersteunen van developmentteams bij integratie in CI/CD-processen. Meedenken over en implementeren van security- en architectuurrichtlijnen. Inrichten van monitoring, logging en alerting. Wie ben jij? Ervaring met Azure, Kubernetes (AKS), Terraform, CI/CD. Kennis van IAM-oplossingen zoals Keycloak. Start: z.s.m. Duur: 6 of 12 maanden. Locatie: Hybride. Uren: 40.",
+      evidenceUrl: "https://www.linkedin.com/in/quinten-vallina-89856a1a4",
+    }),
+    buildLead({
+      id: "demo_elev_food",
       demo: true,
       agency: elev,
-      recruiter: { name: "Noor El Idrissi", title: "Recruiter IT", url: null },
-      title: "Platform Engineer Kubernetes",
+      recruiter: asLeadRecruiter(lara),
+      title: "IT/OT Engineer — food",
       text:
-        "Platform Engineer met Kubernetes en Terraform. Remote NL, 40 uur, duur 3 maanden. Geen eindklant genoemd, alleen ‘grote corporate in de Randstad’. Contract.",
+        "Ben jij de verbindende schakel tussen IT, OT en productie, en wil je écht impact maken op de digitalisering van een productieomgeving? Voor een internationaal opererend familiebedrijf in de foodsector zijn wij op zoek naar een IT/OT Engineer. 32-40 uur. Vast dienstverband. Omgeving Den Bosch. Elevation Partners.",
+      evidenceUrl: "https://www.elevationpartners.nl/vacatures/",
+    }),
+    buildLead({
+      id: "demo_eswelt_sap",
+      demo: true,
+      agency: vibe,
+      recruiter: asLeadRecruiter(nathan),
+      title: "Freelance / Interim SAP NetWeaver / Basis — S/4HANA",
+      text:
+        "Für unseren Kunden aus der Industrie suchen wir einen erfahrenen Freelance/Interim SAP NetWeaver / Basis Experten. Du übernimmst fachlich und operativ die Konzeption, Administration und Optimierung der SAP Landschaft und unterstützt technische Transformationsprojekte mit klarer Roadmap, S/4HANA Conversion, Migrationen, Integrationen und Betriebsaufgaben. Hybrid-Einsatz in NRW, Start Mitte-Ende Januar. Eswelt / Vibe Group. Contact: nlassen@eswelt.nl.",
+      evidenceUrl: "https://www.linkedin.com/in/nathan-lassen-172010220",
+    }),
+    buildLead({
+      id: "demo_cf_ai_gov",
+      demo: true,
+      agency: s3,
+      recruiter: asLeadRecruiter(frederik),
+      title: "Data & AI Literacy Governance Specialist",
+      text:
+        "I'm currently working on a Data & AI Program governance specialist and trainer for an opportunity with a large international company in Amsterdam. The role focuses on Data Literacy & AI Literacy programmes, Data Governance initiatives, Training and enablement across the business, Stakeholder management in a large tech environment, Creating standards, guidelines and playbooks. ZZP / Freelance only. Location Amsterdam 2-3 times per week. Contract 40 hours weekly for initially 6 months. Start date ASAP, September 1st ok. Location listed: Diemen. Consultant: Frederik Weulen Kranenberg. Computer Futures.",
+      evidenceUrl: "https://www.computerfutures.com/en-nl/job/data--ai-literacy-governance-specialist/4064248/",
+    }),
+    buildLead({
+      id: "demo_visser_data",
+      demo: true,
+      agency: vibe,
+      recruiter: asLeadRecruiter(britt),
+      title: "Data analist",
+      text:
+        "Ben jij een ervaren Data Analist die complexe datasets weet om te zetten in waardevolle inzichten? Als Data Analist speel je een sleutelrol in het verzamelen, modelleren, analyseren en visualiseren van data. Schrijven en optimaliseren van complexe SQL-query's. Bouwen en onderhouden van datamodellen en ETL/ELT-processen. Minimaal 6 jaar ervaring. Python en/of R. Pré: dbt, Git, moderne cloud-omgeving (AWS, Azure of GCP). Hybrid, Hoofddorp. Vast dienstverband. Een uitdagende functie binnen een data-gedreven organisatie. Visser & Van Baars. Contact op de vacature: Danny Smit.",
+      evidenceUrl: "https://visservanbaars.com/nl/data-analist-BBBH228241",
     }),
   ].map(applyReview);
 }
@@ -138,8 +198,15 @@ function reviewFromRaw(raw: Record<string, unknown> | null | undefined): Review 
   return null;
 }
 
+export type WatchlistRow = {
+  id: string;
+  name: string;
+  note?: string;
+  recruiters: { name: string; title?: string; brand?: string; linkedinUrl?: string }[];
+};
+
 export async function listAgencyLeads(): Promise<{
-  watchlist: { id: string; name: string; recruiters: string[] }[];
+  watchlist: WatchlistRow[];
   live: AgencyLead[];
   demo: AgencyLead[];
 }> {
@@ -180,7 +247,13 @@ export async function listAgencyLeads(): Promise<{
     watchlist: AGENCY_WATCHLIST.map((a) => ({
       id: a.id,
       name: a.name,
-      recruiters: a.recruiters.map((r) => r.name),
+      note: a.note,
+      recruiters: a.recruiters.map((r) => ({
+        name: r.name,
+        title: r.title,
+        brand: r.brand,
+        linkedinUrl: r.linkedinUrl,
+      })),
     })),
     live,
     demo: demoLeads(),
