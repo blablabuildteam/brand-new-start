@@ -157,9 +157,6 @@ export function AppShell({
         Overig
       </p>
       <nav className="mt-2 flex flex-col gap-0.5">
-        <Link href="/" onClick={() => setOpen(false)} className={navClass(false)}>
-          Home
-        </Link>
         <Link
           href="/instellingen"
           onClick={() => setOpen(false)}

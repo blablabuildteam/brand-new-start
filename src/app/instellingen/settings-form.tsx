@@ -34,7 +34,7 @@ function Section({
   children: ReactNode;
 }) {
   return (
-    <section className="ws-panel px-4 py-4 sm:px-5">
+    <section className="ws-panel h-full px-4 py-4 sm:px-5">
       <h2 className="text-base font-semibold text-[var(--ink)]">{title}</h2>
       <p className="mt-1 text-[0.8rem] leading-relaxed text-[var(--muted)]">{hint}</p>
       <div className="mt-4 space-y-4">{children}</div>
@@ -290,16 +290,19 @@ export default function SettingsForm() {
 
   return (
     <AppShell current="instellingen" title="Instellingen" subtitle="Wat je zoekt en wie je volgt">
-      <main className="mx-auto w-full max-w-[720px] flex-1 px-4 py-6 sm:px-6 md:px-7 md:py-8">
-        <p className="text-sm leading-relaxed text-[var(--muted)]">
-          Stuur de desk met functies, soort opdracht, en de bureaus/recruiters die je volgt.
-          Eindklanten komen vanzelf uit de radar — die vink je niet handmatig aan.
-        </p>
+      <main className="mx-auto w-full max-w-[1400px] flex-1 px-4 py-5 sm:px-6 md:px-8 md:py-7">
+        <div className="mb-5 max-w-3xl">
+          <p className="text-sm leading-relaxed text-[var(--muted)]">
+            Stuur de desk met functies, soort opdracht, en de bureaus/recruiters die je volgt.
+            Eindklanten komen vanzelf uit de radar — die vink je niet handmatig aan.
+          </p>
+        </div>
 
         {!hunt ? (
-          <p className="mt-8 text-sm text-[var(--muted)]">Laden…</p>
+          <p className="text-sm text-[var(--muted)]">Laden…</p>
         ) : (
-          <form onSubmit={onSubmit} className="mt-6 space-y-4 pb-8">
+          <form onSubmit={onSubmit} className="pb-8">
+            <div className="grid gap-4 lg:grid-cols-2">
             <Section title="Werkruimte" hint="Naam en regio van deze desk.">
               <label className="block text-sm font-medium">
                 Desknaam
@@ -385,7 +388,9 @@ export default function SettingsForm() {
                 Standaardfuncties terugzetten
               </button>
             </Section>
+            </div>
 
+            <div className="mt-4">
             <Section
               title="Bureaus & recruiters"
               hint="Zoek in je lijst, haal recruiters op bij een bureau, en vink aan wie je volgt."
@@ -452,7 +457,7 @@ export default function SettingsForm() {
               </div>
 
               {!q ? (
-              <div className="space-y-3">
+              <div className="grid gap-3 xl:grid-cols-2">
                 {visibleAgencies.map((a) => {
                   const shownRecruiters = q
                     ? a.recruiters.filter((r) => matchesQuery(q, r.name, r.title, r.brand, a.name))
@@ -620,15 +625,16 @@ export default function SettingsForm() {
               </div>
               ) : null}
             </Section>
+            </div>
 
-            {error ? <p className="text-sm text-[var(--warn)]">{error}</p> : null}
+            {error ? <p className="mt-4 text-sm text-[var(--warn)]">{error}</p> : null}
             {saved ? (
-              <p className="text-sm text-[var(--green)]">
+              <p className="mt-2 text-sm text-[var(--green)]">
                 Opgeslagen. Bureaus volgt wie je hier aanzet.
               </p>
             ) : null}
 
-            <div className="sticky bottom-[var(--mobile-nav-pad)] z-10 -mx-4 border-t border-[var(--line)] bg-[var(--bg)]/95 px-4 py-3 backdrop-blur md:static md:bottom-auto md:mx-0 md:border-0 md:bg-transparent md:px-0 md:py-0 md:backdrop-blur-none">
+            <div className="sticky bottom-[var(--mobile-nav-pad)] z-10 -mx-4 mt-4 border-t border-[var(--line)] bg-[var(--bg)]/95 px-4 py-3 backdrop-blur md:static md:bottom-auto md:mx-0 md:border-0 md:bg-transparent md:px-0 md:py-0 md:backdrop-blur-none">
               <button type="submit" disabled={busy} className="btn-ink btn-tool w-full disabled:opacity-50 sm:w-auto">
                 {busy ? "Opslaan…" : "Instellingen opslaan"}
               </button>

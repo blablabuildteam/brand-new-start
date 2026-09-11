@@ -1160,6 +1160,32 @@ export default function RadarApp() {
   return (
     <AppShell current="radar" title="Radar" subtitle="Directe opdrachten bij eindklanten" fill toolbar={syncToolbar}>
       <main className="ws-shell radar-shell !gap-3">
+        <section
+          className={`shrink-0 rounded-[var(--radius)] border border-[var(--accent)]/20 bg-[var(--accent-soft)]/35 px-3.5 py-3 ${
+            mobilePane === "detail" ? "max-lg:hidden" : ""
+          }`}
+        >
+          <p className="text-sm font-semibold text-[var(--ink)]">Wat doe je hier?</p>
+          <p className="mt-1 text-[0.8rem] leading-relaxed text-[var(--muted)]">
+            De Radar toont <strong className="font-semibold text-[var(--ink)]">directe vacatures bij eindklanten</strong>{" "}
+            (LinkedIn, Indeed, Freelance.nl). Geen bureau-tussenstap — hier werk je meteen naar de hiring manager.
+          </p>
+          <ul className="mt-2.5 flex flex-wrap gap-x-4 gap-y-1 text-[0.75rem] text-[var(--muted)]">
+            <li>
+              <span className="font-semibold text-[var(--ink)]">1.</span> Sync (admin) haalt verse hits
+            </li>
+            <li>
+              <span className="font-semibold text-[var(--ink)]">2.</span> Kies een bedrijf in de lijst
+            </li>
+            <li>
+              <span className="font-semibold text-[var(--ink)]">3.</span> Open een opening → zoek manager
+            </li>
+            <li>
+              <span className="font-semibold text-[var(--ink)]">4.</span> Ga naar Voorstel met score &amp; aanpak
+            </li>
+          </ul>
+        </section>
+
         {!live && sync?.last ? (
           <section className={`ws-panel mb-0 shrink-0 ${mobilePane === "detail" ? "max-lg:hidden" : ""}`}>
             <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1.5 border-b border-[var(--line)]/80 px-3.5 py-2">

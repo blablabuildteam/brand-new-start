@@ -26,6 +26,14 @@ function freshClass(f: CrmOpportunity["freshness"]) {
   return "border-[var(--line)] bg-[var(--surface-2)] text-[var(--muted)]";
 }
 
+function sourceLine(row: CrmOpportunity) {
+  if (row.lane === "bureau") {
+    const bits = [row.agencyName, row.recruiterName].filter(Boolean);
+    return bits.length ? bits.join(" · ") : "Bureau";
+  }
+  return row.sources.length ? row.sources.join(" · ") : "Direct";
+}
+
 export default function KansenDesk() {
   const [items, setItems] = useState<CrmOpportunity[]>([]);
   const [counts, setCounts] = useState({ all: 0, bureau: 0, direct: 0, withHm: 0 });
@@ -52,7 +60,6 @@ export default function KansenDesk() {
         if (!j) return;
         setItems(j.items);
         setCounts(j.counts);
-        setSel(j.items[0]?.id || null);
       })
       .catch((e: unknown) => setError(e instanceof Error ? e.message : "fout"))
       .finally(() => setLoading(false));
@@ -63,15 +70,12 @@ export default function KansenDesk() {
     return items.filter((i) => i.lane === filter);
   }, [items, filter]);
 
-  const active = filtered.find((i) => i.id === sel) || filtered[0] || null;
+  const active = sel ? filtered.find((i) => i.id === sel) || null : null;
 
   useEffect(() => {
-    if (!filtered.length) {
+    if (sel && !filtered.some((i) => i.id === sel)) {
       setSel(null);
-      return;
-    }
-    if (!filtered.some((i) => i.id === sel)) {
-      setSel(filtered[0].id);
+      setMobilePane("list");
     }
   }, [filtered, sel]);
 
@@ -84,6 +88,7 @@ export default function KansenDesk() {
 
   function setFilterSafe(next: Filter) {
     setFilter(next);
+    setSel(null);
     setMobilePane("list");
   }
 
@@ -94,8 +99,16 @@ export default function KansenDesk() {
   ];
 
   return (
-    <AppShell current="kansen" title="Kansen" subtitle="Pipeline · bevestigd & actueel" fill>
-      <div className="ws-shell !gap-3">
+    <AppShell current="kansen" title="Kansen" subtitle="CRM-pipeline · bevestigd & actueel" fill>
+      <div className="ws-shell !max-w-none !gap-3">
+        <section className="shrink-0 rounded-[var(--radius)] border border-[var(--line)] bg-[var(--surface)] px-3.5 py-3">
+          <p className="text-sm font-semibold text-[var(--ink)]">Pipeline</p>
+          <p className="mt-1 text-[0.8rem] leading-relaxed text-[var(--muted)]">
+            Alle serieuze kansen op één rij: bevestigde bureau-leads en warme/sterke radar-hits. Klik een
+            regel voor detail, hiring manager en voorstel.
+          </p>
+        </section>
+
         <div className="flex shrink-0 gap-2 overflow-x-auto pb-0.5">
           {filters.map((f) => (
             <button
@@ -122,7 +135,11 @@ export default function KansenDesk() {
           </p>
         </div>
 
-        <div className="flex min-h-0 flex-1 flex-col gap-3 lg:grid lg:grid-cols-[minmax(0,1.05fr)_minmax(260px,0.95fr)] lg:gap-4">
+        <div
+          className={`flex min-h-0 flex-1 flex-col gap-3 ${
+            active ? "lg:grid lg:grid-cols-[minmax(0,1.35fr)_minmax(280px,0.85fr)] lg:gap-4" : ""
+          }`}
+        >
           <section
             className={`radar-scroll-pane min-h-0 flex-1 ${
               mobilePane === "detail" ? "max-lg:hidden" : ""
@@ -134,77 +151,179 @@ export default function KansenDesk() {
                 {filtered.length}
               </p>
             </div>
-            <div className="radar-scroll-pane__body !px-1.5">
-              {error ? <p className="px-2 py-2 text-sm text-[var(--warn)]">{error}</p> : null}
-              {loading ? <p className="px-2 py-2 text-sm text-[var(--muted)]">Laden…</p> : null}
+            <div className="radar-scroll-pane__body !p-0">
+              {error ? <p className="px-3 py-3 text-sm text-[var(--warn)]">{error}</p> : null}
+              {loading ? <p className="px-3 py-3 text-sm text-[var(--muted)]">Laden…</p> : null}
               {!loading && !filtered.length ? (
-                <p className="ws-empty m-2">
+                <p className="ws-empty m-3">
                   Nog geen kansen hier. Bevestig een eindklant op Bureaus, of wacht op warme radar-hits.
                 </p>
               ) : null}
-              <ul className="space-y-1">
-                {filtered.map((row) => {
-                  const on = active?.id === row.id;
-                  return (
-                    <li key={row.id}>
-                      <button
-                        type="button"
-                        onClick={() => pick(row.id)}
-                        aria-current={on ? "true" : undefined}
-                        className={`flex w-full min-h-12 items-start gap-2.5 rounded-md border px-2.5 py-2.5 text-left transition touch-manipulation ${
-                          on
-                            ? "border-[var(--accent)] bg-[var(--accent-soft)]/50 shadow-[inset_3px_0_0_0_var(--accent)]"
-                            : "border-transparent hover:border-[var(--line)] hover:bg-[var(--surface-2)]"
-                        }`}
-                      >
-                        <span className="min-w-0 flex-1">
-                          <span className="flex flex-wrap items-center gap-1.5">
-                            <span className="truncate text-[0.88rem] font-semibold text-[var(--ink)]">
-                              {row.endClient}
-                            </span>
-                            <span className="ws-badge">{row.lane === "bureau" ? "Bureau" : "Direct"}</span>
-                          </span>
-                          <span className="mt-0.5 block truncate text-[0.75rem] text-[var(--muted)]">
-                            {row.roleLabel}
-                            {row.agencyName ? ` · ${row.agencyName}` : ""}
-                          </span>
-                          <span className="mt-1 flex flex-wrap gap-x-2 text-[0.68rem] text-[var(--muted)]">
-                            <span>{row.freshnessLabel}</span>
-                            <span>·</span>
-                            <span>gevonden {formatDay(row.foundAt)}</span>
-                          </span>
-                        </span>
-                        {row.kans != null ? (
-                          <span
-                            className="shrink-0 tabular-nums text-[0.75rem] font-semibold text-[var(--ink)]"
-                            style={{ fontFamily: "var(--mono)" }}
+
+              {!loading && filtered.length ? (
+                <>
+                  {/* Mobile list cards */}
+                  <ul className="divide-y divide-[var(--line)]/80 lg:hidden">
+                    {filtered.map((row) => {
+                      const on = active?.id === row.id;
+                      return (
+                        <li key={row.id}>
+                          <button
+                            type="button"
+                            onClick={() => pick(row.id)}
+                            aria-current={on ? "true" : undefined}
+                            className={`flex w-full min-h-12 items-start gap-3 px-3 py-3 text-left touch-manipulation ${
+                              on ? "bg-[var(--accent-soft)]/60" : "hover:bg-[var(--surface-2)]"
+                            }`}
                           >
-                            {row.kans}
-                          </span>
-                        ) : (
-                          <span className="shrink-0 text-[0.65rem] text-[var(--muted)]">—</span>
-                        )}
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
+                            <span className="min-w-0 flex-1">
+                              <span className="flex flex-wrap items-center gap-1.5">
+                                <span className="truncate text-[0.9rem] font-semibold text-[var(--ink)]">
+                                  {row.endClient}
+                                </span>
+                                <span className="ws-badge">
+                                  {row.lane === "bureau" ? "Bureau" : "Direct"}
+                                </span>
+                              </span>
+                              <span className="mt-0.5 block truncate text-[0.75rem] text-[var(--muted)]">
+                                {row.roleLabel}
+                              </span>
+                              <span className="mt-1 block truncate text-[0.7rem] text-[var(--muted)]">
+                                {sourceLine(row)}
+                                {" · "}
+                                {row.hiringManager || "geen manager"}
+                              </span>
+                            </span>
+                            {row.kans != null ? <ScoreChip kans={row.kans} /> : (
+                              <span className="shrink-0 text-[0.65rem] text-[var(--muted)]">—</span>
+                            )}
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+
+                  {/* Desktop CRM table */}
+                  <div className="hidden overflow-x-auto lg:block">
+                    <table className="w-full min-w-[780px] border-collapse text-left text-sm">
+                      <thead className="sticky top-0 z-[1] bg-[var(--surface)]">
+                        <tr className="border-b border-[var(--line)] text-[0.65rem] uppercase tracking-[0.06em] text-[var(--muted)]">
+                          <th className="px-3 py-2.5 font-semibold">Eindklant</th>
+                          <th className="px-3 py-2.5 font-semibold">Rol</th>
+                          <th className="px-3 py-2.5 font-semibold">Bron</th>
+                          <th className="px-3 py-2.5 font-semibold">Hiring manager</th>
+                          <th className="px-3 py-2.5 font-semibold">Versheid</th>
+                          <th className="px-3 py-2.5 text-right font-semibold">Kans</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filtered.map((row) => {
+                          const on = active?.id === row.id;
+                          return (
+                            <tr
+                              key={row.id}
+                              tabIndex={0}
+                              role="button"
+                              aria-current={on ? "true" : undefined}
+                              onClick={() => pick(row.id)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter" || e.key === " ") {
+                                  e.preventDefault();
+                                  pick(row.id);
+                                }
+                              }}
+                              className={`cursor-pointer border-b border-[var(--line)]/70 transition ${
+                                on
+                                  ? "bg-[var(--accent-soft)]/55 shadow-[inset_3px_0_0_0_var(--accent)]"
+                                  : "hover:bg-[var(--surface-2)]"
+                              }`}
+                            >
+                              <td className="px-3 py-3 align-top">
+                                <span className="block font-semibold text-[var(--ink)]">{row.endClient}</span>
+                                <span className="mt-1 inline-flex">
+                                  <span className="ws-badge">
+                                    {row.lane === "bureau" ? "Bureau" : "Direct"}
+                                  </span>
+                                </span>
+                              </td>
+                              <td className="max-w-[12rem] px-3 py-3 align-top text-[var(--muted)]">
+                                <span className="line-clamp-2">{row.roleLabel}</span>
+                              </td>
+                              <td className="max-w-[14rem] px-3 py-3 align-top text-[var(--muted)]">
+                                <span className="line-clamp-2">{sourceLine(row)}</span>
+                              </td>
+                              <td className="max-w-[12rem] px-3 py-3 align-top">
+                                {row.hiringManager ? (
+                                  <>
+                                    <span className="block font-medium text-[var(--ink)]">
+                                      {row.hiringManager}
+                                    </span>
+                                    {row.hiringManagerTitle ? (
+                                      <span className="mt-0.5 block truncate text-[0.72rem] text-[var(--muted)]">
+                                        {row.hiringManagerTitle}
+                                      </span>
+                                    ) : null}
+                                  </>
+                                ) : (
+                                  <span className="text-[var(--muted)]">Nog niet gevonden</span>
+                                )}
+                              </td>
+                              <td className="px-3 py-3 align-top">
+                                <span
+                                  className={`inline-flex rounded-[calc(var(--radius)-2px)] border px-2 py-0.5 text-[0.65rem] font-semibold ${freshClass(row.freshness)}`}
+                                >
+                                  {row.freshnessLabel}
+                                </span>
+                                <span className="mt-1 block text-[0.68rem] text-[var(--muted)]">
+                                  {formatDay(row.foundAt)}
+                                </span>
+                              </td>
+                              <td className="px-3 py-3 text-right align-top">
+                                {row.kans != null ? (
+                                  <span className="inline-flex flex-col items-end gap-0.5">
+                                    <ScoreChip kans={row.kans} />
+                                    <span className="text-[0.65rem] text-[var(--muted)]">
+                                      {SCORE_BAND[scoreTone(row.kans)]}
+                                    </span>
+                                  </span>
+                                ) : (
+                                  <span className="text-[var(--muted)]">—</span>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              ) : null}
             </div>
           </section>
 
-          <aside
-            className={`ws-panel min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 ${
-              mobilePane === "list" ? "max-lg:hidden" : ""
-            }`}
-          >
-            {active ? (
+          {active ? (
+            <aside
+              className={`ws-panel min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 ${
+                mobilePane === "list" ? "max-lg:hidden" : ""
+              }`}
+            >
               <div className="animate-fade-in pb-8 lg:pb-4">
                 <button
                   type="button"
                   className="btn-ghost btn-tool mb-3 min-h-11 touch-manipulation lg:hidden"
-                  onClick={() => setMobilePane("list")}
+                  onClick={() => {
+                    setMobilePane("list");
+                    setSel(null);
+                  }}
                 >
                   ← Overzicht
+                </button>
+                <button
+                  type="button"
+                  className="btn-ghost btn-tool mb-3 hidden lg:inline-flex"
+                  onClick={() => setSel(null)}
+                >
+                  Sluiten
                 </button>
 
                 <p className="ws-label">{active.lane === "bureau" ? "Bevestigde kans" : "Directe kans"}</p>
@@ -240,11 +359,15 @@ export default function KansenDesk() {
                     <dd className="mt-1 font-medium text-[var(--ink)]">{active.roleLabel}</dd>
                   </div>
                   <div>
-                    <dt className="ws-label">Bronnen</dt>
-                    <dd className="mt-1 text-[var(--muted)]">
-                      {active.sources.length ? active.sources.join(" · ") : "—"}
-                    </dd>
+                    <dt className="ws-label">Bron</dt>
+                    <dd className="mt-1 text-[var(--muted)]">{sourceLine(active)}</dd>
                   </div>
+                  {active.sources.length ? (
+                    <div>
+                      <dt className="ws-label">Signalen</dt>
+                      <dd className="mt-1 text-[var(--muted)]">{active.sources.join(" · ")}</dd>
+                    </div>
+                  ) : null}
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <dt className="ws-label">Gevonden</dt>
@@ -259,15 +382,6 @@ export default function KansenDesk() {
                     <div>
                       <dt className="ws-label">Bevestigd</dt>
                       <dd className="mt-1 text-[var(--ink)]">{formatDay(active.confirmedAt)}</dd>
-                    </div>
-                  ) : null}
-                  {active.agencyName ? (
-                    <div>
-                      <dt className="ws-label">Bureau</dt>
-                      <dd className="mt-1 text-[var(--ink)]">
-                        {active.agencyName}
-                        {active.recruiterName ? ` · ${active.recruiterName}` : ""}
-                      </dd>
                     </div>
                   ) : null}
                   <div>
@@ -306,19 +420,14 @@ export default function KansenDesk() {
                     </a>
                   ) : null}
                   {active.companyId && !active.hiringManager ? (
-                    <Link
-                      href={`/radar`}
-                      className="btn-ghost btn-tool no-underline"
-                    >
+                    <Link href="/radar" className="btn-ghost btn-tool no-underline">
                       Zoek manager op Radar
                     </Link>
                   ) : null}
                 </div>
               </div>
-            ) : (
-              <p className="text-sm text-[var(--muted)]">Selecteer een kans.</p>
-            )}
-          </aside>
+            </aside>
+          ) : null}
         </div>
       </div>
     </AppShell>
