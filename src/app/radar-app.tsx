@@ -1175,7 +1175,7 @@ export default function RadarApp() {
                       error?: string;
                     };
                     if (!res.ok) {
-                      window.alert(j.error || "AI-extract mislukt (check OPENAI_API_KEY)");
+                      window.alert(j.error || "AI-extract mislukt (check ANTHROPIC_API_KEY)");
                       return;
                     }
                     window.alert(`AI-extract klaar: ${j.extracted ?? 0} vacatures verrijkt`);

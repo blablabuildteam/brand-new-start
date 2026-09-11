@@ -20,18 +20,18 @@
 2. API key → `LUSHA_API_KEY=...` (lokaal + Vercel)  
 3. Alleen ná “Zoek 3 namen”: knop **Mail/tel** op de radar. Geen bulk, geen Apollo.  
 
-### 3b. OpenAI — **eindklant uit bureau-tekst**
-1. API key: https://platform.openai.com/api-keys  
-2. `OPENAI_API_KEY=...` in `.env.local` én Vercel  
-3. Optioneel `OPENAI_MODEL=gpt-4o-mini` (default)  
-4. Op **Bureaus**: knop **AI eindklant** — on-demand, met bewijs. Jij bevestigt nog steeds vóór HM.  
+### 3b. Anthropic — **eindklant + vacature-extract (kwaliteit)**
+1. API key: https://console.anthropic.com/settings/keys  
+2. `ANTHROPIC_API_KEY=...` in `.env.local` én Vercel (Production + Preview)  
+3. Optioneel `ANTHROPIC_MODEL=claude-sonnet-4-5` (default; of `claude-sonnet-4-6` / `claude-opus-4-6`)  
+4. Op **Bureaus**: knop **AI eindklant**. Op Radar (admin): **AI-extract**. Jij bevestigt nog steeds vóór HM.  
 
 ### 4. TenderNed — **gratis, apart**
 1. Mail `functioneelbeheer@tenderned.nl` voor API user/pass  
 2. `TENDERNED_USER` / `TENDERNED_PASS`  
 
 ### 5. Vercel (als je deployt)
-- Project env: `RECRUITER_PASSWORD`, `ADMIN_PASSWORD`, `AUTH_SECRET`, `APIFY_TOKEN`, `LUSHA_API_KEY`, `OPENAI_API_KEY`, later Firecrawl + TenderNed  
+- Project env: `RECRUITER_PASSWORD`, `ADMIN_PASSWORD`, `AUTH_SECRET`, `APIFY_TOKEN`, `LUSHA_API_KEY`, `ANTHROPIC_API_KEY`, later Firecrawl + TenderNed  
   - `admin@blablabuild.com` → admin (sync + samenwerking)  
   - `recruiter@brandnewstart.nl` → recruiter (radar alleen)  
 - Cron in `vercel.json` staat uit — syncs alleen handmatig via Sync & meer (admin)  

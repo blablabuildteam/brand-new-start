@@ -17,7 +17,7 @@ export async function POST(req: Request) {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   if (!hasOpenAiKey()) {
-    return NextResponse.json({ error: "OPENAI_API_KEY ontbreekt", detail: "no-openai-key" }, { status: 503 });
+    return NextResponse.json({ error: "ANTHROPIC_API_KEY ontbreekt", detail: "no-anthropic-key" }, { status: 503 });
   }
 
   const parsed = Body.safeParse(await req.json().catch(() => ({})));
@@ -74,7 +74,7 @@ export async function PUT(req: Request) {
   if (!session) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   if (session.role !== "admin") return NextResponse.json({ error: "admin only" }, { status: 403 });
   if (!hasOpenAiKey()) {
-    return NextResponse.json({ error: "OPENAI_API_KEY ontbreekt" }, { status: 503 });
+    return NextResponse.json({ error: "ANTHROPIC_API_KEY ontbreekt" }, { status: 503 });
   }
 
   const limit = Math.min(8, Number(new URL(req.url).searchParams.get("limit") || 5));

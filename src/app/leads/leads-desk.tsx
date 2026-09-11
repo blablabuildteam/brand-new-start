@@ -240,7 +240,7 @@ export default function LeadsDesk() {
         detail?: string;
       };
       if (res.status === 503) {
-        setError("OPENAI_API_KEY ontbreekt in Vercel / .env.local");
+        setError("ANTHROPIC_API_KEY ontbreekt in Vercel / .env.local");
         return;
       }
       if (!res.ok) {

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { hasOpenAiKey } from "@/lib/ai-end-client";
+import { aiJsonCompletion, hasAiKey, hasOpenAiKey } from "@/lib/ai-client";
 
 export type VacancyExtract = {
   endClientHint: string | null;
@@ -33,29 +33,24 @@ const ExtractPayload = z.object({
   confidence: z.number().min(0).max(100).optional(),
 });
 
-function openaiKey() {
-  return process.env.OPENAI_API_KEY?.trim() || "";
-}
-
-export { hasOpenAiKey };
+export { hasAiKey, hasOpenAiKey };
 
 /**
- * Structured vacancy parse for scouting / scoring.
- * Cheap model; no PII hunting — only role facts from the posting text.
+ * Structured vacancy parse via Claude Sonnet — quality over speed.
  */
 export async function aiExtractVacancy(opts: {
   title: string;
   text: string;
   companyHint?: string | null;
 }): Promise<{ extract: VacancyExtract | null; model: string; detail: string }> {
-  const key = openaiKey();
-  if (!key) return { extract: null, model: "", detail: "OPENAI_API_KEY ontbreekt" };
+  if (!hasAiKey()) {
+    return { extract: null, model: "", detail: "ANTHROPIC_API_KEY ontbreekt" };
+  }
 
-  const model = process.env.OPENAI_MODEL?.trim() || "gpt-4o-mini";
   const blob = `${opts.title}\n\n${opts.text}`.slice(0, 7000);
 
   const system = `Je structureert NL IT-contracting vacatures voor recruiters.
-Geef ALLEEN JSON met keys: endClientHint, role, stack, mustHaves, location, start, duration, hours, rateHint, employment, summary, confidence.
+JSON keys: endClientHint, role, stack, mustHaves, location, start, duration, hours, rateHint, employment, summary, confidence.
 Regels:
 - endClientHint = organisatie waar de professional werkt (niet het bureau), of null.
 - employment: contract|interim|zzp|unknown.
@@ -71,41 +66,21 @@ Vacature:
 ${blob}
 """`;
 
-  const res = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${key}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model,
-      temperature: 0.1,
-      response_format: { type: "json_object" },
-      messages: [
-        { role: "system", content: system },
-        { role: "user", content: user },
-      ],
-    }),
+  const result = await aiJsonCompletion({
+    system,
+    user,
+    temperature: 0.1,
+    maxTokens: 1200,
   });
 
-  if (!res.ok) {
-    const err = await res.text().catch(() => "");
-    return { extract: null, model, detail: `OpenAI ${res.status}: ${err.slice(0, 160)}` };
+  if (!result.json) {
+    return { extract: null, model: result.model, detail: result.detail };
   }
 
-  const data = (await res.json()) as { choices?: { message?: { content?: string } }[] };
-  const raw = data.choices?.[0]?.message?.content;
-  if (!raw) return { extract: null, model, detail: "lege AI-respons" };
-
-  let parsedJson: unknown;
-  try {
-    parsedJson = JSON.parse(raw);
-  } catch {
-    return { extract: null, model, detail: "ongeldige JSON" };
+  const parsed = ExtractPayload.safeParse(result.json);
+  if (!parsed.success) {
+    return { extract: null, model: result.model, detail: "AI-schema klopt niet" };
   }
-
-  const parsed = ExtractPayload.safeParse(parsedJson);
-  if (!parsed.success) return { extract: null, model, detail: "AI-schema klopt niet" };
 
   const p = parsed.data;
   const extract: VacancyExtract = {
@@ -122,8 +97,8 @@ ${blob}
     summary: p.summary?.trim().slice(0, 220) || null,
     confidence: Math.round(p.confidence ?? 50),
     at: new Date().toISOString(),
-    model,
+    model: result.model,
   };
 
-  return { extract, model, detail: `extract · ${model}` };
+  return { extract, model: result.model, detail: `extract · ${result.model}` };
 }

@@ -17,8 +17,8 @@ export async function POST(req: Request) {
   if (!hasOpenAiKey()) {
     return NextResponse.json(
       {
-        error: "OPENAI_API_KEY ontbreekt",
-        detail: "no-openai-key",
+        error: "ANTHROPIC_API_KEY ontbreekt",
+        detail: "no-anthropic-key",
       },
       { status: 503 }
     );

@@ -2,6 +2,9 @@ import { z } from "zod";
 import { isAgencyName } from "@/lib/agency";
 import type { ClientGuess, Evidence } from "@/lib/end-client";
 import { leadStatusFromGuess } from "@/lib/end-client";
+import { aiJsonCompletion, hasAiKey, hasOpenAiKey } from "@/lib/ai-client";
+
+export { hasAiKey, hasOpenAiKey };
 
 const AiPayload = z.object({
   name: z.string().nullable(),
@@ -26,20 +29,12 @@ const AiPayload = z.object({
   unknown: z.boolean().optional(),
 });
 
-export function hasOpenAiKey() {
-  return Boolean(process.env.OPENAI_API_KEY?.trim());
-}
-
-function openaiKey() {
-  return process.env.OPENAI_API_KEY?.trim() || "";
-}
-
 function cleanName(name: string) {
   return name.replace(/\s+/g, " ").trim().slice(0, 80);
 }
 
 /**
- * On-demand eindklant-hypothese via OpenAI.
+ * On-demand eindklant-hypothese via Claude Sonnet.
  * Geen hiring managers, geen telefoons — alleen organisatie + bewijs.
  */
 export async function aiGuessEndClient(opts: {
@@ -47,12 +42,10 @@ export async function aiGuessEndClient(opts: {
   text: string;
   agencyName: string;
 }): Promise<{ guess: ClientGuess | null; model: string; detail: string }> {
-  const key = openaiKey();
-  if (!key) {
-    return { guess: null, model: "", detail: "OPENAI_API_KEY ontbreekt" };
+  if (!hasAiKey()) {
+    return { guess: null, model: "", detail: "ANTHROPIC_API_KEY ontbreekt" };
   }
 
-  const model = process.env.OPENAI_MODEL?.trim() || "gpt-4o-mini";
   const blob = `${opts.title}\n\n${opts.text}`.slice(0, 6000);
 
   const system = `Je helpt Nederlandse IT-contracting recruiters.
@@ -64,7 +57,7 @@ Regels:
 - Als de tekst te vaag is: name=null, confidence laag, unknown=true.
 - evidence.label = korte NL-reden. quote = letterlijk fragment uit de tekst als dat kan.
 - confidence 0–100: 80+ alleen bij sterke match (naam genoemd of unieke combi).
-Antwoord ALLEEN als JSON object met keys: name, confidence, evidence, alternatives, unknown.`;
+JSON keys: name, confidence, evidence, alternatives, unknown.`;
 
   const user = `Bureau/poster: ${opts.agencyName}
 
@@ -73,58 +66,30 @@ Vacature:
 ${blob}
 """`;
 
-  const res = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${key}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model,
-      temperature: 0.2,
-      response_format: { type: "json_object" },
-      messages: [
-        { role: "system", content: system },
-        { role: "user", content: user },
-      ],
-    }),
+  const result = await aiJsonCompletion({
+    system,
+    user,
+    temperature: 0.15,
+    maxTokens: 1000,
   });
 
-  if (!res.ok) {
-    const err = await res.text().catch(() => "");
-    return {
-      guess: null,
-      model,
-      detail: `OpenAI ${res.status}: ${err.slice(0, 160)}`,
-    };
+  if (!result.json) {
+    return { guess: null, model: result.model, detail: result.detail };
   }
 
-  const data = (await res.json()) as {
-    choices?: { message?: { content?: string } }[];
-  };
-  const raw = data.choices?.[0]?.message?.content;
-  if (!raw) return { guess: null, model, detail: "lege AI-respons" };
-
-  let parsedJson: unknown;
-  try {
-    parsedJson = JSON.parse(raw);
-  } catch {
-    return { guess: null, model, detail: "ongeldige JSON van AI" };
-  }
-
-  const parsed = AiPayload.safeParse(parsedJson);
+  const parsed = AiPayload.safeParse(result.json);
   if (!parsed.success) {
-    return { guess: null, model, detail: "AI-schema klopt niet" };
+    return { guess: null, model: result.model, detail: "AI-schema klopt niet" };
   }
 
   const p = parsed.data;
   if (p.unknown || !p.name || p.confidence < 20) {
-    return { guess: null, model, detail: "AI: te weinig zekerheid" };
+    return { guess: null, model: result.model, detail: "AI: te weinig zekerheid" };
   }
 
   const name = cleanName(p.name);
   if (name.length < 2 || isAgencyName(name)) {
-    return { guess: null, model, detail: "AI gaf agency of lege naam" };
+    return { guess: null, model: result.model, detail: "AI gaf agency of lege naam" };
   }
 
   const evidence: Evidence[] = p.evidence
@@ -153,8 +118,7 @@ ${blob}
       .map((a) => ({ name: cleanName(a.name), confidence: Math.round(a.confidence) })),
   };
 
-  // Status-band consistent houden met rule engine
   void leadStatusFromGuess(guess);
 
-  return { guess, model, detail: `AI · ${model}` };
+  return { guess, model: result.model, detail: result.detail };
 }
