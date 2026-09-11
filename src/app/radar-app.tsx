@@ -591,25 +591,43 @@ export default function RadarApp() {
   const listScrollRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  async function load(opts?: { keepActive?: boolean }) {
-    setLoading(true);
-    const res = await fetch("/api/radar");
-    if (res.status === 401) {
-      router.replace("/login?next=/radar");
-      return null;
+  async function load(opts?: { keepActive?: boolean; fresh?: boolean }) {
+    if (!opts?.keepActive) setLoading(true);
+    try {
+      const { cachedJson, cacheSet, cacheClear } = await import("@/lib/client-cache");
+      if (opts?.fresh) cacheClear("radar");
+      const data = await cachedJson<{
+        radar: RadarRow[];
+        stats: typeof stats;
+        user?: { email: string; role?: string };
+        sync: SyncInfo;
+      }>("radar", "/api/radar", { ttlMs: opts?.fresh ? 0 : 45_000 });
+      setRadar(data.radar);
+      setStats(data.stats);
+      if (data.user?.email) {
+        setUser({
+          email: data.user.email,
+          role: data.user.role === "admin" ? "admin" : "recruiter",
+        });
+      }
+      setSync(data.sync);
+      setActiveId((prev) => {
+        if (opts?.keepActive && prev && data.radar.some((r) => r.id === prev)) return prev;
+        const still = data.radar.some((r) => r.id === prev);
+        return still ? prev : data.radar[0]?.id || null;
+      });
+      cacheSet("radar", data);
+      return data;
+    } catch (e) {
+      const status = (e as { status?: number }).status;
+      if (status === 401) {
+        router.replace("/login?next=/radar");
+        return null;
+      }
+      throw e;
+    } finally {
+      setLoading(false);
     }
-    const data = await res.json();
-    setRadar(data.radar);
-    setStats(data.stats);
-    if (data.user) setUser(data.user);
-    setSync(data.sync);
-    setActiveId((prev) => {
-      if (opts?.keepActive && prev && data.radar.some((r: RadarRow) => r.id === prev)) return prev;
-      const still = data.radar.some((r: RadarRow) => r.id === prev);
-      return still ? prev : data.radar[0]?.id || null;
-    });
-    setLoading(false);
-    return data as { sync: SyncInfo; radar: RadarRow[] };
   }
 
   useEffect(() => {
@@ -933,7 +951,7 @@ export default function RadarApp() {
             : prev
         );
         setFreshSince(startedAt);
-        await load({ keepActive: true });
+        await load({ keepActive: true, fresh: true });
       } catch (e) {
         setLive((prev) =>
           prev
@@ -995,7 +1013,7 @@ export default function RadarApp() {
         runs: runInfos,
       });
       setFreshSince(startedAt);
-      await load({ keepActive: true });
+      await load({ keepActive: true, fresh: true });
     } catch (e) {
       setLive((prev) => ({
         phase: "error",
@@ -1161,23 +1179,23 @@ export default function RadarApp() {
     <AppShell current="radar" title="Radar" subtitle="Directe opdrachten bij eindklanten" fill toolbar={syncToolbar}>
       <main className="ws-shell radar-shell">
         <section className={`ws-intro ${mobilePane === "detail" ? "max-lg:hidden" : ""}`}>
-          <p className="ws-intro__title">Wat doe je hier?</p>
+          <p className="ws-intro__title">Wat is de Radar?</p>
           <p className="ws-intro__text">
-            De Radar toont <strong>directe vacatures bij eindklanten</strong> (LinkedIn, Indeed,
-            Freelance.nl). Geen bureau-tussenstap — hier werk je meteen naar de hiring manager.
+            De Radar verzamelt <strong>directe vacatures bij eindklanten</strong> — dus niet via een
+            detacheerder, maar bij het bedrijf zelf. Admin start een sync; we zoeken LinkedIn Jobs,
+            Indeed en Freelance.nl op jouw functies uit Instellingen (en filteren op contract/ZZP als
+            dat aanstaat). Elke hit krijgt een <strong>kans-score</strong>: hoe vers, hoeveel bronnen,
+            of er contract-taal in zit, enz. Sterk/warm → actie; lager → volgen.
           </p>
           <ul className="ws-intro__actions">
             <li>
-              <strong>1.</strong> Sync (admin) haalt verse hits
+              <strong>Data:</strong> jobboards via sync (handmatig, niet elke seconde)
             </li>
             <li>
-              <strong>2.</strong> Kies een bedrijf in de lijst
+              <strong>Score:</strong> som van signalen, max 98 — herschat bij elke sync
             </li>
             <li>
-              <strong>3.</strong> Open een opening → zoek manager
-            </li>
-            <li>
-              <strong>4.</strong> Ga naar Voorstel met score &amp; aanpak
+              <strong>Jouw actie:</strong> bedrijf → opening → hiring manager → Voorstel
             </li>
           </ul>
         </section>

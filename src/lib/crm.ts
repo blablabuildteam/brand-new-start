@@ -12,6 +12,10 @@ export type CrmOpportunity = {
   title: string;
   kans: number | null;
   sources: string[];
+  /** Short label for the CRM table, e.g. "LinkedIn Jobs" or "Bureau · Yacht". */
+  bronLabel: string;
+  /** Extra line under bron, e.g. recruiter name or extra channels. */
+  bronDetail: string | null;
   foundAt: string | null;
   lastSeenAt: string | null;
   freshness: "vers" | "actueel" | "ouder" | "onbekend";
@@ -107,6 +111,9 @@ export async function listCrmOpportunities(): Promise<CrmOpportunity[]> {
         normName(o.roleLabel).includes(normName(lead.roleLabel).slice(0, 12))
       ) || openings[0];
 
+    const boardSources = sourceLabels([...(opening?.sources || []), ...(sig?.source ? [sig.source] : [])]).filter(
+      (s) => s !== "Bureau"
+    );
     out.push({
       id: `crm_bureau_${lead.id}`,
       lane: "bureau",
@@ -115,6 +122,8 @@ export async function listCrmOpportunities(): Promise<CrmOpportunity[]> {
       title: lead.title,
       kans: typeof opening?.kans === "number" ? opening.kans : null,
       sources: sourceLabels([...(opening?.sources || []), ...(sig?.source ? [sig.source] : []), "bureau"]),
+      bronLabel: `Bureau · ${lead.agency.name}`,
+      bronDetail: [lead.recruiter.name, boardSources[0]].filter(Boolean).join(" · ") || null,
       foundAt,
       lastSeenAt,
       ...fresh,
@@ -143,6 +152,8 @@ export async function listCrmOpportunities(): Promise<CrmOpportunity[]> {
       const foundAt = firsts.sort()[0] || null;
       const lastSeenAt = lasts.sort().reverse()[0] || foundAt;
       const fresh = freshnessOf(foundAt, lastSeenAt);
+      const boards = sourceLabels([...(o.sources || []), ...sigs.map((s) => s.source)]);
+      const primary = boards[0] || "Directe vacature";
 
       out.push({
         id: `crm_direct_${o.id}`,
@@ -151,7 +162,9 @@ export async function listCrmOpportunities(): Promise<CrmOpportunity[]> {
         roleLabel: o.roleLabel,
         title: o.openingTitle || o.roleLabel,
         kans: o.kans,
-        sources: sourceLabels([...(o.sources || []), ...sigs.map((s) => s.source)]),
+        sources: boards,
+        bronLabel: primary,
+        bronDetail: boards.length > 1 ? boards.slice(1).join(" · ") : "Direct bij eindklant",
         foundAt,
         lastSeenAt,
         ...fresh,

@@ -113,7 +113,7 @@ a:focus-visible {
 @media (max-width: 767px) {
   .ws-shell {
     gap: 0.75rem;
-    padding: 0.75rem 1.25rem 0.75rem;
+    padding: 0.75rem 1rem 0.75rem;
   }
 
   .btn-tool {
@@ -246,16 +246,22 @@ button:focus-visible {
   margin-inline: auto;
   display: flex;
   width: 100%;
-  max-width: 1280px;
+  max-width: 1680px;
   min-height: 0;
   flex: 1;
   flex-direction: column;
   gap: 0.75rem;
   overflow: hidden;
-  padding: 1rem 1.25rem 0;
+  padding: 1rem 1rem 0;
 }
 
 @media (min-width: 768px) {
+  .ws-shell {
+    padding-inline: 1.5rem;
+  }
+}
+
+@media (min-width: 1280px) {
   .ws-shell {
     padding-inline: 1.75rem;
   }

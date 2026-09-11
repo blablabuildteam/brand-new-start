@@ -27,43 +27,44 @@ function freshClass(f: CrmOpportunity["freshness"]) {
 }
 
 function sourceLine(row: CrmOpportunity) {
-  if (row.lane === "bureau") {
-    const bits = [row.agencyName, row.recruiterName].filter(Boolean);
-    return bits.length ? bits.join(" · ") : "Bureau";
-  }
-  return row.sources.length ? row.sources.join(" · ") : "Direct";
+  return row.bronLabel || (row.lane === "bureau" ? "Bureau" : "Direct");
 }
 
-export default function KansenDesk() {
-  const [items, setItems] = useState<CrmOpportunity[]>([]);
-  const [counts, setCounts] = useState({ all: 0, bureau: 0, direct: 0, withHm: 0 });
+type InitialCrm = {
+  items: CrmOpportunity[];
+  counts: { all: number; bureau: number; direct: number; withHm: number };
+};
+
+export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
+  const [items, setItems] = useState<CrmOpportunity[]>(initial?.items || []);
+  const [counts, setCounts] = useState(
+    initial?.counts || { all: 0, bureau: 0, direct: 0, withHm: 0 }
+  );
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!initial);
   const [filter, setFilter] = useState<Filter>("all");
   const [sel, setSel] = useState<string | null>(null);
   const [mobilePane, setMobilePane] = useState<"list" | "detail">("list");
 
   useEffect(() => {
-    fetch("/api/crm")
-      .then(async (res) => {
-        if (res.status === 401) {
-          window.location.href = "/login?next=/kansen";
-          return null;
-        }
-        if (!res.ok) throw new Error("laden mislukt");
-        return res.json() as Promise<{
-          items: CrmOpportunity[];
-          counts: { all: number; bureau: number; direct: number; withHm: number };
-        }>;
-      })
-      .then((j) => {
-        if (!j) return;
-        setItems(j.items);
-        setCounts(j.counts);
-      })
-      .catch((e: unknown) => setError(e instanceof Error ? e.message : "fout"))
-      .finally(() => setLoading(false));
-  }, []);
+    if (initial?.items?.length) {
+      setLoading(false);
+      return;
+    }
+    import("@/lib/client-cache").then(({ cachedJson }) =>
+      cachedJson<InitialCrm>("crm", "/api/crm")
+        .then((j) => {
+          setItems(j.items);
+          setCounts(j.counts);
+        })
+        .catch((e: unknown) => {
+          const status = (e as { status?: number }).status;
+          if (status === 401) window.location.href = "/login?next=/kansen";
+          else setError(e instanceof Error ? e.message : "fout");
+        })
+        .finally(() => setLoading(false))
+    );
+  }, [initial]);
 
   const filtered = useMemo(() => {
     if (filter === "all") return items;
@@ -186,8 +187,10 @@ export default function KansenDesk() {
                               </span>
                               <span className="mt-1 block truncate text-[0.7rem] text-[var(--muted)]">
                                 {sourceLine(row)}
-                                {" · "}
-                                {row.hiringManager || "geen manager"}
+                                {row.bronDetail ? ` · ${row.bronDetail}` : ""}
+                              </span>
+                              <span className="mt-0.5 block truncate text-[0.68rem] text-[var(--muted)]">
+                                HM: {row.hiringManager || "nog niet gevonden"}
                               </span>
                             </span>
                             {row.kans != null ? <ScoreChip kans={row.kans} /> : (
@@ -245,8 +248,13 @@ export default function KansenDesk() {
                               <td className="max-w-[12rem] px-3 py-3 align-top text-[var(--muted)]">
                                 <span className="line-clamp-2">{row.roleLabel}</span>
                               </td>
-                              <td className="max-w-[14rem] px-3 py-3 align-top text-[var(--muted)]">
-                                <span className="line-clamp-2">{sourceLine(row)}</span>
+                              <td className="max-w-[14rem] px-3 py-3 align-top">
+                                <span className="block font-medium text-[var(--ink)]">{sourceLine(row)}</span>
+                                {row.bronDetail ? (
+                                  <span className="mt-0.5 block line-clamp-2 text-[0.72rem] text-[var(--muted)]">
+                                    {row.bronDetail}
+                                  </span>
+                                ) : null}
                               </td>
                               <td className="max-w-[12rem] px-3 py-3 align-top">
                                 {row.hiringManager ? (
@@ -351,11 +359,14 @@ export default function KansenDesk() {
                   </div>
                   <div>
                     <dt className="ws-label">Bron</dt>
-                    <dd className="mt-1 text-[var(--muted)]">{sourceLine(active)}</dd>
+                    <dd className="mt-1 font-medium text-[var(--ink)]">{sourceLine(active)}</dd>
+                    {active.bronDetail ? (
+                      <dd className="mt-0.5 text-sm text-[var(--muted)]">{active.bronDetail}</dd>
+                    ) : null}
                   </div>
-                  {active.sources.length ? (
+                  {active.sources.length > 1 ? (
                     <div>
-                      <dt className="ws-label">Signalen</dt>
+                      <dt className="ws-label">Alle signalen</dt>
                       <dd className="mt-1 text-[var(--muted)]">{active.sources.join(" · ")}</dd>
                     </div>
                   ) : null}

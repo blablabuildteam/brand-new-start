@@ -4,6 +4,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { RegieMark } from "@/components/regie-mark";
+import { cacheClear, cacheGet, cachedJson } from "@/lib/client-cache";
 
 export type AppNavId = "radar" | "leads" | "kansen" | "voorstel" | "instellingen";
 
@@ -93,9 +94,13 @@ export function AppShell({
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
-    fetch("/api/settings")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((j: { name?: string; user?: ShellUser } | null) => {
+    const cached = cacheGet<{ name?: string; user?: ShellUser }>("settings");
+    if (cached) {
+      if (cached.name) setName(cached.name);
+      if (cached.user) setUser(cached.user);
+    }
+    cachedJson<{ name?: string; user?: ShellUser }>("settings", "/api/settings", { ttlMs: 120_000 })
+      .then((j) => {
         if (j?.name) setName(j.name);
         if (j?.user) setUser(j.user);
       })
@@ -118,6 +123,7 @@ export function AppShell({
 
   async function logout() {
     await fetch("/api/auth/login", { method: "DELETE" });
+    cacheClear();
     router.replace("/");
     router.refresh();
   }

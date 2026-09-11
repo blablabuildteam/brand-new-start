@@ -173,13 +173,25 @@ export default function SettingsForm() {
 
   function addRecruiter(agencyId: string) {
     if (!hunt) return;
-    const name = (newRecruiter[agencyId] || "").trim();
+    const raw = (newRecruiter[agencyId] || "").trim();
+    if (raw.length < 2) return;
+    const linkedinMatch = raw.match(/linkedin\.com\/in\/([^/?#\s]+)/i);
+    const linkedinUrl = linkedinMatch
+      ? `https://www.linkedin.com/in/${decodeURIComponent(linkedinMatch[1]).replace(/\/+$/, "")}`
+      : undefined;
+    const name = linkedinUrl
+      ? decodeURIComponent(linkedinMatch![1]).replace(/[-_]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
+      : raw;
     if (name.length < 2) return;
     updateAgencies(
       hunt.agencies.map((a) => {
         if (a.id !== agencyId) return a;
         if (a.recruiters.some((r) => r.name.toLowerCase() === name.toLowerCase())) return a;
-        const rec: ManagedRecruiter = { name, enabled: true };
+        const rec: ManagedRecruiter = {
+          name,
+          enabled: true,
+          ...(linkedinUrl ? { linkedinUrl } : {}),
+        };
         return { ...a, recruiters: [...a.recruiters, rec], enabled: true };
       })
     );
@@ -283,6 +295,9 @@ export default function SettingsForm() {
       );
       setRolesText(next.roles.join("\n"));
       setSaved(true);
+      const { cacheClear, cacheSet } = await import("@/lib/client-cache");
+      cacheClear("settings");
+      cacheSet("settings", next);
     } finally {
       setBusy(false);
     }
@@ -294,8 +309,8 @@ export default function SettingsForm() {
         <section className="ws-intro">
           <p className="ws-intro__title">Wat stel je hier in?</p>
           <p className="ws-intro__text">
-            Functies, soort opdracht, en de bureaus/recruiters die je volgt. Eindklanten komen vanzelf uit de
-            radar — die vink je niet handmatig aan.
+            Toolnaam, functies, soort opdracht, en de bureaus/recruiters die je volgt. Eindklanten
+            komen vanzelf uit de radar.
           </p>
         </section>
 
@@ -303,26 +318,19 @@ export default function SettingsForm() {
           <p className="text-sm text-[var(--muted)]">Laden…</p>
         ) : (
           <form onSubmit={onSubmit} className="flex flex-col gap-3 pb-2">
-            <div className="grid gap-3 lg:grid-cols-2">
-            <Section title="Werkruimte" hint="Naam en regio van deze desk.">
-              <label className="block text-sm font-medium">
-                Desknaam
+            <section className="ws-panel flex flex-wrap items-end gap-3 px-4 py-3">
+              <label className="min-w-[12rem] flex-1 text-sm font-medium">
+                Toolnaam
+                <span className="mt-0.5 block text-[0.72rem] font-normal text-[var(--muted)]">
+                  Verschijnt in het menu (nu: {hunt.name || "Regie"}).
+                </span>
                 <input
-                  className="ws-input mt-1"
+                  className="ws-input mt-1 max-w-md"
                   value={hunt.name}
                   onChange={(e) => setHunt({ ...hunt, name: e.target.value })}
                 />
               </label>
-              <label className="block text-sm font-medium">
-                Regio
-                <input
-                  className="ws-input mt-1"
-                  value={hunt.market}
-                  onChange={(e) => setHunt({ ...hunt, market: e.target.value })}
-                  placeholder="Nederland"
-                />
-              </label>
-            </Section>
+            </section>
 
             <Section title="Wat je zoekt" hint="Functies en soort opdracht. Sync en radar filteren hierop.">
               <label className="block text-sm font-medium">
@@ -389,12 +397,28 @@ export default function SettingsForm() {
                 Standaardfuncties terugzetten
               </button>
             </Section>
-            </div>
 
             <Section
               title="Bureaus & recruiters"
-              hint="Zoek in je lijst, haal recruiters op bij een bureau, en vink aan wie je volgt."
+              hint="Alleen namen (en optioneel LinkedIn). Geen aparte ‘deellink’ nodig — jij vult in wie je volgt."
             >
+              <div className="rounded-[var(--radius)] border border-[var(--accent)]/20 bg-[var(--accent-soft)]/40 px-3.5 py-3 text-[0.8rem] leading-relaxed text-[var(--muted)]">
+                <p>
+                  <strong className="text-[var(--ink)]">Bureau toevoegen:</strong> typ alleen de
+                  bureanaam (bijv. Yacht) → <em>Bureau toevoegen</em>. Geen website-URL nodig.
+                </p>
+                <p className="mt-2">
+                  <strong className="text-[var(--ink)]">Recruiter toevoegen:</strong> open het bureau
+                  → typ de naam, of plak een LinkedIn-profiel-URL (`linkedin.com/in/…`) →{" "}
+                  <em>+ Recruiter</em>. Of klik <em>Zoek recruiters</em> om automatisch LinkedIn-namen
+                  op te halen.
+                </p>
+                <p className="mt-2">
+                  Vink aan wie je volgt. Opslaan onderaan. Bevestigde bureau-kansen landen daarna in
+                  Kansen.
+                </p>
+              </div>
+
               <input
                 className="ws-input"
                 placeholder="Zoek recruiter of bureau…"
@@ -441,7 +465,7 @@ export default function SettingsForm() {
               <div className="flex flex-col gap-2 sm:flex-row">
                 <input
                   className="ws-input min-w-0 flex-1"
-                  placeholder="Nieuw bureau, bv. Yacht"
+                  placeholder="Bureanaam, bv. Yacht (geen link)"
                   value={newBureau}
                   onChange={(e) => setNewBureau(e.target.value)}
                   onKeyDown={(e) => {
@@ -597,7 +621,7 @@ export default function SettingsForm() {
                           <div className="flex flex-col gap-2 pt-1 sm:flex-row">
                             <input
                               className="ws-input min-w-0 flex-1 bg-[var(--surface-2)]"
-                              placeholder="Recruiter handmatig…"
+                              placeholder="Naam of LinkedIn-URL (linkedin.com/in/…)"
                               value={newRecruiter[a.id] || ""}
                               onChange={(e) =>
                                 setNewRecruiter((prev) => ({ ...prev, [a.id]: e.target.value }))
