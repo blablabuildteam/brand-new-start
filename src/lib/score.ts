@@ -124,6 +124,46 @@ export function scoreSignals(
     });
   }
 
+  const extracts = companySignals
+    .map((s) => {
+      const raw = rawOf(s);
+      const v = raw.vacancyExtract;
+      return v && typeof v === "object" ? (v as Record<string, unknown>) : null;
+    })
+    .filter(Boolean) as Record<string, unknown>[];
+
+  if (
+    extracts.some(
+      (e) => e.employment === "contract" || e.employment === "interim" || e.employment === "zzp"
+    ) &&
+    !hasContract
+  ) {
+    factors.push({
+      label: "AI-extract: contracting/interim/ZZP",
+      points: 12,
+      source: "ai-extract",
+    });
+  }
+  const stackDepth = Math.max(
+    0,
+    ...extracts.map((e) => (Array.isArray(e.stack) ? e.stack.length : 0)),
+    0
+  );
+  if (stackDepth >= 3) {
+    factors.push({
+      label: `AI-extract: stack (${stackDepth} items)`,
+      points: Math.min(10, 4 + stackDepth),
+      source: "ai-extract",
+    });
+  }
+  if (extracts.some((e) => typeof e.start === "string" && e.start)) {
+    factors.push({
+      label: "AI-extract: startdatum bekend",
+      points: 5,
+      source: "ai-extract",
+    });
+  }
+
   // Channels / volume — meerdere bronnen = sterker signaal
   const channels = new Set(
     companySignals
@@ -270,5 +310,6 @@ export const SCORE_METHOD = {
     { when: "Andere openingen bij hetzelfde bedrijf", points: "+6–12" },
     { when: "Net op de radar (≤24u / ≤3d / ≤10d)", points: "+14 / +10 / +5" },
     { when: "Net gepost op de board (≤2 dagen)", points: "+12" },
+    { when: "AI-extract: contracting + stack/start", points: "+5–12" },
   ],
 } as const;

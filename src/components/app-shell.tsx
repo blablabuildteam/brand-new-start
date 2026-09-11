@@ -4,6 +4,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { RegieMark } from "@/components/regie-mark";
+import { AlertsBell } from "@/components/alerts-bell";
 import { cacheClear, cacheGet, cachedJson } from "@/lib/client-cache";
 
 export type AppNavId = "radar" | "leads" | "kansen" | "voorstel" | "instellingen";
@@ -255,6 +256,9 @@ export function AppShell({
             ) : null}
           </div>
           {toolbar ? <div className="app-topbar__tools shrink-0">{toolbar}</div> : null}
+          <div className="shrink-0">
+            <AlertsBell />
+          </div>
           </div>
         </header>
         <div

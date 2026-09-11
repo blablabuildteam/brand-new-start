@@ -16,6 +16,7 @@ import {
 } from "@/lib/end-client";
 import { detectRoleLabel } from "@/lib/niche";
 import { listSignals, patchSignalRaw } from "@/lib/store";
+import { loadDeskMeta, pushAlert, saveDeskMeta } from "@/lib/desk-meta";
 
 export type LeadStatus = "suggest" | "review" | "weak" | "confirmed" | "rejected";
 
@@ -287,6 +288,14 @@ export async function listAgencyLeads(): Promise<{
   live: AgencyLead[];
   demo: AgencyLead[];
 }> {
+  const meta = await loadDeskMeta();
+  for (const [id, r] of Object.entries(meta.leadReviews)) {
+    reviews().set(id, { status: r.status, clientName: r.clientName });
+  }
+  for (const [id, a] of Object.entries(meta.aiGuesses)) {
+    aiGuesses().set(id, a);
+  }
+
   const rows = await listSignals(400);
   const live: AgencyLead[] = [];
   for (const s of rows) {
@@ -347,6 +356,11 @@ export async function leadSourceForAi(id: string): Promise<{
 } | null> {
   const demo = demoSeeds().find((s) => s.id === id);
   if (demo) {
+    const meta = await loadDeskMeta();
+    const stored = meta.leadReviews[demo.id];
+    const storedAi = meta.aiGuesses[demo.id];
+    if (stored) reviews().set(demo.id, { status: stored.status, clientName: stored.clientName });
+    if (storedAi) aiGuesses().set(demo.id, storedAi);
     const lead = buildLead({
       id: demo.id,
       demo: true,
@@ -355,6 +369,8 @@ export async function leadSourceForAi(id: string): Promise<{
       title: demo.title,
       text: demo.text,
       evidenceUrl: demo.evidenceUrl,
+      storedReview: stored ? { status: stored.status, clientName: stored.clientName } : null,
+      storedAi: storedAi || null,
     });
     return {
       lead: applyStoredAi(applyReview(lead)),
@@ -390,6 +406,11 @@ export async function saveAiGuess(
     model: meta?.model,
   };
   aiGuesses().set(id, stored);
+  await saveDeskMeta({
+    aiGuesses: {
+      [id]: stored,
+    },
+  });
 
   const src = await leadSourceForAi(id);
   if (!src) return null;
@@ -416,9 +437,27 @@ export async function reviewLead(
     clientName: action === "confirmed" ? clientName || lead.guess?.name : undefined,
   };
   reviews().set(id, next);
+  await saveDeskMeta({
+    leadReviews: {
+      [id]: { ...next, at: new Date().toISOString() },
+    },
+    ...(action === "confirmed"
+      ? { crmStages: { [`crm_bureau_${id}`]: "bevestigd" as const } }
+      : {}),
+  });
   if (lead.signalId) {
     await patchSignalRaw(lead.signalId, {
       leadReview: { ...next, at: new Date().toISOString() },
+      ...(action === "confirmed" ? { crmStage: "bevestigd" } : {}),
+    });
+  }
+  if (action === "confirmed") {
+    const client = next.clientName || lead.guess?.name || "eindklant";
+    await pushAlert({
+      kind: "confirm",
+      title: `Bevestigd: ${client}`,
+      body: `${lead.roleLabel} via ${lead.agency.name} — zoek hiring manager of open Kansen.`,
+      href: `/kansen?id=${encodeURIComponent(`crm_bureau_${id}`)}`,
     });
   }
   return applyReview({

@@ -1,20 +1,27 @@
 import { listAgencyLeads } from "@/lib/opportunity";
-import { listRadar, listSignals } from "@/lib/store";
+import { listRadar, listSignals, patchSignalRaw } from "@/lib/store";
 import { channelLabel } from "@/lib/sync-log";
+import {
+  CRM_STAGE_NL,
+  loadDeskMeta,
+  saveDeskMeta,
+  type CrmStage,
+} from "@/lib/desk-meta";
 
 export type CrmLane = "bureau" | "direct";
+export type { CrmStage };
+export { CRM_STAGE_NL };
 
 export type CrmOpportunity = {
   id: string;
   lane: CrmLane;
+  stage: CrmStage;
   endClient: string;
   roleLabel: string;
   title: string;
   kans: number | null;
   sources: string[];
-  /** Short label for the CRM table, e.g. "LinkedIn Jobs" or "Bureau · Yacht". */
   bronLabel: string;
-  /** Extra line under bron, e.g. recruiter name or extra channels. */
   bronDetail: string | null;
   foundAt: string | null;
   lastSeenAt: string | null;
@@ -29,6 +36,7 @@ export type CrmOpportunity = {
   href: string | null;
   companyId: string | null;
   openingId: string | null;
+  extractSummary: string | null;
 };
 
 function iso(d: Date | string | null | undefined): string | null {
@@ -65,27 +73,31 @@ function sourceLabels(raw: string[]) {
   return [...new Set(raw.map((s) => channelLabel(s) || s).filter(Boolean))];
 }
 
-function formatDay(isoStr: string | null) {
-  if (!isoStr) return "—";
-  try {
-    return new Intl.DateTimeFormat("nl-NL", {
-      day: "numeric",
-      month: "short",
-      year: "numeric",
-    }).format(new Date(isoStr));
-  } catch {
-    return "—";
-  }
+function inferStage(opts: {
+  stored?: CrmStage | null;
+  lane: CrmLane;
+  hiringManager: string | null;
+}): CrmStage {
+  if (opts.stored) return opts.stored;
+  if (opts.hiringManager) return "hm";
+  if (opts.lane === "bureau") return "bevestigd";
+  return "nieuw";
 }
 
-export { formatDay };
+function extractSummaryFromRaw(raw: Record<string, unknown> | undefined): string | null {
+  const v = raw?.vacancyExtract;
+  if (!v || typeof v !== "object") return null;
+  const o = v as { summary?: string; role?: string };
+  return o.summary || o.role || null;
+}
 
 /** Bevestigde bureau-kansen + warme/directe radar-kansen. */
 export async function listCrmOpportunities(): Promise<CrmOpportunity[]> {
-  const [leads, radar, signals] = await Promise.all([
+  const [leads, radar, signals, meta] = await Promise.all([
     listAgencyLeads(),
     listRadar(),
     listSignals(500),
+    loadDeskMeta(),
   ]);
 
   const signalById = new Map(signals.map((s) => [s.id, s]));
@@ -111,33 +123,47 @@ export async function listCrmOpportunities(): Promise<CrmOpportunity[]> {
         normName(o.roleLabel).includes(normName(lead.roleLabel).slice(0, 12))
       ) || openings[0];
 
-    const boardSources = sourceLabels([...(opening?.sources || []), ...(sig?.source ? [sig.source] : [])]).filter(
-      (s) => s !== "Bureau"
-    );
+    const id = `crm_bureau_${lead.id}`;
+    const hiringManager = opening?.org?.hiringManager || opening?.hiringManager || null;
+    const storedStage =
+      (typeof raw.crmStage === "string" ? (raw.crmStage as CrmStage) : null) ||
+      meta.crmStages[id] ||
+      null;
+    const boardSources = sourceLabels([
+      ...(opening?.sources || []),
+      ...(sig?.source ? [sig.source] : []),
+    ]).filter((s) => s !== "Bureau");
+
     out.push({
-      id: `crm_bureau_${lead.id}`,
+      id,
       lane: "bureau",
+      stage: inferStage({ stored: storedStage, lane: "bureau", hiringManager }),
       endClient,
       roleLabel: lead.roleLabel,
       title: lead.title,
       kans: typeof opening?.kans === "number" ? opening.kans : null,
-      sources: sourceLabels([...(opening?.sources || []), ...(sig?.source ? [sig.source] : []), "bureau"]),
+      sources: sourceLabels([
+        ...(opening?.sources || []),
+        ...(sig?.source ? [sig.source] : []),
+        "bureau",
+      ]),
       bronLabel: `Bureau · ${lead.agency.name}`,
       bronDetail: [lead.recruiter.name, boardSources[0]].filter(Boolean).join(" · ") || null,
       foundAt,
       lastSeenAt,
       ...fresh,
-      hiringManager: opening?.org?.hiringManager || opening?.hiringManager || null,
+      hiringManager,
       hiringManagerTitle: opening?.org?.hiringManagerTitle || null,
       agencyName: lead.agency.name,
       recruiterName: lead.recruiter.name,
-      confirmedAt: review?.at || null,
+      confirmedAt: review?.at || meta.leadReviews[lead.id]?.at || null,
       evidenceUrl: lead.evidenceUrl,
       href: match
         ? `/regie?id=${encodeURIComponent(match.id)}&opening=${encodeURIComponent(opening?.id || "")}`
         : lead.evidenceUrl,
       companyId: match?.id || null,
       openingId: opening?.id || null,
+      extractSummary: extractSummaryFromRaw(raw),
     });
   }
 
@@ -154,10 +180,21 @@ export async function listCrmOpportunities(): Promise<CrmOpportunity[]> {
       const fresh = freshnessOf(foundAt, lastSeenAt);
       const boards = sourceLabels([...(o.sources || []), ...sigs.map((s) => s.source)]);
       const primary = boards[0] || "Directe vacature";
+      const id = `crm_direct_${o.id}`;
+      const hiringManager = o.org?.hiringManager || o.hiringManager || null;
+      const raw0 = (sigs[0]?.raw && typeof sigs[0].raw === "object" ? sigs[0].raw : {}) as Record<
+        string,
+        unknown
+      >;
+      const storedStage =
+        (typeof raw0.crmStage === "string" ? (raw0.crmStage as CrmStage) : null) ||
+        meta.crmStages[id] ||
+        null;
 
       out.push({
-        id: `crm_direct_${o.id}`,
+        id,
         lane: "direct",
+        stage: inferStage({ stored: storedStage, lane: "direct", hiringManager }),
         endClient: row.company.name,
         roleLabel: o.roleLabel,
         title: o.openingTitle || o.roleLabel,
@@ -168,7 +205,7 @@ export async function listCrmOpportunities(): Promise<CrmOpportunity[]> {
         foundAt,
         lastSeenAt,
         ...fresh,
-        hiringManager: o.org?.hiringManager || o.hiringManager || null,
+        hiringManager,
         hiringManagerTitle: o.org?.hiringManagerTitle || null,
         agencyName: null,
         recruiterName: null,
@@ -177,6 +214,7 @@ export async function listCrmOpportunities(): Promise<CrmOpportunity[]> {
         href: `/regie?id=${encodeURIComponent(row.id)}&opening=${encodeURIComponent(o.id)}`,
         companyId: row.id,
         openingId: o.id,
+        extractSummary: extractSummaryFromRaw(raw0),
       });
     }
   }
@@ -189,4 +227,49 @@ export async function listCrmOpportunities(): Promise<CrmOpportunity[]> {
   });
 
   return out;
+}
+
+export function listActionQueue(items: CrmOpportunity[]) {
+  return items
+    .filter((i) => i.stage !== "won" && i.stage !== "lost")
+    .map((i) => {
+      let next = "Open detail";
+      let href = `/kansen?id=${encodeURIComponent(i.id)}`;
+      if (!i.hiringManager) {
+        next = "Zoek hiring manager";
+        href = i.companyId ? `/radar` : href;
+      } else if (i.stage === "hm" || i.stage === "bevestigd" || i.stage === "nieuw") {
+        next = "Open voorstel";
+        href = i.href || href;
+      } else if (i.stage === "outreach") {
+        next = "Follow-up";
+        href = i.href || href;
+      }
+      return { ...i, nextAction: next, nextHref: href };
+    })
+    .slice(0, 8);
+}
+
+export async function setCrmStage(id: string, stage: CrmStage): Promise<CrmOpportunity | null> {
+  const items = await listCrmOpportunities();
+  const item = items.find((i) => i.id === id);
+  if (!item) return null;
+
+  await saveDeskMeta({ crmStages: { [id]: stage } });
+
+  if (item.lane === "bureau" && id.startsWith("crm_bureau_")) {
+    const leadId = id.replace("crm_bureau_", "");
+    const leads = await listAgencyLeads();
+    const lead = [...leads.live, ...leads.demo].find((l) => l.id === leadId);
+    if (lead?.signalId) await patchSignalRaw(lead.signalId, { crmStage: stage });
+  } else if (item.openingId) {
+    const signals = await listSignals(500);
+    const hit = signals.find((s) => {
+      const raw = (s.raw && typeof s.raw === "object" ? s.raw : {}) as Record<string, unknown>;
+      return s.id === item.openingId || raw.openingId === item.openingId;
+    });
+    if (hit) await patchSignalRaw(hit.id, { crmStage: stage });
+  }
+
+  return { ...item, stage };
 }

@@ -1161,14 +1161,39 @@ export default function RadarApp() {
             </div>
           )}
           {canSync ? (
-            <a
-              href="/samenwerking"
-              role="menuitem"
-              className="block border-t border-[var(--line)]/80 px-3 py-2 text-xs text-[var(--muted)] no-underline hover:bg-[var(--surface-2)] hover:text-[var(--ink)]"
-              onClick={() => setMenuOpen(false)}
-            >
-              Samenwerkingsvoorstel →
-            </a>
+            <>
+              <button
+                type="button"
+                role="menuitem"
+                className="block w-full border-t border-[var(--line)]/80 px-3 py-2 text-left text-xs font-semibold text-[var(--ink)] hover:bg-[var(--surface-2)]"
+                onClick={() => {
+                  setMenuOpen(false);
+                  void (async () => {
+                    const res = await fetch("/api/extract?limit=5", { method: "PUT" });
+                    const j = (await res.json().catch(() => ({}))) as {
+                      extracted?: number;
+                      error?: string;
+                    };
+                    if (!res.ok) {
+                      window.alert(j.error || "AI-extract mislukt (check OPENAI_API_KEY)");
+                      return;
+                    }
+                    window.alert(`AI-extract klaar: ${j.extracted ?? 0} vacatures verrijkt`);
+                    await load({ keepActive: true, fresh: true });
+                  })();
+                }}
+              >
+                AI-extract (5 nieuwste)
+              </button>
+              <a
+                href="/samenwerking"
+                role="menuitem"
+                className="block border-t border-[var(--line)]/80 px-3 py-2 text-xs text-[var(--muted)] no-underline hover:bg-[var(--surface-2)] hover:text-[var(--ink)]"
+                onClick={() => setMenuOpen(false)}
+              >
+                Samenwerkingsvoorstel →
+              </a>
+            </>
           ) : null}
         </div>
       ) : null}
@@ -1195,7 +1220,10 @@ export default function RadarApp() {
               <strong>Score:</strong> som van signalen, max 98 — herschat bij elke sync
             </li>
             <li>
-              <strong>Jouw actie:</strong> bedrijf → opening → hiring manager → Voorstel
+              <strong>Jouw actie:</strong> bedrijf → opening → hiring manager → Voorstel · of open{" "}
+              <a href="/kansen" className="font-semibold text-[var(--accent)]">
+                Kansen → Actie vandaag
+              </a>
             </li>
           </ul>
         </section>

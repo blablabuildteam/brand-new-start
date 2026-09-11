@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { AppShell } from "@/components/app-shell";
 import type { AgencyLead, LeadStatus } from "@/lib/opportunity";
 
@@ -146,6 +147,24 @@ function LeadCard({
               Vacature →
             </a>
           ) : null}
+        </div>
+      ) : lead.status === "confirmed" ? (
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <p className="w-full text-[0.75rem] text-[var(--muted)]">
+            Bevestigd als <strong className="text-[var(--ink)]">{client}</strong>. Volgende stap:
+          </p>
+          <Link
+            href={`/kansen?id=${encodeURIComponent(`crm_bureau_${lead.id}`)}`}
+            className="btn-ink btn-tool no-underline"
+          >
+            Open in Kansen
+          </Link>
+          <Link href="/radar" className="btn-ghost btn-tool no-underline">
+            Zoek hiring manager
+          </Link>
+          <Link href="/regie" className="btn-ghost btn-tool no-underline">
+            Naar Voorstel
+          </Link>
         </div>
       ) : null}
     </article>

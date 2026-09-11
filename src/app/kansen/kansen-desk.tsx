@@ -2,11 +2,13 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
 import { ScoreChip, SCORE_BAND, scoreTone } from "@/components/score-chip";
-import type { CrmLane, CrmOpportunity } from "@/lib/crm";
+import type { CrmLane, CrmOpportunity, CrmStage } from "@/lib/crm";
+import { CRM_STAGE_NL } from "@/lib/crm";
 
-type Filter = "all" | CrmLane;
+type Filter = "all" | CrmLane | CrmStage;
 
 function formatDay(isoStr: string | null) {
   if (!isoStr) return "—";
@@ -30,30 +32,43 @@ function sourceLine(row: CrmOpportunity) {
   return row.bronLabel || (row.lane === "bureau" ? "Bureau" : "Direct");
 }
 
+type ActionItem = CrmOpportunity & { nextAction: string; nextHref: string };
+
 type InitialCrm = {
   items: CrmOpportunity[];
-  counts: { all: number; bureau: number; direct: number; withHm: number };
+  actionQueue?: ActionItem[];
+  counts: {
+    all: number;
+    bureau: number;
+    direct: number;
+    withHm: number;
+    byStage?: Record<string, number>;
+  };
 };
 
 export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
+  const params = useSearchParams();
   const [items, setItems] = useState<CrmOpportunity[]>(initial?.items || []);
+  const [actionQueue, setActionQueue] = useState<ActionItem[]>(initial?.actionQueue || []);
   const [counts, setCounts] = useState(
     initial?.counts || { all: 0, bureau: 0, direct: 0, withHm: 0 }
   );
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(!initial);
   const [filter, setFilter] = useState<Filter>("all");
-  const [sel, setSel] = useState<string | null>(null);
-  const [mobilePane, setMobilePane] = useState<"list" | "detail">("list");
+  const [sel, setSel] = useState<string | null>(params.get("id"));
+  const [mobilePane, setMobilePane] = useState<"list" | "detail">(params.get("id") ? "detail" : "list");
+  const [stageBusy, setStageBusy] = useState(false);
 
   useEffect(() => {
     // Always refresh in the background; show SSR data immediately when present.
     if (initial) setLoading(false);
     import("@/lib/client-cache").then(({ cachedJson }) =>
       cachedJson<InitialCrm>("crm", "/api/crm", { ttlMs: initial ? 20_000 : 60_000 })
-        .then((j) => {
+        .then((j: InitialCrm & { actionQueue?: ActionItem[] }) => {
           setItems(j.items);
           setCounts(j.counts);
+          if (j.actionQueue) setActionQueue(j.actionQueue);
         })
         .catch((e: unknown) => {
           const status = (e as { status?: number }).status;
@@ -64,10 +79,39 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
     );
   }, [initial]);
 
+  useEffect(() => {
+    const id = params.get("id");
+    if (id) {
+      setSel(id);
+      setMobilePane("detail");
+    }
+  }, [params]);
+
   const filtered = useMemo(() => {
     if (filter === "all") return items;
-    return items.filter((i) => i.lane === filter);
+    if (filter === "bureau" || filter === "direct") return items.filter((i) => i.lane === filter);
+    return items.filter((i) => i.stage === filter);
   }, [items, filter]);
+
+  async function setStage(id: string, stage: CrmStage) {
+    setStageBusy(true);
+    try {
+      const res = await fetch("/api/crm", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, stage }),
+      });
+      if (!res.ok) throw new Error("stage mislukt");
+      const j = (await res.json()) as { item?: CrmOpportunity };
+      if (j.item) {
+        setItems((prev) => prev.map((x) => (x.id === id ? { ...x, stage: j.item!.stage } : x)));
+      }
+      const { cacheClear } = await import("@/lib/client-cache");
+      cacheClear("crm");
+    } finally {
+      setStageBusy(false);
+    }
+  }
 
   const active = sel ? filtered.find((i) => i.id === sel) || null : null;
 
@@ -93,7 +137,10 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
 
   const filters: { id: Filter; label: string; n: number }[] = [
     { id: "all", label: "Alles", n: counts.all },
-    { id: "bureau", label: "Bevestigd", n: counts.bureau },
+    { id: "nieuw", label: "Nieuw", n: counts.byStage?.nieuw ?? 0 },
+    { id: "bevestigd", label: "Bevestigd", n: counts.byStage?.bevestigd ?? counts.bureau },
+    { id: "hm", label: "Manager", n: counts.byStage?.hm ?? 0 },
+    { id: "outreach", label: "Outreach", n: counts.byStage?.outreach ?? 0 },
     { id: "direct", label: "Direct", n: counts.direct },
   ];
 
@@ -108,6 +155,31 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
             (direct bij de eindklant). Klik een regel voor detail, hiring manager en voorstel.
           </p>
         </section>
+
+        {actionQueue.length ? (
+          <section className="ws-panel shrink-0 px-3.5 py-3">
+            <p className="ws-label">Actie vandaag</p>
+            <ul className="mt-2 divide-y divide-[var(--line)]/70">
+              {actionQueue.slice(0, 5).map((a) => (
+                <li key={a.id}>
+                  <button
+                    type="button"
+                    onClick={() => pick(a.id)}
+                    className="flex w-full items-center gap-3 py-2 text-left hover:bg-[var(--surface-2)]"
+                  >
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-semibold text-[var(--ink)]">{a.endClient}</span>
+                      <span className="block truncate text-[0.72rem] text-[var(--muted)]">
+                        {a.roleLabel} · {a.nextAction}
+                      </span>
+                    </span>
+                    {a.kans != null ? <ScoreChip kans={a.kans} /> : null}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
 
         <div className="flex shrink-0 gap-2 overflow-x-auto pb-0.5">
           {filters.map((f) => (
@@ -207,6 +279,7 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
                       <thead className="sticky top-0 z-[1] bg-[var(--surface)]">
                         <tr className="border-b border-[var(--line)] text-[0.65rem] uppercase tracking-[0.06em] text-[var(--muted)]">
                           <th className="px-3 py-2.5 font-semibold">Eindklant</th>
+                          <th className="px-3 py-2.5 font-semibold">Stage</th>
                           <th className="px-3 py-2.5 font-semibold">Rol</th>
                           <th className="px-3 py-2.5 font-semibold">Bron</th>
                           <th className="px-3 py-2.5 font-semibold">Hiring manager</th>
@@ -243,6 +316,9 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
                                     {row.lane === "bureau" ? "Bureau" : "Direct"}
                                   </span>
                                 </span>
+                              </td>
+                              <td className="px-3 py-3 align-top">
+                                <span className="ws-badge">{CRM_STAGE_NL[row.stage] || row.stage}</span>
                               </td>
                               <td className="max-w-[12rem] px-3 py-3 align-top text-[var(--muted)]">
                                 <span className="line-clamp-2">{row.roleLabel}</span>
@@ -403,6 +479,23 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
                     </dd>
                   </div>
                 </dl>
+
+                <div className="mt-4">
+                  <p className="ws-label">Stage</p>
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {(["bevestigd", "hm", "outreach", "won", "lost"] as CrmStage[]).map((st) => (
+                      <button
+                        key={st}
+                        type="button"
+                        disabled={stageBusy}
+                        onClick={() => void setStage(active.id, st)}
+                        className={`ws-chip !py-1.5 ${active.stage === st ? "ws-chip--on" : ""}`}
+                      >
+                        {CRM_STAGE_NL[st]}
+                      </button>
+                    ))}
+                  </div>
+                </div>
 
                 <div className="mt-5 flex flex-wrap gap-2">
                   {active.href ? (
