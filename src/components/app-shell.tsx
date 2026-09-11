@@ -65,7 +65,7 @@ function SideIcon({ kind, on }: { kind: "radar" | "bureaus" | "kansen" | "voorst
 }
 
 function navClass(on: boolean) {
-  return `nav-link flex items-center gap-2.5 rounded-xl px-2.5 py-2.5 text-[0.9rem] transition ${
+  return `nav-link flex items-center gap-2.5 rounded-[var(--radius)] px-2.5 py-2.5 text-[0.9rem] transition ${
     on
       ? "bg-[var(--accent-soft)] font-semibold text-[var(--accent)]"
       : "font-medium text-[var(--ink)]/75 hover:bg-[var(--surface-2)] hover:text-[var(--ink)]"
@@ -170,14 +170,14 @@ export function AppShell({
       <div className="mt-auto border-t border-[var(--line)] pt-3">
         <Link
           href="/methode"
-          className="nav-link block rounded-lg px-2.5 py-2 text-[0.8rem] text-[var(--muted)] hover:bg-[var(--surface-2)] hover:text-[var(--ink)]"
+          className="nav-link block rounded-[var(--radius)] px-2.5 py-2 text-[0.8rem] text-[var(--muted)] hover:bg-[var(--surface-2)] hover:text-[var(--ink)]"
           onClick={() => setOpen(false)}
         >
           Methode
         </Link>
         <Link
           href="/costs"
-          className="nav-link block rounded-lg px-2.5 py-2 text-[0.8rem] text-[var(--muted)] hover:bg-[var(--surface-2)] hover:text-[var(--ink)]"
+          className="nav-link block rounded-[var(--radius)] px-2.5 py-2 text-[0.8rem] text-[var(--muted)] hover:bg-[var(--surface-2)] hover:text-[var(--ink)]"
           onClick={() => setOpen(false)}
         >
           Kosten
@@ -190,7 +190,7 @@ export function AppShell({
         <button
           type="button"
           onClick={() => void logout()}
-          className="mt-1 w-full rounded-lg px-2.5 py-2 text-left text-[0.8rem] font-medium text-[var(--muted)] hover:bg-[var(--surface-2)] hover:text-[var(--ink)]"
+          className="mt-1 w-full rounded-[var(--radius)] px-2.5 py-2 text-left text-[0.8rem] font-medium text-[var(--muted)] hover:bg-[var(--surface-2)] hover:text-[var(--ink)]"
         >
           Uitloggen
         </button>
@@ -221,11 +221,11 @@ export function AppShell({
       </aside>
 
       <div className={`flex min-w-0 flex-1 flex-col ${fill ? "min-h-0" : ""}`}>
-        <header className="app-topbar z-30 flex min-h-12 shrink-0 items-center gap-2 border-b border-[var(--line)] bg-[var(--surface)] px-3 pt-[env(safe-area-inset-top)] pb-0 sm:gap-3 md:px-6 md:pt-0">
+        <header className="app-topbar z-30 flex min-h-12 shrink-0 items-center gap-2 border-b border-[var(--line)] bg-[var(--surface)] px-5 pt-[env(safe-area-inset-top)] pb-0 sm:gap-3 md:px-7 md:pt-0">
           <div className="flex min-h-12 w-full items-center gap-2 sm:gap-3">
           <button
             type="button"
-            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-[var(--line)] text-[var(--ink)] md:hidden"
+            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-[var(--radius)] border border-[var(--line)] text-[var(--ink)] md:hidden"
             aria-expanded={open}
             aria-label={open ? "Menu sluiten" : "Menu openen"}
             onClick={() => setOpen((v) => !v)}

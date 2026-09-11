@@ -56,7 +56,7 @@ export default function CostsPage() {
 
   return (
     <AppShell title="Kosten" subtitle="Stack, cadans en ROI">
-    <main className="mx-auto max-w-[900px] px-5 py-8 md:px-7">
+    <main className="ws-shell ws-shell--page">
 
       {!data ? (
         <p className="text-sm text-[var(--muted)]">Laden…</p>

@@ -444,7 +444,7 @@ function HiringManagerBlock({
             type="button"
             disabled={busy}
             onClick={hunt}
-            className="rounded-[var(--radius)] border border-[var(--line)] bg-[var(--surface)] px-2.5 py-1 text-xs font-medium text-[var(--ink)] hover:border-[var(--accent)]/40 hover:bg-[var(--surface-2)] disabled:opacity-50"
+            className="btn-ghost btn-tool disabled:opacity-50"
           >
             {busy ? "Zoeken…" : "Zoek 3 namen"}
           </button>
@@ -1058,7 +1058,7 @@ export default function RadarApp() {
         aria-haspopup="menu"
         data-tip={canSync ? "Bronnen ophalen" : "Sync is alleen voor admin"}
         onClick={() => setMenuOpen((v) => !v)}
-        className="rounded-md border border-[var(--line)] bg-[var(--surface)] px-2.5 py-2 text-xs font-medium text-[var(--muted)] hover:border-[var(--accent)]/40 hover:text-[var(--ink)] sm:py-1.5"
+        className="btn-ghost btn-tool"
       >
         <span className="sm:hidden">{canSync ? "Sync" : "Meer"}</span>
         <span className="hidden sm:inline">{menuLabel}</span>
@@ -1066,7 +1066,7 @@ export default function RadarApp() {
       {menuOpen ? (
         <div
           role="menu"
-          className="absolute right-0 top-full z-50 mt-1.5 w-[min(16.5rem,calc(100vw-1.5rem))] rounded-md border border-[var(--line)] bg-[var(--surface)] py-1 shadow-[var(--shadow)]"
+          className="absolute right-0 top-full z-50 mt-1.5 w-[min(16.5rem,calc(100vw-1.5rem))] rounded-[var(--radius)] border border-[var(--line)] bg-[var(--surface)] py-1 shadow-[var(--shadow)]"
         >
           {canSync ? (
             <>
@@ -1083,7 +1083,7 @@ export default function RadarApp() {
                   type="button"
                   role="menuitem"
                   disabled={busy}
-                  className="flex w-full items-start gap-2 rounded-md border border-[var(--accent)]/35 bg-[var(--accent-soft)]/40 px-2.5 py-2 text-left text-xs transition hover:bg-[var(--accent-soft)]/80 disabled:opacity-50"
+                  className="flex w-full items-start gap-2 rounded-[var(--radius)] border border-[var(--accent)]/35 bg-[var(--accent-soft)]/40 px-2.5 py-2 text-left text-xs transition hover:bg-[var(--accent-soft)]/80 disabled:opacity-50"
                   onClick={() => {
                     setMenuOpen(false);
                     run("all");
@@ -1113,7 +1113,7 @@ export default function RadarApp() {
                     type="button"
                     role="menuitem"
                     disabled={busy}
-                    className="flex w-full items-start gap-2 rounded-md border border-[var(--line)] bg-[var(--surface)] px-2.5 py-2 text-left text-xs transition hover:border-[var(--accent)]/40 hover:bg-[var(--surface-2)] disabled:opacity-50"
+                    className="flex w-full items-start gap-2 rounded-[var(--radius)] border border-[var(--line)] bg-[var(--surface)] px-2.5 py-2 text-left text-xs transition hover:border-[var(--accent)]/40 hover:bg-[var(--surface-2)] disabled:opacity-50"
                     onClick={() => {
                       setMenuOpen(false);
                       run(id);
@@ -1159,29 +1159,25 @@ export default function RadarApp() {
 
   return (
     <AppShell current="radar" title="Radar" subtitle="Directe opdrachten bij eindklanten" fill toolbar={syncToolbar}>
-      <main className="ws-shell radar-shell !gap-3">
-        <section
-          className={`shrink-0 rounded-[var(--radius)] border border-[var(--accent)]/20 bg-[var(--accent-soft)]/35 px-3.5 py-3 ${
-            mobilePane === "detail" ? "max-lg:hidden" : ""
-          }`}
-        >
-          <p className="text-sm font-semibold text-[var(--ink)]">Wat doe je hier?</p>
-          <p className="mt-1 text-[0.8rem] leading-relaxed text-[var(--muted)]">
-            De Radar toont <strong className="font-semibold text-[var(--ink)]">directe vacatures bij eindklanten</strong>{" "}
-            (LinkedIn, Indeed, Freelance.nl). Geen bureau-tussenstap — hier werk je meteen naar de hiring manager.
+      <main className="ws-shell radar-shell">
+        <section className={`ws-intro ${mobilePane === "detail" ? "max-lg:hidden" : ""}`}>
+          <p className="ws-intro__title">Wat doe je hier?</p>
+          <p className="ws-intro__text">
+            De Radar toont <strong>directe vacatures bij eindklanten</strong> (LinkedIn, Indeed,
+            Freelance.nl). Geen bureau-tussenstap — hier werk je meteen naar de hiring manager.
           </p>
-          <ul className="mt-2.5 flex flex-wrap gap-x-4 gap-y-1 text-[0.75rem] text-[var(--muted)]">
+          <ul className="ws-intro__actions">
             <li>
-              <span className="font-semibold text-[var(--ink)]">1.</span> Sync (admin) haalt verse hits
+              <strong>1.</strong> Sync (admin) haalt verse hits
             </li>
             <li>
-              <span className="font-semibold text-[var(--ink)]">2.</span> Kies een bedrijf in de lijst
+              <strong>2.</strong> Kies een bedrijf in de lijst
             </li>
             <li>
-              <span className="font-semibold text-[var(--ink)]">3.</span> Open een opening → zoek manager
+              <strong>3.</strong> Open een opening → zoek manager
             </li>
             <li>
-              <span className="font-semibold text-[var(--ink)]">4.</span> Ga naar Voorstel met score &amp; aanpak
+              <strong>4.</strong> Ga naar Voorstel met score &amp; aanpak
             </li>
           </ul>
         </section>
@@ -1301,7 +1297,7 @@ export default function RadarApp() {
               ) : (
                 <button
                   type="button"
-                  className="shrink-0 rounded-md border border-[var(--line)] bg-[var(--surface-2)] px-3.5 py-2 text-sm font-semibold text-[var(--ink)] transition hover:border-[var(--accent)]/40 hover:bg-[var(--accent-soft)]/50"
+                  className="btn-ghost btn-tool shrink-0"
                   onClick={() => setLive(null)}
                 >
                   Sluiten
@@ -1536,7 +1532,7 @@ export default function RadarApp() {
                           type="button"
                           onClick={() => selectRow(r.id)}
                           aria-current={on ? "true" : undefined}
-                          className={`flex w-full items-start gap-3 rounded-md border px-3 py-3 text-left transition ${
+                          className={`flex w-full items-start gap-3 rounded-[var(--radius)] border px-3 py-3 text-left transition ${
                             on
                               ? "border-[var(--accent)] bg-[var(--accent-soft)]/50 shadow-[inset_3px_0_0_0_var(--accent)]"
                               : "border-transparent hover:border-[var(--line)] hover:bg-[var(--surface-2)]/80"
@@ -1654,7 +1650,7 @@ export default function RadarApp() {
                           className="h-9 w-9 rounded object-contain bg-white"
                         />
                       ) : null}
-                      <h3 className="text-2xl font-bold tracking-tight text-[var(--ink)]" style={{ fontFamily: "var(--display)" }}>
+                      <h3 className="ws-title">
                         {active.company.name}
                       </h3>
                     </div>

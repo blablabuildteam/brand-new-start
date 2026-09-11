@@ -113,7 +113,7 @@ a:focus-visible {
 @media (max-width: 767px) {
   .ws-shell {
     gap: 0.75rem;
-    padding: 0.75rem 0.85rem 0.75rem;
+    padding: 0.75rem 1.25rem 0.75rem;
   }
 
   .btn-tool {
@@ -241,7 +241,7 @@ button:focus-visible {
   display: none;
 }
 
-/* Shared workspace chrome — Radar / Bureaus / Voorstel */
+/* Shared workspace chrome — Radar / Bureaus / Kansen / Voorstel / Instellingen */
 .ws-shell {
   margin-inline: auto;
   display: flex;
@@ -250,7 +250,7 @@ button:focus-visible {
   min-height: 0;
   flex: 1;
   flex-direction: column;
-  gap: 1rem;
+  gap: 0.75rem;
   overflow: hidden;
   padding: 1rem 1.25rem 0;
 }
@@ -261,9 +261,17 @@ button:focus-visible {
   }
 }
 
+/* Scrollable pages (Instellingen) — same gutters, no fill lock */
+.ws-shell--page {
+  flex: none;
+  min-height: auto;
+  overflow: visible;
+  padding-bottom: 1.75rem;
+}
+
 .ws-shell--split {
   display: grid;
-  gap: 1rem;
+  gap: 0.75rem;
 }
 
 @media (max-width: 1023px) {
@@ -278,6 +286,8 @@ button:focus-visible {
 @media (min-width: 1024px) {
   .ws-shell--split {
     grid-template-columns: 15rem minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+    gap: 1rem;
   }
 
   .ws-shell--split-wide {
@@ -295,6 +305,16 @@ button:focus-visible {
   color: var(--muted);
 }
 
+.ws-title {
+  margin: 0;
+  font-family: var(--display);
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+}
+
 .ws-panel {
   overflow: hidden;
   border: 1px solid var(--line);
@@ -305,6 +325,48 @@ button:focus-visible {
 
 .ws-panel--soft {
   background: color-mix(in srgb, var(--surface) 60%, transparent);
+}
+
+.ws-panel--pad {
+  padding: 1rem;
+}
+
+.ws-intro {
+  flex-shrink: 0;
+  border: 1px solid color-mix(in srgb, var(--accent) 20%, var(--line));
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--accent-soft) 55%, var(--surface));
+  padding: 0.85rem 1rem;
+}
+
+.ws-intro__title {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.ws-intro__text {
+  margin: 0.35rem 0 0;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.ws-intro__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 1rem;
+  margin: 0.65rem 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.ws-intro__actions strong {
+  font-weight: 600;
+  color: var(--ink);
 }
 
 .ws-badge {
@@ -336,18 +398,102 @@ button:focus-visible {
   padding-bottom: 1.5rem;
 }
 
+.ws-input,
+.ws-textarea {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  padding: 0.625rem 0.75rem;
+  font-size: 0.875rem;
+  color: var(--ink);
+}
+
+.ws-textarea {
+  resize: vertical;
+  font-family: var(--font);
+  line-height: 1.45;
+  min-height: 6rem;
+}
+
+.ws-textarea--mono {
+  font-family: var(--mono);
+}
+
+.ws-input:focus,
+.ws-textarea:focus {
+  outline: 2px solid color-mix(in srgb, var(--accent) 45%, white);
+  outline-offset: 1px;
+}
+
+.ws-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  padding: 0.5rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--muted);
+  touch-action: manipulation;
+}
+
+.ws-chip:hover {
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--line));
+  color: var(--ink);
+  background: var(--surface-2);
+}
+
+.ws-chip--on {
+  border-color: var(--ink);
+  background: var(--ink);
+  color: #fff;
+}
+
+.ws-chip--on:hover {
+  border-color: var(--ink);
+  background: #2c2c2c;
+  color: #fff;
+}
+
+.ws-row {
+  border-radius: var(--radius);
+  border: 1px solid transparent;
+  transition: background-color 0.12s ease, border-color 0.12s ease;
+}
+
+.ws-row:hover {
+  border-color: var(--line);
+  background: var(--surface-2);
+}
+
+.ws-row--on {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent-soft) 55%, var(--surface));
+  box-shadow: inset 3px 0 0 0 var(--accent);
+}
+
 .btn-ink,
 .btn-signal,
 .btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  border-radius: var(--radius);
+  font-weight: 600;
+  line-height: 1.25;
+  text-decoration: none;
   transition: background-color 0.12s ease, border-color 0.12s ease, color 0.12s ease, opacity 0.12s ease;
 }
 
 .btn-tool {
-  border-radius: var(--radius);
-  padding: 0.375rem 0.85rem;
+  min-height: 2.25rem;
+  padding: 0.4rem 0.85rem;
   font-size: 0.75rem;
-  font-weight: 600;
-  line-height: 1.25;
 }
 
 .btn-ghost {
@@ -360,6 +506,34 @@ button:focus-visible {
   border-color: color-mix(in srgb, var(--accent) 40%, var(--line));
   color: var(--ink);
   background: var(--surface-2);
+}
+
+.btn-ink {
+  border: 1px solid transparent;
+  background: var(--ink);
+  color: #fff;
+}
+
+.btn-ink:hover {
+  background: #2c2c2c;
+  color: #fff;
+}
+
+.btn-signal {
+  border: 1px solid transparent;
+  background: var(--signal);
+  color: var(--ink);
+}
+
+.btn-signal:hover {
+  background: var(--signal-bright);
+  color: var(--ink);
+}
+
+.btn-ink:disabled,
+.btn-signal:disabled,
+.btn-ghost:disabled {
+  opacity: 0.5;
 }
 
 .radar-scroll-pane {
@@ -435,34 +609,6 @@ button:focus-visible {
 
 .desk-card--live {
   box-shadow: var(--shadow), 0 0 0 1px color-mix(in srgb, var(--accent) 14%, transparent);
-}
-
-.btn-ink {
-  border: 1px solid transparent;
-  background: var(--ink);
-  color: #fff;
-}
-
-.btn-ink:hover {
-  background: #2c2c2c;
-  color: #fff;
-}
-
-.btn-signal {
-  border: 1px solid transparent;
-  background: var(--signal);
-  color: var(--ink);
-}
-
-.btn-signal:hover {
-  background: var(--signal-bright);
-  color: var(--ink);
-}
-
-.btn-ink:disabled,
-.btn-signal:disabled,
-.btn-ghost:disabled {
-  opacity: 0.5;
 }
 
 @media (prefers-reduced-motion: reduce) {

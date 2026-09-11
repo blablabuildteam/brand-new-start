@@ -100,10 +100,10 @@ export default function KansenDesk() {
 
   return (
     <AppShell current="kansen" title="Kansen" subtitle="CRM-pipeline · bevestigd & actueel" fill>
-      <div className="ws-shell !max-w-none !gap-3">
-        <section className="shrink-0 rounded-[var(--radius)] border border-[var(--line)] bg-[var(--surface)] px-3.5 py-3">
-          <p className="text-sm font-semibold text-[var(--ink)]">Pipeline</p>
-          <p className="mt-1 text-[0.8rem] leading-relaxed text-[var(--muted)]">
+      <div className="ws-shell">
+        <section className="ws-intro">
+          <p className="ws-intro__title">Pipeline</p>
+          <p className="ws-intro__text">
             Alle serieuze kansen op één rij: bevestigde bureau-leads en warme/sterke radar-hits. Klik een
             regel voor detail, hiring manager en voorstel.
           </p>
@@ -115,14 +115,10 @@ export default function KansenDesk() {
               key={f.id}
               type="button"
               onClick={() => setFilterSafe(f.id)}
-              className={`shrink-0 rounded-[var(--radius)] border px-3 py-2.5 text-xs font-semibold touch-manipulation ${
-                filter === f.id
-                  ? "border-[var(--ink)] bg-[var(--ink)] text-white"
-                  : "border-[var(--line)] bg-[var(--surface)] text-[var(--muted)]"
-              }`}
+              className={`ws-chip shrink-0 ${filter === f.id ? "ws-chip--on" : ""}`}
             >
               {f.label}
-              <span className="ml-1.5 tabular-nums opacity-80" style={{ fontFamily: "var(--mono)" }}>
+              <span className="tabular-nums opacity-80" style={{ fontFamily: "var(--mono)" }}>
                 {f.n}
               </span>
             </button>
@@ -327,12 +323,7 @@ export default function KansenDesk() {
                 </button>
 
                 <p className="ws-label">{active.lane === "bureau" ? "Bevestigde kans" : "Directe kans"}</p>
-                <h2
-                  className="mt-1 text-2xl font-bold tracking-tight text-[var(--ink)]"
-                  style={{ fontFamily: "var(--display)" }}
-                >
-                  {active.endClient}
-                </h2>
+                <h2 className="ws-title mt-1">{active.endClient}</h2>
                 <p className="mt-1 text-sm text-[var(--muted)]">{active.title}</p>
 
                 <div className="mt-4 flex flex-wrap items-center gap-2">

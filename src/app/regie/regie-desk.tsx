@@ -248,7 +248,14 @@ export default function RegieDesk({
 
   return (
     <AppShell current="voorstel" title="Voorstel" subtitle="Bericht klaarzetten voor manager of kandidaat" fill>
-      <div className="ws-shell ws-shell--split ws-shell--split-wide !gap-3 lg:!gap-4">
+      <div className="ws-shell ws-shell--split ws-shell--split-wide">
+        <section className={`ws-intro lg:col-span-2 ${mobilePane === "detail" ? "max-lg:hidden" : ""}`}>
+          <p className="ws-intro__title">Wat doe je hier?</p>
+          <p className="ws-intro__text">
+            Kies een opening, pak de hiring manager of kandidaat, en zet het bericht klaar. Jij verstuurt —
+            niets gaat automatisch.
+          </p>
+        </section>
         <aside
           className={`radar-scroll-pane min-h-0 max-lg:flex-1 ${mobilePane === "detail" ? "max-lg:hidden" : ""}`}
         >
@@ -273,7 +280,7 @@ export default function RegieDesk({
                             type="button"
                             onClick={() => select(r.companyId, r.openingId)}
                             aria-current={active ? "true" : undefined}
-                            className={`flex w-full min-h-10 items-center gap-2 rounded-md border px-2.5 py-2 text-left transition lg:min-h-0 lg:py-1.5 ${
+                            className={`flex w-full min-h-10 items-center gap-2 rounded-[var(--radius)] border px-2.5 py-2 text-left transition lg:min-h-0 lg:py-1.5 ${
                               active
                                 ? "border-[var(--accent)] bg-[var(--accent-soft)]/50 shadow-[inset_3px_0_0_0_var(--accent)]"
                                 : "border-transparent hover:border-[var(--line)] hover:bg-[var(--surface-2)]"
@@ -316,7 +323,7 @@ export default function RegieDesk({
               >
                 ← Openingen
               </button>
-              <section className="ws-panel px-4 py-4 sm:px-5">
+              <section className="ws-panel px-4 py-4">
                 <p className="ws-label">{item.company}</p>
                 <div className="mt-1 flex flex-wrap items-start justify-between gap-4">
                   <div className="min-w-0">
@@ -335,7 +342,7 @@ export default function RegieDesk({
               </section>
 
               <section className="ws-panel">
-                <div className="border-b border-[var(--line)]/80 px-5 py-2.5">
+                <div className="border-b border-[var(--line)]/80 px-4 py-2.5">
                   <p className="ws-label">Hiring manager</p>
                 </div>
                 {proposal.hiring.slice(0, 3).map((t) => {
@@ -344,10 +351,10 @@ export default function RegieDesk({
                   return (
                     <div
                       key={`${t.kind}-${t.label}`}
-                      className="flex flex-col gap-3 border-t border-[var(--line)]/70 px-4 py-4 first:border-t-0 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:px-5"
+                      className="flex flex-col gap-3 border-t border-[var(--line)]/70 px-4 py-4 first:border-t-0 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:px-4"
                     >
                       <div className="flex min-w-0 items-center gap-3">
-                        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-md bg-[var(--accent-soft)] text-xs font-semibold text-[var(--accent)]">
+                        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-[var(--radius)] bg-[var(--accent-soft)] text-xs font-semibold text-[var(--accent)]">
                           {named ? initials(t.label) : "?"}
                         </span>
                         <span className="min-w-0">
@@ -400,11 +407,7 @@ export default function RegieDesk({
                           <button
                             type="button"
                             onClick={() => setTab("hm")}
-                            className={`btn-tool border px-3 py-1.5 text-xs font-semibold ${
-                              tab === "hm"
-                                ? "border-[var(--ink)] bg-[var(--ink)] text-white"
-                                : "border-[var(--line)] bg-[var(--surface)] text-[var(--ink)] hover:border-[var(--accent)]/40"
-                            }`}
+                            className={tab === "hm" ? "btn-ink btn-tool" : "btn-ghost btn-tool"}
                           >
                             Bericht
                           </button>
@@ -422,7 +425,7 @@ export default function RegieDesk({
                   );
                 })}
                 {!known && item.companyId !== "demo" ? (
-                  <div className="flex flex-wrap items-center gap-3 border-t border-[var(--line)]/70 px-5 py-3">
+                  <div className="flex flex-wrap items-center gap-3 border-t border-[var(--line)]/70 px-4 py-3">
                     <button
                       type="button"
                       disabled={huntBusy}
@@ -436,7 +439,7 @@ export default function RegieDesk({
                     </p>
                   </div>
                 ) : known && item.hmSearched && item.companyId !== "demo" ? (
-                  <div className="flex flex-wrap items-center gap-3 border-t border-[var(--line)]/70 px-5 py-3">
+                  <div className="flex flex-wrap items-center gap-3 border-t border-[var(--line)]/70 px-4 py-3">
                     <button
                       type="button"
                       disabled={huntBusy}
@@ -460,7 +463,7 @@ export default function RegieDesk({
                         <button
                           type="button"
                           onClick={() => setTab(s.person.id)}
-                          className={`flex h-full w-full flex-col rounded-md border bg-[var(--surface)] p-4 text-left shadow-[var(--shadow)] transition ${
+                          className={`flex h-full w-full flex-col rounded-[var(--radius)] border bg-[var(--surface)] p-4 text-left shadow-[var(--shadow)] transition ${
                             on
                               ? "border-[var(--accent)] shadow-[inset_3px_0_0_0_var(--accent)]"
                               : "border-[var(--line)] hover:border-[var(--accent)]/40"
@@ -468,7 +471,7 @@ export default function RegieDesk({
                         >
                           <span className="flex items-start justify-between gap-2">
                             <span
-                              className={`grid h-9 w-9 place-items-center rounded-md text-[0.7rem] font-semibold ${
+                              className={`grid h-9 w-9 place-items-center rounded-[var(--radius)] text-[0.7rem] font-semibold ${
                                 on ? "bg-[var(--accent)] text-white" : "bg-[var(--surface-2)] text-[var(--ink)]"
                               }`}
                             >
@@ -496,18 +499,14 @@ export default function RegieDesk({
               </section>
 
               <section className="ws-panel">
-                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--line)]/80 px-5 py-2.5">
+                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--line)]/80 px-4 py-2.5">
                   <p className="ws-label">Bericht</p>
                   <div className="flex flex-wrap gap-1">
                     {known ? (
                       <button
                         type="button"
                         onClick={() => setTab("hm")}
-                        className={`rounded-md px-2.5 py-1 text-xs font-semibold ${
-                          tab === "hm"
-                            ? "bg-[var(--ink)] text-white"
-                            : "text-[var(--muted)] hover:bg-[var(--surface-2)] hover:text-[var(--ink)]"
-                        }`}
+                        className={`ws-chip !py-1.5 ${tab === "hm" ? "ws-chip--on" : ""}`}
                       >
                         Manager
                       </button>
@@ -517,23 +516,19 @@ export default function RegieDesk({
                         key={m.id}
                         type="button"
                         onClick={() => setTab(m.id)}
-                        className={`rounded-md px-2.5 py-1 text-xs font-semibold ${
-                          tab === m.id
-                            ? "bg-[var(--ink)] text-white"
-                            : "text-[var(--muted)] hover:bg-[var(--surface-2)] hover:text-[var(--ink)]"
-                        }`}
+                        className={`ws-chip !py-1.5 ${tab === m.id ? "ws-chip--on" : ""}`}
                       >
                         {m.name.split(" ")[0]}
                       </button>
                     ))}
                   </div>
                 </div>
-                <div className="px-5 py-4">
+                <div className="px-4 py-4">
                   <textarea
                     value={draft}
                     onChange={(e) => setDraft(e.target.value)}
                     rows={8}
-                    className="w-full resize-y rounded-md border border-[var(--line)] bg-[var(--surface-2)] px-3 py-2.5 text-sm leading-relaxed"
+                    className="ws-textarea bg-[var(--surface-2)]"
                   />
                   <div className="mt-3 flex flex-wrap gap-2">
                     <button

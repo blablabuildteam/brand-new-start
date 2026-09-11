@@ -34,8 +34,8 @@ function Section({
   children: ReactNode;
 }) {
   return (
-    <section className="ws-panel h-full px-4 py-4 sm:px-5">
-      <h2 className="text-base font-semibold text-[var(--ink)]">{title}</h2>
+    <section className="ws-panel h-full px-4 py-4">
+      <p className="ws-label">{title}</p>
       <p className="mt-1 text-[0.8rem] leading-relaxed text-[var(--muted)]">{hint}</p>
       <div className="mt-4 space-y-4">{children}</div>
     </section>
@@ -290,24 +290,25 @@ export default function SettingsForm() {
 
   return (
     <AppShell current="instellingen" title="Instellingen" subtitle="Wat je zoekt en wie je volgt">
-      <main className="mx-auto w-full max-w-[1400px] flex-1 px-4 py-5 sm:px-6 md:px-8 md:py-7">
-        <div className="mb-5 max-w-3xl">
-          <p className="text-sm leading-relaxed text-[var(--muted)]">
-            Stuur de desk met functies, soort opdracht, en de bureaus/recruiters die je volgt.
-            Eindklanten komen vanzelf uit de radar — die vink je niet handmatig aan.
+      <main className="ws-shell ws-shell--page">
+        <section className="ws-intro">
+          <p className="ws-intro__title">Wat stel je hier in?</p>
+          <p className="ws-intro__text">
+            Functies, soort opdracht, en de bureaus/recruiters die je volgt. Eindklanten komen vanzelf uit de
+            radar — die vink je niet handmatig aan.
           </p>
-        </div>
+        </section>
 
         {!hunt ? (
           <p className="text-sm text-[var(--muted)]">Laden…</p>
         ) : (
-          <form onSubmit={onSubmit} className="pb-8">
-            <div className="grid gap-4 lg:grid-cols-2">
+          <form onSubmit={onSubmit} className="flex flex-col gap-3 pb-2">
+            <div className="grid gap-3 lg:grid-cols-2">
             <Section title="Werkruimte" hint="Naam en regio van deze desk.">
               <label className="block text-sm font-medium">
                 Desknaam
                 <input
-                  className="mt-1 w-full rounded-[var(--radius)] border border-[var(--line)] bg-[var(--surface)] px-3 py-2.5"
+                  className="ws-input mt-1"
                   value={hunt.name}
                   onChange={(e) => setHunt({ ...hunt, name: e.target.value })}
                 />
@@ -315,7 +316,7 @@ export default function SettingsForm() {
               <label className="block text-sm font-medium">
                 Regio
                 <input
-                  className="mt-1 w-full rounded-[var(--radius)] border border-[var(--line)] bg-[var(--surface)] px-3 py-2.5"
+                  className="ws-input mt-1"
                   value={hunt.market}
                   onChange={(e) => setHunt({ ...hunt, market: e.target.value })}
                   placeholder="Nederland"
@@ -331,7 +332,7 @@ export default function SettingsForm() {
                 </span>
                 <textarea
                   rows={10}
-                  className="mt-1 w-full rounded-[var(--radius)] border border-[var(--line)] bg-[var(--surface)] px-3 py-2 font-mono text-sm"
+                  className="ws-textarea ws-textarea--mono mt-1"
                   value={rolesText}
                   onChange={(e) => setRolesText(e.target.value)}
                 />
@@ -390,13 +391,12 @@ export default function SettingsForm() {
             </Section>
             </div>
 
-            <div className="mt-4">
             <Section
               title="Bureaus & recruiters"
               hint="Zoek in je lijst, haal recruiters op bij een bureau, en vink aan wie je volgt."
             >
               <input
-                className="w-full rounded-[var(--radius)] border border-[var(--line)] bg-[var(--surface)] px-3 py-2.5 text-sm"
+                className="ws-input"
                 placeholder="Zoek recruiter of bureau…"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
@@ -440,7 +440,7 @@ export default function SettingsForm() {
 
               <div className="flex flex-col gap-2 sm:flex-row">
                 <input
-                  className="min-w-0 flex-1 rounded-[var(--radius)] border border-[var(--line)] bg-[var(--surface)] px-3 py-2.5 text-sm"
+                  className="ws-input min-w-0 flex-1"
                   placeholder="Nieuw bureau, bv. Yacht"
                   value={newBureau}
                   onChange={(e) => setNewBureau(e.target.value)}
@@ -468,7 +468,7 @@ export default function SettingsForm() {
                       key={a.id}
                       className={`rounded-[var(--radius)] border px-3 py-3 ${
                         a.enabled
-                          ? "border-[var(--line)] bg-[var(--surface)]"
+                          ? "border-[var(--line)] bg-[var(--surface-2)]/40"
                           : "border-[var(--line)]/70 bg-[var(--surface-2)] opacity-80"
                       }`}
                     >
@@ -501,7 +501,7 @@ export default function SettingsForm() {
                           {a.custom ? (
                             <button
                               type="button"
-                              className="inline-flex min-h-10 items-center rounded-md px-2 text-xs font-semibold text-[var(--muted)] hover:bg-[var(--surface-2)] hover:text-[var(--warn)]"
+                              className="btn-ghost btn-tool text-[var(--muted)] hover:text-[var(--warn)]"
                               onClick={() => removeAgency(a.id)}
                             >
                               Verwijderen
@@ -585,7 +585,7 @@ export default function SettingsForm() {
                               </label>
                               <button
                                 type="button"
-                                className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md text-base text-[var(--muted)] hover:bg-[var(--surface-2)] hover:text-[var(--warn)]"
+                                className="btn-ghost btn-tool !min-h-10 !w-10 !px-0 text-base text-[var(--muted)] hover:text-[var(--warn)]"
                                 onClick={() => removeRecruiter(a.id, r.name)}
                                 aria-label={`${r.name} verwijderen`}
                               >
@@ -596,7 +596,7 @@ export default function SettingsForm() {
 
                           <div className="flex flex-col gap-2 pt-1 sm:flex-row">
                             <input
-                              className="min-w-0 flex-1 rounded-[var(--radius)] border border-[var(--line)] bg-[var(--surface-2)] px-2.5 py-2 text-sm"
+                              className="ws-input min-w-0 flex-1 bg-[var(--surface-2)]"
                               placeholder="Recruiter handmatig…"
                               value={newRecruiter[a.id] || ""}
                               onChange={(e) =>
@@ -625,16 +625,15 @@ export default function SettingsForm() {
               </div>
               ) : null}
             </Section>
-            </div>
 
-            {error ? <p className="mt-4 text-sm text-[var(--warn)]">{error}</p> : null}
+            {error ? <p className="text-sm text-[var(--warn)]">{error}</p> : null}
             {saved ? (
-              <p className="mt-2 text-sm text-[var(--green)]">
+              <p className="text-sm text-[var(--green)]">
                 Opgeslagen. Bureaus volgt wie je hier aanzet.
               </p>
             ) : null}
 
-            <div className="sticky bottom-[var(--mobile-nav-pad)] z-10 -mx-4 mt-4 border-t border-[var(--line)] bg-[var(--bg)]/95 px-4 py-3 backdrop-blur md:static md:bottom-auto md:mx-0 md:border-0 md:bg-transparent md:px-0 md:py-0 md:backdrop-blur-none">
+            <div className="sticky bottom-[var(--mobile-nav-pad)] z-10 -mx-5 border-t border-[var(--line)] bg-[var(--bg)]/95 px-5 py-3 backdrop-blur md:static md:bottom-auto md:mx-0 md:border-0 md:bg-transparent md:px-0 md:py-0 md:backdrop-blur-none">
               <button type="submit" disabled={busy} className="btn-ink btn-tool w-full disabled:opacity-50 sm:w-auto">
                 {busy ? "Opslaan…" : "Instellingen opslaan"}
               </button>

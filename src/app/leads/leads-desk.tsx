@@ -238,6 +238,12 @@ export default function LeadsDesk() {
   return (
     <AppShell current="leads" title="Bureaus" subtitle="Eerst eindklant, dan hiring manager" fill>
       <div className="ws-shell ws-shell--split">
+        <section className="ws-intro lg:col-span-2">
+          <p className="ws-intro__title">Wat doe je hier?</p>
+          <p className="ws-intro__text">
+            Bureau-vacature → eindklant raden en bevestigen. Bevestigde kansen landen in Kansen.
+          </p>
+        </section>
         <aside className={`radar-scroll-pane min-h-0 shrink-0 lg:max-h-none ${watchOpen ? "max-lg:max-h-64" : "max-lg:max-h-none"}`}>
           <button
             type="button"
@@ -261,7 +267,7 @@ export default function LeadsDesk() {
             ) : (
               <ul className="space-y-0.5">
                 {data.watchlist.map((a) => (
-                  <li key={a.id} className="rounded-md px-2.5 py-2 hover:bg-[var(--surface-2)]">
+                  <li key={a.id} className="rounded-[var(--radius)] px-2.5 py-2 hover:bg-[var(--surface-2)]">
                     <p className="text-[0.82rem] font-semibold text-[var(--ink)]">{a.name}</p>
                     {a.note ? <p className="mt-0.5 text-[0.68rem] leading-snug text-[var(--muted)]">{a.note}</p> : null}
                     <ul className="mt-1.5 space-y-0.5">
@@ -292,9 +298,7 @@ export default function LeadsDesk() {
 
         <main className="ws-main min-h-0 flex-1">
           <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
-            <p className="max-w-xl text-[0.8rem] leading-relaxed text-[var(--muted)]">
-              Bureau-vacature → eindklant raden en bevestigen. Bevestigde kansen landen in Kansen.
-            </p>
+            <p className="ws-label">Open leads</p>
             {data ? (
               <p className="text-[0.7rem] text-[var(--muted)]" style={{ fontFamily: "var(--mono)" }}>
                 {data.live.length} live · {data.demo.length} voorbeelden

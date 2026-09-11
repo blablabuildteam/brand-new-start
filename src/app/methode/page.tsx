@@ -50,7 +50,7 @@ export default async function MethodePage() {
 
   return (
     <AppShell title="Methode" subtitle="Bronnen, filters en queries">
-    <main className="mx-auto max-w-[900px] px-5 py-8 md:px-7">
+    <main className="ws-shell ws-shell--page">
       <p className="mb-8 max-w-xl text-sm leading-relaxed text-[var(--muted)]">
         Geen automatische sync. LinkedIn, Indeed en Freelance.nl alleen handmatig — advies ~1×/
         {INGEST_POLICY.boardsCadenceDays} dagen.
