@@ -118,7 +118,8 @@ export function AppShell({
 
   async function logout() {
     await fetch("/api/auth/login", { method: "DELETE" });
-    router.replace("/login");
+    router.replace("/");
+    router.refresh();
   }
 
   const nav = (

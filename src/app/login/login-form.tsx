@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { BlablaLogo } from "@/components/blabla-logo";
 import { RegieWordmark } from "@/components/regie-mark";
@@ -8,7 +9,8 @@ import { RegieWordmark } from "@/components/regie-mark";
 export default function LoginForm() {
   const router = useRouter();
   const params = useSearchParams();
-  const next = params.get("next") || "/";
+  const nextParam = params.get("next");
+  const next = nextParam && nextParam !== "/" ? nextParam : "/radar";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -35,10 +37,13 @@ export default function LoginForm() {
 
   return (
     <div className="min-h-dvh bg-[var(--bg)]">
-      <header className="mx-auto flex h-14 max-w-[1120px] items-center px-5 pt-[env(safe-area-inset-top)] md:px-8">
-        <div className="flex h-14 w-full items-center">
+      <header className="mx-auto flex h-14 max-w-[1120px] items-center justify-between gap-4 px-5 pt-[env(safe-area-inset-top)] md:px-8">
+        <Link href="/" className="nav-link" aria-label="Regie home">
           <RegieWordmark />
-        </div>
+        </Link>
+        <Link href="/" className="text-sm font-medium text-[var(--muted)] no-underline hover:text-[var(--ink)]">
+          ← Home
+        </Link>
       </header>
       <main className="grid min-h-[calc(100dvh-3.5rem)] place-items-center px-5 pb-16">
         <form
@@ -49,7 +54,7 @@ export default function LoginForm() {
             Inloggen
           </h1>
           <p className="mt-2 mb-6 text-sm leading-relaxed text-[var(--muted)]">
-            Daarna kies je permanent of contracting.
+            Daarna open je de contracting-desk: Radar, Bureaus, Kansen en Voorstel.
           </p>
 
           <label className="mb-3 block text-sm font-medium">

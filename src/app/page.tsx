@@ -2,8 +2,9 @@ import type { Metadata } from "next";
 import HomeDesk from "./home-desk";
 
 export const metadata: Metadata = {
-  title: "Regie",
-  description: "Van opdracht naar de juiste hiring manager — contracting en permanent.",
+  title: "Regie — Van opdracht naar de juiste manager",
+  description:
+    "Contracting-desk: kansen ophalen, eindklant bevestigen, hiring manager vinden en voorstel klaarzetten.",
 };
 
 export default function Home() {

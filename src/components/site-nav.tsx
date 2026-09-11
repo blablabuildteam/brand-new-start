@@ -17,7 +17,8 @@ export function SiteNav({
 
   async function logout() {
     await fetch("/api/auth/login", { method: "DELETE" });
-    router.replace("/login");
+    router.replace("/");
+    router.refresh();
   }
 
   return (
@@ -30,12 +31,11 @@ export function SiteNav({
           <a href="#hoe" className="nav-link hover:text-[var(--ink)]">
             Hoe het werkt
           </a>
-          <Link href="/radar" className="nav-link hover:text-[var(--ink)]">
-            Contracting
-          </Link>
-          <span className="cursor-default text-[var(--line)]" title="Binnenkort">
-            Permanent
-          </span>
+          {email ? (
+            <Link href="/radar" className="nav-link hover:text-[var(--ink)]">
+              Desk
+            </Link>
+          ) : null}
         </nav>
         <div className="flex items-center gap-3">
           {email ? (
@@ -52,7 +52,10 @@ export function SiteNav({
               Uitloggen
             </button>
           ) : (
-            <Link href="/login" className="nav-link btn-ink rounded-full px-3.5 py-1.5 text-xs font-semibold">
+            <Link
+              href="/login?next=%2Fradar"
+              className="nav-link btn-ink rounded-full px-3.5 py-1.5 text-xs font-semibold"
+            >
               Inloggen
             </Link>
           )}
@@ -72,10 +75,19 @@ export function SiteNav({
           <a href="#hoe" className="nav-link block py-2 text-sm text-[var(--ink)]" onClick={() => setOpen(false)}>
             Hoe het werkt
           </a>
-          <Link href="/radar" className="nav-link block py-2 text-sm text-[var(--ink)]" onClick={() => setOpen(false)}>
-            Contracting
-          </Link>
-          <span className="block py-2 text-sm text-[var(--muted)]">Permanent · binnenkort</span>
+          {email ? (
+            <Link href="/radar" className="nav-link block py-2 text-sm text-[var(--ink)]" onClick={() => setOpen(false)}>
+              Desk
+            </Link>
+          ) : (
+            <Link
+              href="/login?next=%2Fradar"
+              className="nav-link block py-2 text-sm text-[var(--ink)]"
+              onClick={() => setOpen(false)}
+            >
+              Inloggen
+            </Link>
+          )}
         </nav>
       ) : null}
     </header>
