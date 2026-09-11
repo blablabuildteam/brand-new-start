@@ -1,6 +1,8 @@
 import KansenDesk from "./kansen-desk";
 import { listCrmOpportunities } from "@/lib/crm";
 
+export const dynamic = "force-dynamic";
+
 export const metadata = {
   title: "Kansen — Regie",
   description: "Pipeline van bevestigde en actuele contracting-kansen.",

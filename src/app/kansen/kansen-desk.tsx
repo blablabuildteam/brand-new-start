@@ -47,12 +47,10 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
   const [mobilePane, setMobilePane] = useState<"list" | "detail">("list");
 
   useEffect(() => {
-    if (initial?.items?.length) {
-      setLoading(false);
-      return;
-    }
+    // Always refresh in the background; show SSR data immediately when present.
+    if (initial) setLoading(false);
     import("@/lib/client-cache").then(({ cachedJson }) =>
-      cachedJson<InitialCrm>("crm", "/api/crm")
+      cachedJson<InitialCrm>("crm", "/api/crm", { ttlMs: initial ? 20_000 : 60_000 })
         .then((j) => {
           setItems(j.items);
           setCounts(j.counts);
@@ -60,7 +58,7 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
         .catch((e: unknown) => {
           const status = (e as { status?: number }).status;
           if (status === 401) window.location.href = "/login?next=/kansen";
-          else setError(e instanceof Error ? e.message : "fout");
+          else if (!initial) setError(e instanceof Error ? e.message : "fout");
         })
         .finally(() => setLoading(false))
     );
@@ -105,8 +103,9 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
         <section className="ws-intro">
           <p className="ws-intro__title">Pipeline</p>
           <p className="ws-intro__text">
-            Alle serieuze kansen op één rij: bevestigde bureau-leads en warme/sterke radar-hits. Klik een
-            regel voor detail, hiring manager en voorstel.
+            Alle serieuze kansen op één rij. <strong>Bron</strong> = waar de kans vandaan komt:{" "}
+            <em>Bureau · …</em> (via detacheerder, bevestigd) of een jobboard zoals LinkedIn/Indeed
+            (direct bij de eindklant). Klik een regel voor detail, hiring manager en voorstel.
           </p>
         </section>
 
