@@ -49,7 +49,7 @@ export const radarEntries = pgTable(
     factors: jsonb("factors").$type<{ label: string; points: number; source?: string }[]>().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
   },
-  (t) => [uniqueIndex("radar_company_role_idx").on(t.companyId, t.roleLabel)]
+  (t) => [index("radar_company_idx").on(t.companyId)]
 );
 
 export const syncRuns = pgTable(
