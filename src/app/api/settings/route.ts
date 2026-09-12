@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { seedManagedAgencies } from "@/lib/agency";
+import { hasAiKey } from "@/lib/ai-client";
+import { hasApifyToken } from "@/lib/apify";
+import { hasDatabase } from "@/lib/db/client";
+import { hasLushaKey } from "@/lib/lusha";
 import {
   EMPLOYMENT_KINDS,
   loadHuntSettings,
@@ -53,6 +57,13 @@ export async function GET() {
     agencies,
     catalog: {
       employmentKinds: EMPLOYMENT_KINDS,
+    },
+    integrations: {
+      database: hasDatabase(),
+      anthropic: hasAiKey(),
+      apify: hasApifyToken(),
+      lusha: hasLushaKey(),
+      firecrawl: Boolean(process.env.FIRECRAWL_API_KEY?.trim()),
     },
     user: { email: session.email, role: session.role },
   });

@@ -457,7 +457,7 @@ export async function reviewLead(
       kind: "confirm",
       title: `Bevestigd: ${client}`,
       body: `${lead.roleLabel} via ${lead.agency.name} — zoek hiring manager of open Kansen.`,
-      href: `/kansen?id=${encodeURIComponent(`crm_bureau_${id}`)}`,
+      href: `/radar?q=${encodeURIComponent(client)}`,
     });
   }
   return applyReview({

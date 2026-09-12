@@ -6,6 +6,17 @@ export const metadata: Metadata = {
   description: "Interim- en ZZP-opdrachten, hiring manager en voorstel.",
 };
 
-export default function RadarPage() {
-  return <RadarApp />;
+export default async function RadarPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ id?: string; opening?: string; q?: string }>;
+}) {
+  const params = await searchParams;
+  return (
+    <RadarApp
+      initialId={params.id || null}
+      initialOpening={params.opening || null}
+      initialQuery={params.q || null}
+    />
+  );
 }

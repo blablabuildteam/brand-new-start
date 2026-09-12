@@ -7,7 +7,13 @@ import { ScoreChip } from "@/components/score-chip";
 import { AppShell } from "@/components/app-shell";
 import { INGEST_POLICY, SYNC_COST_PER_RUN } from "@/lib/costs";
 import { orgContextFromSignals } from "@/lib/org-context";
-import { buildApproach, companyLinkedinFromSignals, type ApproachTarget } from "@/lib/approach";
+import {
+  buildApproach,
+  companyLinkedinFromSignals,
+  linkedinPeopleAtCompany,
+  type ApproachTarget,
+} from "@/lib/approach";
+import { hmSearchPlan } from "@/lib/hm-hunt";
 
 type Factor = { label: string; points: number; source?: string };
 type Signal = {
@@ -566,7 +572,34 @@ function isFresh(r: RadarRow, sinceIso?: string | null) {
   });
 }
 
-export default function RadarApp() {
+function normCompany(s: string) {
+  return s
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function matchCompanyByQuery(rows: RadarRow[], q: string | null | undefined) {
+  if (!q?.trim()) return null;
+  const n = normCompany(q);
+  return (
+    rows.find((r) => normCompany(r.company.name) === n) ||
+    rows.find((r) => normCompany(r.company.name).includes(n) || n.includes(normCompany(r.company.name))) ||
+    null
+  );
+}
+
+export default function RadarApp({
+  initialId = null,
+  initialOpening = null,
+  initialQuery = null,
+}: {
+  initialId?: string | null;
+  initialOpening?: string | null;
+  initialQuery?: string | null;
+} = {}) {
   const router = useRouter();
   const [radar, setRadar] = useState<RadarRow[]>([]);
   const [stats, setStats] = useState<{
@@ -578,7 +611,8 @@ export default function RadarApp() {
   } | null>(null);
   const [user, setUser] = useState<{ email: string; role: "admin" | "recruiter" } | null>(null);
   const [sync, setSync] = useState<SyncInfo | null>(null);
-  const [activeId, setActiveId] = useState<string | null>(null);
+  const [activeId, setActiveId] = useState<string | null>(initialId);
+  const [focusQuery, setFocusQuery] = useState<string | null>(initialQuery);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -586,7 +620,9 @@ export default function RadarApp() {
   const [freshSince, setFreshSince] = useState<string | null>(null);
   const [syncElapsed, setSyncElapsed] = useState(0);
   const [listCanScrollMore, setListCanScrollMore] = useState(false);
-  const [mobilePane, setMobilePane] = useState<"list" | "detail">("list");
+  const [mobilePane, setMobilePane] = useState<"list" | "detail">(
+    initialId || initialQuery ? "detail" : "list"
+  );
   const detailRef = useRef<HTMLElement>(null);
   const listScrollRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -612,6 +648,11 @@ export default function RadarApp() {
       }
       setSync(data.sync);
       setActiveId((prev) => {
+        const fromUrl =
+          (initialId && data.radar.some((r) => r.id === initialId) && initialId) ||
+          matchCompanyByQuery(data.radar, initialQuery)?.id ||
+          null;
+        if (fromUrl) return fromUrl;
         if (opts?.keepActive && prev && data.radar.some((r) => r.id === prev)) return prev;
         const still = data.radar.some((r) => r.id === prev);
         return still ? prev : data.radar[0]?.id || null;
@@ -667,6 +708,31 @@ export default function RadarApp() {
     () => radar.filter((r) => r.status === "hot" || r.status === "warm").length,
     [radar]
   );
+
+  const focusMatch = useMemo(
+    () => (focusQuery ? matchCompanyByQuery(radar, focusQuery) : null),
+    [radar, focusQuery]
+  );
+  const showFocusMiss = Boolean(focusQuery?.trim()) && !focusMatch && !loading;
+
+  const focusLinkedIn = useMemo(() => {
+    if (!focusQuery?.trim()) return null;
+    const plan = hmSearchPlan({
+      company: focusQuery,
+      roleLabel: "hiring manager",
+      openingTitle: undefined,
+      department: null,
+      sector: null,
+    });
+    return linkedinPeopleAtCompany({
+      company: focusQuery,
+      keywords: plan.keywords || "IT manager OR hiring manager OR informatiemanager",
+    });
+  }, [focusQuery]);
+
+  useEffect(() => {
+    if (focusMatch && activeId !== focusMatch.id) setActiveId(focusMatch.id);
+  }, [focusMatch, activeId]);
 
   useEffect(() => {
     const el = listScrollRef.current;
@@ -1227,6 +1293,43 @@ export default function RadarApp() {
             </li>
           </ul>
         </section>
+
+        {showFocusMiss && focusQuery ? (
+          <div className={`mb-3 rounded-[var(--radius)] border border-[var(--accent)]/30 bg-[var(--accent-soft)]/40 px-4 py-3 ${mobilePane === "detail" ? "max-lg:hidden" : ""}`}>
+            <p className="text-sm font-semibold text-[var(--ink)]">
+              Eindklant <span className="text-[var(--accent)]">{focusQuery}</span> staat nog niet op de
+              radar
+            </p>
+            <p className="mt-1 text-[0.78rem] text-[var(--muted)]">
+              Bevestigd via Bureaus. Zoek de hiring manager op LinkedIn, of wacht tot een admin-sync
+              deze eindklant binnenhaalt.
+            </p>
+            <div className="mt-2.5 flex flex-wrap gap-2">
+              {focusLinkedIn ? (
+                <a
+                  href={focusLinkedIn}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn-ink btn-tool no-underline"
+                >
+                  Zoek managers op LinkedIn
+                </a>
+              ) : null}
+              <button type="button" className="btn-ghost btn-tool" onClick={() => setFocusQuery(null)}>
+                Sluiten
+              </button>
+            </div>
+          </div>
+        ) : focusMatch && focusQuery ? (
+          <div className={`mb-3 flex flex-wrap items-center justify-between gap-2 rounded-[var(--radius)] border border-[var(--green)]/25 bg-[var(--green-soft)]/50 px-4 py-2.5 ${mobilePane === "detail" ? "max-lg:hidden" : ""}`}>
+            <p className="text-[0.78rem] text-[var(--ink)]">
+              Focus: <strong>{focusMatch.company.name}</strong> (uit bevestigde eindklant)
+            </p>
+            <button type="button" className="btn-ghost btn-tool" onClick={() => setFocusQuery(null)}>
+              Wissen
+            </button>
+          </div>
+        ) : null}
 
         {!live && sync?.last ? (
           <section className={`ws-panel mb-0 shrink-0 ${mobilePane === "detail" ? "max-lg:hidden" : ""}`}>

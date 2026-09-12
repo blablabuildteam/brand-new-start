@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { AppShell } from "@/components/app-shell";
 import type { AgencyLead, LeadStatus } from "@/lib/opportunity";
+import { kansenHref, radarHref, regieHref } from "@/lib/desk-links";
 
 type Payload = {
   watchlist: {
@@ -41,16 +42,21 @@ function LeadCard({
   lead,
   busy,
   aiBusy,
+  clientDraft,
+  onClientDraft,
   onReview,
   onAiGuess,
 }: {
   lead: AgencyLead;
   busy: boolean;
   aiBusy: boolean;
-  onReview: (id: string, action: "confirmed" | "rejected") => void;
+  clientDraft: string;
+  onClientDraft: (v: string) => void;
+  onReview: (id: string, action: "confirmed" | "rejected", clientName?: string) => void;
   onAiGuess: (id: string) => void;
 }) {
-  const client = lead.confirmedClient || lead.guess?.name;
+  const guessed = lead.confirmedClient || lead.guess?.name || "";
+  const client = (clientDraft || guessed).trim();
   const open = lead.status !== "confirmed" && lead.status !== "rejected";
   return (
     <article className="ws-panel px-4 py-3.5 transition hover:border-[var(--accent)]/25">
@@ -96,7 +102,18 @@ function LeadCard({
 
       <div className="mt-3 rounded-[var(--radius)] border border-[var(--line)]/80 bg-[var(--surface-2)] px-3 py-2.5">
         <p className="ws-label">Eindklant</p>
-        <p className="mt-1 text-sm font-semibold text-[var(--ink)]">{client || "Nog niet te zeggen"}</p>
+        {open ? (
+          <input
+            type="text"
+            value={clientDraft || guessed}
+            onChange={(e) => onClientDraft(e.target.value)}
+            placeholder="Naam eindklant"
+            className="mt-1.5 w-full rounded-[calc(var(--radius)-2px)] border border-[var(--line)] bg-[var(--surface)] px-2.5 py-1.5 text-sm font-semibold text-[var(--ink)] outline-none focus:border-[var(--accent)]"
+            aria-label="Eindklant overrulen"
+          />
+        ) : (
+          <p className="mt-1 text-sm font-semibold text-[var(--ink)]">{client || "Nog niet te zeggen"}</p>
+        )}
         {lead.guess?.evidence.length ? (
           <ul className="mt-2 space-y-1.5">
             {lead.guess.evidence.slice(0, 3).map((e, i) => (
@@ -110,9 +127,20 @@ function LeadCard({
           <p className="mt-1 text-[0.75rem] text-[var(--muted)]">Te vaag voor regels — probeer AI eindklant.</p>
         )}
         {lead.guess?.alternatives.length ? (
-          <p className="mt-2 text-[0.72rem] text-[var(--muted)]">
-            Ook mogelijk: {lead.guess.alternatives.map((a) => `${a.name} (${a.confidence}%)`).join(", ")}
-          </p>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            <span className="text-[0.72rem] text-[var(--muted)]">Ook mogelijk:</span>
+            {lead.guess.alternatives.map((a) => (
+              <button
+                key={a.name}
+                type="button"
+                disabled={!open}
+                onClick={() => onClientDraft(a.name)}
+                className="rounded-[calc(var(--radius)-2px)] border border-[var(--line)] bg-[var(--surface)] px-2 py-0.5 text-[0.7rem] font-medium text-[var(--ink)] hover:border-[var(--accent)] disabled:opacity-50"
+              >
+                {a.name} ({a.confidence}%)
+              </button>
+            ))}
+          </div>
         ) : null}
       </div>
 
@@ -123,8 +151,8 @@ function LeadCard({
           </button>
           <button
             type="button"
-            disabled={busy || aiBusy || !client}
-            onClick={() => onReview(lead.id, "confirmed")}
+            disabled={busy || aiBusy || client.length < 2}
+            onClick={() => onReview(lead.id, "confirmed", client)}
             className="btn-ink btn-tool"
           >
             Bevestig {client || "klant"}
@@ -153,16 +181,16 @@ function LeadCard({
           <p className="w-full text-[0.75rem] text-[var(--muted)]">
             Bevestigd als <strong className="text-[var(--ink)]">{client}</strong>. Volgende stap:
           </p>
-          <Link
-            href={`/kansen?id=${encodeURIComponent(`crm_bureau_${lead.id}`)}`}
-            className="btn-ink btn-tool no-underline"
-          >
+          <Link href={kansenHref(`crm_bureau_${lead.id}`)} className="btn-ink btn-tool no-underline">
             Open in Kansen
           </Link>
-          <Link href="/radar" className="btn-ghost btn-tool no-underline">
+          <Link
+            href={radarHref({ q: client || undefined })}
+            className="btn-ghost btn-tool no-underline"
+          >
             Zoek hiring manager
           </Link>
-          <Link href="/regie" className="btn-ghost btn-tool no-underline">
+          <Link href={regieHref({})} className="btn-ghost btn-tool no-underline">
             Naar Voorstel
           </Link>
         </div>
@@ -177,6 +205,7 @@ export default function LeadsDesk() {
   const [busy, setBusy] = useState(false);
   const [aiId, setAiId] = useState<string | null>(null);
   const [watchOpen, setWatchOpen] = useState(false);
+  const [clientDrafts, setClientDrafts] = useState<Record<string, string>>({});
 
   function upsertLead(next: AgencyLead) {
     setData((prev) => {
@@ -184,6 +213,9 @@ export default function LeadsDesk() {
       const patch = (list: AgencyLead[]) => list.map((l) => (l.id === next.id ? next : l));
       return { ...prev, live: patch(prev.live), demo: patch(prev.demo) };
     });
+    if (next.guess?.name) {
+      setClientDrafts((d) => ({ ...d, [next.id]: d[next.id] ?? next.guess!.name }));
+    }
   }
 
   function load() {
@@ -197,7 +229,15 @@ export default function LeadsDesk() {
         return (await res.json()) as Payload;
       })
       .then((j) => {
-        if (j) setData(j);
+        if (j) {
+          setData(j);
+          const drafts: Record<string, string> = {};
+          for (const l of [...j.live, ...j.demo]) {
+            const name = l.confirmedClient || l.guess?.name;
+            if (name) drafts[l.id] = name;
+          }
+          setClientDrafts((prev) => ({ ...drafts, ...prev }));
+        }
       })
       .catch((e: unknown) => setError(e instanceof Error ? e.message : "fout"));
   }
@@ -206,14 +246,18 @@ export default function LeadsDesk() {
     load();
   }, []);
 
-  async function onReview(id: string, action: "confirmed" | "rejected") {
+  async function onReview(id: string, action: "confirmed" | "rejected", clientName?: string) {
     setBusy(true);
     setError(null);
     try {
       const res = await fetch("/api/leads", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, action }),
+        body: JSON.stringify({
+          id,
+          action,
+          ...(action === "confirmed" && clientName ? { clientName } : {}),
+        }),
       });
       if (!res.ok) throw new Error("opslaan mislukt");
       const j = (await res.json()) as { lead?: AgencyLead };
@@ -346,6 +390,8 @@ export default function LeadsDesk() {
                         lead={l}
                         busy={busy}
                         aiBusy={aiId === l.id}
+                        clientDraft={clientDrafts[l.id] || ""}
+                        onClientDraft={(v) => setClientDrafts((d) => ({ ...d, [l.id]: v }))}
                         onReview={onReview}
                         onAiGuess={onAiGuess}
                       />
@@ -372,6 +418,8 @@ export default function LeadsDesk() {
                       lead={l}
                       busy={busy}
                       aiBusy={aiId === l.id}
+                      clientDraft={clientDrafts[l.id] || ""}
+                      onClientDraft={(v) => setClientDrafts((d) => ({ ...d, [l.id]: v }))}
                       onReview={onReview}
                       onAiGuess={onAiGuess}
                     />

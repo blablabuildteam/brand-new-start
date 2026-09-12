@@ -1,6 +1,7 @@
 import { listAgencyLeads } from "@/lib/opportunity";
 import { listRadar, listSignals, patchSignalRaw } from "@/lib/store";
 import { channelLabel } from "@/lib/sync-log";
+import { radarHref, regieHref } from "@/lib/desk-links";
 import {
   CRM_STAGE_NL,
   loadDeskMeta,
@@ -159,7 +160,7 @@ export async function listCrmOpportunities(): Promise<CrmOpportunity[]> {
       confirmedAt: review?.at || meta.leadReviews[lead.id]?.at || null,
       evidenceUrl: lead.evidenceUrl,
       href: match
-        ? `/regie?id=${encodeURIComponent(match.id)}&opening=${encodeURIComponent(opening?.id || "")}`
+        ? regieHref({ companyId: match.id, openingId: opening?.id || null })
         : lead.evidenceUrl,
       companyId: match?.id || null,
       openingId: opening?.id || null,
@@ -211,7 +212,7 @@ export async function listCrmOpportunities(): Promise<CrmOpportunity[]> {
         recruiterName: null,
         confirmedAt: null,
         evidenceUrl: sigs.find((s) => s.evidenceUrl)?.evidenceUrl || null,
-        href: `/regie?id=${encodeURIComponent(row.id)}&opening=${encodeURIComponent(o.id)}`,
+        href: regieHref({ companyId: row.id, openingId: o.id }),
         companyId: row.id,
         openingId: o.id,
         extractSummary: extractSummaryFromRaw(raw0),
@@ -237,7 +238,11 @@ export function listActionQueue(items: CrmOpportunity[]) {
       let href = `/kansen?id=${encodeURIComponent(i.id)}`;
       if (!i.hiringManager) {
         next = "Zoek hiring manager";
-        href = i.companyId ? `/radar` : href;
+        href = radarHref({
+          companyId: i.companyId,
+          openingId: i.openingId,
+          q: i.companyId ? null : i.endClient,
+        });
       } else if (i.stage === "hm" || i.stage === "bevestigd" || i.stage === "nieuw") {
         next = "Open voorstel";
         href = i.href || href;

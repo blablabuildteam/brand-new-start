@@ -23,6 +23,10 @@ export type DeskItem = {
   roleLabel: string;
   kans: number;
   hmSearched?: boolean;
+  /** Fictieve demo-opening als radar leeg is */
+  demoOpening?: boolean;
+  /** Shortlist uit voorbeeld-bench (niet echte CRM) */
+  sampleBench?: boolean;
   proposal: PlacementProposal;
 };
 
@@ -42,6 +46,8 @@ export async function GET() {
       title: DEMO.openingTitle,
       roleLabel: DEMO.roleLabel,
       kans: 46,
+      demoOpening: true,
+      sampleBench: true,
       proposal,
     };
     return NextResponse.json({ items: [item], demo: true });
@@ -72,6 +78,7 @@ export async function GET() {
         roleLabel: opening.roleLabel,
         kans: opening.kans,
         hmSearched: Boolean(org.hmHits?.length),
+        sampleBench: true,
         proposal: placementFromSignals({
           company: r.company.name,
           openingTitle: opening.openingTitle || opening.roleLabel,

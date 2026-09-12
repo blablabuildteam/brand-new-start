@@ -20,6 +20,13 @@ type SettingsPayload = {
   catalog: {
     employmentKinds: { id: EmploymentKind; label: string; hint: string }[];
   };
+  integrations?: {
+    database: boolean;
+    anthropic: boolean;
+    apify: boolean;
+    lusha: boolean;
+    firecrawl: boolean;
+  };
 };
 
 type FoundPerson = { name: string; title: string | null; url: string | null };
@@ -290,6 +297,7 @@ export default function SettingsForm() {
               ...next,
               agencies: next.agencies || prev.agencies,
               catalog: prev.catalog,
+              integrations: prev.integrations,
             }
           : prev
       );
@@ -313,6 +321,40 @@ export default function SettingsForm() {
             komen vanzelf uit de radar.
           </p>
         </section>
+
+        {hunt?.integrations ? (
+          <section className="ws-panel mb-3 px-4 py-3">
+            <p className="ws-label">Pilot-klaarheid</p>
+            <ul className="mt-2 flex flex-wrap gap-2">
+              {(
+                [
+                  ["database", "Database", hunt.integrations.database],
+                  ["anthropic", "AI (Claude)", hunt.integrations.anthropic],
+                  ["apify", "Apify sync/HM", hunt.integrations.apify],
+                  ["lusha", "Lusha mail/tel", hunt.integrations.lusha],
+                  ["firecrawl", "Firecrawl", hunt.integrations.firecrawl],
+                ] as const
+              ).map(([key, label, ok]) => (
+                <li
+                  key={key}
+                  className={`rounded-[calc(var(--radius)-2px)] border px-2.5 py-1 text-[0.72rem] font-medium ${
+                    ok
+                      ? "border-[var(--green)]/30 bg-[var(--green-soft)] text-[var(--green)]"
+                      : "border-[var(--warn)]/30 bg-[var(--warn-soft)] text-[var(--warn)]"
+                  }`}
+                >
+                  {ok ? "✓" : "○"} {label}
+                </li>
+              ))}
+            </ul>
+            {!hunt.integrations.lusha ? (
+              <p className="mt-2 text-[0.75rem] text-[var(--muted)]">
+                Zonder Lusha kun je wel LinkedIn openen; mail/tel-enrichment blijft uit tot{" "}
+                <code className="text-[0.7rem]">LUSHA_API_KEY</code> op Vercel staat.
+              </p>
+            ) : null}
+          </section>
+        ) : null}
 
         {!hunt ? (
           <p className="text-sm text-[var(--muted)]">Laden…</p>

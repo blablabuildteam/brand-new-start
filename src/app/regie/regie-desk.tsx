@@ -15,6 +15,8 @@ type DeskItem = {
   roleLabel: string;
   kans: number;
   hmSearched?: boolean;
+  demoOpening?: boolean;
+  sampleBench?: boolean;
   proposal: PlacementProposal;
 };
 
@@ -255,6 +257,12 @@ export default function RegieDesk({
             Kies een opening, pak de hiring manager of kandidaat, en zet het bericht klaar. Jij verstuurt —
             niets gaat automatisch.
           </p>
+          {items.some((i) => i.sampleBench) ? (
+            <p className="ws-intro__text mt-2 text-[0.78rem] !text-[var(--muted)]">
+              Shortlist = <strong className="font-semibold text-[var(--ink)]">voorbeeld-bench</strong>{" "}
+              (fictieve namen). Vervang later door jullie echte CRM.
+            </p>
+          ) : null}
         </section>
         <aside
           className={`radar-scroll-pane min-h-0 max-lg:flex-1 ${mobilePane === "detail" ? "max-lg:hidden" : ""}`}
@@ -454,7 +462,11 @@ export default function RegieDesk({
               </section>
 
               <section>
-                <p className="ws-label mb-2">Voorstel</p>
+                <div className="mb-2 flex flex-wrap items-center gap-2">
+                  <p className="ws-label mb-0">Voorstel</p>
+                  {item.sampleBench ? <span className="ws-badge">Voorbeeld-bench</span> : null}
+                  {item.demoOpening ? <span className="ws-badge">Demo-opening</span> : null}
+                </div>
                 <ol className="grid gap-3 md:grid-cols-3">
                   {proposal.shortlist.map((s, i) => {
                     const on = tab === s.person.id;
@@ -477,7 +489,14 @@ export default function RegieDesk({
                             >
                               {initials(s.person.name)}
                             </span>
-                            <span className="tabular-nums text-[0.68rem] text-[var(--muted)]">{i + 1}</span>
+                            <span className="flex flex-col items-end gap-1">
+                              {item.sampleBench ? (
+                                <span className="rounded border border-[var(--line)] px-1.5 py-0.5 text-[0.6rem] font-semibold uppercase tracking-wide text-[var(--muted)]">
+                                  Voorbeeld
+                                </span>
+                              ) : null}
+                              <span className="tabular-nums text-[0.68rem] text-[var(--muted)]">{i + 1}</span>
+                            </span>
                           </span>
                           <span className="mt-3 block text-sm font-semibold text-[var(--ink)]">{s.person.name}</span>
                           <span className="mt-0.5 block text-[0.78rem] text-[var(--muted)]">{s.person.title}</span>

@@ -7,6 +7,7 @@ import { AppShell } from "@/components/app-shell";
 import { ScoreChip, SCORE_BAND, scoreTone } from "@/components/score-chip";
 import type { CrmLane, CrmOpportunity, CrmStage } from "@/lib/crm";
 import { CRM_STAGE_NL } from "@/lib/crm";
+import { radarHref } from "@/lib/desk-links";
 
 type Filter = "all" | CrmLane | CrmStage;
 
@@ -513,9 +514,16 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
                       Vacature
                     </a>
                   ) : null}
-                  {active.companyId && !active.hiringManager ? (
-                    <Link href="/radar" className="btn-ghost btn-tool no-underline">
-                      Zoek manager op Radar
+                  {active.companyId || active.endClient ? (
+                    <Link
+                      href={radarHref({
+                        companyId: active.companyId,
+                        openingId: active.openingId,
+                        q: active.companyId ? null : active.endClient,
+                      })}
+                      className="btn-ghost btn-tool no-underline"
+                    >
+                      {active.hiringManager ? "Open op Radar" : "Zoek manager op Radar"}
                     </Link>
                   ) : null}
                 </div>
