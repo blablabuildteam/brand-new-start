@@ -14,10 +14,14 @@ import { enabledPlatforms } from "@/lib/platforms";
 import { ingestSignal, resetStore, stats } from "@/lib/store";
 import { INGEST_POLICY } from "@/lib/costs";
 import { loadHuntSettings } from "@/lib/hunt";
+import { pushAlert } from "@/lib/desk-meta";
 import { z } from "zod";
 
 /** Apify Indeed/LinkedIn kan lang duren */
 export const maxDuration = 300;
+
+/** Lichte cron-caps — goedkoop houden, radar vers. */
+const CRON_MARKET = { maxUrls: 8, maxJobs: 24 } as const;
 
 async function authorized(req: Request) {
   const cronSecret = process.env.CRON_SECRET;
@@ -28,17 +32,54 @@ async function authorized(req: Request) {
   return { ok: isCron || isAdmin(session), isCron, session };
 }
 
-/** Cron endpoint: geen automatische scrapes. Alles handmatig via Sync & meer. */
+async function alertNewHits(opts: {
+  kind: string;
+  kept: number;
+  hits?: { company: string; title: string; kept: boolean; isNew?: boolean }[];
+}) {
+  const neu = (opts.hits || []).filter((h) => h.kept && h.isNew);
+  if (!opts.kept && !neu.length) return;
+  const sample = neu
+    .slice(0, 3)
+    .map((h) => `${h.company}: ${h.title}`)
+    .join(" · ");
+  await pushAlert({
+    kind: "sync",
+    title: `${opts.kept} nieuwe hits (${opts.kind})`,
+    body: sample || "Open Radar voor details.",
+    href: "/radar",
+  });
+}
+
+/** Vercel Cron: lichte LinkedIn-market sync (~1×/3d). */
 export async function GET(req: Request) {
-  const { ok } = await authorized(req);
-  if (!ok && process.env.NODE_ENV === "production" && process.env.CRON_SECRET) {
+  const { ok, isCron } = await authorized(req);
+  if (!ok) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
+
+  // Handmatige health-check zonder scrape (browser/admin zonder cron-header)
+  if (!isCron && req.headers.get("x-cron-run") !== "1") {
+    return NextResponse.json({
+      ok: true,
+      skipped: true,
+      reason:
+        "Geen scrape. Cron draait automatisch; of POST met action=market / Sync & meer (admin).",
+      stats: await stats(),
+    });
+  }
+
+  await loadHuntSettings();
+  const result = await syncMarketJobsFromLinkedIn(CRON_MARKET);
+  await alertNewHits({
+    kind: "LinkedIn",
+    kept: result.kept,
+    hits: result.hits,
+  });
   return NextResponse.json({
     ok: true,
-    skipped: true,
-    reason:
-      "Geen automatische sync. LinkedIn, Indeed en Freelance.nl alleen handmatig (advies ~1×/3d).",
+    kind: "cron-market",
+    ...result,
     stats: await stats(),
   });
 }
@@ -68,6 +109,7 @@ export async function POST(req: Request) {
     const maxUrls = Number((body as { maxUrls?: number }).maxUrls) || INGEST_POLICY.syncMarketUrls;
     const maxJobs = Number((body as { maxJobs?: number }).maxJobs) || INGEST_POLICY.syncMarketJobs;
     const result = await syncMarketJobsFromLinkedIn({ maxUrls, maxJobs });
+    await alertNewHits({ kind: "LinkedIn", kept: result.kept, hits: result.hits });
     return NextResponse.json({ ok: true, kind: "market", ...result, stats: await stats() });
   }
 
@@ -87,6 +129,11 @@ export async function POST(req: Request) {
       maxFreelanceQueries:
         Number((body as { maxFreelanceQueries?: number }).maxFreelanceQueries) ||
         INGEST_POLICY.syncFreelanceQueries,
+    });
+    await alertNewHits({
+      kind: only === "indeed" ? "Indeed" : only === "freelance-nl" ? "Freelance.nl" : "Boards",
+      kept: result.kept,
+      hits: result.hits,
     });
     return NextResponse.json({
       ok: true,

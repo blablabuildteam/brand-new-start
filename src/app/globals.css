@@ -329,6 +329,12 @@ button:focus-visible {
   box-shadow: var(--shadow);
 }
 
+.ws-panel--scroll {
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
 .ws-panel--soft {
   background: color-mix(in srgb, var(--surface) 60%, transparent);
 }

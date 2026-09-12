@@ -148,7 +148,7 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
   return (
     <AppShell current="kansen" title="Kansen" subtitle="CRM-pipeline · bevestigd & actueel" fill>
       <div className="ws-shell">
-        <section className="ws-intro">
+        <section className={`ws-intro shrink-0 ${mobilePane === "detail" ? "max-lg:hidden" : ""}`}>
           <p className="ws-intro__title">Pipeline</p>
           <p className="ws-intro__text">
             Alle serieuze kansen op één rij. <strong>Bron</strong> = waar de kans vandaan komt:{" "}
@@ -158,7 +158,9 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
         </section>
 
         {actionQueue.length ? (
-          <section className="ws-panel shrink-0 px-3.5 py-3">
+          <section
+            className={`ws-panel shrink-0 px-3.5 py-3 ${mobilePane === "detail" ? "max-lg:hidden" : ""}`}
+          >
             <p className="ws-label">Actie vandaag</p>
             <ul className="mt-2 divide-y divide-[var(--line)]/70">
               {actionQueue.slice(0, 5).map((a) => (
@@ -182,8 +184,11 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
           </section>
         ) : null}
 
-        <div className="flex shrink-0 gap-2 overflow-x-auto pb-0.5">
-          {filters.map((f) => (
+        <div
+          className={`flex shrink-0 gap-2 overflow-x-auto pb-0.5 ${
+            mobilePane === "detail" ? "max-lg:hidden" : ""
+          }`}
+        >          {filters.map((f) => (
             <button
               key={f.id}
               type="button"
@@ -383,7 +388,7 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
 
           {active ? (
             <aside
-              className={`ws-panel min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 ${
+              className={`ws-panel ws-panel--scroll min-h-0 flex-1 overscroll-contain px-4 py-4 ${
                 mobilePane === "list" ? "max-lg:hidden" : ""
               }`}
             >

@@ -248,6 +248,10 @@ async function recomputeRadarPg(companyId: string) {
   });
   if (!companySignals.length) return;
 
+  // Match memory path: drop old bundles so company+role unique index cannot collide
+  // when opening keys switch between role-slug and fingerprint ids.
+  await db.delete(radarEntries).where(eq(radarEntries.companyId, companyId));
+
   const bundles = buildOpeningBundles(companySignals);
   for (const bundle of bundles) {
     const scored = scoreSignals(bundle.signals, {
@@ -270,21 +274,7 @@ async function recomputeRadarPg(companyId: string) {
       factors: scored.factors,
       updatedAt: new Date(),
     };
-    await db
-      .insert(radarEntries)
-      .values(row)
-      .onConflictDoUpdate({
-        target: radarEntries.id,
-        set: {
-          status: row.status,
-          kans: row.kans,
-          angle: row.angle,
-          sources: row.sources,
-          factors: row.factors,
-          roleLabel: row.roleLabel,
-          updatedAt: row.updatedAt,
-        },
-      });
+    await db.insert(radarEntries).values(row);
   }
 }
 
