@@ -1255,57 +1255,30 @@ button:focus-visible {
 .scout-wm {
   display: inline-flex;
   align-items: center;
-  gap: 0.7rem;
+  gap: 0.65rem;
+  min-width: 0;
 }
 
 .scout-wm__mark {
-  height: 1.9rem;
-  width: 1.9rem;
+  height: 1.85rem;
+  width: 1.85rem;
   flex-shrink: 0;
-}
-
-.scout-wm__text {
-  display: flex;
-  flex-direction: column;
-  gap: 0.05rem;
-  line-height: 1;
-}
-
-.scout-wm__lead {
-  display: none;
-  font-family: "Outfit", var(--scout-sans);
-  font-size: 0.58rem;
-  font-weight: 600;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--scout-muted);
 }
 
 .scout-wm__name {
   font-family: "Outfit", var(--scout-sans);
-  font-size: 1.05rem;
+  font-size: 0.95rem;
   font-weight: 650;
-  letter-spacing: -0.03em;
+  letter-spacing: -0.035em;
   color: var(--scout-ink);
-}
-
-.scout-wm__name--full {
-  display: none;
-}
-
-.scout-wm__name--short {
-  display: inline;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 @media (min-width: 640px) {
-  .scout-wm__lead {
-    display: block;
-  }
-  .scout-wm__name--full {
-    display: inline;
-  }
-  .scout-wm__name--short {
-    display: none;
+  .scout-wm__name {
+    font-size: 1.02rem;
   }
 }
 

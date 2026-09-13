@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { RegieMark } from "@/components/regie-mark";
 import { AlertsBell } from "@/components/alerts-bell";
 import { cacheClear, cacheGet, cachedJson } from "@/lib/client-cache";
+import { partnerForEmail } from "@/lib/partner-brand";
 
 export type AppNavId = "radar" | "leads" | "kansen" | "voorstel" | "instellingen";
 
@@ -129,24 +130,50 @@ export function AppShell({
     router.refresh();
   }
 
+  const partner = partnerForEmail(user?.email);
+  const brandName = partner?.name ?? name;
+  const brandTag = partner?.tagline ?? "Contracting";
+
+  useEffect(() => {
+    if (!partner) return;
+    const prev = document.title;
+    document.title = `${partner.name} · Desk`;
+    return () => {
+      document.title = prev;
+    };
+  }, [partner]);
+
   const nav = (
     <>
       <Link
-        href="/"
+        href={partner ? "/radar" : "/"}
         className="nav-link flex items-center gap-2.5 px-1 py-0.5 text-[var(--ink)]"
         onClick={() => setOpen(false)}
       >
-        <RegieMark className="h-8 w-8" />
-        <span className="min-w-0">
-          <span
-            className="block truncate text-[1.15rem] tracking-tight text-[var(--ink)]"
-            style={{ fontFamily: "var(--display)" }}
-          >
-            {name}
-          </span>
-          <span className="block text-[0.7rem] text-[var(--muted)]">Contracting</span>
-        </span>
+        {partner ? (
+          <img
+            src={partner.logoSrc}
+            alt={partner.name}
+            className="partner-logo h-10 w-auto max-w-[9.5rem] rounded-md object-contain"
+          />
+        ) : (
+          <>
+            <RegieMark className="h-8 w-8" />
+            <span className="min-w-0">
+              <span
+                className="block truncate text-[1.15rem] tracking-tight text-[var(--ink)]"
+                style={{ fontFamily: "var(--display)" }}
+              >
+                {brandName}
+              </span>
+              <span className="block text-[0.7rem] text-[var(--muted)]">{brandTag}</span>
+            </span>
+          </>
+        )}
       </Link>
+      {partner ? (
+        <p className="mt-1.5 px-1 text-[0.68rem] text-[var(--muted)]">{brandTag}</p>
+      ) : null}
 
       <p className="mt-8 px-2.5 text-[0.68rem] font-semibold uppercase tracking-[0.12em] text-[var(--muted)]">
         Workspace

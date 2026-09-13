@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { BlablaLogo } from "@/components/blabla-logo";
 import { RegieWordmark } from "@/components/regie-mark";
+import { partnerForEmail } from "@/lib/partner-brand";
 
 export default function LoginForm() {
   const router = useRouter();
@@ -15,6 +16,8 @@ export default function LoginForm() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  const partner = partnerForEmail(email);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -50,13 +53,24 @@ export default function LoginForm() {
           onSubmit={onSubmit}
           className="w-full max-w-[400px] rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-7 shadow-[var(--shadow)]"
         >
+          {partner ? (
+            <div className="mb-5">
+              <img
+                src={partner.logoSrc}
+                alt={partner.name}
+                className="partner-logo h-12 w-auto max-w-[11rem] rounded-md object-contain"
+              />
+              <p className="mt-2 text-sm text-[var(--muted)]">{partner.tagline} desk</p>
+            </div>
+          ) : null}
           <h1 className="text-[2rem] tracking-tight text-[var(--accent)]" style={{ fontFamily: "var(--display)" }}>
             Inloggen
           </h1>
           <p className="mt-2 mb-6 text-sm leading-relaxed text-[var(--muted)]">
-            Daarna open je de contracting-desk: Radar, Bureaus, Kansen en Voorstel.
+            {partner
+              ? `Open de ${partner.name}-workspace: Radar, Bureaus, Kansen en Voorstel.`
+              : "Daarna open je de contracting-desk: Radar, Bureaus, Kansen en Voorstel."}
           </p>
-
           <label className="mb-3 block text-sm font-medium">
             E-mail
             <input

@@ -8,7 +8,6 @@ export function ScoutMark({
   animated = true,
 }: {
   className?: string;
-  /** solid = ink tile for nav; ghost = outline; mark = green fill */
   variant?: "solid" | "ghost" | "mark";
   animated?: boolean;
 }) {
@@ -53,19 +52,13 @@ export function ScoutMark({
         opacity={variant === "solid" ? 0.38 : 0.32}
       />
 
-      {/* Sweep wedge */}
       <g className="scout-mark__spin" style={{ transformOrigin: "20px 20px" }}>
         <path
           d="M20 20 L20 9 A11 11 0 0 1 29.5 15.2 Z"
           fill={accent}
           opacity={variant === "solid" ? 0.28 : 0.2}
         />
-        <path
-          d="M20 20 L29.5 15.2"
-          stroke={accent}
-          strokeWidth="1.7"
-          strokeLinecap="round"
-        />
+        <path d="M20 20 L29.5 15.2" stroke={accent} strokeWidth="1.7" strokeLinecap="round" />
         <circle cx="30.2" cy="14.6" r="1.85" fill={accent} className="scout-mark__blip" />
       </g>
 
@@ -77,27 +70,13 @@ export function ScoutMark({
 
 export function ScoutWordmark({
   name = "Recruitment Scout",
-  compact = false,
 }: {
   name?: string;
-  compact?: boolean;
 }) {
-  const short = name.includes(" ") ? name.split(" ").pop()! : name;
-
   return (
     <span className="scout-wm">
       <ScoutMark className="scout-wm__mark" />
-      <span className="scout-wm__text">
-        {compact ? (
-          <span className="scout-wm__name">{short}</span>
-        ) : (
-          <>
-            <span className="scout-wm__lead">Recruitment</span>
-            <span className="scout-wm__name scout-wm__name--full">Scout</span>
-            <span className="scout-wm__name scout-wm__name--short">{short}</span>
-          </>
-        )}
-      </span>
+      <span className="scout-wm__name">{name}</span>
     </span>
   );
 }

@@ -39,8 +39,7 @@ export function SiteNav({
           <div className="scout-nav__actions">
             {email ? (
               <>
-                <span className="scout-nav__email">{email}</span>
-                <Link href="/radar" className="scout-nav__btn scout-nav__btn--ghost hidden sm:inline-flex">
+                <Link href="/radar" className="scout-nav__btn scout-nav__btn--solid hidden sm:inline-flex">
                   Desk
                 </Link>
                 <button type="button" onClick={() => void logout()} className="scout-nav__btn scout-nav__btn--ghost">
