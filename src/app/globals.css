@@ -1246,17 +1246,18 @@ button:focus-visible {
   --scout-panel: #e7e0d4;
   --scout-mark: #1a5c45;
   --scout-accent: #2f8f6b;
+  --scout-hero-top: #ebe5d8;
   --scout-display: "Fraunces", "Instrument Serif", Georgia, serif;
   --scout-sans: "Manrope", "DM Sans", system-ui, sans-serif;
   color: var(--scout-ink);
-  background: var(--scout-paper);
+  background: var(--scout-hero-top);
   font-family: var(--scout-sans);
 }
 
-/* Kill white strip above floating nav (html/body bleed) */
+/* Match browser chrome / page bleed to hero wash */
 html:has(.desk-home--scout),
 body:has(.desk-home--scout) {
-  background: #efe9df;
+  background: #ebe5d8;
 }
 
 .scout-wm {
@@ -1308,9 +1309,20 @@ body:has(.desk-home--scout) {
 .scout-hero {
   position: relative;
   display: flex;
+  flex-direction: column;
   align-items: stretch;
   overflow: hidden;
   border-bottom: 1px solid var(--scout-line);
+  /* Pull hero wash under the sticky nav so side/top gaps are transparent */
+  margin-top: calc(-1 * (3.25rem + 0.75rem + env(safe-area-inset-top, 0px)));
+  padding-top: calc(3.25rem + 0.75rem + env(safe-area-inset-top, 0px));
+}
+
+@media (min-width: 768px) {
+  .scout-hero {
+    margin-top: calc(-1 * (3.25rem + 0.9rem + env(safe-area-inset-top, 0px)));
+    padding-top: calc(3.25rem + 0.9rem + env(safe-area-inset-top, 0px));
+  }
 }
 
 .scout-hero__wash {
@@ -1318,7 +1330,7 @@ body:has(.desk-home--scout) {
   inset: 0;
   background:
     radial-gradient(ellipse 50% 55% at 95% 20%, rgba(26, 92, 69, 0.12), transparent 55%),
-    linear-gradient(180deg, #ebe5d8 0%, var(--scout-paper) 55%);
+    linear-gradient(180deg, var(--scout-hero-top) 0%, var(--scout-paper) 55%);
 }
 
 .scout-hero__grain {
@@ -1335,7 +1347,7 @@ body:has(.desk-home--scout) {
   top: 0;
   z-index: 50;
   padding: 0.75rem 1rem 0;
-  background: var(--scout-paper);
+  background: transparent;
 }
 
 @media (min-width: 768px) {
