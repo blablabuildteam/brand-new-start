@@ -3,44 +3,29 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { BlablaLogo } from "@/components/blabla-logo";
-import { HeroRadar } from "@/components/hero-radar";
+import { HomeSignalField } from "@/components/home-signal-field";
 import { SiteNav } from "@/components/site-nav";
 
-const STEPS = [
+const BEATS = [
   {
-    n: "1",
-    title: "Kans",
-    text: "Opdrachten via LinkedIn, Indeed, Freelance.nl — of via een bureau.",
+    k: "01",
+    title: "Spot",
+    text: "Kansen verschijnen zodra ze relevant zijn — niet wanneer je eindeloos zoekt.",
   },
   {
-    n: "2",
-    title: "Eindklant",
-    text: "Zelf geplaatst: dat bedrijf. Bureau: eerst bevestigen.",
+    k: "02",
+    title: "Waarde",
+    text: "Elke kans krijgt gewicht. Sterk genoeg om nu te handelen, of later te volgen.",
   },
   {
-    n: "3",
-    title: "Manager",
-    text: "Namen bij díe organisatie. Contact alleen als jij klikt.",
+    k: "03",
+    title: "Ontgrendel",
+    text: "De opdrachtgever achter het signaal komt in beeld. Jij bevestigt — daarna de juiste deur.",
   },
   {
-    n: "4",
-    title: "Voorstel",
-    text: "Bericht klaarzetten. Jij verstuurt — niets gaat automatisch.",
-  },
-];
-
-const PRINCIPLES = [
-  {
-    title: "Alleen de eindklant",
-    text: "Geen manager zoeken bij een bureau als de opdracht voor een bank of retailer is.",
-  },
-  {
-    title: "Jij houdt de regie",
-    text: "Sync, zoeken en versturen gebeurt op jouw klik. Geen auto-outreach.",
-  },
-  {
-    title: "Bronnen samen",
-    text: "Jobboards en watchlist-bureaus landen in één flow naar hetzelfde gesprek.",
+    k: "04",
+    title: "Plaats",
+    text: "Van manager tot kandidaat: het pad naar contact is klaargezet. Jij houdt de knop.",
   },
 ];
 
@@ -63,171 +48,103 @@ export default function HomeDesk() {
   const loginHref = `/login?next=${encodeURIComponent(deskHref)}`;
 
   return (
-    <div className="desk-home min-h-dvh">
-      <SiteNav name={name} email={email} />
+    <div className="desk-home desk-home--veil min-h-dvh">
+      <SiteNav name={name} email={email} veil />
 
-      <section className="relative overflow-hidden border-b border-[var(--line)] bg-[var(--surface)]">
-        <div
-          className="pointer-events-none absolute inset-0"
-          style={{
-            background:
-              "radial-gradient(ellipse 55% 70% at 100% 0%, rgba(235,242,18,0.18), transparent 55%), radial-gradient(ellipse 40% 50% at 0% 100%, rgba(63,54,83,0.05), transparent 50%)",
-          }}
-        />
+      <section className="home-hero">
+        <div className="home-hero__atmosphere" aria-hidden />
+        <div className="home-hero__grain" aria-hidden />
 
-        <div className="relative mx-auto grid max-w-[1120px] items-center gap-12 px-5 py-16 md:px-8 md:py-20 lg:grid-cols-[1.05fr_0.95fr] lg:gap-16 lg:py-24">
-          <div className="reveal">
-            <p
-              className="text-[2.75rem] leading-none tracking-tight text-[var(--ink)] md:text-[3.75rem]"
-              style={{ fontFamily: "var(--display)" }}
-            >
-              {name}
-            </p>
-            <h1 className="mt-4 max-w-xl text-[1.35rem] font-semibold leading-snug tracking-tight text-[var(--accent)] md:text-[1.6rem]">
-              Van opdracht naar de juiste manager.
+        <div className="home-hero__inner">
+          <div className="home-hero__copy">
+            <p className="home-hero__brand home-reveal">{name}</p>
+            <h1 className="home-hero__headline home-reveal home-reveal--2">
+              Kansen zien vóór de rest.
             </h1>
-            <p className="mt-4 max-w-md text-[1.02rem] leading-relaxed text-[var(--muted)]">
-              Interim- en ZZP-kansen ophalen, de eindklant vastzetten, en de hiring manager benaderen
-              met een passend profiel — jij houdt de regie.
+            <p className="home-hero__lede home-reveal home-reveal--3">
+              Spotten. Op waarde schatten. De opdrachtgever ontgrendelen. Plaatsing bijna
+              vanzelf — jij houdt de regie.
             </p>
-            <div className="mt-8 flex flex-wrap items-center gap-3">
+            <div className="home-hero__cta home-reveal home-reveal--4">
               {email ? (
-                <Link
-                  href={deskHref}
-                  className="nav-link btn-signal inline-flex items-center rounded-full px-5 py-2.5 text-sm font-semibold transition hover:scale-[1.02]"
-                >
+                <Link href={deskHref} className="nav-link home-btn home-btn--signal">
                   Open de desk
                 </Link>
               ) : (
-                <Link
-                  href={loginHref}
-                  className="nav-link btn-signal inline-flex items-center rounded-full px-5 py-2.5 text-sm font-semibold transition hover:scale-[1.02]"
-                >
-                  Inloggen
+                <Link href={loginHref} className="nav-link home-btn home-btn--signal">
+                  Toegang
                 </Link>
               )}
-              <a
-                href="#hoe"
-                className="nav-link inline-flex items-center rounded-full border border-[var(--line)] bg-[var(--surface)] px-5 py-2.5 text-sm font-semibold text-[var(--ink)] transition hover:bg-[var(--surface-2)] hover:text-[var(--ink)]"
-              >
-                Hoe het werkt
+              <a href="#lijn" className="nav-link home-btn home-btn--ghost">
+                De lijn
               </a>
-            </div>
-            <div className="mt-10 flex flex-wrap gap-2">
-              {["LinkedIn", "Indeed", "Freelance.nl", "Bureaus"].map((s) => (
-                <span
-                  key={s}
-                  className="rounded-full border border-[var(--line)] bg-[var(--surface-2)] px-3 py-1 text-[0.72rem] font-medium text-[var(--muted)]"
-                >
-                  {s}
-                </span>
-              ))}
             </div>
           </div>
 
-          <div className="reveal reveal-delay-2 hidden lg:block">
-            <HeroRadar />
+          <div className="home-hero__field home-reveal home-reveal--3">
+            <HomeSignalField />
           </div>
         </div>
       </section>
 
-      <main className="mx-auto max-w-[1120px] px-5 py-14 md:px-8 md:py-16">
-        <section id="hoe" className="scroll-mt-24">
-          <h2
-            className="text-[2rem] tracking-tight text-[var(--accent)] md:text-[2.35rem]"
-            style={{ fontFamily: "var(--display)" }}
-          >
-            Hoe het werkt
-          </h2>
-          <p className="mt-2 max-w-lg text-sm leading-relaxed text-[var(--muted)]">
-            Eén lijn: kans → eindklant → manager → voorstel.
-          </p>
-          <ol className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {STEPS.map((s, i) => (
-              <li
-                key={s.n}
-                className={`reveal reveal-delay-${i + 1} rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-5 shadow-[var(--shadow)]`}
-              >
-                <span
-                  className="inline-flex h-7 min-w-7 items-center justify-center rounded-full bg-[var(--signal)] px-2 text-[0.75rem] font-semibold text-[var(--ink)]"
-                  style={{ fontFamily: "var(--mono)" }}
-                >
-                  {s.n}
+      <main>
+        <section id="lijn" className="home-line scroll-mt-24">
+          <div className="home-line__head">
+            <p className="home-kicker">De lijn</p>
+            <h2 className="home-line__title">Van signaal naar plaatsing.</h2>
+            <p className="home-line__sub">
+              Geen open markt. Een korte keten die eindigt bij het juiste gesprek.
+            </p>
+          </div>
+
+          <ol className="home-beats">
+            {BEATS.map((b, i) => (
+              <li key={b.k} className={`home-beat home-reveal home-reveal--${i + 1}`}>
+                <span className="home-beat__k" style={{ fontFamily: "var(--mono)" }}>
+                  {b.k}
                 </span>
-                <p className="mt-3 text-sm font-semibold text-[var(--ink)]">{s.title}</p>
-                <p className="mt-1 text-[0.85rem] leading-relaxed text-[var(--muted)]">{s.text}</p>
+                <div className="home-beat__body">
+                  <h3 className="home-beat__title">{b.title}</h3>
+                  <p className="home-beat__text">{b.text}</p>
+                </div>
               </li>
             ))}
           </ol>
         </section>
 
-        <section className="mt-16">
-          <h2
-            className="text-[2rem] tracking-tight text-[var(--accent)] md:text-[2.35rem]"
-            style={{ fontFamily: "var(--display)" }}
-          >
-            Beginselen
-          </h2>
-          <div className="mt-8 grid gap-4 md:grid-cols-3">
-            {PRINCIPLES.map((p, i) => (
-              <article
-                key={p.title}
-                className={`reveal reveal-delay-${i + 1} rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-6`}
-              >
-                <p
-                  className="text-[1.25rem] tracking-tight text-[var(--ink)]"
-                  style={{ fontFamily: "var(--display)" }}
-                >
-                  {p.title}
-                </p>
-                <p className="mt-2 text-sm leading-relaxed text-[var(--muted)]">{p.text}</p>
-              </article>
-            ))}
-          </div>
-        </section>
-
-        <section className="mt-16 scroll-mt-24 border-t border-[var(--line)] pt-12">
-          <h2
-            className="text-[2rem] tracking-tight text-[var(--accent)] md:text-[2.35rem]"
-            style={{ fontFamily: "var(--display)" }}
-          >
-            Klaar om te starten
-          </h2>
-          <p className="mt-2 max-w-lg text-sm leading-relaxed text-[var(--muted)]">
-            Contracting staat live. Log in om Radar, Bureaus, Kansen en Voorstel te openen.
-          </p>
-          <div className="mt-8">
-            {email ? (
-              <Link
-                href={deskHref}
-                className="nav-link btn-ink inline-flex items-center rounded-full px-5 py-2.5 text-sm font-semibold"
-              >
-                Naar de workspace
-              </Link>
-            ) : (
-              <Link
-                href={loginHref}
-                className="nav-link btn-ink inline-flex items-center rounded-full px-5 py-2.5 text-sm font-semibold"
-              >
-                Inloggen op de desk
-              </Link>
-            )}
+        <section className="home-close">
+          <div className="home-close__panel">
+            <p className="home-kicker">Alleen voor wie erbij hoort</p>
+            <h2 className="home-close__title">De rest blijft stil.</h2>
+            <p className="home-close__text">
+              Geen publieke marketplace. Een desk die sneller ziet wat telt — en je tot aan het
+              gesprek brengt.
+            </p>
+            <div className="home-close__cta">
+              {email ? (
+                <Link href={deskHref} className="nav-link home-btn home-btn--signal">
+                  Naar de workspace
+                </Link>
+              ) : (
+                <Link href={loginHref} className="nav-link home-btn home-btn--signal">
+                  Inloggen
+                </Link>
+              )}
+            </div>
           </div>
         </section>
       </main>
 
-      <footer className="border-t border-[var(--line)] bg-[var(--surface)]">
-        <div className="mx-auto flex max-w-[1120px] items-center justify-between gap-4 px-5 py-5 md:px-8">
-          <a
-            href="https://blablabuild.com"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 text-[0.7rem] text-[var(--muted)] no-underline hover:text-[var(--ink)]"
-          >
-            <BlablaLogo className="h-4 w-4" />
-            <span>Gebouwd door blablabuild</span>
-          </a>
-        </div>
+      <footer className="home-foot">
+        <a
+          href="https://blablabuild.com"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="home-foot__link"
+        >
+          <BlablaLogo className="h-4 w-4" />
+          <span>blablabuild</span>
+        </a>
       </footer>
     </div>
   );
