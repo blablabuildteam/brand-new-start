@@ -3,49 +3,43 @@
 import { useEffect, useState } from "react";
 
 const FINDS = [
-  { role: "Interim CFO", where: "fintech · Amsterdam", score: 94 },
-  { role: "ZZP Data Lead", where: "retail · remote", score: 88 },
-  { role: "Interim CISO", where: "bank · Utrecht", score: 91 },
-  { role: "Fractional CTO", where: "scale-up · NL", score: 86 },
+  { role: "Interim CFO", where: "Fintech · Amsterdam", score: 94 },
+  { role: "ZZP Data Lead", where: "Retail · Remote", score: 88 },
+  { role: "Interim CISO", where: "Bank · Utrecht", score: 91 },
+  { role: "Fractional CTO", where: "Scale-up · NL", score: 86 },
 ];
 
-/** Large scope that locks onto one clear opportunity — readable story. */
+/** Full-bleed radar lock — one clear find, no clutter. */
 export function HomeOpportunityStage() {
   const [i, setI] = useState(0);
-  const [locking, setLocking] = useState(true);
 
   useEffect(() => {
-    const cycle = window.setInterval(() => {
-      setLocking(false);
-      window.setTimeout(() => {
-        setI((n) => (n + 1) % FINDS.length);
-        setLocking(true);
-      }, 280);
-    }, 3200);
-    return () => window.clearInterval(cycle);
+    const id = window.setInterval(() => setI((n) => (n + 1) % FINDS.length), 3400);
+    return () => window.clearInterval(id);
   }, []);
 
   const find = FINDS[i]!;
 
   return (
-    <div className={`scope-stage ${locking ? "is-lock" : ""}`} aria-hidden>
-      <div className="scope-stage__field">
-        <div className="scope-stage__ring scope-stage__ring--outer" />
-        <div className="scope-stage__ring scope-stage__ring--mid" />
-        <div className="scope-stage__ring scope-stage__ring--inner" />
-        <div className="scope-stage__sweep" />
-        <div className="scope-stage__crosshair" />
-        <div className="scope-stage__core" />
-        <div className="scope-stage__ping" />
+    <div className="hero-radar" aria-hidden>
+      <div className="hero-radar__glow" />
+      <div className="hero-radar__disc">
+        <div className="hero-radar__ring hero-radar__ring--1" />
+        <div className="hero-radar__ring hero-radar__ring--2" />
+        <div className="hero-radar__ring hero-radar__ring--3" />
+        <div className="hero-radar__grid" />
+        <div className="hero-radar__sweep" />
+        <div className="hero-radar__core" />
+        <div className="hero-radar__blip" key={i} />
       </div>
 
-      <div className="scope-stage__card" key={i}>
-        <p className="scope-stage__label">Opdracht gespot</p>
-        <p className="scope-stage__role">{find.role}</p>
-        <div className="scope-stage__meta">
-          <span>{find.where}</span>
-          <span className="scope-stage__score">{find.score}</span>
-        </div>
+      <div className="hero-radar__find" key={`f-${i}`}>
+        <span className="hero-radar__live">Live</span>
+        <p className="hero-radar__role">{find.role}</p>
+        <p className="hero-radar__where">{find.where}</p>
+        <p className="hero-radar__score">
+          Score <strong>{find.score}</strong>
+        </p>
       </div>
     </div>
   );

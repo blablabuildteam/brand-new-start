@@ -1252,44 +1252,42 @@ button:focus-visible {
   font-family: var(--scout-sans);
 }
 
+
 .scout-wm {
   display: inline-flex;
   align-items: center;
-  gap: 0.65rem;
-  min-width: 0;
+  gap: 0.6rem;
+  height: 2rem;
+  line-height: 1;
 }
 
 .scout-wm__mark {
-  height: 1.85rem;
-  width: 1.85rem;
+  height: 2rem;
+  width: 2rem;
+  display: block;
   flex-shrink: 0;
 }
 
 .scout-wm__name {
+  display: block;
   font-family: "Outfit", var(--scout-sans);
-  font-size: 0.95rem;
-  font-weight: 650;
-  letter-spacing: -0.035em;
+  font-size: 0.98rem;
+  font-weight: 600;
+  letter-spacing: -0.04em;
+  line-height: 1;
   color: var(--scout-ink);
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-@media (min-width: 640px) {
-  .scout-wm__name {
-    font-size: 1.02rem;
-  }
+  padding-top: 0.05rem;
 }
 
 .scout-mark--live .scout-mark__spin {
   transform-box: view-box;
-  transform-origin: 20px 20px;
-  animation: scout-mark-spin 3.4s linear infinite;
+  transform-origin: 16px 16px;
+  animation: scout-mark-spin 2.8s linear infinite;
 }
 
 .scout-mark--live .scout-mark__blip {
-  animation: scout-mark-blip 3.4s ease-in-out infinite;
+  animation: scout-mark-blip 2.8s ease-in-out infinite;
 }
 
 @keyframes scout-mark-spin {
@@ -1300,12 +1298,12 @@ button:focus-visible {
 
 @keyframes scout-mark-blip {
   0%,
-  70%,
+  72%,
   100% {
     opacity: 1;
   }
-  85% {
-    opacity: 0.35;
+  86% {
+    opacity: 0.25;
   }
 }
 
@@ -1318,53 +1316,65 @@ button:focus-visible {
 
 .scout-hero {
   position: relative;
-  min-height: min(88dvh, 820px);
+  min-height: min(100dvh, 900px);
   display: flex;
-  align-items: center;
+  align-items: stretch;
   overflow: hidden;
+  border-bottom: 1px solid var(--scout-line);
 }
 
 .scout-hero__wash {
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(ellipse 50% 55% at 88% 18%, rgba(26, 92, 69, 0.16), transparent 58%),
-    radial-gradient(ellipse 35% 40% at 8% 90%, rgba(15, 20, 18, 0.07), transparent 55%),
-    linear-gradient(165deg, #e8e1d4 0%, var(--scout-paper) 42%, #f4efe6 100%);
+    radial-gradient(ellipse 60% 70% at 100% 40%, rgba(26, 92, 69, 0.22), transparent 55%),
+    radial-gradient(ellipse 40% 50% at 0% 100%, rgba(15, 20, 18, 0.1), transparent 50%),
+    linear-gradient(115deg, #ebe4d6 0%, var(--scout-paper) 45%, #e4ddd0 100%);
+}
+
+.scout-hero__mesh {
+  position: absolute;
+  inset: 0;
+  opacity: 0.4;
+  background-image:
+    linear-gradient(color-mix(in srgb, var(--scout-ink) 4%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--scout-ink) 4%, transparent) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: radial-gradient(ellipse 70% 60% at 70% 45%, #000 20%, transparent 75%);
+  pointer-events: none;
 }
 
 .scout-hero__grain {
   position: absolute;
   inset: 0;
-  opacity: 0.35;
+  opacity: 0.28;
   pointer-events: none;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.55'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
   mix-blend-mode: multiply;
 }
 
-/* Scout navbar — transparent at top, floating glass on scroll */
 .scout-nav {
   position: sticky;
   top: 0;
   z-index: 50;
   pointer-events: none;
-  transition: padding 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+  transition: padding 0.3s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .scout-nav--top {
-  padding: 0.85rem 1.1rem 0;
+  padding: 0.75rem 1rem 0;
 }
 
 .scout-nav--float {
-  padding: 0.65rem 0.85rem 0;
+  padding: 0.55rem 0.75rem 0;
 }
 
 @media (min-width: 768px) {
   .scout-nav--top {
-    padding: 1.1rem 1.75rem 0;
+    padding: 1rem 1.5rem 0;
   }
   .scout-nav--float {
-    padding: 0.75rem 1.25rem 0;
+    padding: 0.65rem 1.15rem 0;
   }
 }
 
@@ -1372,19 +1382,18 @@ button:focus-visible {
   pointer-events: auto;
   max-width: 1120px;
   margin: 0 auto;
-  min-height: 3.35rem;
-  padding: 0.4rem 0.45rem 0.4rem 0.85rem;
+  height: 3.25rem;
+  padding: 0 0.4rem 0 0.85rem;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
+  gap: 1.25rem;
   border-radius: 999px;
   transition:
-    background 0.35s ease,
-    border-color 0.35s ease,
-    box-shadow 0.35s ease,
-    backdrop-filter 0.35s ease,
-    transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+    background 0.3s ease,
+    border-color 0.3s ease,
+    box-shadow 0.3s ease,
+    backdrop-filter 0.3s ease;
 }
 
 .scout-nav--top .scout-nav__shell {
@@ -1396,24 +1405,19 @@ button:focus-visible {
 }
 
 .scout-nav--float .scout-nav__shell {
-  border: 1px solid color-mix(in srgb, white 55%, var(--scout-line));
-  background: color-mix(in srgb, rgba(255, 255, 255, 0.58) 70%, var(--scout-paper));
-  backdrop-filter: blur(22px) saturate(1.45);
-  -webkit-backdrop-filter: blur(22px) saturate(1.45);
+  border: 1px solid color-mix(in srgb, white 60%, var(--scout-line));
+  background: color-mix(in srgb, rgba(255, 255, 255, 0.62) 75%, var(--scout-paper));
+  backdrop-filter: blur(24px) saturate(1.5);
+  -webkit-backdrop-filter: blur(24px) saturate(1.5);
   box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.65) inset,
-    0 12px 40px -16px rgba(15, 20, 18, 0.35),
-    0 2px 8px -4px rgba(15, 20, 18, 0.12);
-  transform: translateY(0);
-}
-
-@media (min-width: 768px) {
-  .scout-nav__shell {
-    padding: 0.45rem 0.5rem 0.45rem 1.05rem;
-  }
+    0 1px 0 rgba(255, 255, 255, 0.7) inset,
+    0 14px 36px -18px rgba(15, 20, 18, 0.38);
 }
 
 .scout-nav__brand {
+  display: inline-flex;
+  align-items: center;
+  height: 100%;
   text-decoration: none;
   min-width: 0;
 }
@@ -1425,19 +1429,23 @@ button:focus-visible {
 .scout-nav__actions {
   display: flex;
   align-items: center;
-  gap: 0.35rem;
+  gap: 0.25rem;
+  height: 100%;
   flex-shrink: 0;
 }
 
 .scout-nav__link {
   display: none;
+  align-items: center;
+  height: 2.35rem;
   font-family: "Outfit", var(--scout-sans);
-  font-size: 0.8rem;
+  font-size: 0.8125rem;
   font-weight: 600;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.02em;
+  line-height: 1;
   color: var(--scout-muted) !important;
   text-decoration: none;
-  padding: 0.45rem 0.85rem;
+  padding: 0 0.9rem;
   border-radius: 999px;
   transition: color 0.15s ease, background 0.15s ease;
 }
@@ -1451,7 +1459,6 @@ button:focus-visible {
 @media (min-width: 640px) {
   .scout-nav__link {
     display: inline-flex;
-    align-items: center;
   }
 }
 
@@ -1459,19 +1466,18 @@ button:focus-visible {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  height: 2.35rem;
   border-radius: 999px;
-  padding: 0.52rem 1.05rem;
+  padding: 0 1.1rem;
   font-family: "Outfit", var(--scout-sans);
-  font-size: 0.8rem;
+  font-size: 0.8125rem;
   font-weight: 650;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.02em;
+  line-height: 1;
   text-decoration: none;
-  transition:
-    transform 0.15s ease,
-    background 0.15s ease,
-    color 0.15s ease,
-    border-color 0.15s ease,
-    box-shadow 0.15s ease;
+  border: none;
+  cursor: pointer;
+  transition: transform 0.15s ease, background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .scout-nav__btn:hover {
@@ -1481,9 +1487,8 @@ button:focus-visible {
 
 .scout-nav__btn--solid {
   background: var(--scout-ink);
-  color: #f7f3ea !important;
-  border: 1px solid var(--scout-ink);
-  box-shadow: 0 10px 22px -12px rgba(15, 20, 18, 0.65);
+  color: #f4efe6 !important;
+  box-shadow: 0 8px 20px -10px rgba(15, 20, 18, 0.55);
 }
 
 .scout-nav__btn--solid:hover {
@@ -1493,18 +1498,16 @@ button:focus-visible {
 
 .scout-nav__btn--ghost {
   border: 1px solid color-mix(in srgb, var(--scout-ink) 12%, transparent);
-  background: color-mix(in srgb, white 35%, transparent);
+  background: color-mix(in srgb, white 40%, transparent);
   color: var(--scout-ink) !important;
 }
 
 .scout-nav--float .scout-nav__btn--ghost {
-  background: color-mix(in srgb, white 55%, transparent);
-  border-color: color-mix(in srgb, var(--scout-ink) 10%, transparent);
+  background: color-mix(in srgb, white 60%, transparent);
 }
 
 .scout-nav__btn--ghost:hover {
-  border-color: color-mix(in srgb, var(--scout-ink) 28%, transparent);
-  background: color-mix(in srgb, white 70%, transparent);
+  background: color-mix(in srgb, white 75%, transparent);
   color: var(--scout-ink) !important;
 }
 
@@ -1524,151 +1527,175 @@ button:focus-visible {
   color: var(--scout-ink) !important;
 }
 
-/* Scope lock stage — clear "we found an assignment" */
-.scope-stage {
+.hero-radar {
   position: relative;
+  width: 100%;
   height: 100%;
-  min-height: 340px;
+  min-height: 380px;
   display: grid;
   place-items: center;
-  padding: 1.5rem 1.25rem 1.75rem;
 }
 
-.scope-stage__field {
-  position: relative;
-  width: min(100%, 280px);
+.hero-radar__glow {
+  position: absolute;
+  width: min(90%, 420px);
   aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(circle, color-mix(in srgb, var(--scout-mark) 28%, transparent), transparent 68%);
+  filter: blur(8px);
+  animation: scout-orb 7s ease-in-out infinite alternate;
 }
 
-.scope-stage__ring {
+.hero-radar__disc {
+  position: relative;
+  width: min(86%, 360px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 50% 50%, color-mix(in srgb, var(--scout-paper) 40%, transparent) 0%, transparent 62%),
+    color-mix(in srgb, var(--scout-ink) 4%, transparent);
+  border: 1px solid color-mix(in srgb, var(--scout-ink) 10%, transparent);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, white 35%, transparent) inset,
+    0 30px 60px -40px rgba(15, 20, 18, 0.35);
+  overflow: hidden;
+}
+
+.hero-radar__ring {
   position: absolute;
   inset: 0;
   margin: auto;
   border-radius: 50%;
-  border: 1px solid color-mix(in srgb, var(--scout-ink) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--scout-mark) 28%, transparent);
 }
 
-.scope-stage__ring--outer {
-  inset: 0;
+.hero-radar__ring--1 { inset: 12%; }
+.hero-radar__ring--2 {
+  inset: 26%;
+  border-color: color-mix(in srgb, var(--scout-mark) 42%, transparent);
+}
+.hero-radar__ring--3 {
+  inset: 40%;
+  border-color: color-mix(in srgb, var(--scout-mark) 58%, transparent);
 }
 
-.scope-stage__ring--mid {
-  inset: 14%;
-  border-color: color-mix(in srgb, var(--scout-mark) 35%, transparent);
-}
-
-.scope-stage__ring--inner {
-  inset: 28%;
-  border-color: color-mix(in srgb, var(--scout-mark) 55%, transparent);
-}
-
-.scope-stage__sweep {
+.hero-radar__grid {
   position: absolute;
-  inset: 8%;
+  inset: 0;
+  background:
+    linear-gradient(color-mix(in srgb, var(--scout-ink) 6%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--scout-ink) 6%, transparent) 1px, transparent 1px);
+  background-size: 18% 18%;
+  background-position: center;
+  opacity: 0.45;
+  mask-image: radial-gradient(circle, #000 30%, transparent 72%);
+}
+
+.hero-radar__sweep {
+  position: absolute;
+  inset: 4%;
   border-radius: 50%;
   background: conic-gradient(
     from 0deg,
     transparent 0deg,
-    color-mix(in srgb, var(--scout-mark) 22%, transparent) 40deg,
-    transparent 70deg
+    color-mix(in srgb, var(--scout-accent) 35%, transparent) 28deg,
+    transparent 55deg
   );
-  animation: scope-sweep 3.2s linear infinite;
-  mask-image: radial-gradient(circle, transparent 42%, #000 43%, #000 70%, transparent 71%);
+  animation: scope-sweep 3s linear infinite;
+  mask-image: radial-gradient(circle, transparent 18%, #000 19%, #000 72%, transparent 73%);
 }
 
-.scope-stage__crosshair {
-  position: absolute;
-  inset: 36%;
-  border: 1.5px solid var(--scout-mark);
-  border-radius: 50%;
-  opacity: 0.55;
-  transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.35s ease;
-}
-
-.scope-stage.is-lock .scope-stage__crosshair {
-  transform: scale(0.92);
-  opacity: 1;
-  box-shadow: 0 0 0 8px color-mix(in srgb, var(--scout-mark) 12%, transparent);
-}
-
-.scope-stage__core {
+.hero-radar__core {
   position: absolute;
   left: 50%;
   top: 50%;
-  width: 0.7rem;
-  height: 0.7rem;
+  width: 0.65rem;
+  height: 0.65rem;
   border-radius: 50%;
   background: var(--scout-mark);
   transform: translate(-50%, -50%);
+  box-shadow: 0 0 0 6px color-mix(in srgb, var(--scout-mark) 14%, transparent);
 }
 
-.scope-stage__ping {
+.hero-radar__blip {
   position: absolute;
-  left: 68%;
-  top: 28%;
-  width: 0.85rem;
-  height: 0.85rem;
+  left: 69%;
+  top: 27%;
+  width: 0.7rem;
+  height: 0.7rem;
   border-radius: 50%;
-  background: var(--scout-accent);
-  box-shadow: 0 0 0 0 color-mix(in srgb, var(--scout-accent) 45%, transparent);
-  transform: translate(-50%, -50%) scale(0.4);
-  opacity: 0;
-  transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.3s ease;
+  background: #3dcf8e;
+  transform: translate(-50%, -50%);
+  animation: scope-ping 1.5s ease-out infinite, home-tick 0.4s ease both;
 }
 
-.scope-stage.is-lock .scope-stage__ping {
-  opacity: 1;
-  transform: translate(-50%, -50%) scale(1);
-  animation: scope-ping 1.6s ease-out infinite;
-}
-
-.scope-stage__card {
-  position: relative;
-  z-index: 2;
-  margin-top: -0.5rem;
-  width: min(100%, 280px);
-  padding: 1rem 1.1rem 1.05rem;
-  border: 1px solid var(--scout-line);
-  background: color-mix(in srgb, var(--scout-paper) 88%, white);
-  backdrop-filter: blur(10px);
+.hero-radar__find {
+  position: absolute;
+  left: 50%;
+  bottom: 6%;
+  transform: translateX(-50%);
+  width: min(88%, 260px);
+  padding: 0.95rem 1.05rem;
+  border-radius: 1rem;
+  border: 1px solid color-mix(in srgb, white 50%, var(--scout-line));
+  background: color-mix(in srgb, rgba(255, 255, 255, 0.72) 80%, var(--scout-paper));
+  backdrop-filter: blur(16px) saturate(1.3);
+  -webkit-backdrop-filter: blur(16px) saturate(1.3);
+  box-shadow: 0 18px 40px -28px rgba(15, 20, 18, 0.45);
   animation: home-tick 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
-.scope-stage__label {
-  margin: 0;
+.hero-radar__live {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
   font-family: var(--mono);
-  font-size: 0.62rem;
-  letter-spacing: 0.12em;
+  font-size: 0.58rem;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--scout-mark);
 }
 
-.scope-stage__role {
-  margin: 0.35rem 0 0;
-  font-family: var(--scout-display);
-  font-size: 1.35rem;
-  font-weight: 600;
-  letter-spacing: -0.025em;
+.hero-radar__live::before {
+  content: "";
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 50%;
+  background: #3dcf8e;
+  box-shadow: 0 0 0 3px color-mix(in srgb, #3dcf8e 25%, transparent);
+  animation: scout-mark-blip 1.6s ease-in-out infinite;
+}
+
+.hero-radar__role {
+  margin: 0.4rem 0 0;
+  font-family: "Outfit", var(--scout-sans);
+  font-size: 1.2rem;
+  font-weight: 650;
+  letter-spacing: -0.03em;
   line-height: 1.15;
   color: var(--scout-ink);
 }
 
-.scope-stage__meta {
-  margin-top: 0.55rem;
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.75rem;
-  font-size: 0.78rem;
+.hero-radar__where {
+  margin: 0.3rem 0 0;
+  font-size: 0.8rem;
   color: var(--scout-muted);
 }
 
-.scope-stage__score {
+.hero-radar__score {
+  margin: 0.55rem 0 0;
   font-family: var(--mono);
-  font-size: 0.85rem;
-  font-weight: 600;
-  letter-spacing: 0.02em;
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--scout-muted);
+}
+
+.hero-radar__score strong {
+  font-size: 0.95rem;
+  letter-spacing: 0;
   color: var(--scout-mark);
+  font-weight: 650;
 }
 
 .scout-soon {
@@ -1710,19 +1737,20 @@ button:focus-visible {
   position: relative;
   z-index: 1;
   width: 100%;
-  max-width: 1120px;
+  max-width: 1180px;
   margin: 0 auto;
-  padding: 5.5rem 1.25rem 3.25rem;
+  padding: 5.5rem 1.25rem 3.5rem;
   display: grid;
-  gap: 2.5rem;
+  gap: 2rem;
   align-items: center;
 }
 
 @media (min-width: 960px) {
   .scout-hero__inner {
     grid-template-columns: 1.05fr 0.95fr;
-    gap: 2rem 4rem;
-    padding: 6.5rem 2rem 4rem;
+    gap: 1.5rem 3rem;
+    padding: 6.5rem 2rem 4.5rem;
+    min-height: min(100dvh, 900px);
   }
 }
 
@@ -1731,7 +1759,7 @@ button:focus-visible {
   font-family: var(--mono);
   font-size: 0.68rem;
   font-weight: 500;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--scout-mark);
 }
@@ -1747,35 +1775,41 @@ button:focus-visible {
 }
 
 .scout-brand {
-  margin: 1rem 0 0;
-  font-family: var(--scout-display);
-  font-size: clamp(3.1rem, 9vw, 5.6rem);
+  margin: 1.15rem 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.05em;
+}
+
+.scout-brand__soft {
+  font-family: "Outfit", var(--scout-sans);
+  font-size: clamp(1.05rem, 2.2vw, 1.35rem);
   font-weight: 600;
-  line-height: 0.9;
-  letter-spacing: -0.045em;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--scout-muted);
+  line-height: 1;
+}
+
+.scout-brand__hard {
+  font-family: var(--scout-display);
+  font-size: clamp(4.2rem, 12vw, 7.5rem);
+  font-weight: 600;
+  font-style: italic;
+  letter-spacing: -0.055em;
+  line-height: 0.88;
   color: var(--scout-ink);
 }
 
-.scout-brand__line {
-  display: block;
-}
-
-.scout-brand__line--accent {
-  color: var(--scout-mark);
-  font-style: italic;
-  font-weight: 500;
-}
-
 .scout-tagline {
-  margin: 1.35rem 0 0;
+  margin: 1.5rem 0 0;
   max-width: 18ch;
-  font-size: 1.05rem;
-  line-height: 1.45;
-  color: var(--scout-muted);
-  font-style: normal;
-  font-family: var(--scout-sans);
+  font-family: "Outfit", var(--scout-sans);
+  font-size: clamp(1.05rem, 2vw, 1.25rem);
   font-weight: 500;
-  letter-spacing: -0.01em;
+  line-height: 1.4;
+  letter-spacing: -0.02em;
+  color: var(--scout-muted);
 }
 
 .scout-lede {
@@ -1783,7 +1817,7 @@ button:focus-visible {
 }
 
 .scout-cta {
-  margin-top: 1.75rem;
+  margin-top: 2rem;
   display: flex;
   flex-wrap: wrap;
   gap: 0.65rem;
@@ -1793,10 +1827,12 @@ button:focus-visible {
   display: inline-flex;
   align-items: center;
   border-radius: 999px;
-  padding: 0.72rem 1.3rem;
-  font-size: 0.875rem;
-  font-weight: 600;
-  transition: transform 0.18s ease, background 0.18s ease, color 0.18s ease;
+  padding: 0.8rem 1.35rem;
+  font-family: "Outfit", var(--scout-sans);
+  font-size: 0.9rem;
+  font-weight: 650;
+  letter-spacing: -0.015em;
+  transition: transform 0.18s ease, background 0.18s ease, color 0.18s ease, border-color 0.18s ease;
 }
 
 .scout-btn:hover {
@@ -1807,6 +1843,7 @@ button:focus-visible {
 .scout-btn--ink {
   background: var(--scout-ink);
   color: var(--scout-paper);
+  box-shadow: 0 14px 28px -16px rgba(15, 20, 18, 0.55);
 }
 
 .scout-btn--ink:hover {
@@ -1816,7 +1853,7 @@ button:focus-visible {
 
 .scout-btn--line {
   border: 1px solid var(--scout-line);
-  background: transparent;
+  background: color-mix(in srgb, white 35%, transparent);
   color: var(--scout-ink);
 }
 
@@ -1825,11 +1862,10 @@ button:focus-visible {
   color: var(--scout-ink);
 }
 
-.scout-hero__side {
-  min-height: 360px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.scout-hero__stage {
+  position: relative;
+  min-height: 400px;
+  height: 100%;
 }
 
 .scout-work {
@@ -2048,10 +2084,23 @@ button:focus-visible {
   }
 }
 
+@keyframes scout-orb {
+  from {
+    transform: scale(1);
+    opacity: 0.7;
+  }
+  to {
+    transform: scale(1.08);
+    opacity: 1;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .scope-stage__sweep,
-  .scope-stage__ping,
-  .scope-stage__card,
+  .hero-radar__sweep,
+  .hero-radar__blip,
+  .hero-radar__glow,
+  .hero-radar__find,
+  .hero-radar__live::before,
   .home-tape__focus {
     animation: none !important;
   }

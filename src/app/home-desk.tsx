@@ -47,14 +47,15 @@ export default function HomeDesk() {
 
       <section className="scout-hero">
         <div className="scout-hero__wash" aria-hidden />
+        <div className="scout-hero__mesh" aria-hidden />
         <div className="scout-hero__grain" aria-hidden />
 
         <div className="scout-hero__inner">
           <div className="scout-hero__copy">
             <p className="scout-kicker home-reveal">{PRODUCT.category}</p>
             <h1 className="scout-brand home-reveal home-reveal--2">
-              <span className="scout-brand__line">Recruitment</span>
-              <span className="scout-brand__line scout-brand__line--accent">Scout</span>
+              <span className="scout-brand__soft">Recruitment</span>
+              <span className="scout-brand__hard">Scout</span>
             </h1>
             <p className="scout-tagline home-reveal home-reveal--3">{PRODUCT.tagline}</p>
             <div className="scout-cta home-reveal home-reveal--4">
@@ -73,7 +74,7 @@ export default function HomeDesk() {
             </div>
           </div>
 
-          <div className="scout-hero__side home-reveal home-reveal--3">
+          <div className="scout-hero__stage home-reveal home-reveal--3">
             <HomeOpportunityStage />
           </div>
         </div>
