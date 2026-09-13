@@ -84,10 +84,11 @@ export default function HomeDesk() {
       <main>
         <section id="werk" className="scout-work scroll-mt-24">
           <div className="scout-work__head">
-            <p className="scout-eyebrow">Recruitment, in één lijn</p>
-            <h2 className="scout-work__title">Van openstaande opdracht naar geplaatste kandidaat.</h2>
+            <p className="scout-eyebrow">Gemaakt voor recruitment</p>
+            <h2 className="scout-work__title">Meer opdrachtkansen in beeld. Minder gemiste business.</h2>
             <p className="scout-work__sub">
-              Geen marketplace. Een desk voor wie leeft van interim- en ZZP-plaatsingen.
+              Voor bureaus en recruiters in interim &amp; ZZP: elke serieuze kans in één overzicht,
+              klaar om op te volgen.
             </p>
           </div>
 
@@ -107,10 +108,10 @@ export default function HomeDesk() {
         <section className="scout-close">
           <div className="scout-close__box">
             <p className="scout-eyebrow">Alleen op uitnodiging</p>
-            <h2 className="scout-close__title">Voor recruiters die sneller willen plaatsen.</h2>
+            <h2 className="scout-close__title">Voor recruitmentteams die geen kans willen laten liggen.</h2>
             <p className="scout-close__text">
-              Recruit Scout is geen open platform. Wel een desk die contracting-kansen eerder
-              zichtbaar maakt — tot aan het gesprek met manager of kandidaat.
+              Opportunity Scout is geen open marketplace. Wel een desk voor de recruitmentindustrie:
+              opdrachtkansen verzamelen, waarderen, en opvolgen tot plaatsing.
             </p>
             <div className="scout-close__cta">
               {email ? (
