@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700&family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=IBM+Plex+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&family=Manrope:wght@400;500;600;700&family=Outfit:wght@500;600;700&family=Sora:wght@500;600;700&family=Syne:wght@600;700;800&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Archivo+Black&family=Barlow+Condensed:wght@500;600;700&family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700&family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=IBM+Plex+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&family=Manrope:wght@400;500;600;700&family=Outfit:wght@500;600;700&family=Sora:wght@500;600;700&family=Syne:wght@600;700;800&display=swap");
 @import "tailwindcss";
 
 /* Apollo-achtige tokens: warm marble canvas, charcoal, twilight, volt CTA */
@@ -2303,4 +2303,295 @@ body:has(.desk-home--scout) {
   .hero-radar__live::before {
     animation: none !important;
   }
+}
+
+/* ─── Logo lab (distinct concept gallery) ─── */
+.logo-lab {
+  padding: 2.5rem 1.25rem 4rem;
+}
+@media (min-width: 768px) {
+  .logo-lab { padding: 3rem 2rem 5rem; }
+}
+.logo-lab__inner {
+  max-width: 1080px;
+  margin: 0 auto;
+}
+.logo-lab__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1.25rem;
+  margin-bottom: 2.5rem;
+}
+.logo-lab__title {
+  margin: 0.45rem 0 0;
+  font-family: "Syne", var(--scout-sans);
+  font-size: clamp(1.85rem, 4vw, 2.6rem);
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1.05;
+  color: var(--scout-ink);
+}
+.logo-lab__lead {
+  margin: 0.65rem 0 0;
+  max-width: 54ch;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  color: var(--scout-muted);
+}
+.logo-lab__section { margin-top: 2.75rem; }
+.logo-lab__section .scout-eyebrow { margin-bottom: 1rem; }
+
+.logo-lab__nav-list {
+  display: grid;
+  gap: 0.85rem;
+}
+.logo-lab__nav-row {
+  display: grid;
+  gap: 0.55rem;
+}
+@media (min-width: 720px) {
+  .logo-lab__nav-row {
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+    align-items: center;
+    gap: 1rem;
+  }
+}
+.logo-lab__pill {
+  display: flex;
+  align-items: center;
+  min-height: 3.5rem;
+  padding: 0 1.1rem;
+  border-radius: 999px;
+  border: 1px solid var(--scout-line);
+  background: color-mix(in srgb, white 88%, var(--scout-paper));
+  box-shadow: 0 1px 0 color-mix(in srgb, var(--scout-ink) 4%, transparent);
+}
+.logo-lab__meta {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0 0.15rem;
+}
+.logo-lab__letter {
+  flex-shrink: 0;
+  width: 1.7rem;
+  height: 1.7rem;
+  display: grid;
+  place-items: center;
+  border-radius: 0.45rem;
+  background: var(--scout-ink);
+  color: var(--scout-paper);
+  font-family: "Syne", sans-serif;
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+.logo-lab__name {
+  margin: 0;
+  font-family: "Sora", var(--scout-sans);
+  font-size: 0.92rem;
+  font-weight: 650;
+  color: var(--scout-ink);
+}
+.logo-lab__vibe {
+  margin: 0.15rem 0 0;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  color: var(--scout-muted);
+}
+
+.lc-lockup {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.7rem;
+  min-width: 0;
+}
+.lc-lockup__mark {
+  width: 2.05rem;
+  height: 2.05rem;
+  flex-shrink: 0;
+  display: block;
+}
+.logo-concept__svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.lc-word { display: block; line-height: 1; color: var(--scout-ink); min-width: 0; }
+.lc-word--stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.14rem;
+}
+.lc-word__k {
+  font-size: 0.55rem;
+  font-weight: 650;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--scout-muted);
+}
+.lc-word__k--serif {
+  letter-spacing: 0.1em;
+  font-weight: 600;
+  text-transform: none;
+  font-size: 0.68rem;
+  font-style: italic;
+}
+.lc-word__h {
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: -0.045em;
+}
+.lc-word__h--serif {
+  font-size: 1.2rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+.lc-word--solo {
+  font-size: 1.35rem;
+  font-weight: 800;
+  letter-spacing: -0.055em;
+}
+.lc-word--slash {
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.lc-word--slash i {
+  font-style: normal;
+  color: var(--scout-muted);
+  margin: 0 0.2rem;
+  font-weight: 500;
+}
+.lc-word--badge {
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+.lc-word--edit {
+  display: flex;
+  flex-direction: column;
+  gap: 0.05rem;
+}
+.lc-word--edit em {
+  font-style: italic;
+  font-size: 0.78rem;
+  font-weight: 400;
+  color: var(--scout-muted);
+}
+.lc-word--edit strong {
+  font-style: normal;
+  font-size: 1.25rem;
+  font-weight: 400;
+  letter-spacing: -0.02em;
+}
+.lc-word--mono {
+  font-size: 0.88rem;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+}
+.lc-word--mono span { color: var(--scout-muted); margin: 0 0.1rem; }
+.lc-word--heavy {
+  font-size: 1.15rem;
+  letter-spacing: 0.02em;
+}
+.lc-word--typeonly {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  line-height: 0.95;
+}
+.lc-word__type-a {
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--scout-muted);
+}
+.lc-word__type-b {
+  font-size: 1.55rem;
+  font-weight: 400;
+  font-style: italic;
+  letter-spacing: -0.03em;
+}
+
+.logo-lab__tiles {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.75rem;
+}
+@media (min-width: 640px) {
+  .logo-lab__tiles { grid-template-columns: repeat(3, 1fr); }
+}
+@media (min-width: 900px) {
+  .logo-lab__tiles { grid-template-columns: repeat(4, 1fr); gap: 0.9rem; }
+}
+.logo-lab__tile {
+  padding: 1.15rem 1rem 0.95rem;
+  border-radius: 1.1rem;
+  border: 1px solid var(--scout-line);
+  background: color-mix(in srgb, white 50%, var(--scout-paper));
+  text-align: center;
+}
+.logo-lab__tile-mark {
+  width: 4.5rem;
+  height: 4.5rem;
+  margin: 0 auto;
+}
+.logo-lab__tile-id {
+  margin: 0.85rem 0 0;
+  font-family: "Sora", sans-serif;
+  font-size: 0.72rem;
+  font-weight: 650;
+  color: var(--scout-muted);
+}
+
+.logo-lab__section--dark {
+  padding: 1.5rem 1.25rem 1.65rem;
+  border-radius: 1.25rem;
+  background: #121816;
+}
+.logo-lab__dark-row {
+  display: grid;
+  gap: 1rem;
+}
+@media (min-width: 700px) {
+  .logo-lab__dark-row {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.1rem 1.5rem;
+  }
+}
+.logo-lab__dark-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+.logo-lab__dark-item > span {
+  font-family: "Syne", sans-serif;
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: color-mix(in srgb, white 35%, transparent);
+}
+.logo-lab__section--dark .lc-word,
+.logo-lab__section--dark .lc-word__h,
+.logo-lab__section--dark .lc-word--solo,
+.logo-lab__section--dark .lc-word--slash,
+.logo-lab__section--dark .lc-word--badge,
+.logo-lab__section--dark .lc-word--heavy,
+.logo-lab__section--dark .lc-word--mono,
+.logo-lab__section--dark .lc-word--edit strong,
+.logo-lab__section--dark .lc-word__type-b {
+  color: #efe9df;
+}
+.logo-lab__section--dark .lc-word__k,
+.logo-lab__section--dark .lc-word--edit em,
+.logo-lab__section--dark .lc-word__type-a,
+.logo-lab__section--dark .lc-word--slash i,
+.logo-lab__section--dark .lc-word--mono span {
+  color: color-mix(in srgb, #efe9df 55%, transparent);
 }

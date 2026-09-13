@@ -1,117 +1,284 @@
 "use client";
 
-import Link from "next/link";
 import {
-  ScoutWordmark,
-  type ScoutLockup,
-  type ScoutWordFont,
-} from "@/components/scout-mark";
+  CONCEPT_MARKS,
+  type ConceptId,
+} from "@/components/scout-logo-concepts";
 
-const LOCKUPS: { id: ScoutLockup; label: string; note: string }[] = [
-  { id: "stack", label: "Stack", note: "RECRUITMENT klein · Scout groot — strakst voor nav" },
-  { id: "scout", label: "Scout only", note: "Kort & sharp — productnaam als merk" },
-  { id: "pair", label: "Pair", note: "Twee regels, zelfde gewicht" },
-  { id: "slash", label: "Slash", note: "Recruitment / Scout op één regel" },
-  { id: "flat", label: "Flat", note: "Oude één-regel — vaak te druk" },
+type WordStyle =
+  | "stack-sans"
+  | "stack-serif"
+  | "solo-display"
+  | "slash-condensed"
+  | "badge-inline"
+  | "editorial"
+  | "mono-tag"
+  | "heavy-one"
+  | "type-only";
+
+type Concept = {
+  letter: string;
+  id: ConceptId;
+  name: string;
+  vibe: string;
+  word: WordStyle;
+};
+
+const CONCEPTS: Concept[] = [
+  {
+    letter: "A",
+    id: "radar",
+    name: "Radar",
+    vibe: "Huidige mark — baseline om tegen af te zetten",
+    word: "stack-sans",
+  },
+  {
+    letter: "B",
+    id: "monogram",
+    name: "Monogram RS",
+    vibe: "Lettermerk zoals bureau-identiteit — geen icoon-cliché",
+    word: "slash-condensed",
+  },
+  {
+    letter: "C",
+    id: "scope",
+    name: "Scope",
+    vibe: "Optisch vizier — gericht zoeken, scherp",
+    word: "solo-display",
+  },
+  {
+    letter: "D",
+    id: "ping",
+    name: "Ping",
+    vibe: "Alleen ringen, geen tile — luchtig en modern",
+    word: "stack-sans",
+  },
+  {
+    letter: "E",
+    id: "compass",
+    name: "Compass",
+    vibe: "Richting / navigatie — ronder, vriendelijker",
+    word: "editorial",
+  },
+  {
+    letter: "F",
+    id: "signal",
+    name: "Signal",
+    vibe: "Signaalsterkte — tech/product zonder radar",
+    word: "mono-tag",
+  },
+  {
+    letter: "G",
+    id: "route",
+    name: "Route S",
+    vibe: "Pad naar een hit — trail op donkere tile",
+    word: "heavy-one",
+  },
+  {
+    letter: "H",
+    id: "stamp",
+    name: "Stamp",
+    vibe: "Zegel / seal — merk als stempel, geen app-icoon",
+    word: "badge-inline",
+  },
+  {
+    letter: "I",
+    id: "lenses",
+    name: "Lenses",
+    vibe: "Verrekijker — letterlijk scouting",
+    word: "stack-serif",
+  },
+  {
+    letter: "J",
+    id: "grid",
+    name: "Grid hit",
+    vibe: "Kaartcel die oplicht — desk / pipeline feel",
+    word: "slash-condensed",
+  },
+  {
+    letter: "K",
+    id: "needle",
+    name: "Needle",
+    vibe: "Noordpijl / find — simpel silhouet",
+    word: "solo-display",
+  },
+  {
+    letter: "L",
+    id: "ink",
+    name: "Ink disc",
+    vibe: "Zwarte schijf — sterker contrast in nav",
+    word: "stack-sans",
+  },
+  {
+    letter: "M",
+    id: "pennant",
+    name: "Pennant",
+    vibe: "Vlag / claim — agency-achtig",
+    word: "editorial",
+  },
+  {
+    letter: "N",
+    id: "diamond",
+    name: "Diamond",
+    vibe: "Kans als gem — geometrisch, premium",
+    word: "heavy-one",
+  },
+  {
+    letter: "O",
+    id: "type",
+    name: "Type only",
+    vibe: "Geen mark — alleen typografie als logo",
+    word: "type-only",
+  },
 ];
 
-const FONTS: { id: ScoutWordFont; label: string }[] = [
-  { id: "sora", label: "Sora" },
-  { id: "syne", label: "Syne" },
-  { id: "bricolage", label: "Bricolage" },
-  { id: "outfit", label: "Outfit" },
-  { id: "manrope", label: "Manrope" },
-  { id: "dm", label: "DM Sans" },
-  { id: "fraunces", label: "Fraunces" },
-  { id: "instrument", label: "Instrument" },
-];
+function Wordmark({ style }: { style: WordStyle }) {
+  if (style === "stack-sans") {
+    return (
+      <span className="lc-word lc-word--stack" style={{ fontFamily: "Sora, sans-serif" }}>
+        <span className="lc-word__k">Recruitment</span>
+        <span className="lc-word__h">Scout</span>
+      </span>
+    );
+  }
+  if (style === "stack-serif") {
+    return (
+      <span className="lc-word lc-word--stack" style={{ fontFamily: "Fraunces, Georgia, serif" }}>
+        <span className="lc-word__k lc-word__k--serif">Recruitment</span>
+        <span className="lc-word__h lc-word__h--serif">Scout</span>
+      </span>
+    );
+  }
+  if (style === "solo-display") {
+    return (
+      <span className="lc-word lc-word--solo" style={{ fontFamily: "Syne, sans-serif" }}>
+        Scout
+      </span>
+    );
+  }
+  if (style === "slash-condensed") {
+    return (
+      <span className="lc-word lc-word--slash" style={{ fontFamily: "Barlow Condensed, sans-serif" }}>
+        RECRUITMENT <i>/</i> SCOUT
+      </span>
+    );
+  }
+  if (style === "badge-inline") {
+    return (
+      <span className="lc-word lc-word--badge" style={{ fontFamily: "Manrope, sans-serif" }}>
+        Recruitment Scout
+      </span>
+    );
+  }
+  if (style === "editorial") {
+    return (
+      <span className="lc-word lc-word--edit" style={{ fontFamily: "Instrument Serif, Georgia, serif" }}>
+        <em>Recruitment</em>
+        <strong>Scout</strong>
+      </span>
+    );
+  }
+  if (style === "mono-tag") {
+    return (
+      <span className="lc-word lc-word--mono" style={{ fontFamily: "IBM Plex Mono, monospace" }}>
+        scout<span>·</span>desk
+      </span>
+    );
+  }
+  if (style === "heavy-one") {
+    return (
+      <span className="lc-word lc-word--heavy" style={{ fontFamily: "Archivo Black, sans-serif" }}>
+        SCOUT
+      </span>
+    );
+  }
+  return (
+    <span className="lc-word lc-word--typeonly">
+      <span className="lc-word__type-a" style={{ fontFamily: "Syne, sans-serif" }}>
+        Recruitment
+      </span>
+      <span className="lc-word__type-b" style={{ fontFamily: "Instrument Serif, Georgia, serif" }}>
+        Scout
+      </span>
+    </span>
+  );
+}
 
-const PICKS: { lockup: ScoutLockup; font: ScoutWordFont; label: string }[] = [
-  { lockup: "stack", font: "sora", label: "A · Stack + Sora" },
-  { lockup: "stack", font: "syne", label: "B · Stack + Syne" },
-  { lockup: "stack", font: "bricolage", label: "C · Stack + Bricolage" },
-  { lockup: "scout", font: "syne", label: "D · Scout + Syne" },
-  { lockup: "scout", font: "sora", label: "E · Scout + Sora" },
-  { lockup: "pair", font: "sora", label: "F · Pair + Sora" },
-  { lockup: "pair", font: "fraunces", label: "G · Pair + Fraunces" },
-  { lockup: "slash", font: "dm", label: "H · Slash + DM Sans" },
-  { lockup: "slash", font: "manrope", label: "I · Slash + Manrope" },
-  { lockup: "stack", font: "instrument", label: "J · Stack + Instrument" },
-  { lockup: "scout", font: "bricolage", label: "K · Scout + Bricolage" },
-  { lockup: "stack", font: "outfit", label: "L · Stack + Outfit" },
-];
+function ConceptLockup({ concept }: { concept: Concept }) {
+  const Mark = concept.id === "type" ? null : CONCEPT_MARKS[concept.id];
+
+  return (
+    <span className={`lc-lockup ${concept.id === "type" ? "lc-lockup--type" : ""}`}>
+      {Mark ? <span className="lc-lockup__mark">{Mark()}</span> : null}
+      <Wordmark style={concept.word} />
+    </span>
+  );
+}
 
 export default function LogoPreviewPage() {
   return (
-    <div className="desk-home desk-home--scout min-h-dvh px-5 py-10 md:px-8">
-      <div className="mx-auto max-w-[1100px]">
-        <div className="mb-10 flex flex-wrap items-end justify-between gap-4">
+    <div className="desk-home desk-home--scout logo-lab min-h-dvh">
+      <div className="logo-lab__inner">
+        <header className="logo-lab__head">
           <div>
-            <p className="scout-eyebrow">Logo lab</p>
-            <h1
-              className="mt-2 text-[2rem] tracking-tight text-[var(--scout-ink)]"
-              style={{ fontFamily: "Sora, var(--scout-sans)", fontWeight: 650 }}
-            >
-              Wordmark lockups
-            </h1>
-            <p className="mt-2 max-w-[52ch] text-sm text-[var(--scout-muted)]">
-              Radar blijft. Hier testen we hoe de naam ernaast zit — structuur eerst, font daarna.
-              Zeg een letter (A–L) of combo.
+            <p className="scout-eyebrow">Logo lab · ronde 2</p>
+            <h1 className="logo-lab__title">Echt andere merken</h1>
+            <p className="logo-lab__lead">
+              Geen font-wissel op dezelfde radar. Vijftien concepten met andere marks, silhouetten
+              en typografie. Zeg een letter (A–O) als je er één wilt als site-logo.
             </p>
           </div>
-          <Link href="/" className="scout-nav__btn scout-nav__btn--ghost">
+          <a href="/" className="scout-nav__btn scout-nav__btn--ghost">
             ← Home
-          </Link>
-        </div>
+          </a>
+        </header>
 
-        <section className="mb-12">
-          <p className="scout-eyebrow mb-4">Favorites — navbar mock</p>
-          <div className="flex flex-col gap-3">
-            {PICKS.map((p) => (
-              <div
-                key={p.label}
-                className="flex h-[3.4rem] items-center justify-between rounded-full border border-[var(--scout-line)] bg-[rgba(255,252,246,0.96)] px-4"
-              >
-                <ScoutWordmark tone="light" lockup={p.lockup} font={p.font} />
-                <span className="shrink-0 text-[0.7rem] text-[var(--scout-muted)]">{p.label}</span>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        <section className="mb-12">
-          <p className="scout-eyebrow mb-4">Lockup styles (Sora)</p>
-          <div className="grid gap-4 sm:grid-cols-2">
-            {LOCKUPS.map((l) => (
-              <article
-                key={l.id}
-                className="rounded-2xl border border-[var(--scout-line)] bg-[color-mix(in_srgb,white_55%,var(--scout-paper))] p-5"
-              >
-                <div className="flex min-h-[3.5rem] items-center">
-                  <ScoutWordmark tone="light" lockup={l.id} font="sora" />
+        <section className="logo-lab__section">
+          <p className="scout-eyebrow">Navbar mock · alle richtingen</p>
+          <div className="logo-lab__nav-list">
+            {CONCEPTS.map((c) => (
+              <article key={c.letter} className="logo-lab__nav-row">
+                <div className="logo-lab__pill">
+                  <ConceptLockup concept={c} />
                 </div>
-                <p
-                  className="mt-4 text-sm font-semibold text-[var(--scout-ink)]"
-                  style={{ fontFamily: "Sora, sans-serif" }}
-                >
-                  {l.label}
-                </p>
-                <p className="mt-1 text-xs text-[var(--scout-muted)]">{l.note}</p>
+                <div className="logo-lab__meta">
+                  <span className="logo-lab__letter">{c.letter}</span>
+                  <div>
+                    <p className="logo-lab__name">{c.name}</p>
+                    <p className="logo-lab__vibe">{c.vibe}</p>
+                  </div>
+                </div>
               </article>
             ))}
           </div>
         </section>
 
-        <section>
-          <p className="scout-eyebrow mb-4">Stack × alle fonts</p>
-          <div className="grid gap-3 sm:grid-cols-2">
-            {FONTS.map((f) => (
-              <div
-                key={f.id}
-                className="flex items-center justify-between gap-3 rounded-2xl border border-[var(--scout-line)] bg-[color-mix(in_srgb,white_55%,var(--scout-paper))] px-4 py-4"
-              >
-                <ScoutWordmark tone="light" lockup="stack" font={f.id} />
-                <span className="text-xs text-[var(--scout-muted)]">{f.label}</span>
+        <section className="logo-lab__section">
+          <p className="scout-eyebrow">Grote tiles · mark op zichzelf</p>
+          <div className="logo-lab__tiles">
+            {CONCEPTS.filter((c) => c.id !== "type").map((c) => {
+              const Mark = CONCEPT_MARKS[c.id as Exclude<ConceptId, "type">];
+              return (
+                <article key={c.letter} className="logo-lab__tile">
+                  <div className="logo-lab__tile-mark">
+                    <Mark />
+                  </div>
+                  <p className="logo-lab__tile-id">
+                    {c.letter} · {c.name}
+                  </p>
+                </article>
+              );
+            })}
+          </div>
+        </section>
+
+        <section className="logo-lab__section logo-lab__section--dark">
+          <p className="scout-eyebrow scout-eyebrow--on-dark">Op donker · favicon / footer check</p>
+          <div className="logo-lab__dark-row">
+            {CONCEPTS.slice(0, 8).map((c) => (
+              <div key={c.letter} className="logo-lab__dark-item">
+                <ConceptLockup concept={c} />
+                <span>{c.letter}</span>
               </div>
             ))}
           </div>
