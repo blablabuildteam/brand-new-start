@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { RegieWordmark } from "@/components/regie-mark";
@@ -21,6 +21,15 @@ export function SiteNav({
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    if (!scout) return;
+    const onScroll = () => setScrolled(window.scrollY > 28);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, [scout]);
 
   async function logout() {
     await fetch("/api/auth/login", { method: "DELETE" });
@@ -30,16 +39,18 @@ export function SiteNav({
 
   if (scout) {
     return (
-      <header className="scout-nav pt-[env(safe-area-inset-top)]">
+      <header
+        className={`scout-nav pt-[env(safe-area-inset-top)] ${scrolled ? "scout-nav--float" : "scout-nav--top"}`}
+      >
         <div className="scout-nav__shell">
           <Link href="/" className="scout-nav__brand" aria-label={`${name} home`}>
             <ScoutWordmark name={name} />
           </Link>
 
-          <div className="scout-nav__actions">
+          <nav className="scout-nav__actions" aria-label="Primary">
             {email ? (
               <>
-                <Link href="/radar" className="scout-nav__btn scout-nav__btn--solid hidden sm:inline-flex">
+                <Link href="/radar" className="scout-nav__btn scout-nav__btn--solid">
                   Desk
                 </Link>
                 <button type="button" onClick={() => void logout()} className="scout-nav__btn scout-nav__btn--ghost">
@@ -48,7 +59,7 @@ export function SiteNav({
               </>
             ) : (
               <>
-                <a href="#werk" className="scout-nav__link hidden sm:inline-flex">
+                <a href="#werk" className="scout-nav__link">
                   Hoe het werkt
                 </a>
                 <Link href="/login?next=%2Fradar" className="scout-nav__btn scout-nav__btn--solid">
@@ -56,7 +67,7 @@ export function SiteNav({
                 </Link>
               </>
             )}
-          </div>
+          </nav>
         </div>
       </header>
     );
