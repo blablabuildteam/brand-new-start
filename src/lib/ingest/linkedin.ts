@@ -36,10 +36,10 @@ const globalSpecialty = globalThis as unknown as { __bnsSpecialty?: SpecialtyPro
 export function isVacancyPost(text: string): boolean {
   const t = text.toLowerCase();
   return (
-    /urgent|zoeken wij|op zoek naar|looking for|vacature|we are (currently )?looking|voor een relatie/i.test(
+    /urgent|zoeken wij|zoeken we|zoek ik|op zoek naar|looking for|vacature|we are (currently )?looking|voor een relatie|voor een opdrachtgever|gezocht/i.test(
       t
     ) ||
-    (matchesRole(t) && /brand new start|bns|interim|zzp|contract/i.test(t))
+    (matchesRole(t) && /brand new start|bns|interim|zzp|contract|freelance/i.test(t))
   );
 }
 

@@ -62,10 +62,23 @@ function normalizeApifyItem(item: Record<string, unknown>): LinkedInPost | null 
     (item.commentary as string) ||
     "";
   if (!text?.trim()) return null;
+  const postedRaw = item.postedAt ?? item.publishedAt;
+  let postedAt: string | undefined;
+  if (typeof postedRaw === "string") postedAt = postedRaw;
+  else if (postedRaw && typeof postedRaw === "object") {
+    const o = postedRaw as { date?: string; timestamp?: number };
+    if (typeof o.date === "string") postedAt = o.date;
+    else if (typeof o.timestamp === "number") postedAt = new Date(o.timestamp).toISOString();
+  }
   return {
     text: text.trim(),
-    url: (item.url as string) || (item.postUrl as string) || undefined,
-    postedAt: (item.postedAt as string) || (item.publishedAt as string) || undefined,
+    url:
+      (item.linkedinUrl as string) ||
+      (item.url as string) ||
+      (item.postUrl as string) ||
+      (item.shareLinkedinUrl as string) ||
+      undefined,
+    postedAt,
     raw: item,
   };
 }
@@ -83,16 +96,17 @@ function postTitle(text: string): string {
 function isRecruiterVacancyPost(text: string): boolean {
   if (isVacancyPost(text)) return true;
   const t = text.toLowerCase();
-  // Typische bureau-recruiter taal (niet alleen Jeffrey/BNS)
-  if (
-    /#(vacature|interim|zzp|freelance)|opdracht|beschikbaar|per direct|startdatum|uren per week|uurtarief/i.test(
+  // Typische bureau-recruiter taal
+  const hiringIntent =
+    /zoek ik|zoeken we|zoeken wij|zijn we op zoek|op zoek naar|looking for|gezocht|vacature|opdrachtgever|opdrachtomschrijving|voor (een |deze )?positie|freelance |zzp|interim|inhuur|#vacature|#interim|#zzp|uurtarief|uren per week|start:\s*|inzet:/i.test(
       t
-    ) &&
-    matchesRole(t)
-  ) {
-    return true;
-  }
-  return matchesRole(t) && /interim|zzp|freelance|contract|detach|inhuur|zoeken|gevraagd/i.test(t);
+    );
+  if (!hiringIntent) return false;
+  // Rol in post óf software/contracting-keywords (bureau-posts noemen vaak .NET/Azure i.p.v. BA)
+  if (matchesRole(t)) return true;
+  return /\b(\.net|dotnet|java|python|azure|aws|devops|developer|engineer|analist|analyst|scrum|agile|architect|tester|po\b|product owner)\b/i.test(
+    t
+  );
 }
 
 async function fetchPostsForUrls(
@@ -111,7 +125,7 @@ async function fetchPostsForUrls(
     {
       targetUrls: urls,
       maxPosts,
-      postedLimit: "month",
+      postedLimit: "year",
     },
     { waitSecs: 180 }
   );

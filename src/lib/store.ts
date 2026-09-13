@@ -183,14 +183,15 @@ function nicheOk(input: IngestInput) {
   if (isTender && !matchesTender(blob) && !matchesRole(blob)) {
     return { ok: false as const, reason: "outside-niche" };
   }
-  if (!isTender && !isPulse && !matchesRole(blob)) {
+  const isAgencyFeed =
+    input.source === "agency-swarm" ||
+    (typeof input.raw?.channel === "string" && input.raw.channel === "recruiter-feed");
+  // Bureau-feeds: vacaturefilter gebeurt upstream; rollen mogen breder dan Instellingen-hunt
+  if (!isTender && !isPulse && !isAgencyFeed && !matchesRole(blob)) {
     return { ok: false as const, reason: "outside-niche" };
   }
 
   // Contract/ZZP/interim is verplicht voor market-hits (pulse/tender/bureau-feeds uitgezonderd)
-  const isAgencyFeed =
-    input.source === "agency-swarm" ||
-    (typeof input.raw?.channel === "string" && input.raw.channel === "recruiter-feed");
   if (
     !isTender &&
     !isPulse &&
