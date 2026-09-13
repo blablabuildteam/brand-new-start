@@ -3,43 +3,41 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { BlablaLogo } from "@/components/blabla-logo";
-import { HomeSignalField } from "@/components/home-signal-field";
+import { HomePlacementTape } from "@/components/home-placement-tape";
 import { SiteNav } from "@/components/site-nav";
+import { PRODUCT } from "@/lib/product-brand";
 
 const BEATS = [
   {
     k: "01",
-    title: "Spot",
-    text: "Kansen verschijnen zodra ze relevant zijn — niet wanneer je eindeloos zoekt.",
+    title: "Spot de opdracht",
+    text: "Nieuwe interim- en ZZP-kansen komen binnen zodra ze ertoe doen — niet na uren zoeken.",
   },
   {
     k: "02",
-    title: "Waarde",
-    text: "Elke kans krijgt gewicht. Sterk genoeg om nu te handelen, of later te volgen.",
+    title: "Schat de waarde",
+    text: "Elke kans krijgt gewicht. Wat nu telt, wat later mag, wat je laat liggen.",
   },
   {
     k: "03",
-    title: "Ontgrendel",
-    text: "De opdrachtgever achter het signaal komt in beeld. Jij bevestigt — daarna de juiste deur.",
+    title: "Vind de opdrachtgever",
+    text: "Achter een bureau-signaal zit een eindklant. Die zet je vast vóór je iemand belandt.",
   },
   {
     k: "04",
-    title: "Plaats",
-    text: "Van manager tot kandidaat: het pad naar contact is klaargezet. Jij houdt de knop.",
+    title: "Zet de plaatsing klaar",
+    text: "Manager, kandidaat, bericht — het pad staat. Jij beslist wanneer het de deur uit gaat.",
   },
 ];
 
 export default function HomeDesk() {
-  const [name, setName] = useState("Regie");
   const [email, setEmail] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/settings")
       .then((r) => (r.ok ? r.json() : null))
-      .then((j: { name?: string; user?: { email?: string } } | null) => {
-        if (!j) return;
-        if (j.name) setName(j.name);
-        if (j.user?.email) setEmail(j.user.email);
+      .then((j: { user?: { email?: string } } | null) => {
+        if (j?.user?.email) setEmail(j.user.email);
       })
       .catch(() => null);
   }, []);
@@ -48,85 +46,79 @@ export default function HomeDesk() {
   const loginHref = `/login?next=${encodeURIComponent(deskHref)}`;
 
   return (
-    <div className="desk-home desk-home--veil min-h-dvh">
-      <SiteNav name={name} email={email} veil />
+    <div className="desk-home desk-home--scout min-h-dvh">
+      <SiteNav name={PRODUCT.name} email={email} scout />
 
-      <section className="home-hero">
-        <div className="home-hero__atmosphere" aria-hidden />
-        <div className="home-hero__grain" aria-hidden />
+      <section className="scout-hero">
+        <div className="scout-hero__wash" aria-hidden />
+        <div className="scout-hero__rule" aria-hidden />
 
-        <div className="home-hero__inner">
-          <div className="home-hero__copy">
-            <p className="home-hero__brand home-reveal">{name}</p>
-            <h1 className="home-hero__headline home-reveal home-reveal--2">
-              Kansen zien vóór de rest.
-            </h1>
-            <p className="home-hero__lede home-reveal home-reveal--3">
-              Spotten. Op waarde schatten. De opdrachtgever ontgrendelen. Plaatsing bijna
-              vanzelf — jij houdt de regie.
-            </p>
-            <div className="home-hero__cta home-reveal home-reveal--4">
+        <div className="scout-hero__inner">
+          <div className="scout-hero__copy">
+            <p className="scout-eyebrow home-reveal">{PRODUCT.category}</p>
+            <h1 className="scout-brand home-reveal home-reveal--2">{PRODUCT.name}</h1>
+            <p className="scout-tagline home-reveal home-reveal--3">{PRODUCT.tagline}</p>
+            <p className="scout-lede home-reveal home-reveal--3">{PRODUCT.lede}</p>
+            <div className="scout-cta home-reveal home-reveal--4">
               {email ? (
-                <Link href={deskHref} className="nav-link home-btn home-btn--signal">
+                <Link href={deskHref} className="nav-link scout-btn scout-btn--ink">
                   Open de desk
                 </Link>
               ) : (
-                <Link href={loginHref} className="nav-link home-btn home-btn--signal">
-                  Toegang
+                <Link href={loginHref} className="nav-link scout-btn scout-btn--ink">
+                  Inloggen
                 </Link>
               )}
-              <a href="#lijn" className="nav-link home-btn home-btn--ghost">
-                De lijn
+              <a href="#werk" className="nav-link scout-btn scout-btn--line">
+                Hoe Scout werkt
               </a>
             </div>
           </div>
 
-          <div className="home-hero__field home-reveal home-reveal--3">
-            <HomeSignalField />
+          <div className="scout-hero__side home-reveal home-reveal--3">
+            <HomePlacementTape />
           </div>
         </div>
       </section>
 
       <main>
-        <section id="lijn" className="home-line scroll-mt-24">
-          <div className="home-line__head">
-            <p className="home-kicker">De lijn</p>
-            <h2 className="home-line__title">Van signaal naar plaatsing.</h2>
-            <p className="home-line__sub">
-              Geen open markt. Een korte keten die eindigt bij het juiste gesprek.
+        <section id="werk" className="scout-work scroll-mt-24">
+          <div className="scout-work__head">
+            <p className="scout-eyebrow">Recruitment, in één lijn</p>
+            <h2 className="scout-work__title">Van openstaande opdracht naar geplaatste kandidaat.</h2>
+            <p className="scout-work__sub">
+              Geen marketplace. Een desk voor wie leeft van interim- en ZZP-plaatsingen.
             </p>
           </div>
 
-          <ol className="home-beats">
+          <ol className="scout-beats">
             {BEATS.map((b, i) => (
-              <li key={b.k} className={`home-beat home-reveal home-reveal--${i + 1}`}>
-                <span className="home-beat__k" style={{ fontFamily: "var(--mono)" }}>
-                  {b.k}
-                </span>
-                <div className="home-beat__body">
-                  <h3 className="home-beat__title">{b.title}</h3>
-                  <p className="home-beat__text">{b.text}</p>
+              <li key={b.k} className={`scout-beat home-reveal home-reveal--${Math.min(i + 1, 4)}`}>
+                <span className="scout-beat__k">{b.k}</span>
+                <div>
+                  <h3 className="scout-beat__title">{b.title}</h3>
+                  <p className="scout-beat__text">{b.text}</p>
                 </div>
               </li>
             ))}
           </ol>
         </section>
 
-        <section className="home-close">
-          <div className="home-close__panel">
-            <p className="home-kicker">Alleen voor wie erbij hoort</p>
-            <h2 className="home-close__title">De rest blijft stil.</h2>
-            <p className="home-close__text">
-              Geen publieke marketplace. Een desk die sneller ziet wat telt — en je tot aan het
-              gesprek brengt.
+        <section className="scout-close">
+          <div className="scout-close__box">
+            <p className="scout-eyebrow">Alleen op uitnodiging</p>
+            <h2 className="scout-close__title">Voor recruiters die sneller willen plaatsen.</h2>
+            <p className="scout-close__text">
+              Scout is geen open platform. Wel een desk die contracting-kansen eerder zichtbaar
+              maakt — tot aan het gesprek met manager of kandidaat.
             </p>
-            <div className="home-close__cta">
+            <div className="scout-close__cta">
               {email ? (
-                <Link href={deskHref} className="nav-link home-btn home-btn--signal">
+                <Link href={deskHref} className="nav-link scout-btn scout-btn--ink">
                   Naar de workspace
                 </Link>
               ) : (
-                <Link href={loginHref} className="nav-link home-btn home-btn--signal">
+                <Link href={loginHref} className="nav-link scout-btn scout-btn--ink">
                   Inloggen
                 </Link>
               )}
@@ -135,16 +127,22 @@ export default function HomeDesk() {
         </section>
       </main>
 
-      <footer className="home-foot">
-        <a
-          href="https://blablabuild.com"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="home-foot__link"
-        >
-          <BlablaLogo className="h-4 w-4" />
-          <span>blablabuild</span>
-        </a>
+      <footer className="scout-foot">
+        <div className="scout-foot__inner">
+          <p className="scout-foot__brand">
+            <strong>{PRODUCT.name}</strong>
+            <span> · {PRODUCT.category}</span>
+          </p>
+          <a
+            href="https://blablabuild.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="scout-foot__link"
+          >
+            <BlablaLogo className="h-4 w-4" />
+            <span>blablabuild</span>
+          </a>
+        </div>
       </footer>
     </div>
   );

@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
 import HomeDesk from "./home-desk";
+import { PRODUCT } from "@/lib/product-brand";
 
 export const metadata: Metadata = {
-  title: "Regie — Kansen zien vóór de rest",
-  description:
-    "Spot contracting-kansen sneller, schat ze op waarde, ontgrendel de opdrachtgever en zet plaatsing klaar — jij houdt de regie.",
+  title: `${PRODUCT.name} — ${PRODUCT.tagline}`,
+  description: PRODUCT.lede,
 };
 
 export default function Home() {
