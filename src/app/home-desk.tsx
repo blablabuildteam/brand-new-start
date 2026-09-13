@@ -70,7 +70,7 @@ export default function HomeDesk() {
                 </Link>
               )}
               <a href="#werk" className="nav-link scout-btn scout-btn--line">
-                Hoe Scout werkt
+                Hoe het werkt
               </a>
             </div>
           </div>
@@ -109,8 +109,8 @@ export default function HomeDesk() {
             <p className="scout-eyebrow">Alleen op uitnodiging</p>
             <h2 className="scout-close__title">Voor recruiters die sneller willen plaatsen.</h2>
             <p className="scout-close__text">
-              Scout is geen open platform. Wel een desk die contracting-kansen eerder zichtbaar
-              maakt — tot aan het gesprek met manager of kandidaat.
+              Recruit Scout is geen open platform. Wel een desk die contracting-kansen eerder
+              zichtbaar maakt — tot aan het gesprek met manager of kandidaat.
             </p>
             <div className="scout-close__cta">
               {email ? (

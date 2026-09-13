@@ -3,7 +3,7 @@
  * Desk toolnaam in Instellingen blijft apart — dit is het gezicht naar buiten.
  */
 export const PRODUCT = {
-  name: "Scout",
+  name: "Recruit Scout",
   /** Kort, onder de naam */
   tagline: "Eerder op de kans. Sneller op plaatsing.",
   /** Eén regel context */

@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { RegieWordmark } from "@/components/regie-mark";
 
 export function SiteNav({
-  name = "Scout",
+  name = "Recruit Scout",
   email,
   veil = false,
   scout = false,
