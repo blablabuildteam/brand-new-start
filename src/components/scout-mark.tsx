@@ -1,6 +1,6 @@
 "use client";
 
-/** Recruitment Scout mark — light by default, darker variants available. */
+/** Recruitment Scout mark + wordmark lockups. */
 
 export type ScoutMarkTone = "light" | "sage" | "outline" | "ink";
 
@@ -10,7 +10,17 @@ export type ScoutWordFont =
   | "sora"
   | "bricolage"
   | "fraunces"
-  | "instrument";
+  | "instrument"
+  | "manrope"
+  | "dm";
+
+/** How the text sits next to the mark */
+export type ScoutLockup =
+  | "flat" /* one line: Recruitment Scout */
+  | "stack" /* RECRUITMENT over Scout */
+  | "scout" /* mark + Scout only */
+  | "pair" /* Recruitment / Scout same size stacked */
+  | "slash"; /* Recruitment / Scout with slash */
 
 const TONES: Record<
   ScoutMarkTone,
@@ -29,6 +39,8 @@ const FONTS: Record<ScoutWordFont, string> = {
   bricolage: '"Bricolage Grotesque", system-ui, sans-serif',
   fraunces: '"Fraunces", Georgia, serif',
   instrument: '"Instrument Serif", Georgia, serif',
+  manrope: '"Manrope", system-ui, sans-serif',
+  dm: '"DM Sans", system-ui, sans-serif',
 };
 
 export function ScoutMark({
@@ -75,20 +87,47 @@ export function ScoutMark({
 }
 
 export function ScoutWordmark({
-  name = "Recruitment Scout",
   tone = "light",
-  font = "outfit",
+  font = "sora",
+  lockup = "stack",
 }: {
   name?: string;
   tone?: ScoutMarkTone;
   font?: ScoutWordFont;
+  lockup?: ScoutLockup;
 }) {
+  const face = { fontFamily: FONTS[font] };
+
   return (
-    <span className="scout-wm">
+    <span className={`scout-wm scout-wm--${lockup}`}>
       <ScoutMark className="scout-wm__mark" tone={tone} />
-      <span className="scout-wm__name" style={{ fontFamily: FONTS[font] }}>
-        {name}
-      </span>
+      {lockup === "flat" ? (
+        <span className="scout-wm__flat" style={face}>
+          Recruitment Scout
+        </span>
+      ) : null}
+      {lockup === "stack" ? (
+        <span className="scout-wm__stack" style={face}>
+          <span className="scout-wm__kicker">Recruitment</span>
+          <span className="scout-wm__hero">Scout</span>
+        </span>
+      ) : null}
+      {lockup === "scout" ? (
+        <span className="scout-wm__solo" style={face}>
+          Scout
+        </span>
+      ) : null}
+      {lockup === "pair" ? (
+        <span className="scout-wm__pair" style={face}>
+          <span>Recruitment</span>
+          <span>Scout</span>
+        </span>
+      ) : null}
+      {lockup === "slash" ? (
+        <span className="scout-wm__slash" style={face}>
+          Recruitment <span className="scout-wm__sep">/</span> Scout
+        </span>
+      ) : null}
     </span>
   );
 }
