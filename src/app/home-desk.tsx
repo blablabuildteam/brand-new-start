@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { BlablaLogo } from "@/components/blabla-logo";
 import { HomeOpportunityStage } from "@/components/home-opportunity-stage";
+import { ScoutBeatVisual } from "@/components/scout-beat-visual";
 import { ScoutWordmark } from "@/components/scout-mark";
 import { SiteNav } from "@/components/site-nav";
 import { WaitlistForm } from "@/components/waitlist-form";
@@ -12,16 +13,19 @@ import { PRODUCT } from "@/lib/product-brand";
 const BEATS = [
   {
     k: "01",
+    kind: "spot" as const,
     title: "Spotten",
     text: "Nieuwe interim- en ZZP-opdrachten komen binnen zodra ze ertoe doen.",
   },
   {
     k: "02",
+    kind: "weigh" as const,
     title: "Wegen",
     text: "Elke kans krijgt een score. De opdrachtgever erachter zet je vast.",
   },
   {
     k: "03",
+    kind: "place" as const,
     title: "Plaatsen",
     text: "Manager, kandidaat en bericht staan klaar. Jij stuurt wanneer het past.",
   },
@@ -91,9 +95,12 @@ export default function HomeDesk() {
                 className={`scout-beat home-reveal home-reveal--${Math.min(i + 1, 4)}`}
                 style={{ animationDelay: `${0.06 + i * 0.07}s` }}
               >
-                <span className="scout-beat__k">{b.k}</span>
-                <h3 className="scout-beat__title">{b.title}</h3>
-                <p className="scout-beat__text">{b.text}</p>
+                <ScoutBeatVisual kind={b.kind} />
+                <div className="scout-beat__body">
+                  <span className="scout-beat__k">{b.k}</span>
+                  <h3 className="scout-beat__title">{b.title}</h3>
+                  <p className="scout-beat__text">{b.text}</p>
+                </div>
               </li>
             ))}
           </ol>
