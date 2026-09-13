@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useId, type ReactNode } from "react";
 
 /**
  * Next-level logo lockups — each is a full brand mark, not icon+font.
@@ -18,10 +18,11 @@ const signal = "#3dcf8e";
 
 /** 01 — Arc Cut: Scout wordmark with a live sweep arc cutting the S */
 export function LogoArcCut({ className }: Props) {
+  const uid = useId().replace(/:/g, "");
   return (
     <svg viewBox="0 0 280 72" className={className} aria-hidden fill="none">
       <defs>
-        <linearGradient id="arcSweep" x1="0" y1="0" x2="1" y2="1">
+        <linearGradient id={`arcSweep-${uid}`} x1="0" y1="0" x2="1" y2="1">
           <stop offset="0%" stopColor={moss} stopOpacity="0" />
           <stop offset="55%" stopColor={moss} stopOpacity="0.55" />
           <stop offset="100%" stopColor={signal} stopOpacity="0.9" />
@@ -30,7 +31,7 @@ export function LogoArcCut({ className }: Props) {
       <circle cx="36" cy="36" r="28" fill={paper} stroke="#d4cdc0" strokeWidth="1.2" />
       <circle cx="36" cy="36" r="18" stroke={forest} strokeWidth="1.1" opacity="0.28" />
       <circle cx="36" cy="36" r="11" stroke={forest} strokeWidth="1.25" opacity="0.5" />
-      <path d="M36 36 L36 18 A18 18 0 0 1 51 28 Z" fill="url(#arcSweep)" />
+      <path d={`M36 36 L36 18 A18 18 0 0 1 51 28 Z`} fill={`url(#arcSweep-${uid})`} />
       <path d="M36 36 L51 28" stroke={forest} strokeWidth="2" strokeLinecap="round" />
       <circle cx="52.2" cy="27.2" r="2.4" fill={signal} />
       <circle cx="36" cy="36" r="2.6" fill={forest} />
@@ -299,21 +300,22 @@ export function LogoCrop({ className }: Props) {
 
 /** 09 — Glass Lens: refractive dual-tone lens */
 export function LogoLens({ className }: Props) {
+  const uid = useId().replace(/:/g, "");
   return (
     <svg viewBox="0 0 250 64" className={className} aria-hidden fill="none">
       <defs>
-        <radialGradient id="lensGlow" cx="0.35" cy="0.3" r="0.7">
+        <radialGradient id={`lensGlow-${uid}`} cx="0.35" cy="0.3" r="0.7">
           <stop offset="0%" stopColor="#d8ebe2" />
           <stop offset="55%" stopColor="#a8c4b4" />
           <stop offset="100%" stopColor={forest} />
         </radialGradient>
-        <linearGradient id="lensShine" x1="0" y1="0" x2="1" y2="1">
+        <linearGradient id={`lensShine-${uid}`} x1="0" y1="0" x2="1" y2="1">
           <stop offset="0%" stopColor="white" stopOpacity="0.55" />
           <stop offset="40%" stopColor="white" stopOpacity="0" />
         </linearGradient>
       </defs>
-      <circle cx="32" cy="32" r="28" fill="url(#lensGlow)" />
-      <circle cx="32" cy="32" r="28" fill="url(#lensShine)" />
+      <circle cx="32" cy="32" r="28" fill={`url(#lensGlow-${uid})`} />
+      <circle cx="32" cy="32" r="28" fill={`url(#lensShine-${uid})`} />
       <circle cx="32" cy="32" r="18" stroke={chalk} strokeWidth="1.2" opacity="0.45" />
       <circle cx="32" cy="32" r="6" fill={ink} fillOpacity="0.85" />
       <circle cx="24" cy="22" r="4" fill="white" fillOpacity="0.35" />
@@ -474,6 +476,441 @@ export function LogoOrbit({ className }: Props) {
   );
 }
 
+/** 13 — Twin Track: parallel rails converging on a find */
+export function LogoTwinTrack({ className }: Props) {
+  return (
+    <svg viewBox="0 0 270 70" className={className} aria-hidden fill="none">
+      <path d="M4 18 H160" stroke={ink} strokeWidth="2.2" strokeLinecap="round" />
+      <path d="M4 52 H160" stroke={ink} strokeWidth="2.2" strokeLinecap="round" />
+      <path d="M40 18 V52 M70 18 V52 M100 18 V52 M130 18 V52" stroke={ink} strokeWidth="1.2" opacity="0.25" />
+      <path d="M160 18 Q 200 18 220 35 Q 200 52 160 52" stroke={forest} strokeWidth="2.4" fill="none" strokeLinecap="round" />
+      <circle cx="232" cy="35" r="7" fill={forest} />
+      <circle cx="232" cy="35" r="2.5" fill={signal} />
+      <text
+        x="4"
+        y="12"
+        fill={forest}
+        fontFamily="Sora, system-ui, sans-serif"
+        fontWeight="600"
+        fontSize="8"
+        letterSpacing="0.28em"
+      >
+        RECRUITMENT SCOUT
+      </text>
+    </svg>
+  );
+}
+
+/** 14 — Wax Seal: classic agency seal with RS */
+export function LogoWaxSeal({ className }: Props) {
+  return (
+    <svg viewBox="0 0 250 72" className={className} aria-hidden fill="none">
+      <circle cx="36" cy="36" r="30" fill={forest} />
+      <circle cx="36" cy="36" r="24" stroke={chalk} strokeWidth="1.2" strokeDasharray="2.5 2.2" opacity="0.7" />
+      <text
+        x="36"
+        y="42"
+        textAnchor="middle"
+        fill={chalk}
+        fontFamily="Cormorant Garamond, Georgia, serif"
+        fontWeight="600"
+        fontSize="22"
+        letterSpacing="-0.02em"
+      >
+        RS
+      </text>
+      <text
+        x="80"
+        y="30"
+        fill={ink}
+        fontFamily="Instrument Serif, Georgia, serif"
+        fontStyle="italic"
+        fontSize="18"
+      >
+        Recruitment
+      </text>
+      <text
+        x="80"
+        y="54"
+        fill={ink}
+        fontFamily="Syne, system-ui, sans-serif"
+        fontWeight="800"
+        fontSize="26"
+        letterSpacing="-0.04em"
+      >
+        Scout
+      </text>
+    </svg>
+  );
+}
+
+/** 15 — Neon Bracket: [ SCOUT ] terminal / ops */
+export function LogoNeonBracket({ className }: Props) {
+  return (
+    <svg viewBox="0 0 260 64" className={className} aria-hidden fill="none">
+      <path d="M8 12 V52 M8 12 H22 M8 52 H22" stroke={forest} strokeWidth="2.4" strokeLinecap="square" />
+      <path d="M252 12 V52 M252 12 H238 M252 52 H238" stroke={forest} strokeWidth="2.4" strokeLinecap="square" />
+      <text
+        x="130"
+        y="40"
+        textAnchor="middle"
+        fill={ink}
+        fontFamily="IBM Plex Mono, monospace"
+        fontWeight="500"
+        fontSize="26"
+        letterSpacing="0.18em"
+      >
+        SCOUT
+      </text>
+      <circle cx="130" cy="52" r="2" fill={signal} className="logo-pulse" />
+    </svg>
+  );
+}
+
+/** 16 — Fold Mark: origami-ish chevron finding north */
+export function LogoFold({ className }: Props) {
+  return (
+    <svg viewBox="0 0 260 68" className={className} aria-hidden fill="none">
+      <path d="M8 50 L36 12 L64 50 Z" fill={forest} />
+      <path d="M36 12 L64 50 L36 40 Z" fill={moss} />
+      <path d="M36 12 L8 50 L36 40 Z" fill={ink} fillOpacity="0.2" />
+      <circle cx="36" cy="34" r="3" fill={signal} />
+      <text
+        x="80"
+        y="28"
+        fill={ink}
+        fontFamily="Sora, system-ui, sans-serif"
+        fontWeight="600"
+        fontSize="10"
+        letterSpacing="0.22em"
+      >
+        RECRUITMENT
+      </text>
+      <text
+        x="80"
+        y="52"
+        fill={ink}
+        fontFamily="Unbounded, system-ui, sans-serif"
+        fontWeight="700"
+        fontSize="24"
+        letterSpacing="-0.03em"
+      >
+        Scout
+      </text>
+    </svg>
+  );
+}
+
+/** 17 — Dot Grid Map: constellation of finds */
+export function LogoConstellation({ className }: Props) {
+  const dots = [
+    [10, 40], [22, 28], [34, 46], [46, 22], [58, 36], [70, 18], [82, 42], [94, 30],
+  ];
+  return (
+    <svg viewBox="0 0 280 68" className={className} aria-hidden fill="none">
+      {dots.map(([x, y], i) => (
+        <circle
+          key={i}
+          cx={x}
+          cy={y}
+          r={i === 5 ? 4.2 : 2.2}
+          fill={i === 5 ? forest : ink}
+          opacity={i === 5 ? 1 : 0.28}
+        />
+      ))}
+      <path d="M10 40 L22 28 L46 22 L70 18" stroke={moss} strokeWidth="1.3" strokeLinecap="round" opacity="0.7" />
+      <path d="M70 18 L94 30" stroke={signal} strokeWidth="1.6" strokeLinecap="round" />
+      <text
+        x="118"
+        y="30"
+        fill={ink}
+        fontFamily="Sora, system-ui, sans-serif"
+        fontWeight="600"
+        fontSize="10"
+        letterSpacing="0.2em"
+      >
+        RECRUITMENT
+      </text>
+      <text
+        x="118"
+        y="54"
+        fill={ink}
+        fontFamily="Syne, system-ui, sans-serif"
+        fontWeight="800"
+        fontSize="26"
+        letterSpacing="-0.045em"
+      >
+        Scout
+      </text>
+    </svg>
+  );
+}
+
+/** 18 — Split Face: half mark / half type in one tile */
+export function LogoSplitFace({ className }: Props) {
+  return (
+    <svg viewBox="0 0 240 64" className={className} aria-hidden fill="none">
+      <rect x="0" y="0" width="64" height="64" rx="14" fill={ink} />
+      <path d="M32 0 V64" stroke={chalk} strokeWidth="1" opacity="0.15" />
+      <circle cx="32" cy="32" r="18" stroke={chalk} strokeWidth="1.2" opacity="0.35" />
+      <path d="M32 32 L32 16 A16 16 0 0 1 45 24 Z" fill={signal} fillOpacity="0.5" />
+      <circle cx="46" cy="23" r="2.2" fill={signal} />
+      <text
+        x="78"
+        y="28"
+        fill={ink}
+        fontFamily="Big Shoulders Display, Impact, sans-serif"
+        fontWeight="700"
+        fontSize="14"
+        letterSpacing="0.12em"
+      >
+        RECRUITMENT
+      </text>
+      <text
+        x="78"
+        y="52"
+        fill={ink}
+        fontFamily="Big Shoulders Display, Impact, sans-serif"
+        fontWeight="700"
+        fontSize="28"
+        letterSpacing="0.04em"
+      >
+        SCOUT
+      </text>
+    </svg>
+  );
+}
+
+/** 19 — Underline Strike: bold word with kinetic underline */
+export function LogoStrike({ className }: Props) {
+  return (
+    <svg viewBox="0 0 270 64" className={className} aria-hidden fill="none">
+      <text
+        x="0"
+        y="42"
+        fill={ink}
+        fontFamily="Archivo Black, system-ui, sans-serif"
+        fontSize="36"
+        letterSpacing="-0.01em"
+      >
+        Scout
+      </text>
+      <path d="M2 50 H155" stroke={forest} strokeWidth="3.5" strokeLinecap="round" />
+      <path d="M155 50 L168 38" stroke={forest} strokeWidth="3.5" strokeLinecap="round" />
+      <circle cx="174" cy="34" r="4" fill={signal} />
+      <text
+        x="190"
+        y="40"
+        fill={ink}
+        fontFamily="Sora, system-ui, sans-serif"
+        fontWeight="600"
+        fontSize="9"
+        letterSpacing="0.14em"
+      >
+        REC
+      </text>
+    </svg>
+  );
+}
+
+/** 20 — Mirror Mark: R and S reflecting */
+export function LogoMirror({ className }: Props) {
+  return (
+    <svg viewBox="0 0 250 68" className={className} aria-hidden fill="none">
+      <text
+        x="48"
+        y="48"
+        textAnchor="middle"
+        fill={forest}
+        fontFamily="Syne, system-ui, sans-serif"
+        fontWeight="800"
+        fontSize="40"
+      >
+        R
+      </text>
+      <path d="M68 12 V56" stroke={ink} strokeWidth="1.5" strokeDasharray="3 3" opacity="0.35" />
+      <text
+        x="90"
+        y="48"
+        textAnchor="middle"
+        fill={ink}
+        fontFamily="Syne, system-ui, sans-serif"
+        fontWeight="800"
+        fontSize="40"
+      >
+        S
+      </text>
+      <circle cx="90" cy="18" r="3" fill={signal} />
+      <text
+        x="118"
+        y="30"
+        fill={ink}
+        fontFamily="Sora, system-ui, sans-serif"
+        fontWeight="600"
+        fontSize="10"
+        letterSpacing="0.18em"
+      >
+        RECRUITMENT
+      </text>
+      <text
+        x="118"
+        y="52"
+        fill={ink}
+        fontFamily="Fraunces, Georgia, serif"
+        fontWeight="600"
+        fontSize="24"
+      >
+        Scout
+      </text>
+    </svg>
+  );
+}
+
+/** 21 — Ticket Stub: perforated invite aesthetic */
+export function LogoTicket({ className }: Props) {
+  return (
+    <svg viewBox="0 0 280 68" className={className} aria-hidden fill="none">
+      <rect x="1" y="8" width="278" height="52" rx="8" fill={paper} stroke={ink} strokeWidth="1.4" />
+      <path d="M58 8 V60" stroke={ink} strokeWidth="1.2" strokeDasharray="3 3" />
+      <circle cx="58" cy="8" r="5" fill="#ebe5d8" />
+      <circle cx="58" cy="60" r="5" fill="#ebe5d8" />
+      <text
+        x="30"
+        y="42"
+        textAnchor="middle"
+        fill={forest}
+        fontFamily="Syne, system-ui, sans-serif"
+        fontWeight="800"
+        fontSize="16"
+        transform="rotate(-90 30 38)"
+      >
+        LIVE
+      </text>
+      <text
+        x="78"
+        y="32"
+        fill={ink}
+        fontFamily="IBM Plex Mono, monospace"
+        fontSize="9"
+        letterSpacing="0.12em"
+      >
+        ADMIT ONE · DESK
+      </text>
+      <text
+        x="78"
+        y="52"
+        fill={ink}
+        fontFamily="Syne, system-ui, sans-serif"
+        fontWeight="800"
+        fontSize="22"
+        letterSpacing="-0.03em"
+      >
+        Recruitment Scout
+      </text>
+    </svg>
+  );
+}
+
+/** 22 — Echo Rings: sound/sonar wordmark */
+export function LogoEcho({ className }: Props) {
+  return (
+    <svg viewBox="0 0 260 70" className={className} aria-hidden fill="none">
+      <path d="M28 35 A 10 10 0 0 1 28 35.01" stroke={forest} strokeWidth="2" strokeLinecap="round" />
+      <path d="M20 22 A 20 20 0 0 1 20 48" stroke={forest} strokeWidth="1.6" strokeLinecap="round" opacity="0.55" />
+      <path d="M12 12 A 30 30 0 0 1 12 58" stroke={forest} strokeWidth="1.3" strokeLinecap="round" opacity="0.3" />
+      <circle cx="32" cy="35" r="3.5" fill={ink} />
+      <text
+        x="72"
+        y="30"
+        fill={ink}
+        fontFamily="Sora, system-ui, sans-serif"
+        fontWeight="600"
+        fontSize="10"
+        letterSpacing="0.22em"
+      >
+        RECRUITMENT
+      </text>
+      <text
+        x="72"
+        y="54"
+        fill={ink}
+        fontFamily="Syne, system-ui, sans-serif"
+        fontWeight="800"
+        fontSize="28"
+        letterSpacing="-0.05em"
+      >
+        Scout
+      </text>
+    </svg>
+  );
+}
+
+/** 23 — Stamp Block: woodtype poster */
+export function LogoWoodtype({ className }: Props) {
+  return (
+    <svg viewBox="0 0 260 72" className={className} aria-hidden fill="none">
+      <rect x="0" y="6" width="260" height="60" fill={forest} />
+      <text
+        x="130"
+        y="36"
+        textAnchor="middle"
+        fill={chalk}
+        fontFamily="Big Shoulders Display, Impact, sans-serif"
+        fontWeight="700"
+        fontSize="14"
+        letterSpacing="0.35em"
+      >
+        RECRUITMENT
+      </text>
+      <text
+        x="130"
+        y="58"
+        textAnchor="middle"
+        fill={signal}
+        fontFamily="Big Shoulders Display, Impact, sans-serif"
+        fontWeight="700"
+        fontSize="28"
+        letterSpacing="0.12em"
+      >
+        SCOUT
+      </text>
+    </svg>
+  );
+}
+
+/** 24 — Hairline Serif: ultra-thin luxury */
+export function LogoHairline({ className }: Props) {
+  return (
+    <svg viewBox="0 0 280 68" className={className} aria-hidden fill="none">
+      <text
+        x="140"
+        y="44"
+        textAnchor="middle"
+        fill={ink}
+        fontFamily="Cormorant Garamond, Georgia, serif"
+        fontWeight="600"
+        fontSize="42"
+        letterSpacing="0.18em"
+      >
+        SCOUT
+      </text>
+      <line x1="40" y1="54" x2="240" y2="54" stroke={ink} strokeWidth="0.6" />
+      <text
+        x="140"
+        y="16"
+        textAnchor="middle"
+        fill={forest}
+        fontFamily="Sora, system-ui, sans-serif"
+        fontWeight="500"
+        fontSize="9"
+        letterSpacing="0.4em"
+      >
+        RECRUITMENT
+      </text>
+    </svg>
+  );
+}
+
 export type LogoConcept = {
   letter: string;
   id: string;
@@ -566,5 +1003,89 @@ export const LOGO_CONCEPTS: LogoConcept[] = [
     name: "Orbit O",
     vibe: "De O van Scout is een baan met blip — wordmark als mark",
     Logo: LogoOrbit,
+  },
+  {
+    letter: "M",
+    id: "twin-track",
+    name: "Twin Track",
+    vibe: "Rails die samenkomen op een find — pipeline-metafoor",
+    Logo: LogoTwinTrack,
+  },
+  {
+    letter: "N",
+    id: "wax",
+    name: "Wax Seal",
+    vibe: "Lakzegel RS — classic agency prestige",
+    Logo: LogoWaxSeal,
+  },
+  {
+    letter: "O",
+    id: "neon-bracket",
+    name: "Neon Bracket",
+    vibe: "Terminal [ SCOUT ] — ops / product feel",
+    Logo: LogoNeonBracket,
+  },
+  {
+    letter: "P",
+    id: "fold",
+    name: "Fold Mark",
+    vibe: "Origami-chevron — scherp silhouet, modern",
+    Logo: LogoFold,
+  },
+  {
+    letter: "Q",
+    id: "constellation",
+    name: "Constellation",
+    vibe: "Stippenkaart met hotspot — scout op de kaart",
+    Logo: LogoConstellation,
+  },
+  {
+    letter: "R",
+    id: "split-face",
+    name: "Split Face",
+    vibe: "Halve radar / half type — poster display",
+    Logo: LogoSplitFace,
+  },
+  {
+    letter: "S",
+    id: "strike",
+    name: "Strike",
+    vibe: "Kinetic underline die eindigt in een blip",
+    Logo: LogoStrike,
+  },
+  {
+    letter: "T",
+    id: "mirror",
+    name: "Mirror RS",
+    vibe: "R | S reflectie — abstract lettermerk",
+    Logo: LogoMirror,
+  },
+  {
+    letter: "U",
+    id: "ticket",
+    name: "Ticket Stub",
+    vibe: "Invite-only stub — past bij waitlist vibe",
+    Logo: LogoTicket,
+  },
+  {
+    letter: "V",
+    id: "echo",
+    name: "Echo Rings",
+    vibe: "Sonar-halfringen — soft maar technisch",
+    Logo: LogoEcho,
+  },
+  {
+    letter: "W",
+    id: "woodtype",
+    name: "Woodtype",
+    vibe: "Posterblok forest — maximal impact",
+    Logo: LogoWoodtype,
+  },
+  {
+    letter: "X",
+    id: "hairline",
+    name: "Hairline",
+    vibe: "Ultra-thin serif — quiet luxury",
+    Logo: LogoHairline,
   },
 ];

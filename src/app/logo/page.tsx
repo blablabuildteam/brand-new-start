@@ -11,10 +11,10 @@ export default function LogoPreviewPage() {
         <header className="logo-pro__head">
           <div>
             <p className="scout-eyebrow">Brand studio · ronde 3</p>
-            <h1 className="logo-pro__title">Twaalf echte lockups</h1>
+            <h1 className="logo-pro__title">Vierentwintig lockups</h1>
             <p className="logo-pro__lead">
-              Geen icoontjes met een font erbij — volledige merken: custom monogrammen, mastheads,
-              orbit-wordmarks, crop cuts. Zeg een letter als die live moet.
+              A–X: mastheads, zegels, tickets, sonar, woodtype, hairline luxury. Zeg een letter als die
+              live moet.
             </p>
           </div>
           <Link href="/" className="scout-nav__btn scout-nav__btn--ghost">
