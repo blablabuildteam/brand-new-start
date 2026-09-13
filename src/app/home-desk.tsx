@@ -10,23 +10,18 @@ import { PRODUCT } from "@/lib/product-brand";
 const BEATS = [
   {
     k: "01",
-    title: "Spot de opdracht",
-    text: "Nieuwe interim- en ZZP-kansen komen binnen zodra ze ertoe doen — niet na uren zoeken.",
+    title: "Spot",
+    text: "Interim- en ZZP-kansen binnen zodra ze ertoe doen.",
   },
   {
     k: "02",
-    title: "Schat de waarde",
-    text: "Elke kans krijgt gewicht. Wat nu telt, wat later mag, wat je laat liggen.",
+    title: "Wijs",
+    text: "Elke kans gewogen. Opdrachtgever erachter vastgezet.",
   },
   {
     k: "03",
-    title: "Vind de opdrachtgever",
-    text: "Achter een bureau-signaal zit een eindklant. Die zet je vast vóór je iemand benadert.",
-  },
-  {
-    k: "04",
-    title: "Zet de plaatsing klaar",
-    text: "Manager, kandidaat, bericht — het pad staat. Jij beslist wanneer het de deur uit gaat.",
+    title: "Plaats",
+    text: "Manager, kandidaat, bericht — klaar om te versturen.",
   },
 ];
 
@@ -51,19 +46,16 @@ export default function HomeDesk() {
 
       <section className="scout-hero">
         <div className="scout-hero__wash" aria-hidden />
-        <div className="scout-hero__orb scout-hero__orb--1" aria-hidden />
-        <div className="scout-hero__orb scout-hero__orb--2" aria-hidden />
-        <div className="scout-hero__rule" aria-hidden />
+        <div className="scout-hero__grain" aria-hidden />
 
         <div className="scout-hero__inner">
           <div className="scout-hero__copy">
-            <div className="scout-pills home-reveal">
-              <span className="scout-pill scout-pill--live">{PRODUCT.category}</span>
-              <span className="scout-pill scout-pill--soon">Permanent · coming soon</span>
-            </div>
-            <h1 className="scout-brand home-reveal home-reveal--2">{PRODUCT.name}</h1>
+            <p className="scout-kicker home-reveal">{PRODUCT.category}</p>
+            <h1 className="scout-brand home-reveal home-reveal--2">
+              <span className="scout-brand__line">Recruitment</span>
+              <span className="scout-brand__line scout-brand__line--accent">Scout</span>
+            </h1>
             <p className="scout-tagline home-reveal home-reveal--3">{PRODUCT.tagline}</p>
-            <p className="scout-lede home-reveal home-reveal--3">{PRODUCT.lede}</p>
             <div className="scout-cta home-reveal home-reveal--4">
               {email ? (
                 <Link href={deskHref} className="scout-btn scout-btn--ink">
@@ -89,12 +81,7 @@ export default function HomeDesk() {
       <main>
         <section id="werk" className="scout-work scroll-mt-24">
           <div className="scout-work__head">
-            <p className="scout-eyebrow">Gemaakt voor recruitment</p>
-            <h2 className="scout-work__title">Meer opdrachtkansen in beeld. Minder gemiste business.</h2>
-            <p className="scout-work__sub">
-              Voor bureaus en recruiters in interim &amp; ZZP: elke serieuze kans in één overzicht,
-              klaar om op te volgen.
-            </p>
+            <h2 className="scout-work__title">Minder zoeken. Meer business.</h2>
           </div>
 
           <ol className="scout-beats">
@@ -102,7 +89,7 @@ export default function HomeDesk() {
               <li
                 key={b.k}
                 className={`scout-beat home-reveal home-reveal--${Math.min(i + 1, 4)}`}
-                style={{ animationDelay: `${0.08 + i * 0.08}s` }}
+                style={{ animationDelay: `${0.06 + i * 0.07}s` }}
               >
                 <span className="scout-beat__k">{b.k}</span>
                 <div>
@@ -117,22 +104,15 @@ export default function HomeDesk() {
         <section className="scout-soon">
           <div className="scout-soon__card home-reveal">
             <span className="scout-soon__badge">Coming soon</span>
-            <h2 className="scout-soon__title">Permanent placements</h2>
-            <p className="scout-soon__text">
-              Eerst interim &amp; ZZP. Daarna dezelfde scherpte voor vaste rollen —zelfde desk,
-              bredere pipeline.
-            </p>
+            <h2 className="scout-soon__title">Permanent</h2>
+            <p className="scout-soon__text">Binnenkort ook voor vaste rollen.</p>
           </div>
         </section>
 
         <section className="scout-close">
           <div className="scout-close__box">
             <p className="scout-eyebrow">Alleen op uitnodiging</p>
-            <h2 className="scout-close__title">Voor recruitmentteams die geen kans willen laten liggen.</h2>
-            <p className="scout-close__text">
-              Recruitment Scout is geen open marketplace. Wel een desk voor bureaus en recruiters:
-              opdrachtkansen verzamelen, waarderen, en opvolgen tot plaatsing.
-            </p>
+            <h2 className="scout-close__title">Voor teams die geen kans laten liggen.</h2>
             <div className="scout-close__cta">
               {email ? (
                 <Link href={deskHref} className="scout-btn scout-btn--ink">

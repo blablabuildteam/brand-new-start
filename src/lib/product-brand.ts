@@ -11,6 +11,5 @@ export const PRODUCT = {
   category: "Interim & ZZP · opdrachtkansen",
   /** Belofte */
   tagline: "Opdrachtkansen spotten. Business opvolgen.",
-  lede:
-    "De private desk voor recruitmentbureaus en recruiters: contracting-opdrachten sneller in beeld, de opdrachtgever erachter, en elke kans klaar om op te volgen tot plaatsing.",
+  lede: "Private desk voor recruitment: contracting-opdrachten sneller in beeld, tot plaatsing.",
 } as const;

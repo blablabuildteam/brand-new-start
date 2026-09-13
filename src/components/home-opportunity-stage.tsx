@@ -2,67 +2,50 @@
 
 import { useEffect, useState } from "react";
 
-const TICKS = [
-  { a: "Opdracht gespot", b: "nieuw" },
-  { a: "Opdrachtgever vast", b: "eindklant" },
-  { a: "Manager in beeld", b: "benaderen" },
-  { a: "Kandidaat klaar", b: "bericht" },
-  { a: "Plaatsing loopt", b: "jij stuurt" },
+const FINDS = [
+  { role: "Interim CFO", where: "fintech · Amsterdam", score: 94 },
+  { role: "ZZP Data Lead", where: "retail · remote", score: 88 },
+  { role: "Interim CISO", where: "bank · Utrecht", score: 91 },
+  { role: "Fractional CTO", where: "scale-up · NL", score: 86 },
 ];
 
-const NODES = [
-  { x: 16, y: 22, label: "82" },
-  { x: 48, y: 14, label: "91" },
-  { x: 78, y: 28, label: "74" },
-  { x: 28, y: 55, label: "88" },
-  { x: 62, y: 58, label: "95" },
-  { x: 84, y: 68, label: "79" },
-];
-
-/** Animated opportunity field — cool motion, no method spoilers. */
+/** Large scope that locks onto one clear opportunity — readable story. */
 export function HomeOpportunityStage() {
   const [i, setI] = useState(0);
+  const [locking, setLocking] = useState(true);
 
   useEffect(() => {
-    const id = window.setInterval(() => setI((n) => (n + 1) % TICKS.length), 2200);
-    return () => window.clearInterval(id);
+    const cycle = window.setInterval(() => {
+      setLocking(false);
+      window.setTimeout(() => {
+        setI((n) => (n + 1) % FINDS.length);
+        setLocking(true);
+      }, 280);
+    }, 3200);
+    return () => window.clearInterval(cycle);
   }, []);
 
-  const cur = TICKS[i]!;
-  const hot = i % NODES.length;
+  const find = FINDS[i]!;
 
   return (
-    <div className="opp-stage" aria-hidden>
-      <div className="opp-stage__glow" />
-      <div className="opp-stage__scan" />
-      <div className="opp-stage__ring opp-stage__ring--a" />
-      <div className="opp-stage__ring opp-stage__ring--b" />
-      <div className="opp-stage__ring opp-stage__ring--c" />
+    <div className={`scope-stage ${locking ? "is-lock" : ""}`} aria-hidden>
+      <div className="scope-stage__field">
+        <div className="scope-stage__ring scope-stage__ring--outer" />
+        <div className="scope-stage__ring scope-stage__ring--mid" />
+        <div className="scope-stage__ring scope-stage__ring--inner" />
+        <div className="scope-stage__sweep" />
+        <div className="scope-stage__crosshair" />
+        <div className="scope-stage__core" />
+        <div className="scope-stage__ping" />
+      </div>
 
-      <svg className="opp-stage__links" viewBox="0 0 100 100" preserveAspectRatio="none">
-        <path
-          className="opp-stage__path"
-          d="M16 22 L48 14 L78 28 M48 14 L62 58 L28 55 M62 58 L84 68 M28 55 L16 22"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="0.4"
-        />
-      </svg>
-
-      {NODES.map((n, idx) => (
-        <span
-          key={n.label}
-          className={`opp-stage__node ${idx === hot ? "is-hot" : ""}`}
-          style={{ left: `${n.x}%`, top: `${n.y}%`, animationDelay: `${idx * 0.25}s` }}
-        >
-          <span className="opp-stage__dot" />
-          <span className="opp-stage__score">{n.label}</span>
-        </span>
-      ))}
-
-      <div className="opp-stage__ticker" key={i}>
-        <span className="opp-stage__ticker-a">{cur.a}</span>
-        <span className="opp-stage__ticker-b">{cur.b}</span>
+      <div className="scope-stage__card" key={i}>
+        <p className="scope-stage__label">Opdracht gespot</p>
+        <p className="scope-stage__role">{find.role}</p>
+        <div className="scope-stage__meta">
+          <span>{find.where}</span>
+          <span className="scope-stage__score">{find.score}</span>
+        </div>
       </div>
     </div>
   );

@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { RegieWordmark } from "@/components/regie-mark";
+import { ScoutWordmark } from "@/components/scout-mark";
 
 export function SiteNav({
   name = "Recruitment Scout",
@@ -39,7 +40,11 @@ export function SiteNav({
     >
       <div className="mx-auto flex h-14 max-w-[1120px] items-center justify-between gap-6 px-5 md:px-8">
         <Link href="/" className="nav-link shrink-0" aria-label={`${name} home`}>
-          <RegieWordmark name={name} dark={veil && !scout} />
+          {scout ? (
+            <ScoutWordmark name={name} />
+          ) : (
+            <RegieWordmark name={name} dark={veil && !scout} />
+          )}
         </Link>
 
         <div className="flex items-center gap-2 sm:gap-3">
