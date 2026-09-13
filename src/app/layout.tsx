@@ -2,15 +2,15 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Regie",
-  description: "Van opdracht naar de juiste hiring manager — contracting en permanent.",
+  title: "Recruitment Scout — Opdrachtkansen spotten. Business opvolgen.",
+  description: "Private desk voor recruitment: interim- en ZZP-opdrachtkansen spotten en opvolgen.",
 };
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
-  themeColor: "#f7f5f2",
+  themeColor: "#efe9df",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
