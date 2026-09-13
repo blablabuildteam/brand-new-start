@@ -6,9 +6,9 @@
  * (business opportunities) spot en opvolgbaar maakt — niet kandidaten scouten.
  */
 export const PRODUCT = {
-  name: "Opportunity Scout",
+  name: "Recruitment Scout",
   /** Industrie + wat het is */
-  category: "Voor recruitment · interim & ZZP",
+  category: "Interim & ZZP · opdrachtkansen",
   /** Belofte */
   tagline: "Opdrachtkansen spotten. Business opvolgen.",
   lede:

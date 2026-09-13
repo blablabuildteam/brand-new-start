@@ -110,7 +110,7 @@ export default function HomeDesk() {
             <p className="scout-eyebrow">Alleen op uitnodiging</p>
             <h2 className="scout-close__title">Voor recruitmentteams die geen kans willen laten liggen.</h2>
             <p className="scout-close__text">
-              Opportunity Scout is geen open marketplace. Wel een desk voor de recruitmentindustrie:
+              Recruitment Scout is geen open marketplace. Wel een desk voor bureaus en recruiters:
               opdrachtkansen verzamelen, waarderen, en opvolgen tot plaatsing.
             </p>
             <div className="scout-close__cta">
