@@ -6,6 +6,7 @@ import { BlablaLogo } from "@/components/blabla-logo";
 import { HomeOpportunityStage } from "@/components/home-opportunity-stage";
 import { ScoutWordmark } from "@/components/scout-mark";
 import { SiteNav } from "@/components/site-nav";
+import { WaitlistForm } from "@/components/waitlist-form";
 import { PRODUCT } from "@/lib/product-brand";
 
 const BEATS = [
@@ -109,25 +110,30 @@ export default function HomeDesk() {
         </section>
 
         <section className="scout-invite" aria-labelledby="invite-title">
-          <div className="scout-invite__inner">
-            <p className="scout-eyebrow scout-eyebrow--on-dark">Alleen op uitnodiging</p>
-            <h2 id="invite-title" className="scout-invite__title">
-              Voor teams die geen kans laten liggen.
-            </h2>
-            <p className="scout-invite__text">
-              Private desk voor recruitmentbureaus. Geen marketplace — wel opdrachtkansen spotten en opvolgen.
-            </p>
-            <div className="scout-invite__cta">
+          <div className="scout-invite__inner scout-invite__inner--split">
+            <div className="scout-invite__copy">
+              <p className="scout-eyebrow scout-eyebrow--on-dark">Alleen op uitnodiging</p>
+              <h2 id="invite-title" className="scout-invite__title">
+                Voor teams die geen kans laten liggen.
+              </h2>
+              <p className="scout-invite__text">
+                Private desk voor recruitmentbureaus. Geen marketplace — wel opdrachtkansen spotten
+                en opvolgen. Laat je gegevens achter; we melden ons als er plek is.
+              </p>
               {email ? (
-                <Link href={deskHref} className="scout-btn scout-btn--light">
-                  Naar de workspace
-                </Link>
-              ) : (
-                <Link href={loginHref} className="scout-btn scout-btn--light">
-                  Inloggen
-                </Link>
-              )}
+                <div className="scout-invite__cta">
+                  <Link href={deskHref} className="scout-btn scout-btn--light">
+                    Naar de workspace
+                  </Link>
+                </div>
+              ) : null}
             </div>
+            {!email ? (
+              <div className="scout-invite__form">
+                <p className="scout-invite__form-label">Wachtlijst</p>
+                <WaitlistForm dark />
+              </div>
+            ) : null}
           </div>
         </section>
       </main>

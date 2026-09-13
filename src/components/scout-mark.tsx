@@ -4,6 +4,14 @@
 
 export type ScoutMarkTone = "light" | "sage" | "outline" | "ink";
 
+export type ScoutWordFont =
+  | "outfit"
+  | "syne"
+  | "sora"
+  | "bricolage"
+  | "fraunces"
+  | "instrument";
+
 const TONES: Record<
   ScoutMarkTone,
   { bg: string; ring: string; accent: string; stroke?: string }
@@ -12,6 +20,15 @@ const TONES: Record<
   sage: { bg: "#d8ebe2", ring: "#0f1412", accent: "#0f3d2e" },
   outline: { bg: "transparent", ring: "#1a5c45", accent: "#1a5c45", stroke: "#1a5c45" },
   ink: { bg: "#0f1412", ring: "#5a6b63", accent: "#3dcf8e" },
+};
+
+const FONTS: Record<ScoutWordFont, string> = {
+  outfit: '"Outfit", system-ui, sans-serif',
+  syne: '"Syne", system-ui, sans-serif',
+  sora: '"Sora", system-ui, sans-serif',
+  bricolage: '"Bricolage Grotesque", system-ui, sans-serif',
+  fraunces: '"Fraunces", Georgia, serif',
+  instrument: '"Instrument Serif", Georgia, serif',
 };
 
 export function ScoutMark({
@@ -60,14 +77,20 @@ export function ScoutMark({
 export function ScoutWordmark({
   name = "Recruitment Scout",
   tone = "light",
+  font = "outfit",
 }: {
   name?: string;
   tone?: ScoutMarkTone;
+  font?: ScoutWordFont;
 }) {
   return (
     <span className="scout-wm">
       <ScoutMark className="scout-wm__mark" tone={tone} />
-      <span className="scout-wm__name">{name}</span>
+      <span className="scout-wm__name" style={{ fontFamily: FONTS[font] }}>
+        {name}
+      </span>
     </span>
   );
 }
+
+export const SCOUT_WORD_FONTS = FONTS;

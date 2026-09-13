@@ -11,10 +11,13 @@ export async function middleware(req: NextRequest) {
     pathname.startsWith("/logo") ||
     pathname.startsWith("/samenwerking") ||
     pathname.startsWith("/api/auth") ||
+    pathname.startsWith("/api/waitlist") ||
     pathname.startsWith("/_next") ||
     pathname.startsWith("/assets") ||
     pathname.startsWith("/brand") ||
-    pathname === "/favicon.ico"
+    pathname === "/favicon.ico" ||
+    pathname === "/icon" ||
+    pathname.startsWith("/apple-icon")
   ) {
     return NextResponse.next();
   }

@@ -88,7 +88,21 @@ export const workspaceSettings = pgTable("workspace_settings", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
 });
 
+export const waitlistEntries = pgTable(
+  "waitlist_entries",
+  {
+    id: text("id").primaryKey(),
+    name: text("name").notNull(),
+    email: text("email").notNull(),
+    company: text("company"),
+    note: text("note"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [uniqueIndex("waitlist_email_idx").on(t.email), index("waitlist_created_idx").on(t.createdAt)]
+);
+
 export type Company = typeof companies.$inferSelect;
 export type Signal = typeof signals.$inferSelect;
 export type RadarEntry = typeof radarEntries.$inferSelect;
 export type SyncRunRow = typeof syncRuns.$inferSelect;
+export type WaitlistEntry = typeof waitlistEntries.$inferSelect;

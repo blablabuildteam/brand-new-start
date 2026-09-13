@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Fraunces:opsz,wght@9..144,500;9..144,600&family=IBM+Plex+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&family=Manrope:wght@400;500;600;700&family=Outfit:wght@500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700&family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=IBM+Plex+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&family=Manrope:wght@400;500;600;700&family=Outfit:wght@500;600;700&family=Sora:wght@500;600;700&family=Syne:wght@600;700;800&display=swap");
 @import "tailwindcss";
 
 /* Apollo-achtige tokens: warm marble canvas, charcoal, twilight, volt CTA */
@@ -1812,6 +1812,122 @@ body:has(.desk-home--scout) {
   color: rgba(244, 238, 230, 0.65);
 }
 .scout-invite__cta { margin-top: 1.6rem; }
+
+.scout-invite__inner--split {
+  display: grid;
+  gap: 2rem;
+  align-items: start;
+}
+
+@media (min-width: 900px) {
+  .scout-invite__inner--split {
+    grid-template-columns: 1fr 1.05fr;
+    gap: 3rem;
+    align-items: center;
+  }
+}
+
+.scout-invite__form {
+  padding: 1.35rem 1.25rem;
+  border-radius: 1.15rem;
+  border: 1px solid rgba(244, 238, 230, 0.14);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.scout-invite__form-label {
+  margin: 0 0 1rem;
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #3dcf8e;
+}
+
+.waitlist__grid {
+  display: grid;
+  gap: 0.75rem;
+}
+
+@media (min-width: 560px) {
+  .waitlist__grid {
+    grid-template-columns: 1fr 1fr;
+  }
+  .waitlist__field--wide {
+    grid-column: 1 / -1;
+  }
+}
+
+.waitlist__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: rgba(244, 238, 230, 0.7);
+}
+
+.waitlist__field input,
+.waitlist__field textarea {
+  width: 100%;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(244, 238, 230, 0.16);
+  background: rgba(15, 20, 18, 0.35);
+  color: #f4efe6;
+  padding: 0.7rem 0.85rem;
+  font-size: 0.9rem;
+  font-family: var(--scout-sans);
+  outline: none;
+}
+
+.waitlist__field input::placeholder,
+.waitlist__field textarea::placeholder {
+  color: rgba(244, 238, 230, 0.35);
+}
+
+.waitlist__field input:focus,
+.waitlist__field textarea:focus {
+  border-color: color-mix(in srgb, #3dcf8e 55%, transparent);
+}
+
+.waitlist__error {
+  margin: 0.75rem 0 0;
+  font-size: 0.85rem;
+  color: #f0b27a;
+}
+
+.waitlist__actions {
+  margin-top: 1.1rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.waitlist__login {
+  font-size: 0.8rem;
+  color: rgba(244, 238, 230, 0.55) !important;
+  text-decoration: none;
+}
+
+.waitlist__login:hover {
+  color: #f4efe6 !important;
+  text-decoration: none;
+}
+
+.waitlist-done__title {
+  margin: 0;
+  font-family: "Outfit", var(--scout-sans);
+  font-size: 1.15rem;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+
+.waitlist-done__text {
+  margin: 0.4rem 0 0;
+  font-size: 0.9rem;
+  color: rgba(244, 238, 230, 0.65);
+}
 
 .scout-foot {
   border-top: 1px solid var(--scout-line);
