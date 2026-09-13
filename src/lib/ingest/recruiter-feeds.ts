@@ -216,13 +216,14 @@ export async function syncRecruiterFeeds(opts?: {
     };
   }
 
+  const hits: SyncHit[] = [];
+  let scanned = 0;
+  let kept = 0;
+  let skipped = 0;
+  let vacancies = 0;
+
   try {
     // One profile per Apify call keeps attribution reliable (actor often omits author URL).
-    const hits: SyncHit[] = [];
-    let scanned = 0;
-    let kept = 0;
-    let skipped = 0;
-    let vacancies = 0;
     const details: string[] = [];
 
     for (const rec of batch) {
@@ -346,21 +347,22 @@ export async function syncRecruiterFeeds(opts?: {
       label: "Recruiter-feeds",
       mode: "error",
       detail: msg,
-      fetched: 0,
-      kept: 0,
+      fetched: scanned,
+      kept,
+      skipped,
       searched,
-      hits: [],
+      hits,
     });
     return {
       mode: "error",
       detail: msg,
-      scanned: 0,
-      kept: 0,
-      skipped: 0,
-      vacancies: 0,
+      scanned,
+      kept,
+      skipped,
+      vacancies,
       recruiters: all.length,
       withUrl,
-      hits: [],
+      hits,
       searched,
       run,
     };

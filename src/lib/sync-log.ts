@@ -87,29 +87,39 @@ export async function recordSync(run: Omit<SyncRun, "id" | "at"> & { at?: string
     channel: run.channel,
     label: run.label,
     mode: run.mode,
-    detail: run.detail,
+    detail: run.detail?.replace(/\u0000/g, "").slice(0, 500),
     fetched: run.fetched,
     kept: Math.min(run.kept, keptClean),
     skipped: run.skipped,
     searched: run.searched?.slice(0, 24),
-    hits: cleanHits.slice(0, 40),
+    hits: cleanHits.slice(0, 40).map((h) => ({
+      ...h,
+      company: (h.company || "").replace(/\u0000/g, "").slice(0, 120),
+      title: (h.title || "").replace(/\u0000/g, "").slice(0, 160),
+      url: h.url ? String(h.url).slice(0, 400) : h.url,
+    })),
   };
 
   if (hasDatabase()) {
-    const db = getDb();
-    await db.insert(syncRuns).values({
-      id: entry.id,
-      at: new Date(entry.at),
-      channel: entry.channel,
-      label: entry.label,
-      mode: entry.mode,
-      detail: entry.detail || null,
-      fetched: entry.fetched,
-      kept: entry.kept,
-      skipped: entry.skipped ?? null,
-      searched: entry.searched || null,
-      hits: entry.hits,
-    });
+    try {
+      const db = getDb();
+      await db.insert(syncRuns).values({
+        id: entry.id,
+        at: new Date(entry.at),
+        channel: entry.channel,
+        label: entry.label,
+        mode: entry.mode,
+        detail: entry.detail || null,
+        fetched: entry.fetched,
+        kept: entry.kept,
+        skipped: entry.skipped ?? null,
+        searched: entry.searched || null,
+        hits: entry.hits,
+      });
+    } catch (e) {
+      // Sync-log mag de run niet laten falen (Neon jsonb/null-byte edge cases)
+      console.error("recordSync pg insert failed", e instanceof Error ? e.message : e);
+    }
     return entry;
   }
 
