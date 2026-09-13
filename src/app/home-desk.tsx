@@ -47,15 +47,14 @@ export default function HomeDesk() {
 
       <section className="scout-hero">
         <div className="scout-hero__wash" aria-hidden />
-        <div className="scout-hero__mesh" aria-hidden />
         <div className="scout-hero__grain" aria-hidden />
 
         <div className="scout-hero__inner">
           <div className="scout-hero__copy">
             <p className="scout-kicker home-reveal">{PRODUCT.category}</p>
             <h1 className="scout-brand home-reveal home-reveal--2">
-              <span className="scout-brand__soft">Recruitment</span>
-              <span className="scout-brand__hard">Scout</span>
+              <span className="scout-brand__a">Recruitment</span>
+              <span className="scout-brand__b">Scout</span>
             </h1>
             <p className="scout-tagline home-reveal home-reveal--3">{PRODUCT.tagline}</p>
             <div className="scout-cta home-reveal home-reveal--4">
@@ -64,13 +63,10 @@ export default function HomeDesk() {
                   Open de desk
                 </Link>
               ) : (
-                <Link href={loginHref} className="scout-btn scout-btn--ink">
-                  Inloggen
-                </Link>
+                <a href="#werk" className="scout-btn scout-btn--ink">
+                  Hoe het werkt
+                </a>
               )}
-              <a href="#werk" className="scout-btn scout-btn--line">
-                Hoe het werkt
-              </a>
             </div>
           </div>
 
@@ -100,25 +96,34 @@ export default function HomeDesk() {
               </li>
             ))}
           </ol>
-
-          <p className="scout-soon-line home-reveal">
-            <span>Coming soon</span>
-            <strong>Permanent</strong>
-            <em>— ook voor vaste rollen</em>
-          </p>
         </section>
 
-        <section className="scout-close">
-          <div className="scout-close__box">
-            <p className="scout-eyebrow">Alleen op uitnodiging</p>
-            <h2 className="scout-close__title">Voor teams die geen kans laten liggen.</h2>
-            <div className="scout-close__cta">
+        <section className="scout-soon-block" aria-labelledby="soon-title">
+          <div className="scout-soon-block__inner">
+            <p className="scout-soon-block__badge">Coming soon</p>
+            <h2 id="soon-title" className="scout-soon-block__title">
+              Permanent
+            </h2>
+            <p className="scout-soon-block__text">Ook voor vaste rollen — zelfde desk, bredere pipeline.</p>
+          </div>
+        </section>
+
+        <section className="scout-invite" aria-labelledby="invite-title">
+          <div className="scout-invite__inner">
+            <p className="scout-eyebrow scout-eyebrow--on-dark">Alleen op uitnodiging</p>
+            <h2 id="invite-title" className="scout-invite__title">
+              Voor teams die geen kans laten liggen.
+            </h2>
+            <p className="scout-invite__text">
+              Private desk voor recruitmentbureaus. Geen marketplace — wel opdrachtkansen spotten en opvolgen.
+            </p>
+            <div className="scout-invite__cta">
               {email ? (
-                <Link href={deskHref} className="scout-btn scout-btn--ink">
+                <Link href={deskHref} className="scout-btn scout-btn--light">
                   Naar de workspace
                 </Link>
               ) : (
-                <Link href={loginHref} className="scout-btn scout-btn--ink">
+                <Link href={loginHref} className="scout-btn scout-btn--light">
                   Inloggen
                 </Link>
               )}
@@ -130,7 +135,7 @@ export default function HomeDesk() {
       <footer className="scout-foot">
         <div className="scout-foot__inner">
           <Link href="/" className="scout-foot__logo" aria-label={`${PRODUCT.name} home`}>
-            <ScoutWordmark name={PRODUCT.name} />
+            <ScoutWordmark name={PRODUCT.name} tone="light" />
           </Link>
           <a
             href="https://blablabuild.com"

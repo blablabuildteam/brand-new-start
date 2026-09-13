@@ -9,7 +9,7 @@ const FINDS = [
   { role: "Fractional CTO", where: "Scale-up · NL", score: 86 },
 ];
 
-/** Full-bleed radar lock — one clear find, no clutter. */
+/** Lighter radar lock for the hero. */
 export function HomeOpportunityStage() {
   const [i, setI] = useState(0);
 
@@ -21,13 +21,11 @@ export function HomeOpportunityStage() {
   const find = FINDS[i]!;
 
   return (
-    <div className="hero-radar" aria-hidden>
-      <div className="hero-radar__glow" />
+    <div className="hero-radar hero-radar--lite" aria-hidden>
       <div className="hero-radar__disc">
         <div className="hero-radar__ring hero-radar__ring--1" />
         <div className="hero-radar__ring hero-radar__ring--2" />
         <div className="hero-radar__ring hero-radar__ring--3" />
-        <div className="hero-radar__grid" />
         <div className="hero-radar__sweep" />
         <div className="hero-radar__core" />
         <div className="hero-radar__blip" key={i} />

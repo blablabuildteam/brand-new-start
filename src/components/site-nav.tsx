@@ -14,22 +14,11 @@ export function SiteNav({
 }: {
   name?: string;
   email?: string | null;
-  /** @deprecated dark veil variant */
   veil?: boolean;
-  /** Light editorial homepage */
   scout?: boolean;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
-  const [scrolled, setScrolled] = useState(false);
-
-  useEffect(() => {
-    if (!scout) return;
-    const onScroll = () => setScrolled(window.scrollY > 28);
-    onScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, [scout]);
 
   async function logout() {
     await fetch("/api/auth/login", { method: "DELETE" });
@@ -39,15 +28,16 @@ export function SiteNav({
 
   if (scout) {
     return (
-      <header
-        className={`scout-nav pt-[env(safe-area-inset-top)] ${scrolled ? "scout-nav--float" : "scout-nav--top"}`}
-      >
-        <div className="scout-nav__shell">
+      <header className="scout-nav pt-[env(safe-area-inset-top)]">
+        <div className="scout-nav__bar">
           <Link href="/" className="scout-nav__brand" aria-label={`${name} home`}>
-            <ScoutWordmark name={name} />
+            <ScoutWordmark name={name} tone="light" />
           </Link>
 
           <nav className="scout-nav__actions" aria-label="Primary">
+            <a href="#werk" className="scout-nav__link">
+              Hoe het werkt
+            </a>
             {email ? (
               <>
                 <Link href="/radar" className="scout-nav__btn scout-nav__btn--solid">
@@ -58,14 +48,9 @@ export function SiteNav({
                 </button>
               </>
             ) : (
-              <>
-                <a href="#werk" className="scout-nav__link">
-                  Hoe het werkt
-                </a>
-                <Link href="/login?next=%2Fradar" className="scout-nav__btn scout-nav__btn--solid">
-                  Inloggen
-                </Link>
-              </>
+              <Link href="/login?next=%2Fradar" className="scout-nav__btn scout-nav__btn--solid">
+                Inloggen
+              </Link>
             )}
           </nav>
         </div>
@@ -87,17 +72,6 @@ export function SiteNav({
         </Link>
 
         <div className="flex items-center gap-2 sm:gap-3">
-          {email ? (
-            <span
-              className={`hidden max-w-[10rem] truncate text-[0.72rem] sm:block ${
-                veil ? "text-[var(--veil-muted)]" : "text-[var(--muted)]"
-              }`}
-              style={{ fontFamily: "var(--mono)" }}
-            >
-              {email}
-            </span>
-          ) : null}
-
           {email ? (
             <>
               <Link
