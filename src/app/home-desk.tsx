@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { BlablaLogo } from "@/components/blabla-logo";
-import { HomePlacementTape } from "@/components/home-placement-tape";
+import { HomeOpportunityStage } from "@/components/home-opportunity-stage";
 import { SiteNav } from "@/components/site-nav";
 import { PRODUCT } from "@/lib/product-brand";
 
@@ -21,7 +21,7 @@ const BEATS = [
   {
     k: "03",
     title: "Vind de opdrachtgever",
-    text: "Achter een bureau-signaal zit een eindklant. Die zet je vast vóór je iemand belandt.",
+    text: "Achter een bureau-signaal zit een eindklant. Die zet je vast vóór je iemand benadert.",
   },
   {
     k: "04",
@@ -51,32 +51,37 @@ export default function HomeDesk() {
 
       <section className="scout-hero">
         <div className="scout-hero__wash" aria-hidden />
+        <div className="scout-hero__orb scout-hero__orb--1" aria-hidden />
+        <div className="scout-hero__orb scout-hero__orb--2" aria-hidden />
         <div className="scout-hero__rule" aria-hidden />
 
         <div className="scout-hero__inner">
           <div className="scout-hero__copy">
-            <p className="scout-eyebrow home-reveal">{PRODUCT.category}</p>
+            <div className="scout-pills home-reveal">
+              <span className="scout-pill scout-pill--live">{PRODUCT.category}</span>
+              <span className="scout-pill scout-pill--soon">Permanent · coming soon</span>
+            </div>
             <h1 className="scout-brand home-reveal home-reveal--2">{PRODUCT.name}</h1>
             <p className="scout-tagline home-reveal home-reveal--3">{PRODUCT.tagline}</p>
             <p className="scout-lede home-reveal home-reveal--3">{PRODUCT.lede}</p>
             <div className="scout-cta home-reveal home-reveal--4">
               {email ? (
-                <Link href={deskHref} className="nav-link scout-btn scout-btn--ink">
+                <Link href={deskHref} className="scout-btn scout-btn--ink">
                   Open de desk
                 </Link>
               ) : (
-                <Link href={loginHref} className="nav-link scout-btn scout-btn--ink">
+                <Link href={loginHref} className="scout-btn scout-btn--ink">
                   Inloggen
                 </Link>
               )}
-              <a href="#werk" className="nav-link scout-btn scout-btn--line">
+              <a href="#werk" className="scout-btn scout-btn--line">
                 Hoe het werkt
               </a>
             </div>
           </div>
 
           <div className="scout-hero__side home-reveal home-reveal--3">
-            <HomePlacementTape />
+            <HomeOpportunityStage />
           </div>
         </div>
       </section>
@@ -94,7 +99,11 @@ export default function HomeDesk() {
 
           <ol className="scout-beats">
             {BEATS.map((b, i) => (
-              <li key={b.k} className={`scout-beat home-reveal home-reveal--${Math.min(i + 1, 4)}`}>
+              <li
+                key={b.k}
+                className={`scout-beat home-reveal home-reveal--${Math.min(i + 1, 4)}`}
+                style={{ animationDelay: `${0.08 + i * 0.08}s` }}
+              >
                 <span className="scout-beat__k">{b.k}</span>
                 <div>
                   <h3 className="scout-beat__title">{b.title}</h3>
@@ -103,6 +112,17 @@ export default function HomeDesk() {
               </li>
             ))}
           </ol>
+        </section>
+
+        <section className="scout-soon">
+          <div className="scout-soon__card home-reveal">
+            <span className="scout-soon__badge">Coming soon</span>
+            <h2 className="scout-soon__title">Permanent placements</h2>
+            <p className="scout-soon__text">
+              Eerst interim &amp; ZZP. Daarna dezelfde scherpte voor vaste rollen —zelfde desk,
+              bredere pipeline.
+            </p>
+          </div>
         </section>
 
         <section className="scout-close">
@@ -115,11 +135,11 @@ export default function HomeDesk() {
             </p>
             <div className="scout-close__cta">
               {email ? (
-                <Link href={deskHref} className="nav-link scout-btn scout-btn--ink">
+                <Link href={deskHref} className="scout-btn scout-btn--ink">
                   Naar de workspace
                 </Link>
               ) : (
-                <Link href={loginHref} className="nav-link scout-btn scout-btn--ink">
+                <Link href={loginHref} className="scout-btn scout-btn--ink">
                   Inloggen
                 </Link>
               )}
@@ -132,16 +152,18 @@ export default function HomeDesk() {
         <div className="scout-foot__inner">
           <p className="scout-foot__brand">
             <strong>{PRODUCT.name}</strong>
-            <span> · {PRODUCT.category}</span>
           </p>
           <a
             href="https://blablabuild.com"
             target="_blank"
             rel="noopener noreferrer"
-            className="scout-foot__link"
+            className="scout-foot__product"
           >
-            <BlablaLogo className="h-4 w-4" />
-            <span>blablabuild</span>
+            <span className="scout-foot__by">A product by</span>
+            <span className="scout-foot__bbb">
+              <BlablaLogo className="h-4 w-4" />
+              blablabuild
+            </span>
           </a>
         </div>
       </footer>

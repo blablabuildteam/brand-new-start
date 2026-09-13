@@ -1264,8 +1264,34 @@ button:focus-visible {
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(ellipse 55% 50% at 100% 0%, rgba(26, 92, 69, 0.09), transparent 55%),
-    linear-gradient(180deg, #eae5db 0%, var(--scout-paper) 42%, var(--scout-paper) 100%);
+    radial-gradient(ellipse 55% 50% at 100% 0%, rgba(26, 92, 69, 0.11), transparent 55%),
+    radial-gradient(ellipse 40% 35% at 0% 100%, rgba(20, 24, 22, 0.06), transparent 55%),
+    linear-gradient(180deg, #e8e2d6 0%, var(--scout-paper) 48%, var(--scout-paper) 100%);
+}
+
+.scout-hero__orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(40px);
+  pointer-events: none;
+  animation: scout-orb 10s ease-in-out infinite alternate;
+}
+
+.scout-hero__orb--1 {
+  width: min(42vw, 320px);
+  height: min(42vw, 320px);
+  right: -4%;
+  top: 8%;
+  background: color-mix(in srgb, var(--scout-mark) 28%, transparent);
+}
+
+.scout-hero__orb--2 {
+  width: min(36vw, 260px);
+  height: min(36vw, 260px);
+  left: -6%;
+  bottom: 12%;
+  background: color-mix(in srgb, var(--scout-ink) 10%, transparent);
+  animation-delay: -3s;
 }
 
 .scout-hero__rule {
@@ -1274,9 +1300,308 @@ button:focus-visible {
   right: 0;
   top: 0;
   height: 3px;
-  background: var(--scout-ink);
+  background: linear-gradient(90deg, var(--scout-ink), var(--scout-mark), var(--scout-ink));
+  background-size: 200% 100%;
   transform-origin: left;
-  animation: scout-rule 1.1s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: scout-rule 1.1s cubic-bezier(0.22, 1, 0.36, 1) both, scout-rule-shine 4s ease-in-out 1.2s infinite;
+}
+
+.scout-nav__btn {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0.45rem 1rem;
+  font-size: 0.78rem;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+  text-decoration: none;
+  transition: transform 0.15s ease, background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.scout-nav__btn:hover {
+  transform: translateY(-1px);
+  text-decoration: none;
+}
+
+.scout-nav__btn--solid {
+  background: var(--scout-ink);
+  color: #f7f3ea !important;
+  border: 1px solid var(--scout-ink);
+}
+
+.scout-nav__btn--solid:hover {
+  background: #000;
+  color: #fff !important;
+}
+
+.scout-nav__btn--ghost {
+  border: 1px solid var(--scout-line);
+  background: color-mix(in srgb, var(--scout-paper) 70%, white);
+  color: var(--scout-ink) !important;
+}
+
+.scout-nav__btn--ghost:hover {
+  border-color: var(--scout-ink);
+  color: var(--scout-ink) !important;
+}
+
+.scout-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.scout-pill {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0.28rem 0.7rem;
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.scout-pill--live {
+  background: color-mix(in srgb, var(--scout-mark) 14%, transparent);
+  color: var(--scout-mark);
+}
+
+.scout-pill--soon {
+  border: 1px dashed color-mix(in srgb, var(--scout-ink) 28%, transparent);
+  color: var(--scout-muted);
+}
+
+.scout-btn {
+  text-decoration: none !important;
+}
+
+.scout-btn--ink {
+  color: #f7f3ea !important;
+}
+
+.scout-btn--ink:hover {
+  color: #fff !important;
+}
+
+.scout-btn--line {
+  color: var(--scout-ink) !important;
+}
+
+/* Opportunity stage */
+.opp-stage {
+  position: relative;
+  height: 100%;
+  min-height: 320px;
+  overflow: hidden;
+  border: 1px solid var(--scout-line);
+  border-radius: 1.1rem;
+  background:
+    radial-gradient(circle at 60% 40%, color-mix(in srgb, var(--scout-mark) 12%, transparent), transparent 42%),
+    linear-gradient(160deg, #e4ddd0, var(--scout-panel));
+  color: color-mix(in srgb, var(--scout-mark) 55%, transparent);
+}
+
+.opp-stage__glow {
+  position: absolute;
+  inset: -30%;
+  background: radial-gradient(circle at 50% 45%, color-mix(in srgb, var(--scout-mark) 18%, transparent), transparent 50%);
+  animation: scout-orb 8s ease-in-out infinite alternate;
+}
+
+.opp-stage__scan {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -20%;
+  width: 32%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35), transparent);
+  animation: home-scan 3.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+.opp-stage__ring {
+  position: absolute;
+  left: 50%;
+  top: 44%;
+  border: 1px solid color-mix(in srgb, var(--scout-mark) 25%, transparent);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  animation: home-ring 5.5s ease-out infinite;
+}
+
+.opp-stage__ring--a {
+  width: 30%;
+  aspect-ratio: 1;
+}
+.opp-stage__ring--b {
+  width: 52%;
+  aspect-ratio: 1;
+  animation-delay: 1.2s;
+}
+.opp-stage__ring--c {
+  width: 76%;
+  aspect-ratio: 1;
+  animation-delay: 2.4s;
+}
+
+.opp-stage__links {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.opp-stage__path {
+  stroke-dasharray: 220;
+  stroke-dashoffset: 220;
+  animation: home-draw 2.2s ease forwards 0.35s;
+}
+
+.opp-stage__node {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  display: grid;
+  place-items: center;
+  animation: home-node 3.2s ease-in-out infinite;
+}
+
+.opp-stage__dot {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--scout-ink) 35%, transparent);
+  transition: background 0.3s ease, box-shadow 0.3s ease, transform 0.3s ease;
+}
+
+.opp-stage__node.is-hot .opp-stage__dot {
+  background: var(--scout-mark);
+  transform: scale(1.4);
+  box-shadow:
+    0 0 0 7px color-mix(in srgb, var(--scout-mark) 16%, transparent),
+    0 0 22px color-mix(in srgb, var(--scout-mark) 35%, transparent);
+}
+
+.opp-stage__score {
+  position: absolute;
+  top: 125%;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: var(--mono);
+  font-size: 0.58rem;
+  color: var(--scout-muted);
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+
+.opp-stage__node.is-hot .opp-stage__score {
+  opacity: 1;
+  color: var(--scout-mark);
+}
+
+.opp-stage__ticker {
+  position: absolute;
+  left: 1rem;
+  right: 1rem;
+  bottom: 1rem;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem 0.9rem;
+  border: 1px solid var(--scout-line);
+  border-radius: 0.75rem;
+  background: color-mix(in srgb, var(--scout-paper) 88%, white);
+  backdrop-filter: blur(8px);
+  animation: home-tick 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.opp-stage__ticker-a {
+  font-family: var(--scout-display);
+  font-size: 1.15rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--scout-ink);
+}
+
+.opp-stage__ticker-b {
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--scout-mark);
+}
+
+.scout-soon {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 0 1.25rem 1rem;
+}
+
+@media (min-width: 768px) {
+  .scout-soon {
+    padding: 0 2rem 1.25rem;
+  }
+}
+
+.scout-soon__card {
+  position: relative;
+  overflow: hidden;
+  padding: 1.6rem 1.35rem;
+  border: 1px solid var(--scout-line);
+  background: var(--scout-ink);
+  color: #f4f0e8;
+}
+
+.scout-soon__card::after {
+  content: "";
+  position: absolute;
+  right: -10%;
+  top: -40%;
+  width: 46%;
+  height: 180%;
+  background: linear-gradient(115deg, transparent, color-mix(in srgb, var(--scout-mark) 35%, transparent), transparent);
+  animation: scout-sheen 5s ease-in-out infinite;
+}
+
+@media (min-width: 768px) {
+  .scout-soon__card {
+    padding: 1.85rem 2rem;
+  }
+}
+
+.scout-soon__badge {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  border-radius: 999px;
+  padding: 0.25rem 0.65rem;
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  background: color-mix(in srgb, var(--scout-mark) 85%, white);
+  color: #06150f;
+}
+
+.scout-soon__title {
+  position: relative;
+  z-index: 1;
+  margin: 0.7rem 0 0;
+  font-family: var(--scout-display);
+  font-size: clamp(1.45rem, 2.8vw, 1.9rem);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.scout-soon__text {
+  position: relative;
+  z-index: 1;
+  margin: 0.45rem 0 0;
+  max-width: 44ch;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: rgba(244, 240, 232, 0.7);
 }
 
 .scout-hero__inner {
@@ -1581,7 +1906,7 @@ button:focus-visible {
 
 .scout-foot {
   border-top: 1px solid var(--scout-line);
-  padding: 1.15rem 1.25rem 1.6rem;
+  padding: 1.35rem 1.25rem 1.85rem;
 }
 
 .scout-foot__inner {
@@ -1591,30 +1916,52 @@ button:focus-visible {
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 0.75rem;
+  gap: 1rem;
 }
 
 .scout-foot__brand {
   margin: 0;
-  font-size: 0.75rem;
+  font-size: 0.78rem;
   color: var(--scout-muted);
 }
 
 .scout-foot__brand strong {
   color: var(--scout-ink);
-  font-weight: 600;
+  font-weight: 650;
 }
 
-.scout-foot__link {
+.scout-foot__product {
   display: inline-flex;
   align-items: center;
-  gap: 0.45rem;
-  font-size: 0.7rem;
-  color: var(--scout-muted);
+  gap: 0.65rem;
+  text-decoration: none;
+  padding: 0.45rem 0.75rem 0.45rem 0.7rem;
+  border-radius: 999px;
+  border: 1px solid var(--scout-line);
+  background: color-mix(in srgb, var(--scout-panel) 80%, white);
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+
+.scout-foot__product:hover {
+  border-color: var(--scout-ink);
+  transform: translateY(-1px);
   text-decoration: none;
 }
 
-.scout-foot__link:hover {
+.scout-foot__by {
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--scout-muted);
+}
+
+.scout-foot__bbb {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.82rem;
+  font-weight: 650;
   color: var(--scout-ink);
 }
 
@@ -1627,8 +1974,49 @@ button:focus-visible {
   }
 }
 
+@keyframes scout-rule-shine {
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+@keyframes scout-orb {
+  from {
+    transform: translate3d(0, 0, 0) scale(1);
+    opacity: 0.7;
+  }
+  to {
+    transform: translate3d(2%, -3%, 0) scale(1.08);
+    opacity: 1;
+  }
+}
+
+@keyframes scout-sheen {
+  0%,
+  100% {
+    transform: translateX(0) rotate(12deg);
+    opacity: 0.35;
+  }
+  50% {
+    transform: translateX(-18%) rotate(12deg);
+    opacity: 0.7;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .scout-hero__rule,
+  .scout-hero__orb,
+  .opp-stage__glow,
+  .opp-stage__scan,
+  .opp-stage__ring,
+  .opp-stage__path,
+  .opp-stage__node,
+  .opp-stage__ticker,
+  .scout-soon__card::after,
   .home-tape__focus {
     animation: none !important;
   }
