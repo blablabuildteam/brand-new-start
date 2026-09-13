@@ -304,7 +304,9 @@ export default function LeadsDesk() {
         <section className="ws-intro lg:col-span-2">
           <p className="ws-intro__title">Wat doe je hier?</p>
           <p className="ws-intro__text">
-            Bureau-vacature → eindklant raden en bevestigen. Bevestigde kansen landen in Kansen.
+            Feeds van de recruiters die je volgt (LinkedIn-posts over vacatures/kansen). Raden en
+            bevestigen van de eindklant → daarna Kansen / hiring manager. Admin sync:{" "}
+            <strong>Recruiter-feeds</strong> onder Sync &amp; meer.
           </p>
         </section>
         <aside className={`radar-scroll-pane min-h-0 shrink-0 lg:max-h-none ${watchOpen ? "max-lg:max-h-64" : "max-lg:max-h-none"}`}>
@@ -399,7 +401,8 @@ export default function LeadsDesk() {
                   </div>
                 ) : (
                   <p className="ws-empty">
-                    Nog geen bureau-hits in de radar. Test AI op het SAP/Rotterdam-voorbeeld hieronder.
+                    Nog geen live bureau-hits. Zorg dat recruiters een LinkedIn-URL hebben, daarna
+                    admin: Sync → Recruiter-feeds. Of test AI op een voorbeeld hieronder.
                   </p>
                 )}
               </section>

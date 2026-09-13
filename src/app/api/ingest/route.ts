@@ -10,6 +10,7 @@ import {
 import { scrapeCareersWithFirecrawl, syncPlatformCareers } from "@/lib/ingest/firecrawl";
 import { syncMarketJobsFromLinkedIn } from "@/lib/ingest/market-jobs";
 import { syncJobBoards } from "@/lib/ingest/boards";
+import { syncRecruiterFeeds, listFeedRecruiters } from "@/lib/ingest/recruiter-feeds";
 import { enabledPlatforms } from "@/lib/platforms";
 import { ingestSignal, resetStore, stats } from "@/lib/store";
 import { INGEST_POLICY } from "@/lib/costs";
@@ -20,8 +21,9 @@ import { z } from "zod";
 /** Apify Indeed/LinkedIn kan lang duren */
 export const maxDuration = 300;
 
-/** Lichte cron-caps — goedkoop houden, radar vers. */
+/** Lichte cron-caps — goedkoop houden, radar + bureau-feeds vers. */
 const CRON_MARKET = { maxUrls: 8, maxJobs: 24 } as const;
+const CRON_FEEDS = { maxRecruiters: 4, maxPostsPerProfile: 8 } as const;
 
 async function authorized(req: Request) {
   const cronSecret = process.env.CRON_SECRET;
@@ -70,16 +72,25 @@ export async function GET(req: Request) {
   }
 
   await loadHuntSettings();
-  const result = await syncMarketJobsFromLinkedIn(CRON_MARKET);
+  const market = await syncMarketJobsFromLinkedIn(CRON_MARKET);
   await alertNewHits({
     kind: "LinkedIn",
-    kept: result.kept,
-    hits: result.hits,
+    kept: market.kept,
+    hits: market.hits,
   });
+
+  const feeds = await syncRecruiterFeeds(CRON_FEEDS);
+  await alertNewHits({
+    kind: "Recruiter-feeds",
+    kept: feeds.kept,
+    hits: feeds.hits,
+  });
+
   return NextResponse.json({
     ok: true,
-    kind: "cron-market",
-    ...result,
+    kind: "cron-market+feeds",
+    market,
+    feeds,
     stats: await stats(),
   });
 }
@@ -181,6 +192,30 @@ export async function POST(req: Request) {
     const maxPosts = Number((body as { maxPosts?: number }).maxPosts) || 40;
     const specialty = await syncJeffreySpecialty(maxPosts);
     return NextResponse.json({ ok: true, kind: "specialty", ...specialty, stats: await stats() });
+  }
+
+  if (
+    action === "recruiter-feeds" ||
+    action === "bureau-feeds" ||
+    action === "feeds" ||
+    action === "recruiters"
+  ) {
+    const result = await syncRecruiterFeeds({
+      maxRecruiters:
+        Number((body as { maxRecruiters?: number }).maxRecruiters) ||
+        INGEST_POLICY.recruiterFeedMaxProfiles,
+      maxPostsPerProfile:
+        Number((body as { maxPostsPerProfile?: number }).maxPostsPerProfile) ||
+        INGEST_POLICY.recruiterFeedMaxPosts,
+    });
+    await alertNewHits({ kind: "Recruiter-feeds", kept: result.kept, hits: result.hits });
+    return NextResponse.json({
+      ok: true,
+      kind: "recruiter-feeds",
+      feedRecruiters: listFeedRecruiters().length,
+      ...result,
+      stats: await stats(),
+    });
   }
 
   if (action === "linkedin-paste") {

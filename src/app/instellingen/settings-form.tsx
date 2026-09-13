@@ -317,8 +317,8 @@ export default function SettingsForm() {
         <section className="ws-intro">
           <p className="ws-intro__title">Wat stel je hier in?</p>
           <p className="ws-intro__text">
-            Toolnaam, functies, soort opdracht, en de bureaus/recruiters die je volgt. Eindklanten
-            komen vanzelf uit de radar.
+            Toolnaam, functies, soort opdracht, en de bureaus/recruiters die je volgt. Recruiter
+            LinkedIn-feeds voeden Bureaus; eindklanten bevestig je daarna zelf.
           </p>
         </section>
 
@@ -442,7 +442,7 @@ export default function SettingsForm() {
 
             <Section
               title="Bureaus & recruiters"
-              hint="Alleen namen (en optioneel LinkedIn). Geen aparte ‘deellink’ nodig — jij vult in wie je volgt."
+              hint="Recruiters met LinkedIn-URL worden gescand op vacature-/kans-posts (Recruiter-feeds → Bureaus). Zonder URL geen feed-sync."
             >
               <div className="rounded-[var(--radius)] border border-[var(--accent)]/20 bg-[var(--accent-soft)]/40 px-3.5 py-3 text-[0.8rem] leading-relaxed text-[var(--muted)]">
                 <p>

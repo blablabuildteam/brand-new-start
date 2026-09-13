@@ -8,6 +8,7 @@ import { orgContextFromSignals } from "@/lib/org-context";
 import { buildApproach, companyLinkedinFromSignals } from "@/lib/approach";
 import { borrowHiringManager } from "@/lib/hm-hunt";
 import { huntSettings } from "@/lib/hunt";
+import { isAgencyName } from "@/lib/agency";
 
 function slugify(name: string) {
   return name
@@ -160,6 +161,7 @@ export function resolveChannel(
   if (url.includes("indeed.") || url.includes("nl.indeed.")) return "indeed";
   if (url.includes("freelance.nl")) return "freelance-nl";
   if (url.includes("tenderned.nl")) return "tenderned";
+  if (input.source === "agency-swarm" || input.raw?.recruiterFeed) return "recruiter-feed";
 
   if (existingChannel && existingChannel !== "seed") return existingChannel;
 
@@ -185,8 +187,17 @@ function nicheOk(input: IngestInput) {
     return { ok: false as const, reason: "outside-niche" };
   }
 
-  // Contract/ZZP/interim is verplicht voor market-hits (pulse/tender uitgezonderd)
-  if (!isTender && !isPulse && huntSettings().requireContract && !isContractish(input, blob)) {
+  // Contract/ZZP/interim is verplicht voor market-hits (pulse/tender/bureau-feeds uitgezonderd)
+  const isAgencyFeed =
+    input.source === "agency-swarm" ||
+    (typeof input.raw?.channel === "string" && input.raw.channel === "recruiter-feed");
+  if (
+    !isTender &&
+    !isPulse &&
+    !isAgencyFeed &&
+    huntSettings().requireContract &&
+    !isContractish(input, blob)
+  ) {
     return { ok: false as const, reason: "no-contract-zzp" };
   }
 
@@ -458,6 +469,14 @@ export async function listRadar() {
       const company = coMap.get(companyId);
       if (!company || !companySignals.length) continue;
       if (isPlaceholderCompany(company.name)) continue;
+      // Bureau/recruiter-feeds horen op Bureaus, niet als directe Radar-eindklant
+      if (isAgencyName(company.name)) continue;
+      const onlyAgencyFeed = companySignals.every(
+        (s) =>
+          s.source === "agency-swarm" ||
+          (s.raw && typeof s.raw === "object" && (s.raw as { recruiterFeed?: boolean }).recruiterFeed)
+      );
+      if (onlyAgencyFeed) continue;
 
       const bundles = buildOpeningBundles(companySignals);
       if (!bundles.length) continue;

@@ -1,5 +1,6 @@
 import {
   AGENCY_WATCHLIST,
+  agencyCatalog,
   isWatchedAgency,
   matchAgency,
   watchedAgencies,
@@ -283,6 +284,33 @@ export type WatchlistRow = {
   recruiters: { name: string; title?: string; brand?: string; linkedinUrl?: string }[];
 };
 
+function agencyFromSignal(
+  companyName: string | null | undefined,
+  raw: Record<string, unknown>
+): Agency | null {
+  if (typeof raw.agencyId === "string") {
+    const byId = agencyCatalog().find((a) => a.id === raw.agencyId);
+    if (byId) return matchAgency(byId.name) || matchAgency(String(raw.agencyName || "")) || {
+      id: byId.id,
+      name: byId.name,
+      aliases: byId.aliases || [],
+      linkedinSlug: byId.linkedinSlug,
+      note: byId.note,
+      recruiters: byId.recruiters.map((r) => ({
+        name: r.name,
+        title: r.title,
+        brand: r.brand,
+        linkedinUrl: r.linkedinUrl,
+      })),
+    };
+  }
+  if (typeof raw.agencyName === "string") {
+    const byName = matchAgency(raw.agencyName);
+    if (byName) return byName;
+  }
+  return matchAgency(companyName);
+}
+
 export async function listAgencyLeads(): Promise<{
   watchlist: WatchlistRow[];
   live: AgencyLead[];
@@ -299,10 +327,20 @@ export async function listAgencyLeads(): Promise<{
   const rows = await listSignals(400);
   const live: AgencyLead[] = [];
   for (const s of rows) {
-    const agency = matchAgency(s.company?.name);
-    if (!agency || !isWatchedAgency(agency.id)) continue;
     const raw = (s.raw && typeof s.raw === "object" ? s.raw : {}) as Record<string, unknown>;
-    const text = [s.summary, typeof raw.description === "string" ? raw.description : ""].join("\n");
+    const agency = agencyFromSignal(s.company?.name, raw);
+    if (!agency || !isWatchedAgency(agency.id)) continue;
+    // Alleen echte bureau-kansen: recruiter-feed of company=agency (jobboard-hit)
+    const isFeed = Boolean(raw.recruiterFeed) || s.source === "agency-swarm";
+    const isAgencyPoster = Boolean(matchAgency(s.company?.name));
+    if (!isFeed && !isAgencyPoster) continue;
+
+    const text = [
+      s.summary,
+      typeof raw.description === "string" ? raw.description : "",
+    ]
+      .filter(Boolean)
+      .join("\n");
     const poster =
       (typeof raw.jobPosterName === "string" && raw.jobPosterName) ||
       (typeof raw.contactName === "string" && raw.contactName) ||
@@ -328,7 +366,10 @@ export async function listAgencyLeads(): Promise<{
   }
   live.sort((a, b) => {
     const rank = { review: 0, suggest: 1, weak: 2, confirmed: 3, rejected: 4 };
-    return rank[a.status] - rank[b.status];
+    const ra = rank[a.status] - rank[b.status];
+    if (ra !== 0) return ra;
+    // Feeds eerst: recentere kans-posts
+    return 0;
   });
   return {
     watchlist: watchedAgencies().map((a) => ({
@@ -383,9 +424,9 @@ export async function leadSourceForAi(id: string): Promise<{
   const rows = await listSignals(400);
   const s = rows.find((r) => r.id === id);
   if (!s) return null;
-  const agency = matchAgency(s.company?.name);
-  if (!agency) return null;
   const raw = (s.raw && typeof s.raw === "object" ? s.raw : {}) as Record<string, unknown>;
+  const agency = agencyFromSignal(s.company?.name, raw);
+  if (!agency) return null;
   const text = [s.summary, typeof raw.description === "string" ? raw.description : ""]
     .filter(Boolean)
     .join("\n");

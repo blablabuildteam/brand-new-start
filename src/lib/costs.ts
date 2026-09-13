@@ -198,6 +198,10 @@ export const INGEST_POLICY = {
   boardsCadenceDays: 3,
   /** On-demand hiring-manager people-search (Short page) */
   hmSearchMax: 8,
+  /** Recruiter LinkedIn-feeds (bureau-lane) */
+  recruiterFeedMaxProfiles: 8,
+  recruiterFeedMaxPosts: 12,
+  recruiterFeedCadenceDays: 2,
 } as const;
 
 /**
@@ -256,6 +260,12 @@ export const SYNC_COST_PER_RUN = {
       tool: "Apify",
       eur: { low: 0.1, high: 0.4 },
       what: "1 LinkedIn people-pagina · top 3 hiring managers om te berichten",
+    },
+    "recruiter-feeds": {
+      label: "Recruiter-feeds",
+      tool: "Apify",
+      eur: { low: 0.5, high: 3.5 },
+      what: `tot ${INGEST_POLICY.recruiterFeedMaxProfiles} recruiters · ~${INGEST_POLICY.recruiterFeedMaxPosts} posts · advies 1×/${INGEST_POLICY.recruiterFeedCadenceDays}d`,
     },
     lusha: {
       label: "Lusha mail/tel",

@@ -111,7 +111,7 @@ type SyncStep = {
 
 type LiveSync = {
   phase: "running" | "done" | "error";
-  action: "all" | "market" | "indeed" | "freelance-nl" | "platforms";
+  action: "all" | "market" | "indeed" | "freelance-nl" | "platforms" | "recruiter-feeds";
   title: string;
   statusLine: string;
   /** Korte uitleg wat er nú gebeurt (tijdens running) */
@@ -153,6 +153,8 @@ const SYNC_ACTIVITY: Record<string, string> = {
   indeed: "Indeed NL doorzoeken op ingestelde rollen + contract/ZZP…",
   "freelance-nl": "Freelance.nl scrapen via Firecrawl…",
   platforms: "Careers-pagina’s van watchlist-bedrijven scrapen…",
+  "recruiter-feeds":
+    "LinkedIn-feeds van watchlist-recruiters scrapen — vacatureposts → Bureaus.",
 };
 
 function syncProgressPct(steps: SyncStep[], phase: LiveSync["phase"]): number {
@@ -184,6 +186,7 @@ function channelLabelUi(ch: string) {
     indeed: "Indeed",
     "freelance-nl": "Freelance.nl",
     "firecrawl-careers": "Careers",
+    "recruiter-feed": "Recruiter-feeds",
     tenderned: "TenderNed",
     pulse: "Pulse",
     "hm-search": "Hiring manager",
@@ -773,17 +776,19 @@ export default function RadarApp({
   }
 
   async function runOne(
-    action: "market" | "indeed" | "freelance-nl" | "platforms",
+    action: "market" | "indeed" | "freelance-nl" | "platforms" | "recruiter-feeds",
     opts?: { nested?: boolean }
   ) {
     const previewSearched =
       action === "market"
         ? (sync?.huntQueries || []).slice(0, 8).map((q) => `LinkedIn · ${q}`)
         : action === "indeed"
-          ? (sync?.boardQueries || [] as string[]).slice(0, 8).map((q) => `Indeed NL · ${q} ZZP`)
+          ? (sync?.boardQueries || ([] as string[])).slice(0, 8).map((q) => `Indeed NL · ${q} ZZP`)
           : action === "freelance-nl"
-            ? (sync?.boardQueries || [] as string[]).slice(0, 8).map((q) => `Freelance.nl · ${q}`)
-            : [`Careers · ${sync?.platformsEnabled ?? 0} platforms`];
+            ? (sync?.boardQueries || ([] as string[])).slice(0, 8).map((q) => `Freelance.nl · ${q}`)
+            : action === "recruiter-feeds"
+              ? ["Watchlist-recruiters met LinkedIn-URL"]
+              : [`Careers · ${sync?.platformsEnabled ?? 0} platforms`];
 
     const title =
       action === "market"
@@ -792,7 +797,9 @@ export default function RadarApp({
           ? "Indeed NL"
           : action === "freelance-nl"
             ? "Freelance.nl"
-            : "Careers / platforms";
+            : action === "recruiter-feeds"
+              ? "Recruiter-feeds"
+              : "Careers / platforms";
 
     const explain =
       action === "market"
@@ -801,10 +808,18 @@ export default function RadarApp({
           ? "Indeed NL via Apify: jouw rollen + ZZP. Filter in-app."
           : action === "freelance-nl"
             ? "Freelance.nl via Firecrawl: zoekpagina’s per ingestelde rol."
-            : "Careers-pagina’s van de watchlist op openstaande rollen in jouw kader.";
+            : action === "recruiter-feeds"
+              ? "LinkedIn-posts van recruiters die je volgt. Vacature/kans-posts → Bureaus → eindklant bevestigen."
+              : "Careers-pagina’s van de watchlist op openstaande rollen in jouw kader.";
 
     const stepId =
-      action === "market" ? "linkedin-jobs" : action === "platforms" ? "platforms" : action;
+      action === "market"
+        ? "linkedin-jobs"
+        : action === "platforms"
+          ? "platforms"
+          : action === "recruiter-feeds"
+            ? "recruiter-feeds"
+            : action;
 
     if (!opts?.nested) {
       setBusy(true);
@@ -840,7 +855,13 @@ export default function RadarApp({
                 action: "freelance-nl",
                 maxFreelanceQueries: INGEST_POLICY.syncFreelanceQueries,
               }
-            : { action: "platforms" };
+            : action === "recruiter-feeds"
+              ? {
+                  action: "recruiter-feeds",
+                  maxRecruiters: INGEST_POLICY.recruiterFeedMaxProfiles,
+                  maxPostsPerProfile: INGEST_POLICY.recruiterFeedMaxPosts,
+                }
+              : { action: "platforms" };
 
     const data = await postIngest(body);
     const runInfos =
@@ -861,7 +882,9 @@ export default function RadarApp({
     return { title, explain, runInfo, runInfos, searched };
   }
 
-  async function run(action: "all" | "market" | "indeed" | "freelance-nl" | "platforms") {
+  async function run(
+    action: "all" | "market" | "indeed" | "freelance-nl" | "platforms" | "recruiter-feeds"
+  ) {
     if (user?.role !== "admin") {
       setMenuOpen(false);
       return;
@@ -869,6 +892,59 @@ export default function RadarApp({
     setBusy(true);
     setMenuOpen(false);
     const startedAt = new Date().toISOString();
+
+    if (action === "recruiter-feeds") {
+      setLive({
+        phase: "running",
+        action: "recruiter-feeds",
+        title: "Recruiter-feeds",
+        statusLine: "Feeds ophalen…",
+        activity: SYNC_ACTIVITY["recruiter-feeds"],
+        explain:
+          "LinkedIn-posts van recruiters op je watchlist. Vacature/kans-posts landen op Bureaus — daarna eindklant bevestigen.",
+        searched: ["Watchlist-recruiters met LinkedIn-URL"],
+        steps: [{ id: "recruiter-feeds", label: "Recruiter-feeds", status: "running" }],
+        runs: [],
+      });
+      try {
+        const one = await runOne("recruiter-feeds", { nested: true });
+        setLive({
+          phase: "done",
+          action: "recruiter-feeds",
+          title: one.title,
+          statusLine: "Klaar — check Bureaus",
+          activity: undefined,
+          explain: one.explain,
+          searched: one.searched,
+          steps: [
+            {
+              id: "recruiter-feeds",
+              label: "Recruiter-feeds",
+              status: "done",
+              detail: one.runInfo ? `${one.runInfo.kept}/${one.runInfo.fetched}` : undefined,
+            },
+          ],
+          runs: one.runInfos,
+        });
+        setFreshSince(startedAt);
+        await load({ keepActive: true, fresh: true });
+      } catch (e) {
+        setLive((prev) => ({
+          phase: "error",
+          action: "recruiter-feeds",
+          title: "Recruiter-feeds",
+          statusLine: "Sync mislukt",
+          explain: prev?.explain || "",
+          searched: prev?.searched || [],
+          steps: [{ id: "recruiter-feeds", label: "Recruiter-feeds", status: "error" }],
+          runs: prev?.runs || [],
+          error: e instanceof Error ? e.message : "fout",
+        }));
+      } finally {
+        setBusy(false);
+      }
+      return;
+    }
 
     if (action === "all") {
       setLive({
@@ -1187,6 +1263,11 @@ export default function RadarApp({
                 {(
                   [
                     ["market", "LinkedIn Jobs", SYNC_COST_PER_RUN.actions.market] as const,
+                    [
+                      "recruiter-feeds",
+                      "Recruiter-feeds → Bureaus",
+                      SYNC_COST_PER_RUN.actions["recruiter-feeds"],
+                    ] as const,
                     ["indeed", "Indeed NL", SYNC_COST_PER_RUN.actions.indeed] as const,
                     ["freelance-nl", "Freelance.nl", SYNC_COST_PER_RUN.actions["freelance-nl"]] as const,
                     ["platforms", "Careers / platforms", SYNC_COST_PER_RUN.actions.platforms] as const,
