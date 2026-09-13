@@ -1,12 +1,16 @@
-/** Recruitment Scout mark — scope locking onto a signal. */
+"use client";
+
+/** Recruitment Scout mark — live radar lock. */
 
 export function ScoutMark({
   className = "h-8 w-8",
   variant = "solid",
+  animated = true,
 }: {
   className?: string;
-  /** solid = ink tile for nav; ghost = outline for light fields */
+  /** solid = ink tile for nav; ghost = outline; mark = green fill */
   variant?: "solid" | "ghost" | "mark";
+  animated?: boolean;
 }) {
   const ink = variant === "ghost" ? "transparent" : variant === "mark" ? "#1a5c45" : "#141816";
   const ring = variant === "solid" ? "#f2eee6" : "#141816";
@@ -16,7 +20,7 @@ export function ScoutMark({
   return (
     <svg
       viewBox="0 0 40 40"
-      className={className}
+      className={`scout-mark ${animated ? "scout-mark--live" : ""} ${className}`}
       aria-hidden
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
@@ -31,41 +35,42 @@ export function ScoutMark({
         stroke={stroke}
         strokeWidth={variant === "ghost" ? 1.5 : 0}
       />
-      {/* Outer scope arc */}
-      <path
-        d="M28.8 11.2A11.2 11.2 0 1 0 20 31.2"
-        stroke={ring}
-        strokeWidth="1.6"
-        strokeLinecap="round"
-        opacity={variant === "solid" ? 0.35 : 0.28}
-      />
-      {/* Mid arc */}
-      <path
-        d="M26.2 13.8A7.5 7.5 0 1 0 20 27.5"
-        stroke={ring}
-        strokeWidth="1.6"
-        strokeLinecap="round"
-        opacity={variant === "solid" ? 0.55 : 0.45}
-      />
-      {/* Lock needle */}
-      <path
-        d="M20 20 L29.2 10.8"
-        stroke={accent}
-        strokeWidth="2.1"
-        strokeLinecap="round"
-      />
-      {/* Bearing tick */}
-      <circle cx="30.2" cy="9.8" r="2.15" fill={accent} />
-      {/* Core */}
-      <circle cx="20" cy="20" r="2.4" fill={accent} />
+
       <circle
         cx="20"
         cy="20"
-        r="5.2"
-        stroke={accent}
-        strokeWidth="1.35"
-        opacity={0.45}
+        r="11.2"
+        stroke={ring}
+        strokeWidth="1.15"
+        opacity={variant === "solid" ? 0.22 : 0.2}
       />
+      <circle
+        cx="20"
+        cy="20"
+        r="7.4"
+        stroke={ring}
+        strokeWidth="1.15"
+        opacity={variant === "solid" ? 0.38 : 0.32}
+      />
+
+      {/* Sweep wedge */}
+      <g className="scout-mark__spin" style={{ transformOrigin: "20px 20px" }}>
+        <path
+          d="M20 20 L20 9 A11 11 0 0 1 29.5 15.2 Z"
+          fill={accent}
+          opacity={variant === "solid" ? 0.28 : 0.2}
+        />
+        <path
+          d="M20 20 L29.5 15.2"
+          stroke={accent}
+          strokeWidth="1.7"
+          strokeLinecap="round"
+        />
+        <circle cx="30.2" cy="14.6" r="1.85" fill={accent} className="scout-mark__blip" />
+      </g>
+
+      <circle cx="20" cy="20" r="2.15" fill={accent} />
+      <circle cx="20" cy="20" r="4.6" stroke={accent} strokeWidth="1.2" opacity={0.4} />
     </svg>
   );
 }
@@ -75,7 +80,6 @@ export function ScoutWordmark({
   compact = false,
 }: {
   name?: string;
-  /** Show mark + short label on tight nav */
   compact?: boolean;
 }) {
   const short = name.includes(" ") ? name.split(" ").pop()! : name;
@@ -88,7 +92,8 @@ export function ScoutWordmark({
           <span className="scout-wm__name">{short}</span>
         ) : (
           <>
-            <span className="scout-wm__name scout-wm__name--full">{name}</span>
+            <span className="scout-wm__lead">Recruitment</span>
+            <span className="scout-wm__name scout-wm__name--full">Scout</span>
             <span className="scout-wm__name scout-wm__name--short">{short}</span>
           </>
         )}

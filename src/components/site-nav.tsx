@@ -28,40 +28,18 @@ export function SiteNav({
     router.refresh();
   }
 
-  return (
-    <header
-      className={`sticky top-0 z-50 border-b backdrop-blur-md pt-[env(safe-area-inset-top)] ${
-        scout
-          ? "scout-nav border-[var(--scout-line)] bg-[color-mix(in_srgb,var(--scout-paper)_92%,transparent)]"
-          : veil
-            ? "border-[var(--veil-line)] bg-[color-mix(in_srgb,var(--veil-bg)_82%,transparent)] text-[var(--veil-ink)]"
-            : "border-[var(--line)] bg-[var(--surface)]/90 text-[var(--ink)]"
-      }`}
-    >
-      <div className="mx-auto flex h-14 max-w-[1120px] items-center justify-between gap-6 px-5 md:px-8">
-        <Link href="/" className="nav-link shrink-0" aria-label={`${name} home`}>
-          {scout ? (
+  if (scout) {
+    return (
+      <header className="scout-nav pt-[env(safe-area-inset-top)]">
+        <div className="scout-nav__shell">
+          <Link href="/" className="scout-nav__brand" aria-label={`${name} home`}>
             <ScoutWordmark name={name} />
-          ) : (
-            <RegieWordmark name={name} dark={veil && !scout} />
-          )}
-        </Link>
+          </Link>
 
-        <div className="flex items-center gap-2 sm:gap-3">
-          {email ? (
-            <span
-              className={`hidden max-w-[10rem] truncate text-[0.72rem] sm:block ${
-                scout ? "text-[var(--scout-muted)]" : veil ? "text-[var(--veil-muted)]" : "text-[var(--muted)]"
-              }`}
-              style={{ fontFamily: "var(--mono)" }}
-            >
-              {email}
-            </span>
-          ) : null}
-
-          {scout ? (
-            email ? (
+          <div className="scout-nav__actions">
+            {email ? (
               <>
+                <span className="scout-nav__email">{email}</span>
                 <Link href="/radar" className="scout-nav__btn scout-nav__btn--ghost hidden sm:inline-flex">
                   Desk
                 </Link>
@@ -70,11 +48,47 @@ export function SiteNav({
                 </button>
               </>
             ) : (
-              <Link href="/login?next=%2Fradar" className="scout-nav__btn scout-nav__btn--solid">
-                Inloggen
-              </Link>
-            )
-          ) : email ? (
+              <>
+                <a href="#werk" className="scout-nav__link hidden sm:inline-flex">
+                  Hoe het werkt
+                </a>
+                <Link href="/login?next=%2Fradar" className="scout-nav__btn scout-nav__btn--solid">
+                  Inloggen
+                </Link>
+              </>
+            )}
+          </div>
+        </div>
+      </header>
+    );
+  }
+
+  return (
+    <header
+      className={`sticky top-0 z-50 border-b backdrop-blur-md pt-[env(safe-area-inset-top)] ${
+        veil
+          ? "border-[var(--veil-line)] bg-[color-mix(in_srgb,var(--veil-bg)_82%,transparent)] text-[var(--veil-ink)]"
+          : "border-[var(--line)] bg-[var(--surface)]/90 text-[var(--ink)]"
+      }`}
+    >
+      <div className="mx-auto flex h-14 max-w-[1120px] items-center justify-between gap-6 px-5 md:px-8">
+        <Link href="/" className="nav-link shrink-0" aria-label={`${name} home`}>
+          <RegieWordmark name={name} dark={veil} />
+        </Link>
+
+        <div className="flex items-center gap-2 sm:gap-3">
+          {email ? (
+            <span
+              className={`hidden max-w-[10rem] truncate text-[0.72rem] sm:block ${
+                veil ? "text-[var(--veil-muted)]" : "text-[var(--muted)]"
+              }`}
+              style={{ fontFamily: "var(--mono)" }}
+            >
+              {email}
+            </span>
+          ) : null}
+
+          {email ? (
             <>
               <Link
                 href="/radar"
@@ -109,25 +123,23 @@ export function SiteNav({
             </Link>
           )}
 
-          {!scout ? (
-            <button
-              type="button"
-              className={`inline-flex h-10 w-10 items-center justify-center rounded-md border text-xs font-semibold md:hidden ${
-                veil
-                  ? "border-[var(--veil-line)] text-[var(--veil-ink)]"
-                  : "border-[var(--line)] text-[var(--ink)]"
-              }`}
-              aria-expanded={open}
-              aria-label={open ? "Menu sluiten" : "Menu openen"}
-              onClick={() => setOpen((v) => !v)}
-            >
-              Menu
-            </button>
-          ) : null}
+          <button
+            type="button"
+            className={`inline-flex h-10 w-10 items-center justify-center rounded-md border text-xs font-semibold md:hidden ${
+              veil
+                ? "border-[var(--veil-line)] text-[var(--veil-ink)]"
+                : "border-[var(--line)] text-[var(--ink)]"
+            }`}
+            aria-expanded={open}
+            aria-label={open ? "Menu sluiten" : "Menu openen"}
+            onClick={() => setOpen((v) => !v)}
+          >
+            Menu
+          </button>
         </div>
       </div>
 
-      {open && !scout ? (
+      {open ? (
         <nav
           className={`border-t px-5 py-3 md:hidden ${
             veil ? "border-[var(--veil-line)]" : "border-[var(--line)]"

@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Fraunces:opsz,wght@9..144,500;9..144,600&family=IBM+Plex+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&family=Manrope:wght@400;500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Fraunces:opsz,wght@9..144,500;9..144,600&family=IBM+Plex+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&family=Manrope:wght@400;500;600;700&family=Outfit:wght@500;600;700&display=swap");
 @import "tailwindcss";
 
 /* Apollo-achtige tokens: warm marble canvas, charcoal, twilight, volt CTA */
@@ -1255,25 +1255,36 @@ button:focus-visible {
 .scout-wm {
   display: inline-flex;
   align-items: center;
-  gap: 0.65rem;
+  gap: 0.7rem;
 }
 
 .scout-wm__mark {
-  height: 1.85rem;
-  width: 1.85rem;
+  height: 1.9rem;
+  width: 1.9rem;
   flex-shrink: 0;
 }
 
 .scout-wm__text {
   display: flex;
   flex-direction: column;
+  gap: 0.05rem;
   line-height: 1;
 }
 
-.scout-wm__name {
-  font-family: var(--scout-display);
-  font-size: 1.05rem;
+.scout-wm__lead {
+  display: none;
+  font-family: "Outfit", var(--scout-sans);
+  font-size: 0.58rem;
   font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--scout-muted);
+}
+
+.scout-wm__name {
+  font-family: "Outfit", var(--scout-sans);
+  font-size: 1.05rem;
+  font-weight: 650;
   letter-spacing: -0.03em;
   color: var(--scout-ink);
 }
@@ -1287,11 +1298,48 @@ button:focus-visible {
 }
 
 @media (min-width: 640px) {
+  .scout-wm__lead {
+    display: block;
+  }
   .scout-wm__name--full {
     display: inline;
   }
   .scout-wm__name--short {
     display: none;
+  }
+}
+
+.scout-mark--live .scout-mark__spin {
+  transform-box: view-box;
+  transform-origin: 20px 20px;
+  animation: scout-mark-spin 3.4s linear infinite;
+}
+
+.scout-mark--live .scout-mark__blip {
+  animation: scout-mark-blip 3.4s ease-in-out infinite;
+}
+
+@keyframes scout-mark-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes scout-mark-blip {
+  0%,
+  70%,
+  100% {
+    opacity: 1;
+  }
+  85% {
+    opacity: 0.35;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scout-mark--live .scout-mark__spin,
+  .scout-mark--live .scout-mark__blip {
+    animation: none !important;
   }
 }
 
@@ -1321,16 +1369,102 @@ button:focus-visible {
   mix-blend-mode: multiply;
 }
 
+/* Glass floating navbar */
+.scout-nav {
+  position: sticky;
+  top: 0;
+  z-50;
+  padding: 0.75rem 1rem 0;
+  pointer-events: none;
+}
+
+.scout-nav__shell {
+  pointer-events: auto;
+  max-width: 1120px;
+  margin: 0 auto;
+  min-height: 3.4rem;
+  padding: 0.45rem 0.55rem 0.45rem 0.85rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--scout-line) 70%, transparent);
+  background: color-mix(in srgb, var(--scout-paper) 55%, rgba(255, 255, 255, 0.55));
+  backdrop-filter: blur(18px) saturate(1.35);
+  -webkit-backdrop-filter: blur(18px) saturate(1.35);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.55) inset,
+    0 10px 30px -18px rgba(15, 20, 18, 0.28);
+}
+
+@media (min-width: 768px) {
+  .scout-nav {
+    padding: 0.9rem 1.5rem 0;
+  }
+  .scout-nav__shell {
+    padding: 0.5rem 0.6rem 0.5rem 1rem;
+  }
+}
+
+.scout-nav__brand {
+  text-decoration: none;
+  min-width: 0;
+}
+
+.scout-nav__brand:hover {
+  text-decoration: none;
+}
+
+.scout-nav__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-shrink: 0;
+}
+
+.scout-nav__email {
+  display: none;
+  max-width: 9.5rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  color: var(--scout-muted);
+  padding: 0 0.35rem;
+}
+
+@media (min-width: 640px) {
+  .scout-nav__email {
+    display: inline;
+  }
+}
+
+.scout-nav__link {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--scout-muted) !important;
+  text-decoration: none;
+  padding: 0.4rem 0.7rem;
+  transition: color 0.15s ease;
+}
+
+.scout-nav__link:hover {
+  color: var(--scout-ink) !important;
+  text-decoration: none;
+}
+
 .scout-nav__btn {
   display: inline-flex;
   align-items: center;
   border-radius: 999px;
-  padding: 0.45rem 1rem;
+  padding: 0.5rem 1.05rem;
   font-size: 0.78rem;
   font-weight: 650;
   letter-spacing: 0.01em;
   text-decoration: none;
-  transition: transform 0.15s ease, background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  transition: transform 0.15s ease, background 0.15s ease, color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .scout-nav__btn:hover {
@@ -1342,6 +1476,7 @@ button:focus-visible {
   background: var(--scout-ink);
   color: #f7f3ea !important;
   border: 1px solid var(--scout-ink);
+  box-shadow: 0 8px 18px -12px rgba(15, 20, 18, 0.55);
 }
 
 .scout-nav__btn--solid:hover {
@@ -1350,8 +1485,8 @@ button:focus-visible {
 }
 
 .scout-nav__btn--ghost {
-  border: 1px solid var(--scout-line);
-  background: color-mix(in srgb, var(--scout-paper) 70%, white);
+  border: 1px solid color-mix(in srgb, var(--scout-line) 80%, transparent);
+  background: color-mix(in srgb, white 45%, transparent);
   color: var(--scout-ink) !important;
 }
 
@@ -1524,41 +1659,22 @@ button:focus-visible {
 }
 
 .scout-soon {
-  max-width: 1120px;
-  margin: 0 auto;
-  padding: 0 1.25rem 1rem;
+  display: none;
 }
 
-@media (min-width: 768px) {
-  .scout-soon {
-    padding: 0 2rem 1.25rem;
-  }
-}
-
-.scout-soon__card {
-  position: relative;
-  overflow: hidden;
-  padding: 1.5rem 1.35rem;
+.scout-soon-line {
+  margin: 2rem 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.55rem 0.85rem;
+  padding: 1.1rem 0 0;
   border-top: 1px solid var(--scout-line);
-  border-bottom: 1px solid var(--scout-line);
-  background: transparent;
-  color: var(--scout-ink);
+  font-size: 0.95rem;
+  color: var(--scout-muted);
 }
 
-@media (min-width: 768px) {
-  .scout-soon__card {
-    padding: 1.75rem 0;
-    display: grid;
-    grid-template-columns: auto 1fr;
-    gap: 0.35rem 1.5rem;
-    align-items: baseline;
-  }
-}
-
-.scout-soon__badge {
-  position: relative;
-  z-index: 1;
-  display: inline-flex;
+.scout-soon-line span {
   font-family: var(--mono);
   font-size: 0.62rem;
   letter-spacing: 0.12em;
@@ -1566,38 +1682,15 @@ button:focus-visible {
   color: var(--scout-mark);
 }
 
-.scout-soon__title {
-  position: relative;
-  z-index: 1;
-  margin: 0.4rem 0 0;
-  font-family: var(--scout-display);
-  font-size: clamp(1.35rem, 2.4vw, 1.7rem);
-  font-weight: 600;
+.scout-soon-line strong {
+  font-family: "Outfit", var(--scout-sans);
+  font-weight: 650;
   letter-spacing: -0.02em;
+  color: var(--scout-ink);
 }
 
-@media (min-width: 768px) {
-  .scout-soon__title {
-    margin: 0;
-    grid-column: 2;
-    grid-row: 1;
-  }
-}
-
-.scout-soon__text {
-  position: relative;
-  z-index: 1;
-  margin: 0.25rem 0 0;
-  font-size: 0.95rem;
-  line-height: 1.45;
-  color: var(--scout-muted);
-}
-
-@media (min-width: 768px) {
-  .scout-soon__text {
-    grid-column: 2;
-    margin: 0;
-  }
+.scout-soon-line em {
+  font-style: normal;
 }
 
 .scout-hero__inner {
@@ -1606,7 +1699,7 @@ button:focus-visible {
   width: 100%;
   max-width: 1120px;
   margin: 0 auto;
-  padding: 4.5rem 1.25rem 3.25rem;
+  padding: 5.5rem 1.25rem 3.25rem;
   display: grid;
   gap: 2.5rem;
   align-items: center;
@@ -1616,7 +1709,7 @@ button:focus-visible {
   .scout-hero__inner {
     grid-template-columns: 1.05fr 0.95fr;
     gap: 2rem 4rem;
-    padding: 5.5rem 2rem 4rem;
+    padding: 6.5rem 2rem 4rem;
   }
 }
 
@@ -1739,8 +1832,8 @@ button:focus-visible {
 }
 
 .scout-work__title {
-  margin: 0;
-  max-width: 14ch;
+  margin: 0.55rem 0 0;
+  max-width: 16ch;
   font-family: var(--scout-display);
   font-size: clamp(1.85rem, 3.6vw, 2.55rem);
   font-weight: 600;
@@ -1756,63 +1849,56 @@ button:focus-visible {
   margin: 2.25rem 0 0;
   padding: 0;
   list-style: none;
-  border-top: 1px solid var(--scout-line);
   display: grid;
-  gap: 0;
+  gap: 0.85rem;
 }
 
 @media (min-width: 800px) {
   .scout-beats {
     grid-template-columns: repeat(3, 1fr);
-    border-top: none;
-    gap: 0;
-  }
-
-  .scout-beat {
-    border-top: 1px solid var(--scout-line);
-    border-bottom: none;
-    border-right: 1px solid var(--scout-line);
-    padding: 1.5rem 1.35rem 1.5rem 0;
-    grid-template-columns: 1fr;
-    gap: 0.85rem;
-  }
-
-  .scout-beat:last-child {
-    border-right: none;
-    padding-right: 0;
+    gap: 1rem;
   }
 }
 
 .scout-beat {
   display: grid;
-  grid-template-columns: 2.5rem 1fr;
-  gap: 0.85rem;
-  padding: 1.25rem 0;
-  border-bottom: 1px solid var(--scout-line);
+  grid-template-columns: auto 1fr;
+  grid-template-rows: auto auto;
+  column-gap: 0.75rem;
+  row-gap: 0.35rem;
+  padding: 1.2rem 1.15rem;
+  border: 1px solid var(--scout-line);
+  border-radius: 1rem;
+  background: color-mix(in srgb, white 42%, var(--scout-paper));
 }
 
 .scout-beat__k {
+  grid-row: 1;
+  grid-column: 1;
   font-family: var(--mono);
   font-size: 0.68rem;
   letter-spacing: 0.08em;
   color: var(--scout-mark);
-  padding-top: 0.2rem;
+  padding-top: 0.35rem;
 }
 
 .scout-beat__title {
+  grid-row: 1;
+  grid-column: 2;
   margin: 0;
-  font-family: var(--scout-display);
-  font-size: 1.35rem;
-  font-weight: 600;
-  letter-spacing: -0.02em;
+  font-family: "Outfit", var(--scout-sans);
+  font-size: 1.2rem;
+  font-weight: 650;
+  letter-spacing: -0.025em;
 }
 
 .scout-beat__text {
-  margin: 0.35rem 0 0;
+  grid-row: 2;
+  grid-column: 1 / -1;
+  margin: 0;
   font-size: 0.9rem;
-  line-height: 1.45;
+  line-height: 1.5;
   color: var(--scout-muted);
-  max-width: 28ch;
 }
 
 .scout-close {
@@ -1870,6 +1956,19 @@ button:focus-visible {
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
+}
+
+.scout-foot__logo {
+  text-decoration: none;
+}
+
+.scout-foot__logo:hover {
+  text-decoration: none;
+}
+
+.scout-foot__logo .scout-wm__mark {
+  height: 1.7rem;
+  width: 1.7rem;
 }
 
 .scout-foot__brand {

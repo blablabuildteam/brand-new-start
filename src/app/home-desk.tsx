@@ -4,24 +4,25 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { BlablaLogo } from "@/components/blabla-logo";
 import { HomeOpportunityStage } from "@/components/home-opportunity-stage";
+import { ScoutWordmark } from "@/components/scout-mark";
 import { SiteNav } from "@/components/site-nav";
 import { PRODUCT } from "@/lib/product-brand";
 
 const BEATS = [
   {
     k: "01",
-    title: "Spot",
-    text: "Interim- en ZZP-kansen binnen zodra ze ertoe doen.",
+    title: "Spotten",
+    text: "Nieuwe interim- en ZZP-opdrachten komen binnen zodra ze ertoe doen.",
   },
   {
     k: "02",
-    title: "Wijs",
-    text: "Elke kans gewogen. Opdrachtgever erachter vastgezet.",
+    title: "Wegen",
+    text: "Elke kans krijgt een score. De opdrachtgever erachter zet je vast.",
   },
   {
     k: "03",
-    title: "Plaats",
-    text: "Manager, kandidaat, bericht — klaar om te versturen.",
+    title: "Plaatsen",
+    text: "Manager, kandidaat en bericht staan klaar. Jij stuurt wanneer het past.",
   },
 ];
 
@@ -79,9 +80,10 @@ export default function HomeDesk() {
       </section>
 
       <main>
-        <section id="werk" className="scout-work scroll-mt-24">
+        <section id="werk" className="scout-work scroll-mt-28">
           <div className="scout-work__head">
-            <h2 className="scout-work__title">Minder zoeken. Meer business.</h2>
+            <p className="scout-eyebrow">Hoe het werkt</p>
+            <h2 className="scout-work__title">Drie stappen. Klaar om te handelen.</h2>
           </div>
 
           <ol className="scout-beats">
@@ -92,21 +94,17 @@ export default function HomeDesk() {
                 style={{ animationDelay: `${0.06 + i * 0.07}s` }}
               >
                 <span className="scout-beat__k">{b.k}</span>
-                <div>
-                  <h3 className="scout-beat__title">{b.title}</h3>
-                  <p className="scout-beat__text">{b.text}</p>
-                </div>
+                <h3 className="scout-beat__title">{b.title}</h3>
+                <p className="scout-beat__text">{b.text}</p>
               </li>
             ))}
           </ol>
-        </section>
 
-        <section className="scout-soon">
-          <div className="scout-soon__card home-reveal">
-            <span className="scout-soon__badge">Coming soon</span>
-            <h2 className="scout-soon__title">Permanent</h2>
-            <p className="scout-soon__text">Binnenkort ook voor vaste rollen.</p>
-          </div>
+          <p className="scout-soon-line home-reveal">
+            <span>Coming soon</span>
+            <strong>Permanent</strong>
+            <em>— ook voor vaste rollen</em>
+          </p>
         </section>
 
         <section className="scout-close">
@@ -130,9 +128,9 @@ export default function HomeDesk() {
 
       <footer className="scout-foot">
         <div className="scout-foot__inner">
-          <p className="scout-foot__brand">
-            <strong>{PRODUCT.name}</strong>
-          </p>
+          <Link href="/" className="scout-foot__logo" aria-label={`${PRODUCT.name} home`}>
+            <ScoutWordmark name={PRODUCT.name} />
+          </Link>
           <a
             href="https://blablabuild.com"
             target="_blank"
