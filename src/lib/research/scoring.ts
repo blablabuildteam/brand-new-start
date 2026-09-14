@@ -71,7 +71,7 @@ function scoreOne(
   tierBySource: (source?: string) => SourceTier
 ): { raw: number; lines: ScoreLine[]; positives: number; bestTier: SourceTier } {
   const lines: ScoreLine[] = [];
-  const used = new Set<ScoreFactorId>();
+  const seen = new Map<ScoreFactorId, number>();
   let raw = 0;
   let positives = 0;
   let bestTier: SourceTier = 4;
@@ -79,9 +79,13 @@ function scoreOne(
   for (const e of evidence) {
     const factor = e.factor && WEIGHTS[e.factor] ? e.factor : inferFactor(e.claim);
     if (!factor) continue;
-    // Each factor counts once — no stacking the same argument for extra points.
-    if (used.has(factor)) continue;
-    used.add(factor);
+
+    // Diminishing returns instead of a hard dedupe: repeating an argument adds
+    // a little, but a third phrasing of the same point adds nothing.
+    const times = seen.get(factor) ?? 0;
+    const repeat = times === 0 ? 1 : times === 1 ? 0.35 : 0;
+    if (repeat === 0) continue;
+    seen.set(factor, times + 1);
 
     const base = WEIGHTS[factor];
     const strength = STRENGTH_MULTIPLIER[e.strength] ?? 0.7;
@@ -93,7 +97,7 @@ function scoreOne(
     // but never below half: a weak citation is still an argument.
     const reliability =
       base.points <= 0 || factor === "explicit_name" ? 1 : Math.max(0.5, tierWeight(tier));
-    const points = Math.round(base.points * strength * reliability);
+    const points = Math.round(base.points * strength * reliability * repeat);
     if (points > 0) positives += 1;
     raw += points;
     lines.push({
@@ -106,8 +110,8 @@ function scoreOne(
 
   for (const c of counterEvidence) {
     const factor = inferFactor(c, true);
-    if (!factor || used.has(factor)) continue;
-    used.add(factor);
+    if (!factor || seen.has(factor)) continue;
+    seen.set(factor, 1);
     const base = WEIGHTS[factor];
     if (!base || base.points >= 0) continue;
     raw += base.points;
