@@ -1848,7 +1848,7 @@ export default function RadarApp({
 
           <aside
             ref={detailRef}
-            className={`ws-panel ws-panel--soft min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 lg:px-5 ${
+            className={`ws-panel ws-panel--soft ws-panel--scroll min-h-0 flex-1 overscroll-contain px-4 py-4 lg:px-5 ${
               mobilePane === "list" ? "max-lg:hidden" : ""
             }`}
           >

@@ -61,14 +61,24 @@ function LeadCard({
   clientDraft: string;
   onClientDraft: (v: string) => void;
   onReview: (id: string, action: "confirmed" | "rejected", clientName?: string) => void;
-  onAiGuess: (id: string) => void;
+  onAiGuess: (id: string, depth?: "standard" | "deep") => void;
 }) {
   const [showText, setShowText] = useState(false);
+  const [showScore, setShowScore] = useState(false);
   const guessed = lead.confirmedClient || lead.guess?.name || "";
   const client = (clientDraft || guessed).trim();
   const open = lead.status !== "confirmed" && lead.status !== "rejected";
   const multi =
     open && lead.guess && (lead.guess.alternatives.length > 0 || lead.guess.confidence < 80);
+  const report = lead.guess?.report;
+  const sourceLabel =
+    lead.guess?.source === "deep"
+      ? "AI research"
+      : lead.guess?.source === "ai"
+        ? "AI"
+        : lead.guess
+          ? "Regels"
+          : null;
 
   return (
     <article className="ws-panel px-4 py-3.5 transition hover:border-[var(--accent)]/25">
@@ -112,6 +122,101 @@ function LeadCard({
           {lead.guess && lead.status !== "rejected" ? ` · ${lead.guess.confidence}% zeker` : ""}
         </span>
       </div>
+
+      {lead.guess ? (
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          {sourceLabel ? (
+            <span className="rounded-[calc(var(--radius)-2px)] border border-[var(--line)] bg-[var(--surface)] px-1.5 py-0.5 text-[0.65rem] font-medium text-[var(--muted)]">
+              Bron: {sourceLabel}
+            </span>
+          ) : null}
+          <button
+            type="button"
+            onClick={() => setShowScore((v) => !v)}
+            className="text-[0.72rem] font-semibold text-[var(--accent)] hover:underline"
+          >
+            {showScore ? "Scoring verbergen" : "Waarop is deze score gebaseerd?"}
+          </button>
+        </div>
+      ) : null}
+
+      {showScore && lead.guess ? (
+        <div className="mt-2 rounded-[var(--radius)] border border-[var(--line)]/80 bg-[var(--surface-2)] px-3 py-2.5 text-[0.75rem] leading-relaxed text-[var(--muted)]">
+          {report ? (
+            <>
+              <p className="font-medium text-[var(--ink)]">{report.hypothesis}</p>
+              <p className="mt-1.5">{report.why}</p>
+              {report.signalsSummary ? (
+                <p className="mt-1.5">
+                  <span className="font-medium text-[var(--ink)]/80">Signalen: </span>
+                  {report.signalsSummary}
+                </p>
+              ) : null}
+              {report.ranking.length > 1 ? (
+                <ol className="mt-2 list-decimal space-y-1 pl-4">
+                  {report.ranking.slice(0, 4).map((r) => (
+                    <li key={r.name}>
+                      <span className="font-medium text-[var(--ink)]">
+                        {r.name} · {r.confidence}%
+                      </span>
+                      {r.whyLower ? <span className="block text-[0.7rem]">{r.whyLower}</span> : null}
+                    </li>
+                  ))}
+                </ol>
+              ) : null}
+              {report.counterEvidence.length ? (
+                <div className="mt-2">
+                  <p className="font-medium text-[var(--ink)]/80">Tegenbewijs / onzekerheid</p>
+                  <ul className="mt-1 list-disc space-y-0.5 pl-4">
+                    {report.counterEvidence.slice(0, 4).map((c, i) => (
+                      <li key={i}>{c}</li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+              {report.sources.length ? (
+                <div className="mt-2">
+                  <p className="font-medium text-[var(--ink)]/80">Bronnen ({report.sources.length})</p>
+                  <ul className="mt-1 space-y-0.5">
+                    {report.sources.slice(0, 5).map((s, i) => (
+                      <li key={i} className="truncate">
+                        {s.url ? (
+                          <a href={s.url} target="_blank" rel="noopener noreferrer" className="text-[var(--accent)] no-underline hover:underline">
+                            {s.title || s.url}
+                          </a>
+                        ) : (
+                          s.title
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+              <p className="mt-2 text-[0.68rem] italic">{report.scoringNotes}</p>
+            </>
+          ) : (
+            <>
+              <p>
+                <strong className="text-[var(--ink)]">Eerste eindklant</strong> komt uit lokale regels: expliciete
+                opdrachtgever-naam in de tekst, of catalogus-tags (stad/sector/stack).
+              </p>
+              <ul className="mt-2 space-y-1">
+                {lead.guess.evidence.map((e, i) => (
+                  <li key={i}>
+                    <span className="font-medium text-[var(--ink)]/80">
+                      {e.label} (+{e.weight})
+                    </span>
+                    {e.quote ? <span className="block italic">“{e.quote}”</span> : null}
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-2 text-[0.68rem]">
+                Status: ≥80% Sterk voorstel · 45–79% Review · &lt;45% Te dun. Voor diepere check: AI research.
+              </p>
+            </>
+          )}
+        </div>
+      ) : null}
 
       {lead.summary ? (
         <div className="mt-3">
@@ -224,8 +329,22 @@ function LeadCard({
 
       {open ? (
         <div className="mt-3 flex flex-wrap items-center gap-2 max-sm:[&>button]:min-w-[calc(50%-0.25rem)] max-sm:[&>button]:flex-1">
-          <button type="button" disabled={busy || aiBusy} onClick={() => onAiGuess(lead.id)} className="btn-signal btn-tool">
-            {aiBusy ? "AI bezig…" : lead.aiGuess ? "Opnieuw AI" : "AI eindklant"}
+          <button
+            type="button"
+            disabled={busy || aiBusy}
+            onClick={() => onAiGuess(lead.id, "standard")}
+            className="btn-signal btn-tool"
+          >
+            {aiBusy ? "Research bezig…" : lead.aiGuess ? "Opnieuw research" : "AI research"}
+          </button>
+          <button
+            type="button"
+            disabled={busy || aiBusy}
+            onClick={() => onAiGuess(lead.id, "deep")}
+            className="btn-ghost btn-tool"
+            title="Meer zoekrondes + diepere falsificatie (langzamer)"
+          >
+            Deep
           </button>
           <button
             type="button"
@@ -346,14 +465,14 @@ export default function LeadsDesk() {
     }
   }
 
-  async function onAiGuess(id: string) {
+  async function onAiGuess(id: string, depth: "standard" | "deep" = "standard") {
     setAiId(id);
     setError(null);
     try {
       const res = await fetch("/api/leads/ai-guess", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id }),
+        body: JSON.stringify({ id, depth }),
       });
       const j = (await res.json().catch(() => ({}))) as {
         ok?: boolean;
@@ -382,8 +501,9 @@ export default function LeadsDesk() {
         <section className="ws-intro lg:col-span-2">
           <p className="ws-intro__title">Wat doe je hier?</p>
           <p className="ws-intro__text">
-            Feeds van de recruiters die je volgt (LinkedIn-posts over vacatures/kansen). Raden en
-            bevestigen van de eindklant → daarna Kansen / hiring manager. Admin sync:{" "}
+            Feeds van de recruiters die je volgt. <strong>Eerste eindklant</strong> komt uit regels
+            (naam/tags in de tekst). <strong>AI research</strong> doet dieper: signalen → webzoeken →
+            kandidaten + tegenbewijs. Open “Waarop is deze score gebaseerd?” voor de uitleg. Admin sync:{" "}
             <strong>Recruiter-feeds</strong> onder Sync &amp; meer.
           </p>
         </section>

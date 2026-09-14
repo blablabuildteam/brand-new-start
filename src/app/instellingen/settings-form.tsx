@@ -94,10 +94,14 @@ export default function SettingsForm() {
     if (!hunt) return;
     if (typeof window === "undefined") return;
     if (window.location.hash !== "#volgen") return;
+    const el = document.getElementById("volgen");
+    if (!el) return;
+    // Only once — not on every checkbox/setHunt (that caused scroll jumps).
+    window.history.replaceState(null, "", window.location.pathname + window.location.search);
     requestAnimationFrame(() => {
-      document.getElementById("volgen")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
     });
-  }, [hunt]);
+  }, [hunt ? "ready" : ""]);
 
   const q = query.trim().toLowerCase();
 

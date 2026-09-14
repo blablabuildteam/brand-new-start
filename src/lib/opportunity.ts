@@ -15,6 +15,7 @@ import {
   type ClientGuess,
   type VacancyFacts,
 } from "@/lib/end-client";
+import { rulesReport } from "@/lib/end-client-research";
 import { detectRoleLabel } from "@/lib/niche";
 import { listSignals, patchSignalRaw } from "@/lib/store";
 import { loadDeskMeta, pushAlert, saveDeskMeta } from "@/lib/desk-meta";
@@ -103,7 +104,10 @@ function buildLead(opts: {
   storedAi?: StoredAi | null;
 }): AgencyLead {
   const facts = extractVacancyFacts(`${opts.title}\n${opts.text}`);
-  const ruleGuess = guessEndClient({ title: opts.title, text: opts.text });
+  const rawGuess = guessEndClient({ title: opts.title, text: opts.text });
+  const ruleGuess: ClientGuess | null = rawGuess
+    ? { ...rawGuess, report: rawGuess.report || rulesReport(rawGuess), source: "rules" }
+    : null;
   const auto = leadStatusFromGuess(ruleGuess);
   const stored = opts.storedReview;
   const base: AgencyLead = {

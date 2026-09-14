@@ -1,4 +1,5 @@
 import { isAgencyName } from "@/lib/agency";
+import type { ResearchReport } from "@/lib/end-client-research";
 
 export type Evidence = {
   label: string;
@@ -11,6 +12,10 @@ export type ClientGuess = {
   confidence: number;
   evidence: Evidence[];
   alternatives: { name: string; confidence: number }[];
+  /** How this guess was produced */
+  source?: "rules" | "ai" | "deep";
+  /** Transparent research / scoring explanation */
+  report?: ResearchReport;
 };
 
 export type VacancyFacts = {
@@ -64,6 +69,30 @@ const CLIENTS: Client[] = [
     aliases: ["achmea"],
     sector: "verzeker",
     tags: ["verzeker", "zeist", "apeldoorn", "schade"],
+  },
+  {
+    name: "CCV",
+    aliases: ["ccv group", "ccv nederland"],
+    sector: "payments",
+    tags: ["arnhem", "gelderland", "payments", "betalingsverkeer", "pos", ".net", "aws", "fintech"],
+  },
+  {
+    name: "VGZ",
+    aliases: ["coöperatie vgz", "cooperatie vgz"],
+    sector: "verzeker",
+    tags: ["arnhem", "gelderland", "verzeker", "zorg", "azure", ".net"],
+  },
+  {
+    name: "Alliander",
+    aliases: ["liander", "alliander n.v"],
+    sector: "energie",
+    tags: ["arnhem", "gelderland", "energie", "netbeheer", "azure"],
+  },
+  {
+    name: "DELA",
+    aliases: ["dela uitvaart"],
+    sector: "verzeker",
+    tags: ["eindhoven", "brabant", "uitvaart", "verzeker"],
   },
   {
     name: "Adyen",
@@ -142,7 +171,9 @@ function hasWord(h: string, needle: string) {
 export function extractVacancyFacts(text: string): VacancyFacts {
   const t = text.replace(/\s+/g, " ");
   const loc =
-    t.match(/\b(Amsterdam(?: Zuidas)?|Utrecht|Den Haag|Rotterdam|Eindhoven|Amersfoort|Zeist|Apeldoorn)\b/i)?.[0] ||
+    t.match(
+      /\b(Amsterdam(?: Zuidas)?|Utrecht|Den Haag|Rotterdam|Eindhoven|Amersfoort|Zeist|Apeldoorn|Arnhem|Nijmegen|Haarlem|Groningen|Tilburg|Breda|Zwolle|Gelderland|Noord-Holland|Zuid-Holland|Brabant|Limburg)\b/i
+    )?.[0] ||
     t.match(/(?:standplaats|locatie|gevestigd in|kantoor in)\s*[:\-]?\s*([A-ZÁÉÍÓÚ][A-Za-zÀ-ÿ\-]{2,24}(?:\s+[A-ZÁÉÍÓÚ][A-Za-zÀ-ÿ\-]{2,24}){0,2})/)?.[1] ||
     null;
   const start =
@@ -244,6 +275,7 @@ export function guessEndClient(opts: { title?: string; text: string }): ClientGu
     confidence: top.confidence,
     evidence: top.evidence,
     alternatives: ranked.slice(1, 3).map((r) => ({ name: r.name, confidence: r.confidence })),
+    source: "rules",
   };
 }
 

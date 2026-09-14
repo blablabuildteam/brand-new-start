@@ -1,20 +1,23 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getSession } from "@/lib/auth";
-import { aiGuessEndClient, hasOpenAiKey } from "@/lib/ai-end-client";
+import { hasAiKey } from "@/lib/ai-client";
+import { researchEndClient } from "@/lib/end-client-research";
 import { leadSourceForAi, saveAiGuess } from "@/lib/opportunity";
 
-export const maxDuration = 60;
+export const maxDuration = 120;
+export const runtime = "nodejs";
 
 const Body = z.object({
   id: z.string().min(1),
+  depth: z.enum(["standard", "deep"]).optional().default("standard"),
 });
 
 export async function POST(req: Request) {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
-  if (!hasOpenAiKey()) {
+  if (!hasAiKey()) {
     return NextResponse.json(
       {
         error: "ANTHROPIC_API_KEY ontbreekt",
@@ -35,10 +38,12 @@ export async function POST(req: Request) {
   }
 
   try {
-    const result = await aiGuessEndClient({
+    const result = await researchEndClient({
       title: src.title,
       text: src.text,
       agencyName: src.agencyName,
+      recruiterName: src.lead.recruiter.name || undefined,
+      depth: parsed.data.depth,
     });
 
     if (!result.guess) {
@@ -57,6 +62,7 @@ export async function POST(req: Request) {
       ok: true,
       detail: result.detail,
       model: result.model,
+      report: result.report,
       lead,
     });
   } catch (e) {
