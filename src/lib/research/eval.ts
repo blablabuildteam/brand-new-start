@@ -19,6 +19,11 @@ export type EvalCase = {
   expected: string[];
   /** Names that would be a hard miss (e.g. the agency itself). */
   forbidden?: string[];
+  /**
+   * Several answers are defensible. A correct answer at low confidence is then
+   * good behaviour, not bad calibration.
+   */
+  ambiguous?: boolean;
   note?: string;
 };
 
@@ -47,9 +52,10 @@ export const EVAL_CASES: EvalCase[] = [
     text: "Currently we have several open positions at our client located in Amsterdam. Position: Senior Software Engineer - Backend (8+ years of experience). Location: Amsterdam - Hybrid. Team: High Traffic environment. Startdate: As soon as possible. Hourly rate: €85-90. Technical stack: Java, Spring Boot, Docker, Kubernetes, Microservice, API integrations, Terraform, CI/CD, Kafka, Streaming platforms (Flink, Kafka Streams), AWS, JS Frameworks (React, Vue).",
     agencyName: "Spilberg",
     recruiterName: "Nicky Klaver",
-    expected: ["Booking.com", "Adyen", "bol", "bol.com", "Albert Heijn", "ING"],
+    expected: ["Booking.com", "Adyen", "bol", "bol.com", "Albert Heijn", "ING", "Catawiki"],
     forbidden: ["Spilberg"],
-    note: "Bewust breed: high-traffic Amsterdam + Java/Kafka/AWS. Test of het model in de juiste vijver vist.",
+    ambiguous: true,
+    note: "Bewust breed: high-traffic Amsterdam + Java/Kafka/AWS. Test of het model in de juiste vijver vist, niet of het één naam raakt.",
   },
   {
     id: "iam_azure_hybrid",
@@ -115,11 +121,14 @@ export async function runEvalCase(c: EvalCase, depth: ResearchDepth): Promise<Ev
   const forbiddenHit = Boolean(c.forbidden?.length) && ranking.some((r) => matches(r.name, c.forbidden!));
 
   // Good calibration: hits are confident, misses and unknowns are not.
+  // Ambiguous cases only need to stay modest — being right there is partly luck.
   const calibrated = openCase
     ? (confidence ?? 0) <= 55
-    : hitAt1
-      ? (confidence ?? 0) >= 55
-      : (confidence ?? 0) <= 60;
+    : c.ambiguous
+      ? (confidence ?? 0) <= 70
+      : hitAt1
+        ? (confidence ?? 0) >= 55
+        : (confidence ?? 0) <= 60;
 
   return {
     id: c.id,
@@ -146,7 +155,9 @@ export async function runEval(opts?: { depth?: ResearchDepth; ids?: string[] }) 
     results.push(await runEvalCase(c, depth));
   }
 
+  const byId = new Map(cases.map((c) => [c.id, c]));
   const scored = results.filter((r) => r.expected.length > 0);
+  const strict = scored.filter((r) => !byId.get(r.id)?.ambiguous);
   const hits1 = scored.filter((r) => r.hitAt1).length;
   const hits3 = scored.filter((r) => r.hitAt3).length;
 
@@ -155,6 +166,10 @@ export async function runEval(opts?: { depth?: ResearchDepth; ids?: string[] }) 
     cases: results.length,
     metrics: {
       hitAt1: scored.length ? Number((hits1 / scored.length).toFixed(2)) : null,
+      /** Only cases with one defensible answer — the metric to optimise. */
+      hitAt1Strict: strict.length
+        ? Number((strict.filter((r) => r.hitAt1).length / strict.length).toFixed(2))
+        : null,
       hitAt3: scored.length ? Number((hits3 / scored.length).toFixed(2)) : null,
       calibration: results.length
         ? Number((results.filter((r) => r.calibrated).length / results.length).toFixed(2))

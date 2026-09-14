@@ -16,7 +16,12 @@ export async function GET() {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   return NextResponse.json({
-    cases: EVAL_CASES.map((c) => ({ id: c.id, expected: c.expected, note: c.note })),
+    cases: EVAL_CASES.map((c) => ({
+      id: c.id,
+      expected: c.expected,
+      ambiguous: Boolean(c.ambiguous),
+      note: c.note,
+    })),
   });
 }
 
