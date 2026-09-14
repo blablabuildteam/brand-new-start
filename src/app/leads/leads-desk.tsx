@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { AppShell } from "@/components/app-shell";
 import type { AgencyLead, LeadStatus } from "@/lib/opportunity";
+import type { ResearchDepth } from "@/lib/research/types";
 import { kansenHref, radarHref, regieHref } from "@/lib/desk-links";
 
 type Payload = {
@@ -61,7 +62,7 @@ function LeadCard({
   clientDraft: string;
   onClientDraft: (v: string) => void;
   onReview: (id: string, action: "confirmed" | "rejected", clientName?: string) => void;
-  onAiGuess: (id: string, depth?: "standard" | "deep") => void;
+  onAiGuess: (id: string, depth?: ResearchDepth) => void;
 }) {
   const [showText, setShowText] = useState(false);
   const [showScore, setShowScore] = useState(false);
@@ -152,18 +153,63 @@ function LeadCard({
                   {report.signalsSummary}
                 </p>
               ) : null}
-              {report.ranking.length > 1 ? (
-                <ol className="mt-2 list-decimal space-y-1 pl-4">
-                  {report.ranking.slice(0, 4).map((r) => (
-                    <li key={r.name}>
-                      <span className="font-medium text-[var(--ink)]">
-                        {r.name} · {r.confidence}%
-                      </span>
-                      {r.whyLower ? <span className="block text-[0.7rem]">{r.whyLower}</span> : null}
-                    </li>
+
+              {report.ranking.length ? (
+                <div className="mt-2.5 space-y-2">
+                  <p className="font-medium text-[var(--ink)]/80">Kandidaten &amp; scoreopbouw</p>
+                  {report.ranking.slice(0, 4).map((r, idx) => (
+                    <div
+                      key={r.name}
+                      className="rounded-[calc(var(--radius)-2px)] border border-[var(--line)]/70 bg-[var(--surface)] px-2.5 py-2"
+                    >
+                      <div className="flex items-baseline justify-between gap-2">
+                        <span className="font-semibold text-[var(--ink)]">
+                          {idx + 1}. {r.name}
+                        </span>
+                        <span className="shrink-0 font-semibold text-[var(--ink)]">{r.confidence}%</span>
+                      </div>
+                      <p className="mt-0.5 text-[0.72rem] leading-snug">{idx === 0 ? r.why : r.whyLower || r.why}</p>
+                      {r.score?.lines.length ? (
+                        <ul className="mt-1.5 space-y-0.5">
+                          {r.score.lines.map((l, i) => (
+                            <li key={i} className="flex gap-2 text-[0.7rem] leading-snug">
+                              <span
+                                className={`w-9 shrink-0 text-right font-semibold ${
+                                  l.points >= 0 ? "text-[var(--accent)]" : "text-[#b4462f]"
+                                }`}
+                              >
+                                {l.points >= 0 ? `+${l.points}` : l.points}
+                              </span>
+                              <span>
+                                <span className="text-[var(--ink)]/80">{l.label}</span>
+                                {l.note ? <span className="block italic opacity-80">{l.note}</span> : null}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : null}
+                      {r.counterEvidence.length ? (
+                        <p className="mt-1.5 text-[0.7rem] leading-snug">
+                          <span className="font-medium text-[#b4462f]">Tegen: </span>
+                          {r.counterEvidence.join(" · ")}
+                        </p>
+                      ) : null}
+                    </div>
                   ))}
-                </ol>
+                </div>
               ) : null}
+
+              {report.timeline?.length ? (
+                <div className="mt-2">
+                  <p className="font-medium text-[var(--ink)]/80">Tijdlijn</p>
+                  <ul className="mt-1 list-disc space-y-0.5 pl-4">
+                    {report.timeline.slice(0, 5).map((t, i) => (
+                      <li key={i}>{t}</li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+
               {report.counterEvidence.length ? (
                 <div className="mt-2">
                   <p className="font-medium text-[var(--ink)]/80">Tegenbewijs / onzekerheid</p>
@@ -174,24 +220,55 @@ function LeadCard({
                   </ul>
                 </div>
               ) : null}
+
+              {report.openQuestions?.length ? (
+                <div className="mt-2">
+                  <p className="font-medium text-[var(--ink)]/80">Nog te checken</p>
+                  <ul className="mt-1 list-disc space-y-0.5 pl-4">
+                    {report.openQuestions.slice(0, 4).map((c, i) => (
+                      <li key={i}>{c}</li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+
               {report.sources.length ? (
                 <div className="mt-2">
                   <p className="font-medium text-[var(--ink)]/80">Bronnen ({report.sources.length})</p>
                   <ul className="mt-1 space-y-0.5">
-                    {report.sources.slice(0, 5).map((s, i) => (
-                      <li key={i} className="truncate">
-                        {s.url ? (
-                          <a href={s.url} target="_blank" rel="noopener noreferrer" className="text-[var(--accent)] no-underline hover:underline">
-                            {s.title || s.url}
-                          </a>
-                        ) : (
-                          s.title
-                        )}
+                    {report.sources.slice(0, 8).map((s, i) => (
+                      <li key={i} className="flex gap-1.5">
+                        <span
+                          className="shrink-0 rounded border border-[var(--line)] px-1 text-[0.62rem] font-semibold text-[var(--muted)]"
+                          title={
+                            s.internal
+                              ? "Eigen desk-data"
+                              : `Tier ${s.tier ?? 4} — 1 officieel, 2 platform, 3 aggregator, 4 onbekend${s.scraped ? " · pagina gelezen" : ""}`
+                          }
+                        >
+                          {s.internal ? "eigen" : `T${s.tier ?? 4}`}
+                          {s.scraped ? "•" : ""}
+                        </span>
+                        <span className="truncate">
+                          {s.url ? (
+                            <a
+                              href={s.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-[var(--accent)] no-underline hover:underline"
+                            >
+                              {s.title || s.url}
+                            </a>
+                          ) : (
+                            s.title
+                          )}
+                        </span>
                       </li>
                     ))}
                   </ul>
                 </div>
               ) : null}
+
               <p className="mt-2 text-[0.68rem] italic">{report.scoringNotes}</p>
             </>
           ) : (
@@ -340,9 +417,18 @@ function LeadCard({
           <button
             type="button"
             disabled={busy || aiBusy}
+            onClick={() => onAiGuess(lead.id, "quick")}
+            className="btn-ghost btn-tool"
+            title="Eén zoekronde — snel en goedkoop, lagere zekerheid"
+          >
+            Snel
+          </button>
+          <button
+            type="button"
+            disabled={busy || aiBusy}
             onClick={() => onAiGuess(lead.id, "deep")}
             className="btn-ghost btn-tool"
-            title="Meer zoekrondes + diepere falsificatie (langzamer)"
+            title="Drie rondes: shortlist, verificatie per kandidaat en actieve falsificatie (langzaam)"
           >
             Deep
           </button>
@@ -465,7 +551,7 @@ export default function LeadsDesk() {
     }
   }
 
-  async function onAiGuess(id: string, depth: "standard" | "deep" = "standard") {
+  async function onAiGuess(id: string, depth: ResearchDepth = "standard") {
     setAiId(id);
     setError(null);
     try {

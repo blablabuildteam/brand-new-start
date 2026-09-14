@@ -5,12 +5,12 @@ import { hasAiKey } from "@/lib/ai-client";
 import { researchEndClient } from "@/lib/end-client-research";
 import { leadSourceForAi, saveAiGuess } from "@/lib/opportunity";
 
-export const maxDuration = 120;
+export const maxDuration = 300;
 export const runtime = "nodejs";
 
 const Body = z.object({
   id: z.string().min(1),
-  depth: z.enum(["standard", "deep"]).optional().default("standard"),
+  depth: z.enum(["quick", "standard", "deep"]).optional().default("standard"),
 });
 
 export async function POST(req: Request) {
@@ -43,6 +43,7 @@ export async function POST(req: Request) {
       text: src.text,
       agencyName: src.agencyName,
       recruiterName: src.lead.recruiter.name || undefined,
+      signalId: src.lead.signalId || undefined,
       depth: parsed.data.depth,
     });
 

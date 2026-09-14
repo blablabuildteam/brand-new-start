@@ -1,5 +1,5 @@
 import { isAgencyName } from "@/lib/agency";
-import type { ResearchReport } from "@/lib/end-client-research";
+import type { ResearchReport } from "@/lib/research/types";
 
 export type Evidence = {
   label: string;
@@ -222,6 +222,34 @@ function catalogMatch(name: string): Client | null {
   return null;
 }
 
+/**
+ * Tag rarity from the catalog itself: "asset life cycle" identifies one client,
+ * "azure" identifies half of them. Without this, generic stack words produced
+ * confident nonsense.
+ */
+const TAG_RARITY: Map<string, number> = (() => {
+  const counts = new Map<string, number>();
+  for (const c of CLIENTS) {
+    for (const t of new Set(c.tags)) counts.set(t, (counts.get(t) || 0) + 1);
+  }
+  const out = new Map<string, number>();
+  for (const [tag, n] of counts) {
+    // 1 client → 1.0 (distinctive), 2 → 0.7, 3 → 0.5, many → 0.3
+    out.set(tag, n <= 1 ? 1 : n === 2 ? 0.7 : n === 3 ? 0.5 : 0.3);
+  }
+  return out;
+})();
+
+/** Bureau references often keep the client in the job code: "Booking — 12785 — SE2". */
+function referencedClient(title: string): { client: Client; quote: string } | null {
+  const head = title.split(/[—–|/]/)[0]?.trim();
+  if (!head || head.length < 3 || head.length > 40) return null;
+  if (isAgencyName(head)) return null;
+  const cat = catalogMatch(head);
+  if (!cat) return null;
+  return { client: cat, quote: title.slice(0, 120) };
+}
+
 export function guessEndClient(opts: { title?: string; text: string }): ClientGuess | null {
   const blob = `${opts.title || ""}\n${opts.text}`;
   const h = hay(blob);
@@ -244,6 +272,15 @@ export function guessEndClient(opts: { title?: string; text: string }): ClientGu
     });
   }
 
+  const referenced = referencedClient(opts.title || "");
+  if (referenced) {
+    add(referenced.client.name, {
+      label: "Klantnaam in de opdrachtreferentie",
+      quote: referenced.quote,
+      weight: 84,
+    });
+  }
+
   for (const c of CLIENTS) {
     for (const alias of [c.name, ...c.aliases]) {
       if (alias.length < 3) continue;
@@ -251,13 +288,23 @@ export function guessEndClient(opts: { title?: string; text: string }): ClientGu
         add(c.name, { label: `Naam ${c.name} in de tekst`, weight: 86 });
       }
     }
+
     const hits = c.tags.filter((t) => hasWord(h, t));
-    if (hits.length >= 2) {
-      add(c.name, {
-        label: `Profiel: ${hits.slice(0, 4).join(", ")}`,
-        weight: Math.min(28 + hits.length * 10, 72),
-      });
-    }
+    if (hits.length < 2) continue;
+
+    // Weigh by rarity, not by count: two distinctive tags beat five generic ones.
+    const rarity = hits.map((t) => TAG_RARITY.get(t) ?? 0.5);
+    const mass = rarity.reduce((a, b) => a + b, 0);
+    const distinctive = hits.filter((t) => (TAG_RARITY.get(t) ?? 0.5) >= 0.7);
+    // No distinctive signal at all → a tag match is a hint, not a hypothesis.
+    const ceiling = distinctive.length >= 2 ? 74 : distinctive.length === 1 ? 62 : 46;
+    const sorted = [...hits].sort((a, b) => (TAG_RARITY.get(b) ?? 0.5) - (TAG_RARITY.get(a) ?? 0.5));
+
+    add(c.name, {
+      label: `Profiel: ${sorted.slice(0, 4).join(", ")}`,
+      quote: distinctive.length ? `Onderscheidend: ${distinctive.slice(0, 3).join(", ")}` : undefined,
+      weight: Math.min(ceiling, Math.round(22 + mass * 22)),
+    });
   }
 
   const ranked = [...scored.values()]
@@ -266,7 +313,9 @@ export function guessEndClient(opts: { title?: string; text: string }): ClientGu
       const confidence = Math.min(95, weights[0]! + Math.floor((weights[1] || 0) * 0.15));
       return { name: s.name, confidence, evidence: s.evidence.sort((a, b) => b.weight - a.weight).slice(0, 4) };
     })
-    .sort((a, b) => b.confidence - a.confidence);
+    .sort((a, b) => b.confidence - a.confidence)
+    // Near-ties mean the catalog cannot separate them; keep them as real alternatives.
+    .slice(0, 4);
 
   const top = ranked[0];
   if (!top) return null;
@@ -274,7 +323,7 @@ export function guessEndClient(opts: { title?: string; text: string }): ClientGu
     name: top.name,
     confidence: top.confidence,
     evidence: top.evidence,
-    alternatives: ranked.slice(1, 3).map((r) => ({ name: r.name, confidence: r.confidence })),
+    alternatives: ranked.slice(1, 4).map((r) => ({ name: r.name, confidence: r.confidence })),
     source: "rules",
   };
 }
