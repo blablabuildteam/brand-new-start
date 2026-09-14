@@ -32,16 +32,18 @@ type SettingsPayload = {
 type FoundPerson = { name: string; title: string | null; url: string | null };
 
 function Section({
+  id,
   title,
   hint,
   children,
 }: {
+  id?: string;
   title: string;
   hint: string;
   children: ReactNode;
 }) {
   return (
-    <section className="ws-panel h-full px-4 py-4">
+    <section id={id} className={`ws-panel h-full px-4 py-4 ${id ? "scroll-mt-24" : ""}`}>
       <p className="ws-label">{title}</p>
       <p className="mt-1 text-[0.8rem] leading-relaxed text-[var(--muted)]">{hint}</p>
       <div className="mt-4 space-y-4">{children}</div>
@@ -87,6 +89,15 @@ export default function SettingsForm() {
         setRolesText(j.roles.join("\n"));
       });
   }, []);
+
+  useEffect(() => {
+    if (!hunt) return;
+    if (typeof window === "undefined") return;
+    if (window.location.hash !== "#volgen") return;
+    requestAnimationFrame(() => {
+      document.getElementById("volgen")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }, [hunt]);
 
   const q = query.trim().toLowerCase();
 
@@ -364,7 +375,7 @@ export default function SettingsForm() {
               <label className="min-w-[12rem] flex-1 text-sm font-medium">
                 Toolnaam
                 <span className="mt-0.5 block text-[0.72rem] font-normal text-[var(--muted)]">
-                  Verschijnt in het menu (nu: {hunt.name || "Regie"}).
+                  Verschijnt in het menu (nu: {hunt.name || "Recruitment Scout"}).
                 </span>
                 <input
                   className="ws-input mt-1 max-w-md"
@@ -378,22 +389,32 @@ export default function SettingsForm() {
               <label className="block text-sm font-medium">
                 Functies
                 <span className="mt-0.5 block text-[0.75rem] font-normal text-[var(--muted)]">
-                  Eén functie per regel — dit worden je zoekopdrachten.
+                  Eén functie per regel. Scroll in het vak of sleep de rechteronderhoek groter.
                 </span>
                 <textarea
-                  rows={10}
-                  className="ws-textarea ws-textarea--mono mt-1"
+                  rows={12}
+                  className="ws-textarea ws-textarea--mono ws-textarea--roles mt-1"
                   value={rolesText}
                   onChange={(e) => setRolesText(e.target.value)}
                 />
+                <span className="mt-1 block text-[0.7rem] text-[var(--muted)]">
+                  {rolesText.split("\n").filter((l) => l.trim()).length} zoekopdrachten
+                </span>
               </label>
               <div>
                 <p className="text-sm font-medium">Soort opdracht</p>
+                <p className="mt-0.5 text-[0.75rem] text-[var(--muted)]">
+                  Wat mag in Sync/Radar? Zet uit wat je niet wilt zien.
+                </p>
                 <div className="mt-2 grid gap-2 sm:grid-cols-2">
                   {hunt.catalog.employmentKinds.map((k) => (
                     <label
                       key={k.id}
-                      className="flex cursor-pointer items-start gap-3 rounded-[var(--radius)] border border-[var(--line)] px-3 py-2.5 hover:border-[var(--accent)]/25"
+                      className={`flex cursor-pointer items-start gap-3 rounded-[var(--radius)] border px-3 py-2.5 transition ${
+                        hunt.employmentKinds.includes(k.id)
+                          ? "border-[var(--accent)]/35 bg-[var(--accent-soft)]/35"
+                          : "border-[var(--line)] hover:border-[var(--accent)]/25"
+                      }`}
                     >
                       <input
                         type="checkbox"
@@ -414,7 +435,13 @@ export default function SettingsForm() {
                   ))}
                 </div>
               </div>
-              <label className="flex items-start gap-3 text-sm">
+              <label
+                className={`flex items-start gap-3 rounded-[var(--radius)] border px-3 py-2.5 text-sm ${
+                  hunt.requireContract
+                    ? "border-[var(--accent)]/35 bg-[var(--accent-soft)]/35"
+                    : "border-[var(--line)]"
+                }`}
+              >
                 <input
                   type="checkbox"
                   className="mt-0.5 h-4 w-4 accent-[var(--accent)]"
@@ -424,7 +451,7 @@ export default function SettingsForm() {
                 <span>
                   <span className="font-medium text-[var(--ink)]">Alleen contracting</span>
                   <span className="mt-0.5 block text-[0.75rem] text-[var(--muted)]">
-                    Vaste banen uitfilteren.
+                    Filter vaste (permanent) banen eruit — apart van ZZP/interim hierboven.
                   </span>
                 </span>
               </label>
@@ -441,6 +468,7 @@ export default function SettingsForm() {
             </Section>
 
             <Section
+              id="volgen"
               title="Bureaus & recruiters"
               hint="Recruiters met LinkedIn-URL worden gescand op vacature-/kans-posts (Recruiter-feeds → Bureaus). Zonder URL geen feed-sync."
             >

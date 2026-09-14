@@ -4,8 +4,9 @@ import { FormEvent, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { BlablaLogo } from "@/components/blabla-logo";
-import { RegieWordmark } from "@/components/regie-mark";
+import { ScoutWordmark } from "@/components/scout-mark";
 import { partnerForEmail } from "@/lib/partner-brand";
+import { PRODUCT } from "@/lib/product-brand";
 
 export default function LoginForm() {
   const router = useRouter();
@@ -41,8 +42,8 @@ export default function LoginForm() {
   return (
     <div className="min-h-dvh bg-[var(--bg)]">
       <header className="mx-auto flex h-14 max-w-[1120px] items-center justify-between gap-4 px-5 pt-[env(safe-area-inset-top)] md:px-8">
-        <Link href="/" className="nav-link" aria-label="Regie home">
-          <RegieWordmark />
+        <Link href="/" className="nav-link" aria-label={`${PRODUCT.name} home`}>
+          <ScoutWordmark name={PRODUCT.name} tone="light" />
         </Link>
         <Link href="/" className="text-sm font-medium text-[var(--muted)] no-underline hover:text-[var(--ink)]">
           ← Home
@@ -69,7 +70,7 @@ export default function LoginForm() {
           <p className="mt-2 mb-6 text-sm leading-relaxed text-[var(--muted)]">
             {partner
               ? `Open de ${partner.name}-workspace: Radar, Bureaus, Kansen en Voorstel.`
-              : "Daarna open je de contracting-desk: Radar, Bureaus, Kansen en Voorstel."}
+              : `Open ${PRODUCT.name}: Radar, Bureaus, Kansen en Voorstel.`}
           </p>
           <label className="mb-3 block text-sm font-medium">
             E-mail

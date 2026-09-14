@@ -3,7 +3,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { RegieMark } from "@/components/regie-mark";
+import { ScoutMark } from "@/components/scout-mark";
 import { AlertsBell } from "@/components/alerts-bell";
 import { cacheClear, cacheGet, cachedJson } from "@/lib/client-cache";
 import { partnerForEmail } from "@/lib/partner-brand";
@@ -91,7 +91,7 @@ export function AppShell({
   fill?: boolean;
 }) {
   const router = useRouter();
-  const [name, setName] = useState("Regie");
+  const [name, setName] = useState("Recruitment Scout");
   const [user, setUser] = useState<ShellUser | null>(null);
   const [open, setOpen] = useState(false);
 
@@ -158,7 +158,7 @@ export function AppShell({
           />
         ) : (
           <>
-            <RegieMark className="h-8 w-8" />
+            <ScoutMark className="h-8 w-8" tone="light" />
             <span className="min-w-0">
               <span
                 className="block truncate text-[1.15rem] tracking-tight text-[var(--ink)]"
@@ -233,7 +233,7 @@ export function AppShell({
   );
 
   return (
-    <div className={`app-root ${fill ? "flex h-dvh overflow-hidden" : "flex min-h-dvh"}`}>
+    <div className="app-root flex h-dvh overflow-hidden">
       <aside className="app-sidebar hidden w-[220px] shrink-0 flex-col overflow-y-auto px-3 py-4 md:flex">
         {nav}
       </aside>
@@ -254,7 +254,7 @@ export function AppShell({
         {nav}
       </aside>
 
-      <div className={`flex min-w-0 flex-1 flex-col ${fill ? "min-h-0" : ""}`}>
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <header className="app-topbar z-30 flex min-h-12 shrink-0 items-center gap-2 border-b border-[var(--line)] bg-[var(--surface)] px-5 pt-[env(safe-area-inset-top)] pb-0 sm:gap-3 md:px-7 md:pt-0">
           <div className="flex min-h-12 w-full items-center gap-2 sm:gap-3">
           <button
@@ -289,8 +289,8 @@ export function AppShell({
           </div>
         </header>
         <div
-          className={`app-body min-w-0 flex-1 ${
-            fill ? "flex min-h-0 flex-col overflow-hidden md:!pb-0" : "md:!pb-0"
+          className={`app-body min-h-0 min-w-0 flex-1 ${
+            fill ? "flex flex-col overflow-hidden md:!pb-0" : "overflow-y-auto overscroll-contain"
           }`}
         >
           {children}

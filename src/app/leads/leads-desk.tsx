@@ -18,10 +18,18 @@ type Payload = {
 };
 
 const STATUS_NL: Record<LeadStatus, string> = {
-  suggest: "Voorstel",
+  suggest: "Sterk voorstel",
   review: "Review",
   weak: "Te dun",
   confirmed: "Bevestigd",
+  rejected: "Afgewezen",
+};
+
+const STATUS_HINT: Record<LeadStatus, string> = {
+  suggest: "Hoge zekerheid (≥80%) — meestal veilig om te bevestigen",
+  review: "Twijfelzone (45–79%) — check bewijs of kies een optie",
+  weak: "Weinige signalen (<45%) — zelf invullen of AI opnieuw",
+  confirmed: "Door jou bevestigd",
   rejected: "Afgewezen",
 };
 
@@ -55,9 +63,13 @@ function LeadCard({
   onReview: (id: string, action: "confirmed" | "rejected", clientName?: string) => void;
   onAiGuess: (id: string) => void;
 }) {
+  const [showText, setShowText] = useState(false);
   const guessed = lead.confirmedClient || lead.guess?.name || "";
   const client = (clientDraft || guessed).trim();
   const open = lead.status !== "confirmed" && lead.status !== "rejected";
+  const multi =
+    open && lead.guess && (lead.guess.alternatives.length > 0 || lead.guess.confidence < 80);
+
   return (
     <article className="ws-panel px-4 py-3.5 transition hover:border-[var(--accent)]/25">
       <div className="flex items-start justify-between gap-3">
@@ -94,14 +106,56 @@ function LeadCard({
         </div>
         <span
           className={`shrink-0 rounded-[calc(var(--radius)-2px)] border px-2 py-0.5 text-[0.65rem] font-semibold ${statusClass(lead.status)}`}
+          title={STATUS_HINT[lead.status]}
         >
           {STATUS_NL[lead.status]}
-          {lead.guess && lead.status !== "rejected" ? ` · ${lead.guess.confidence}%` : ""}
+          {lead.guess && lead.status !== "rejected" ? ` · ${lead.guess.confidence}% zeker` : ""}
         </span>
       </div>
 
+      {lead.summary ? (
+        <div className="mt-3">
+          <button
+            type="button"
+            onClick={() => setShowText((v) => !v)}
+            className="text-[0.72rem] font-semibold text-[var(--accent)] hover:underline"
+          >
+            {showText ? "Vacaturetekst verbergen" : "Vacaturetekst / AI-basis tonen"}
+          </button>
+          {showText ? (
+            <div className="mt-2 rounded-[var(--radius)] border border-[var(--line)]/80 bg-[var(--surface-2)] px-3 py-2.5">
+              <p className="ws-label">Waar de AI op leest</p>
+              <p className="mt-1.5 whitespace-pre-wrap text-[0.78rem] leading-relaxed text-[var(--ink)]/85">
+                {lead.summary}
+                {lead.summary.length >= 1390 ? "…" : ""}
+              </p>
+              {lead.guess?.evidence.length ? (
+                <ul className="mt-2 space-y-1 border-t border-[var(--line)]/70 pt-2">
+                  {lead.guess.evidence.slice(0, 4).map((e, i) => (
+                    <li key={i} className="text-[0.72rem] leading-snug text-[var(--muted)]">
+                      <span className="font-medium text-[var(--ink)]/80">{e.label}</span>
+                      {e.quote ? <span className="mt-0.5 block italic">“{e.quote}”</span> : null}
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+              {lead.evidenceUrl ? (
+                <a
+                  href={lead.evidenceUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-2 inline-block text-[0.72rem] font-semibold text-[var(--accent)] no-underline hover:underline"
+                >
+                  Volledige vacature →
+                </a>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
       <div className="mt-3 rounded-[var(--radius)] border border-[var(--line)]/80 bg-[var(--surface-2)] px-3 py-2.5">
-        <p className="ws-label">Eindklant</p>
+        <p className="ws-label">{multi ? "Eindklant · kies of vul in" : "Eindklant"}</p>
         {open ? (
           <input
             type="text"
@@ -114,7 +168,7 @@ function LeadCard({
         ) : (
           <p className="mt-1 text-sm font-semibold text-[var(--ink)]">{client || "Nog niet te zeggen"}</p>
         )}
-        {lead.guess?.evidence.length ? (
+        {lead.guess?.evidence.length && !showText ? (
           <ul className="mt-2 space-y-1.5">
             {lead.guess.evidence.slice(0, 3).map((e, i) => (
               <li key={i} className="text-[0.75rem] leading-snug text-[var(--muted)]">
@@ -123,23 +177,47 @@ function LeadCard({
               </li>
             ))}
           </ul>
-        ) : (
+        ) : !lead.guess?.evidence.length ? (
           <p className="mt-1 text-[0.75rem] text-[var(--muted)]">Te vaag voor regels — probeer AI eindklant.</p>
-        )}
-        {lead.guess?.alternatives.length ? (
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            <span className="text-[0.72rem] text-[var(--muted)]">Ook mogelijk:</span>
-            {lead.guess.alternatives.map((a) => (
-              <button
-                key={a.name}
-                type="button"
-                disabled={!open}
-                onClick={() => onClientDraft(a.name)}
-                className="rounded-[calc(var(--radius)-2px)] border border-[var(--line)] bg-[var(--surface)] px-2 py-0.5 text-[0.7rem] font-medium text-[var(--ink)] hover:border-[var(--accent)] disabled:opacity-50"
-              >
-                {a.name} ({a.confidence}%)
-              </button>
-            ))}
+        ) : null}
+        {lead.guess && (lead.guess.name || lead.guess.alternatives.length) ? (
+          <div className="mt-2.5">
+            <p className="mb-1.5 text-[0.72rem] text-[var(--muted)]">
+              {lead.guess.alternatives.length
+                ? "Mogelijke eindklanten — tik om te kiezen:"
+                : "Voorgestelde eindklant:"}
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {lead.guess.name ? (
+                <button
+                  type="button"
+                  disabled={!open}
+                  onClick={() => onClientDraft(lead.guess!.name)}
+                  className={`rounded-[calc(var(--radius)-2px)] border px-2 py-0.5 text-[0.7rem] font-medium disabled:opacity-50 ${
+                    client === lead.guess.name
+                      ? "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]"
+                      : "border-[var(--line)] bg-[var(--surface)] text-[var(--ink)] hover:border-[var(--accent)]"
+                  }`}
+                >
+                  {lead.guess.name} ({lead.guess.confidence}%)
+                </button>
+              ) : null}
+              {lead.guess.alternatives.map((a) => (
+                <button
+                  key={a.name}
+                  type="button"
+                  disabled={!open}
+                  onClick={() => onClientDraft(a.name)}
+                  className={`rounded-[calc(var(--radius)-2px)] border px-2 py-0.5 text-[0.7rem] font-medium disabled:opacity-50 ${
+                    client === a.name
+                      ? "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]"
+                      : "border-[var(--line)] bg-[var(--surface)] text-[var(--ink)] hover:border-[var(--accent)]"
+                  }`}
+                >
+                  {a.name} ({a.confidence}%)
+                </button>
+              ))}
+            </div>
           </div>
         ) : null}
       </div>
@@ -310,25 +388,49 @@ export default function LeadsDesk() {
           </p>
         </section>
         <aside className={`radar-scroll-pane min-h-0 shrink-0 lg:max-h-none ${watchOpen ? "max-lg:max-h-64" : "max-lg:max-h-none"}`}>
-          <button
-            type="button"
-            className="radar-scroll-pane__head w-full text-left lg:pointer-events-none"
-            onClick={() => setWatchOpen((v) => !v)}
-            aria-expanded={watchOpen}
-          >
-            <p className="ws-label">Die je volgt</p>
-            <span className="flex items-center gap-2">
-              <span className="tabular-nums text-[0.68rem] text-[var(--muted)]" style={{ fontFamily: "var(--mono)" }}>
-                {data?.watchlist.length ?? 0}
+          <div className="radar-scroll-pane__head flex w-full items-center justify-between gap-2">
+            <button
+              type="button"
+              className="flex min-w-0 flex-1 items-center justify-between text-left lg:pointer-events-none"
+              onClick={() => setWatchOpen((v) => !v)}
+              aria-expanded={watchOpen}
+            >
+              <p className="ws-label">Die je volgt</p>
+              <span className="flex items-center gap-2">
+                <span className="tabular-nums text-[0.68rem] text-[var(--muted)]" style={{ fontFamily: "var(--mono)" }}>
+                  {data?.watchlist.length ?? 0}
+                </span>
+                <span className="text-[0.7rem] text-[var(--accent)] lg:hidden" aria-hidden>
+                  {watchOpen ? "▴" : "▾"}
+                </span>
               </span>
-              <span className="text-[0.7rem] text-[var(--accent)] lg:hidden" aria-hidden>
-                {watchOpen ? "▴" : "▾"}
-              </span>
-            </span>
-          </button>
+            </button>
+            <Link
+              href="/instellingen#volgen"
+              className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-[calc(var(--radius)-2px)] border border-[var(--line)] text-[var(--muted)] no-underline hover:border-[var(--accent)] hover:text-[var(--accent)]"
+              title="Bureaus & recruiters bewerken"
+              aria-label="Bureaus & recruiters bewerken"
+            >
+              <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden>
+                <path
+                  d="M11.5 2.5l2 2L5 13H3v-2L11.5 2.5z"
+                  stroke="currentColor"
+                  strokeWidth="1.4"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </Link>
+          </div>
           <div className={`radar-scroll-pane__body !px-2 ${watchOpen ? "" : "max-lg:hidden"} lg:!block`}>
             {!data ? (
               <p className="px-2 py-2 text-[0.78rem] text-[var(--muted)]">Laden…</p>
+            ) : data.watchlist.length === 0 ? (
+              <p className="px-2 py-2 text-[0.78rem] text-[var(--muted)]">
+                Nog niemand.{" "}
+                <Link href="/instellingen#volgen" className="font-semibold text-[var(--accent)] no-underline hover:underline">
+                  Stel in →
+                </Link>
+              </p>
             ) : (
               <ul className="space-y-0.5">
                 {data.watchlist.map((a) => (

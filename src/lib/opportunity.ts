@@ -120,7 +120,7 @@ function buildLead(opts: {
     status: stored?.status || auto,
     confirmedClient: stored?.status === "confirmed" ? stored.clientName || ruleGuess?.name || null : null,
     evidenceUrl: opts.evidenceUrl || null,
-    summary: opts.text.replace(/\s+/g, " ").trim().slice(0, 280),
+    summary: opts.text.replace(/\s+/g, " ").trim().slice(0, 1400),
     signalId: opts.signalId,
   };
   return applyReview(applyStoredAi(base, opts.storedAi));

@@ -407,6 +407,7 @@ button:focus-visible {
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
   padding-bottom: 1.5rem;
 }
 
@@ -426,6 +427,13 @@ button:focus-visible {
   font-family: var(--font);
   line-height: 1.45;
   min-height: 6rem;
+}
+
+.ws-textarea--roles {
+  min-height: 14rem;
+  max-height: 28rem;
+  overflow-y: auto;
+  field-sizing: content;
 }
 
 .ws-textarea--mono {
