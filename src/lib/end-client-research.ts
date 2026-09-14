@@ -81,12 +81,13 @@ async function firecrawlSearch(query: string, limit = 5): Promise<SearchHit[]> {
     });
     if (!res.ok) return [];
     const data = (await res.json()) as {
-      data?: { title?: string; url?: string; description?: string }[];
+      success?: boolean;
+      data?: { title?: string; url?: string; description?: string; markdown?: string }[];
       web?: { title?: string; url?: string; description?: string }[];
     };
     const rows = data.data || data.web || [];
     return rows
-      .filter((r) => r.url)
+      .filter((r) => r.url && !isJunkUrl(r.url, r.title || ""))
       .map((r) => ({
         title: (r.title || r.url || "").slice(0, 160),
         url: r.url!,
@@ -95,6 +96,105 @@ async function firecrawlSearch(query: string, limit = 5): Promise<SearchHit[]> {
   } catch {
     return [];
   }
+}
+
+async function firecrawlScrape(url: string): Promise<string | null> {
+  const key = process.env.FIRECRAWL_API_KEY?.trim();
+  if (!key) return null;
+  try {
+    const res = await fetch("https://api.firecrawl.dev/v1/scrape", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${key}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        url,
+        formats: ["markdown"],
+        onlyMainContent: true,
+      }),
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as {
+      success?: boolean;
+      data?: { markdown?: string };
+    };
+    const md = data.data?.markdown?.trim();
+    return md ? md.slice(0, 3500) : null;
+  } catch {
+    return null;
+  }
+}
+
+const JUNK_HOST =
+  /(?:yahoo\.com|facebook\.com|pinterest\.|tiktok\.|instagram\.|reddit\.com|quora\.com|spielberg|net-worth|imdb\.com)/i;
+
+function isJunkUrl(url: string, title: string) {
+  const blob = `${url} ${title}`;
+  if (JUNK_HOST.test(blob)) return true;
+  // Prefer NL / EU professional sources; don't hard-block everything else
+  return false;
+}
+
+function q(s: string) {
+  const t = s.trim();
+  if (!t) return "";
+  return t.includes(" ") || t.includes(".") ? `"${t.replace(/"/g, "")}"` : t;
+}
+
+function buildQueries(opts: {
+  agency: string;
+  recruiter: string;
+  signals: z.infer<typeof SignalsSchema> | null;
+  depth: "standard" | "deep";
+}): string[] {
+  const s = opts.signals;
+  const tech = (s?.technology || []).slice(0, 3);
+  const cloud = (s?.cloud || []).slice(0, 2);
+  const city = s?.location?.city || "";
+  const region = s?.location?.region || "";
+  const place = city || region;
+  const industry = s?.industry || "";
+  const phrases = (s?.project_signals || []).slice(0, 3);
+  const hard = (s?.hard_signals || []).slice(0, 3);
+  const agencyQ = q(opts.agency);
+  const recQ = opts.recruiter ? q(opts.recruiter) : "";
+
+  const out: string[] = [
+    // Agency + stack + place (quoted agency avoids Spielberg-type noise)
+    [agencyQ, tech[0] ? q(tech[0]) : "", cloud[0] || "", place, "vacature OR freelance OR ZZP"]
+      .filter(Boolean)
+      .join(" "),
+    [agencyQ, tech.slice(0, 2).map(q).join(" "), place, "opdrachtgever OR eindklant OR interim"]
+      .filter(Boolean)
+      .join(" "),
+    recQ ? [recQ, agencyQ, tech[0] ? q(tech[0]) : "", cloud[0] || ""].filter(Boolean).join(" ") : "",
+    // Historical / related jobs
+    [agencyQ, place, industry, "developer OR engineer", "2024 OR 2025 OR 2026"].filter(Boolean).join(" "),
+    // Exact phrase leaks
+    ...phrases.map((p) => [q(p), tech[0] ? q(tech[0]) : "", place].filter(Boolean).join(" ")),
+    ...hard.map((h) => [q(h), agencyQ].filter(Boolean).join(" ")),
+    // Board-ish
+    place && tech[0]
+      ? `site:freelance.nl ${q(tech[0])} ${cloud[0] || ""} ${place}`
+      : "",
+    place && tech[0]
+      ? `(${q(tech[0])} ${cloud[0] || ""}) (${city || region}) (ZZP OR freelance OR interim) -vacaturebank`
+      : "",
+    ...(s?.search_queries || []),
+  ];
+
+  const seen = new Set<string>();
+  const cleaned: string[] = [];
+  for (const raw of out) {
+    const query = raw.replace(/\s+/g, " ").trim();
+    if (query.length < 10) continue;
+    const key = query.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    cleaned.push(query);
+  }
+  return cleaned.slice(0, opts.depth === "deep" ? 10 : 7);
 }
 
 const SignalsSchema = z
@@ -182,8 +282,8 @@ Agency (${agency}) is NOOIT de eindklant.
 Geef JSON met: job_title, seniority, technology[], cloud[], location{region,city}, industry,
 hours_per_week, remote_policy, office_days, start_date, end_date, project_signals[],
 recruiter, agency, hard_signals[] (zeldzame onderscheidende kenmerken),
-search_queries[] (6–10 korte webzoekopdrachten in NL/EN om de eindklant te vinden —
-combinaties van stack+stad+bureau+projectfrases; géén queries die alleen de agency zoeken).`,
+search_queries[] (4–6 korte webzoekopdrachten; zet bedrijfs-/bureaunamen ALTIJD tussen "quotes";
+combineer max 3–4 harde signalen; vermijd losse woorden die homoniemen opleveren).`,
     user: `Bureau: ${agency}${recruiter ? `\nRecruiter: ${recruiter}` : ""}
 
 Vacature:
@@ -201,39 +301,67 @@ ${blob}
   const signalsParsed = SignalsSchema.safeParse(parse.json);
   const signals = signalsParsed.success ? signalsParsed.data : null;
 
-  const queries = [
-    ...(signals?.search_queries || []),
-    [agency, signals?.technology?.[0], signals?.location?.city || signals?.location?.region, "opdracht"]
-      .filter(Boolean)
-      .join(" "),
-    [signals?.cloud?.[0], signals?.technology?.[0], signals?.location?.region, "freelance"].filter(Boolean).join(" "),
-    recruiter ? `"${recruiter}" ${signals?.technology?.[0] || ""} ${signals?.cloud?.[0] || ""}`.trim() : "",
-  ]
-    .map((q) => q.trim())
-    .filter((q) => q.length > 8)
-    .slice(0, depth === "deep" ? 10 : 6);
+  const queries = buildQueries({ agency, recruiter, signals, depth });
+  const hasFirecrawl = Boolean(process.env.FIRECRAWL_API_KEY?.trim());
 
-  // ── Step 2: web search (Firecrawl) when available ──
+  // ── Step 2: Firecrawl search (already connected) ──
   const hits: SearchHit[] = [];
   const seen = new Set<string>();
-  for (const q of queries) {
-    const batch = await firecrawlSearch(q, depth === "deep" ? 5 : 4);
+  for (const query of queries) {
+    const batch = await firecrawlSearch(query, depth === "deep" ? 5 : 4);
     for (const h of batch) {
       if (seen.has(h.url)) continue;
       seen.add(h.url);
       hits.push(h);
-      if (hits.length >= (depth === "deep" ? 28 : 16)) break;
+      if (hits.length >= (depth === "deep" ? 24 : 14)) break;
     }
-    if (hits.length >= (depth === "deep" ? 28 : 16)) break;
+    if (hits.length >= (depth === "deep" ? 24 : 14)) break;
   }
 
-  const sourcesBlock =
-    hits.length > 0
+  // ── Step 2b: scrape top pages for real evidence (not only SERP snippets) ──
+  const scrapeBudget = depth === "deep" ? 5 : 3;
+  const scrapedBlocks: string[] = [];
+  for (const h of hits.slice(0, scrapeBudget)) {
+    const md = await firecrawlScrape(h.url);
+    if (!md || md.length < 80) continue;
+    scrapedBlocks.push(`SCRAPE ${h.title}\nURL: ${h.url}\n${md}`);
+  }
+
+  // ── Step 2c: candidate verification searches after a quick shortlist hint ──
+  // Use city+industry+stack to seed company probes when signals are rich enough
+  const probePlace = signals?.location?.city || signals?.location?.region || "";
+  const probeTech = signals?.technology?.[0] || "";
+  const probeCloud = signals?.cloud?.[0] || "";
+  if (depth === "deep" && probePlace && probeTech) {
+    const probeQs = [
+      `${q(probePlace)} ${q(probeTech)} ${probeCloud} (careers OR vacatures OR engineering)`,
+      signals?.industry
+        ? `${q(signals.industry)} ${q(probePlace)} ${q(probeTech)} ${probeCloud} modernisering OR migratie`
+        : "",
+    ].filter(Boolean);
+    for (const pq of probeQs) {
+      const batch = await firecrawlSearch(pq, 4);
+      for (const h of batch) {
+        if (seen.has(h.url)) continue;
+        seen.add(h.url);
+        hits.push(h);
+      }
+    }
+  }
+
+  const sourcesBlock = [
+    hits.length
       ? hits
-          .slice(0, 22)
-          .map((h, i) => `[${i + 1}] ${h.title}\nURL: ${h.url}\n${h.description}`)
+          .slice(0, 18)
+          .map((h, i) => `[SERP ${i + 1}] ${h.title}\nURL: ${h.url}\n${h.description}`)
           .join("\n\n")
-      : "(Geen websearch-resultaten — FIRECRAWL_API_KEY ontbreekt of zoek leverde niets. Redeneer uitsluitend op vacature + algemene NL-marktkennis, en wees conservatief met confidence.)";
+      : hasFirecrawl
+        ? "(Firecrawl search gaf geen bruikbare hits — wees conservatief.)"
+        : "(FIRECRAWL_API_KEY ontbreekt — geen live websearch.)",
+    scrapedBlocks.length
+      ? `\n\n=== PAGINA-INHOUD (Firecrawl scrape) ===\n\n${scrapedBlocks.join("\n\n---\n\n")}`
+      : "",
+  ].join("");
 
   const signalsBlock = signals
     ? JSON.stringify(
@@ -253,6 +381,7 @@ ${blob}
           hard_signals: signals.hard_signals,
           recruiter: signals.recruiter || recruiter,
           agency: signals.agency || agency,
+          queries_used: queries,
         },
         null,
         2
@@ -274,6 +403,7 @@ Regels:
 - Formuleer als hypothese: "waarschijnlijkste kandidaat op basis van openbare aanwijzingen".
 - Zonder sterke multi-signal match: confidence ≤ 55.
 - High (≥70) alleen bij meerdere onafhankelijke signalen (locatie+stack+sector of expliciete naam + verificatie).
+- Gebruik SCRAPE-blokken zwaarder dan SERP-snippets.
 - Nooit hallucineren: als bronnen geen bewijs geven, zeg dat in counterEvidence.
 - ranking[0] = beste kandidaat. Alternatieven moeten whyLower hebben.
 
@@ -334,8 +464,8 @@ ${blob.slice(0, 3500)}
     };
   }
 
-  // Soft-cap overconfidence without web evidence
-  if (hits.length === 0) {
+  // Soft-cap overconfidence without real web evidence
+  if (hits.length === 0 && scrapedBlocks.length === 0) {
     for (const r of ranking) {
       r.confidence = Math.min(r.confidence, 58);
     }
@@ -370,7 +500,7 @@ ${blob.slice(0, 3500)}
     sources: hits.slice(0, 12).map((h) => ({ title: h.title, url: h.url, snippet: h.description })),
     scoringNotes:
       raw.scoringNotes?.trim() ||
-      `Scores zijn probabilistische inschattingen op signalen${hits.length ? ` + ${hits.length} zoekhits` : " (zonder websearch)"}; geen statistisch bewezen kansen.`,
+      `Firecrawl: ${queries.length} queries · ${hits.length} hits · ${scrapedBlocks.length} scrapes. Scores zijn probabilistisch, geen bewezen kansen.`,
     signalsSummary: [
       signals?.job_title,
       [...(signals?.technology || []), ...(signals?.cloud || [])].slice(0, 5).join(" · "),
@@ -393,7 +523,7 @@ ${blob.slice(0, 3500)}
   return {
     guess,
     model: analyze.model || parse.model,
-    detail: `Deep research · ${hits.length} bronnen · ${bandLabel(b)}`,
+    detail: `Deep research · Firecrawl ${hits.length} hits / ${scrapedBlocks.length} scrapes · ${bandLabel(b)}`,
     report,
   };
 }
