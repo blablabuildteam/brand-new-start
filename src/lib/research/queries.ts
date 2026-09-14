@@ -40,23 +40,27 @@ export function discoveryQueries(opts: {
   const hard = (s?.hard_signals || []).slice(0, 3);
   const agencyQ = q(opts.agency);
   const recQ = q(opts.recruiter);
-  const role = s?.job_title || "";
 
+  // Distinctive programme / hard signals first — that is the anonymous product path.
+  // Agency+stack searches are supporting evidence, not the main hunt.
   const list = [
+    ...phrases.map((p) => [q(p), place, q(tech[0])].filter(Boolean).join(" ")),
+    ...hard.map((h) => [q(h), place, q(tech[0])].filter(Boolean).join(" ")),
+    phrases[0] && hard[0] ? [q(phrases[0]), q(hard[0]), place].filter(Boolean).join(" ") : "",
+    place && phrases[0]
+      ? [q(phrases[0]), place, "programma OR project OR modernisering OR SAP"].filter(Boolean).join(" ")
+      : "",
     [agencyQ, q(tech[0]), cloud[0] || "", place, "vacature OR freelance OR ZZP"].filter(Boolean).join(" "),
     [agencyQ, tech.slice(0, 2).map(q).join(" "), place, "opdrachtgever OR eindklant OR interim"]
       .filter(Boolean)
       .join(" "),
-    recQ ? [recQ, agencyQ, q(tech[0]), cloud[0] || ""].filter(Boolean).join(" ") : "",
-    [q(role), place, cloud[0] || "", "site:linkedin.com/jobs"].filter(Boolean).join(" "),
-    [agencyQ, place, industry, "developer OR engineer", "2025 OR 2026"].filter(Boolean).join(" "),
-    ...phrases.map((p) => [q(p), q(tech[0]), place].filter(Boolean).join(" ")),
-    ...hard.map((h) => [q(h), place || agencyQ].filter(Boolean).join(" ")),
+    recQ ? [recQ, agencyQ, q(tech[0]), place].filter(Boolean).join(" ") : "",
+    [agencyQ, place, industry, "2024 OR 2025 OR 2026"].filter(Boolean).join(" "),
     place && tech[0] ? `site:freelance.nl ${q(tech[0])} ${cloud[0] || ""} ${place}` : "",
     ...(s?.search_queries || []),
   ];
 
-  return dedupe(list, opts.depth === "deep" ? 12 : opts.depth === "standard" ? 8 : 4);
+  return dedupe(list, opts.depth === "deep" ? 12 : opts.depth === "standard" ? 9 : 5);
 }
 
 /** Round 2: probe the companies that could plausibly own this programme. */
@@ -70,15 +74,17 @@ export function candidateQueries(opts: {
   const tech = (s?.technology || []).slice(0, 2).map(q).join(" ");
   const cloud = s?.cloud?.[0] || "";
   const place = s?.location?.city || s?.location?.region || "";
+  const phrases = (s?.project_signals || []).slice(0, 2);
 
   return dedupe(
     [
       [name, tech, cloud, "vacature OR careers OR werken-bij"].filter(Boolean).join(" "),
       [name, cloud || tech, "migratie OR modernisering OR platform OR transformatie"].filter(Boolean).join(" "),
+      ...phrases.map((p) => [name, q(p)].filter(Boolean).join(" ")),
       [name, q(opts.agency), "inhuur OR detachering OR freelance OR opdracht"].filter(Boolean).join(" "),
       place ? [name, place, "kantoor OR hoofdkantoor OR vestiging"].filter(Boolean).join(" ") : "",
     ],
-    4
+    5
   );
 }
 

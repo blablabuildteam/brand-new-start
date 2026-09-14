@@ -20,6 +20,7 @@ export async function GET() {
       id: c.id,
       expected: c.expected,
       ambiguous: Boolean(c.ambiguous),
+      nameLeak: Boolean(c.nameLeak),
       note: c.note,
     })),
   });

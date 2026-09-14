@@ -548,6 +548,9 @@ export async function researchEndClient(opts: {
   const analyze = await aiJsonCompletion({
     system: `Je doet End-client Intelligence voor NL IT-contracting: welke eindklant zit achter deze bureau-vacature?
 
+Productdoel: niet de naamlek (die is triviaal → factor explicit_name). Het product is anonieme
+vacatures met hoge zekerheid via onderscheidende publieke signalen.
+
 Werkwijze:
 1. Neem 3–5 serieuze kandidaten.
 2. Onderbouw elk met concreet bewijs uit de aangeleverde bronnen.
@@ -556,21 +559,21 @@ Werkwijze:
 
 Bewijsregels:
 - Het bureau (${agency}) is NOOIT de eindklant. Andere detacheerders ook niet.
-- Een naam die doorschemert in de titel, opdrachtcode, URL of e-mail is het sterkste signaal dat er is:
-  neem die kandidaat op met factor explicit_name, tenzij je hem actief kunt weerleggen.
-- Standplaats is in NL contracting een harde eis: een kandidaat zonder vestiging in de genoemde
-  stad/regio is vrijwel altijd fout. Geef die dan city_mismatch, niet het voordeel van de twijfel.
+- Naamlek in titel/code/URL → factor explicit_name (hoog). Klaar — geen theater nodig.
+- Zonder naamlek: weeg zwaar op project_signals / hard_signals (programmanamen, domeinjargon,
+  zeldzame combinaties). Tag die als project_match of modernization met strength high als de
+  bron het programma of traject bij die organisatie noemt.
+- Drie onafhankelijke families (project + plaats + stack/sector of historie) = sterke anonieme case.
+- Standplaats is een harde eis: geen vestiging in de genoemde stad → city_mismatch.
 - Tag elk bewijs met factor uit: ${FACTORS.join(", ")}.
-- strength: high = officiële bron of expliciete naam; medium = sterke indirecte match; low = zwakke hint.
-- source = URL of "EIGEN n" van de gebruikte bron. Geen bron = geen high.
-- [PAGINA]-blokken wegen zwaarder dan [SERP]-snippets; tier 1 zwaarder dan tier 3/4.
-- [EIGEN n] = onze eigen eerder gesynchroniseerde vacatures. Een eerdere, minder geanonimiseerde
-  vacature van hetzelfde bureau met dezelfde stack/plaats is sterk bewijs (factor recruiter_history).
-- Verzin nooit een bron. Vind je geen spoor, zet dat in counterEvidence (factor no_public_trace).
+- strength: high = officiële bron of hard programma-bewijs; medium = sterke indirecte match; low = hint.
+- source = URL of "EIGEN n". Geen bron = geen high.
+- [PAGINA] weegt zwaarder dan [SERP]; tier 1 zwaarder dan tier 3/4.
+- [EIGEN n] = eerdere vacatures (factor recruiter_history).
+- Verzin nooit een bron. Geen spoor → counterEvidence (no_public_trace).
 
 Vul confidence naar eigen inzicht in; het systeem herberekent met vaste gewichten.
-timeline[]: chronologie van publieke gebeurtenissen die de opdracht verklaren.
-openQuestions[]: wat een mens nog moet checken.
+Zonder naamlek mag confidence hoog zijn (80–90+) als meerdere onderscheidende signalen kloppen.
 
 Houd het compact: max 4 bewijsregels per kandidaat, claims van één zin, geen herhaling.
 

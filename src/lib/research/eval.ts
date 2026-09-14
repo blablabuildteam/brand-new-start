@@ -24,6 +24,11 @@ export type EvalCase = {
    * good behaviour, not bad calibration.
    */
   ambiguous?: boolean;
+  /**
+   * Vacancy already contains the client name (title/code). Trivial — not the
+   * metric we optimise. The product is anonymous high-confidence hits.
+   */
+  nameLeak?: boolean;
   note?: string;
 };
 
@@ -35,7 +40,8 @@ export const EVAL_CASES: EvalCase[] = [
     agencyName: "Computer Futures",
     expected: ["Booking.com", "Booking", "Booking Holdings"],
     forbidden: ["Computer Futures", "SThree"],
-    note: "Projectcode lekt de klantnaam; Diemen + miljoenen gebruikers bevestigen het.",
+    nameLeak: true,
+    note: "Naamlek in de titel — triviaal. Mag ~100% zijn; telt niet mee voor de productmetriek.",
   },
   {
     id: "port_sap_alc",
@@ -44,7 +50,7 @@ export const EVAL_CASES: EvalCase[] = [
     agencyName: "Vibe Group",
     expected: ["Havenbedrijf Rotterdam", "Port of Rotterdam"],
     forbidden: ["Vibe Group"],
-    note: "Asset Life Cycle + GIS + Rotterdam is een asset-heavy infrabeheerder.",
+    note: "PRODUCTCASE: geen klantnaam. Asset Life Cycle + GIS + Rotterdam moet met hoge zekerheid Havenbedrijf opleveren.",
   },
   {
     id: "spilberg_java_ams",
@@ -120,15 +126,19 @@ export async function runEvalCase(c: EvalCase, depth: ResearchDepth): Promise<Ev
   const hitAt3 = !openCase && ranking.slice(0, 3).some((r) => matches(r.name, c.expected));
   const forbiddenHit = Boolean(c.forbidden?.length) && ranking.some((r) => matches(r.name, c.forbidden!));
 
-  // Good calibration: hits are confident, misses and unknowns are not.
-  // Ambiguous cases only need to stay modest — being right there is partly luck.
+  // Calibration depends on the case type:
+  // - nameLeak: trivial → expect ~100
+  // - anonymous product case: expect high confidence on hit (≥85)
+  // - ambiguous / open: stay humble
   const calibrated = openCase
     ? (confidence ?? 0) <= 55
-    : c.ambiguous
-      ? (confidence ?? 0) <= 70
-      : hitAt1
-        ? (confidence ?? 0) >= 70
-        : (confidence ?? 0) <= 55;
+    : c.nameLeak
+      ? hitAt1 && (confidence ?? 0) >= 95
+      : c.ambiguous
+        ? (confidence ?? 0) <= 70
+        : hitAt1
+          ? (confidence ?? 0) >= 85
+          : (confidence ?? 0) <= 55;
 
   return {
     id: c.id,
@@ -157,16 +167,27 @@ export async function runEval(opts?: { depth?: ResearchDepth; ids?: string[] }) 
 
   const byId = new Map(cases.map((c) => [c.id, c]));
   const scored = results.filter((r) => r.expected.length > 0);
+  const anonymous = scored.filter((r) => !byId.get(r.id)?.nameLeak && !byId.get(r.id)?.ambiguous);
+  const nameLeaks = scored.filter((r) => byId.get(r.id)?.nameLeak);
   const strict = scored.filter((r) => !byId.get(r.id)?.ambiguous);
   const hits1 = scored.filter((r) => r.hitAt1).length;
   const hits3 = scored.filter((r) => r.hitAt3).length;
+  const anonHits = anonymous.filter((r) => r.hitAt1);
 
   return {
     depth,
     cases: results.length,
     metrics: {
+      /** North-star: anonymous vacancies with one right answer. */
+      anonymousHitAt1: anonymous.length
+        ? Number((anonHits.length / anonymous.length).toFixed(2))
+        : null,
+      avgConfidenceOnAnonymousHit: avg(anonHits.map((r) => r.confidence ?? 0)),
+      nameLeakHitAt1: nameLeaks.length
+        ? Number((nameLeaks.filter((r) => r.hitAt1).length / nameLeaks.length).toFixed(2))
+        : null,
+      avgConfidenceOnNameLeak: avg(nameLeaks.filter((r) => r.hitAt1).map((r) => r.confidence ?? 0)),
       hitAt1: scored.length ? Number((hits1 / scored.length).toFixed(2)) : null,
-      /** Only cases with one defensible answer — the metric to optimise. */
       hitAt1Strict: strict.length
         ? Number((strict.filter((r) => r.hitAt1).length / strict.length).toFixed(2))
         : null,
