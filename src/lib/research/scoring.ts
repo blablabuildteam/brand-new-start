@@ -88,7 +88,11 @@ function scoreOne(
     const tier = tierBySource(e.source);
     if (tier < bestTier) bestTier = tier;
 
-    const reliability = base.points > 0 ? tierWeight(tier) : 1;
+    // An explicit name in the vacancy needs no external source — we hold the
+    // primary document. Everything else is discounted by source reliability,
+    // but never below half: a weak citation is still an argument.
+    const reliability =
+      base.points <= 0 || factor === "explicit_name" ? 1 : Math.max(0.5, tierWeight(tier));
     const points = Math.round(base.points * strength * reliability);
     if (points > 0) positives += 1;
     raw += points;
@@ -160,24 +164,28 @@ export function scoreCandidates(
     cityKnown?: boolean;
   }
 ): ScoredCandidate[] {
-  const scored = candidates.map((c) => {
-    const { raw, lines, positives, bestTier } = scoreOne(c.evidence, c.counterEvidence, opts.tierBySource);
-    let adjusted = raw;
+  const scored = candidates.map((c) => ({
+    c,
+    ...scoreOne(c.evidence, c.counterEvidence, opts.tierBySource),
+  }));
 
-    // Standplaats is a hard requirement in NL contracting. A candidate that
-    // nobody could place in the named city is probably the wrong company.
-    if (opts.cityKnown && !lines.some((l) => l.factor === "city_match" || l.factor === "city_mismatch")) {
-      lines.push({
+  // Standplaats is a hard requirement in NL contracting — but only penalise a
+  // missing city when someone else *did* match it. Otherwise the signal is
+  // simply absent and deflating everyone equally tells us nothing.
+  const cityDiscriminates =
+    Boolean(opts.cityKnown) && scored.some((s) => s.lines.some((l) => l.factor === "city_match"));
+  if (cityDiscriminates) {
+    for (const s of scored) {
+      if (s.lines.some((l) => l.factor === "city_match" || l.factor === "city_mismatch")) continue;
+      s.lines.push({
         factor: "city_mismatch",
         label: "Standplaats niet bevestigd",
         points: -12,
-        note: "Geen bron die deze organisatie aan de genoemde stad/regio koppelt",
+        note: "Geen bron koppelt deze organisatie aan de genoemde stad/regio",
       });
-      adjusted -= 12;
+      s.raw -= 12;
     }
-
-    return { c, raw: adjusted, lines, positives, bestTier };
-  });
+  }
 
   const masses = scored.map((s) => Math.max(0, s.raw));
   const total = masses.reduce((a, b) => a + b, 0);
@@ -187,15 +195,17 @@ export function scoreCandidates(
     const detConf = rawToConfidence(s.raw);
     const share = total > 0 ? (masses[i]! / total) * 100 : 100 / Math.max(1, scored.length);
 
-    // Deterministic score leads; the model's own read only nudges.
-    let confidence = 0.45 * detConf + 0.3 * share + 0.25 * modelConf;
+    // Deterministic score leads; separation from the runner-up and the model's
+    // own read only nudge.
+    let confidence = 0.55 * detConf + 0.2 * share + 0.25 * modelConf;
 
     // Guardrails against confident nonsense
+    const named = s.lines.some((l) => l.factor === "explicit_name" && l.points > 0);
     const independent = s.positives >= 2;
-    const officialish = s.bestTier <= 2;
+    const officialish = s.bestTier <= 2 || named;
     if (!opts.hasWebEvidence && !opts.hasInternalEvidence) confidence = Math.min(confidence, 52);
-    if (!independent) confidence = Math.min(confidence, 55);
-    if (!officialish) confidence = Math.min(confidence, 66);
+    if (!independent) confidence = Math.min(confidence, 58);
+    if (!officialish) confidence = Math.min(confidence, 75);
     if (s.raw <= 0) confidence = Math.min(confidence, 25);
 
     return {
@@ -218,7 +228,8 @@ export function scoringExplainer(opts: {
 }) {
   return [
     `Score = vaste gewichten per bewijsfactor (stack +20, cloud +15, stad +15, sector +15, bureau-historie +15, projectmatch +20, expliciete naam +35; tegenbewijs: andere cloud −25, tech −20, geen publiek spoor −20).`,
-    `Bronbetrouwbaarheid weegt mee (Tier 1 officieel 100%, Tier 2 80%, Tier 3 aggregator 45%, Tier 4 25%).`,
+    `Bronbetrouwbaarheid weegt mee (Tier 1 officieel, Tier 2 platform, Tier 3 aggregator, Tier 4 onbekend), met een bodem van 50%.`,
+    `Standplaats geldt als harde eis: matcht een andere kandidaat de stad wel, dan kost dat −12.`,
     `Onderzoek: ${opts.rounds} rondes · ${opts.queries} queries · ${opts.searches} searches · ${opts.scrapes} pagina's gelezen · ${opts.internalMatches} eigen vacature-matches.`,
     `Percentages zijn probabilistische inschattingen op publieke signalen — geen bewezen kansen.`,
   ].join(" ");
