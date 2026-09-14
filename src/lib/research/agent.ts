@@ -24,12 +24,45 @@ import { hasWeb, makeBudget, multiSearch, scrapeBest, tierFor } from "@/lib/rese
  * The LLM supplies evidence; scoring.ts owns the numbers.
  */
 
+/**
+ * Models drift: a field documented as a string comes back as
+ * {date, event} or {title, url}. Flatten instead of rejecting the whole report.
+ */
+function flatten(value: unknown): string {
+  if (value === null || value === undefined) return "";
+  if (typeof value === "string") return value.trim();
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  if (Array.isArray(value)) return value.map(flatten).filter(Boolean).join(" · ");
+  if (typeof value === "object") {
+    const o = value as Record<string, unknown>;
+    const preferred = ["claim", "text", "event", "description", "title", "label", "name", "url", "source", "date"];
+    const parts = preferred.filter((k) => typeof o[k] === "string" && (o[k] as string).trim()).map((k) => o[k] as string);
+    if (parts.length) return parts.join(" — ").trim();
+    return Object.values(o).map(flatten).filter(Boolean).join(" · ");
+  }
+  return "";
+}
+
+/** Accept whatever the model sends, hand a string to the schema. */
+const flexString = (max: number) =>
+  z.preprocess((v) => flatten(v).slice(0, max), z.string());
+
+const flexStringArray = (max: number) =>
+  z.preprocess(
+    (v) => {
+      if (v === null || v === undefined) return [];
+      const arr = Array.isArray(v) ? v : [v];
+      return arr.map((x) => flatten(x).slice(0, max)).filter(Boolean);
+    },
+    z.array(z.string())
+  );
+
 const SignalsSchema = z
   .object({
-    job_title: z.string().optional().nullable(),
-    seniority: z.string().optional().nullable(),
-    technology: z.array(z.string()).optional().default([]),
-    cloud: z.array(z.string()).optional().default([]),
+    job_title: flexString(160).optional(),
+    seniority: flexString(80).optional(),
+    technology: flexStringArray(60).optional().default([]),
+    cloud: flexStringArray(40).optional().default([]),
     location: z
       .object({
         region: z.string().optional().nullable(),
@@ -37,37 +70,39 @@ const SignalsSchema = z
       })
       .optional()
       .default({}),
-    industry: z.string().optional().nullable(),
-    hours_per_week: z.union([z.string(), z.number()]).optional().nullable(),
-    remote_policy: z.string().optional().nullable(),
-    office_days: z.union([z.string(), z.number()]).optional().nullable(),
-    start_date: z.string().optional().nullable(),
-    interview_period: z.string().optional().nullable(),
-    end_date: z.string().optional().nullable(),
-    extension: z.string().optional().nullable(),
-    team_size_signal: z.string().optional().nullable(),
-    project_signals: z.array(z.string()).optional().default([]),
-    language_requirements: z.array(z.string()).optional().default([]),
-    recruiter: z.string().optional().nullable(),
-    agency: z.string().optional().nullable(),
-    hard_signals: z.array(z.string()).optional().default([]),
-    search_queries: z.array(z.string()).max(12).optional().default([]),
+    industry: flexString(120).optional(),
+    hours_per_week: flexString(40).optional(),
+    remote_policy: flexString(80).optional(),
+    office_days: flexString(40).optional(),
+    start_date: flexString(60).optional(),
+    interview_period: flexString(60).optional(),
+    end_date: flexString(60).optional(),
+    extension: flexString(60).optional(),
+    team_size_signal: flexString(80).optional(),
+    project_signals: flexStringArray(200).optional().default([]),
+    language_requirements: flexStringArray(40).optional().default([]),
+    recruiter: flexString(80).optional(),
+    agency: flexString(80).optional(),
+    hard_signals: flexStringArray(160).optional().default([]),
+    search_queries: flexStringArray(160).optional().default([]),
   })
   .passthrough();
 
 const ShortlistSchema = z
   .object({
     candidates: z
-      .array(
-        z.object({
-          name: z.string().min(2).max(100),
-          rationale: z.string().max(400).optional().default(""),
-        })
+      .preprocess(
+        (v) => (Array.isArray(v) ? v : v == null ? [] : [v]),
+        z.array(
+          z.object({
+            name: flexString(100),
+            rationale: flexString(400).optional().default(""),
+          })
+        )
       )
-      .max(8)
       .optional()
       .default([]),
-    open_questions: z.array(z.string().max(200)).max(6).optional().default([]),
+    open_questions: flexStringArray(200).optional().default([]),
   })
   .passthrough();
 
@@ -97,31 +132,34 @@ const ReportSchema = z
     ranking: z
       .array(
         z.object({
-          name: z.string().min(1).max(100),
-          confidence: z.coerce.number().min(0).max(100),
-          why: z.string().max(700),
-          whyLower: z.string().max(400).optional().nullable(),
+          name: flexString(100),
+          confidence: z.coerce.number().min(0).max(100).catch(40),
+          why: flexString(700),
+          whyLower: flexString(400).optional(),
           evidence: z
-            .array(
-              z.object({
-                claim: z.string().max(260),
-                strength: z.enum(["high", "medium", "low"]).optional().default("medium"),
-                source: z.string().max(300).optional().nullable(),
-                factor: z.enum(FACTORS).optional().nullable(),
-              })
+            .preprocess(
+              (v) => (Array.isArray(v) ? v : v == null ? [] : [v]),
+              z.array(
+                z.object({
+                  claim: flexString(260),
+                  strength: z.enum(["high", "medium", "low"]).catch("medium"),
+                  source: flexString(300).optional(),
+                  factor: z.enum(FACTORS).nullish().catch(null),
+                })
+              )
             )
             .optional()
             .default([]),
-          counterEvidence: z.array(z.string().max(260)).optional().default([]),
+          counterEvidence: flexStringArray(260).optional().default([]),
         })
       )
       .min(1)
       .max(6),
-    why: z.string().max(1000),
-    counterEvidence: z.array(z.string().max(300)).optional().default([]),
-    timeline: z.array(z.string().max(300)).optional().default([]),
-    openQuestions: z.array(z.string().max(220)).optional().default([]),
-    scoringNotes: z.string().max(600).optional().nullable(),
+    why: flexString(1000),
+    counterEvidence: flexStringArray(300).optional().default([]),
+    timeline: flexStringArray(300).optional().default([]),
+    openQuestions: flexStringArray(220).optional().default([]),
+    scoringNotes: flexString(600).optional(),
   })
   .passthrough();
 
