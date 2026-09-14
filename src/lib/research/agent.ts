@@ -221,7 +221,7 @@ async function shortlist(opts: {
   signalsText: string;
   serp: string;
   internal: string;
-}): Promise<{ names: string[]; openQuestions: string[] }> {
+}): Promise<{ names: string[]; openQuestions: string[]; rationales: Map<string, string> }> {
   const res = await aiJsonCompletion({
     system: `Je maakt een SHORTLIST van mogelijke eindklanten (NL) op basis van eerste zoekresultaten.
 Nog niet scoren, nog niet kiezen. Doel: 3–5 bedrijven die het waard zijn om te verifiëren.
@@ -245,9 +245,10 @@ ${opts.internal}`,
     maxTokens: 900,
   });
 
-  if (!res.json) return { names: [], openQuestions: [] };
+  const empty = { names: [] as string[], openQuestions: [] as string[], rationales: new Map<string, string>() };
+  if (!res.json) return empty;
   const parsed = ShortlistSchema.safeParse(res.json);
-  if (!parsed.success) return { names: [], openQuestions: [] };
+  if (!parsed.success) return empty;
 
   const names: string[] = [];
   for (const c of parsed.data.candidates) {
@@ -256,7 +257,82 @@ ${opts.internal}`,
     if (names.some((n) => n.toLowerCase() === name.toLowerCase())) continue;
     names.push(name);
   }
-  return { names: names.slice(0, 5), openQuestions: parsed.data.open_questions };
+  const rationales = new Map<string, string>();
+  for (const c of parsed.data.candidates) {
+    rationales.set(cleanName(c.name), (c.rationale || "").trim());
+  }
+  return { names: names.slice(0, 5), openQuestions: parsed.data.open_questions, rationales };
+}
+
+/**
+ * Degraded result from the shortlist round. The final write-up can fail
+ * (token limits, schema drift) while the research itself was fine — in that
+ * case a humble, clearly-labelled shortlist beats an empty screen.
+ */
+function shortlistFallback(opts: {
+  names: string[];
+  why: Map<string, string>;
+  reason: string;
+  hits: SearchHit[];
+  related: RelatedJob[];
+  depth: ResearchDepth;
+  budget: ReturnType<typeof makeBudget>;
+  rounds: number;
+  openQuestions: string[];
+}): { guess: ClientGuess; detail: string; report: ResearchReport } | null {
+  if (!opts.names.length) return null;
+
+  const ranking: ResearchCandidate[] = opts.names.slice(0, 4).map((name, i) => ({
+    name,
+    confidence: Math.max(22, 42 - i * 6),
+    why: opts.why.get(name) || "Shortlist-kandidaat op basis van de eerste zoekronde.",
+    whyLower: i === 0 ? undefined : "Lager: minder overlap met de signalen uit de shortlist.",
+    evidence: [],
+    counterEvidence: ["Niet geverifieerd — de eindanalyse is niet afgerond."],
+  }));
+
+  const top = ranking[0]!;
+  const report: ResearchReport = {
+    method: "deep",
+    depth: opts.depth,
+    confidenceBand: band(top.confidence),
+    hypothesis: `${top.name} is een onverifieerde shortlist-kandidaat — behandel dit als richting, niet als conclusie.`,
+    why: `De eindanalyse is niet afgerond (${opts.reason}). Dit is de ruwe shortlist uit de eerste zoekronde.`,
+    ranking,
+    counterEvidence: ["Geen bewijsweging uitgevoerd: scores zijn bewust laag gehouden."],
+    timeline: [],
+    sources: opts.hits
+      .slice(0, 10)
+      .map((h) => ({ title: h.title, url: h.url, snippet: h.description, tier: h.tier, scraped: Boolean(h.body) })),
+    openQuestions: opts.openQuestions.slice(0, 5),
+    scoringNotes: scoringExplainer({
+      queries: opts.budget.queries.length,
+      searches: opts.budget.searches,
+      scrapes: opts.budget.scrapes,
+      internalMatches: opts.related.length,
+      rounds: opts.rounds,
+    }),
+    trace: {
+      rounds: opts.rounds,
+      queries: opts.budget.queries.slice(0, 20),
+      searches: opts.budget.searches,
+      scrapes: opts.budget.scrapes,
+      internalMatches: opts.related.length,
+    },
+  };
+
+  return {
+    guess: {
+      name: top.name,
+      confidence: top.confidence,
+      evidence: [{ label: top.why.slice(0, 180), weight: top.confidence }],
+      alternatives: ranking.slice(1).map((r) => ({ name: r.name, confidence: r.confidence })),
+      report,
+      source: "deep",
+    },
+    detail: `Shortlist zonder eindanalyse · ${opts.reason}`,
+    report,
+  };
 }
 
 export async function researchEndClient(opts: {
@@ -313,6 +389,8 @@ export async function researchEndClient(opts: {
 
   // ── Round 2: shortlist → targeted verification + falsification ──
   let openQuestions: string[] = [];
+  let shortlistNames: string[] = [];
+  let shortlistWhy = new Map<string, string>();
   if (depth !== "quick") {
     rounds = 2;
     const sl = await shortlist({
@@ -322,6 +400,8 @@ export async function researchEndClient(opts: {
       internal: internalText,
     });
     openQuestions = sl.openQuestions;
+    shortlistNames = sl.names;
+    shortlistWhy = sl.rationales;
 
     const probeNames = sl.names.slice(0, depth === "deep" ? 4 : 2);
     if (probeNames.length) {
@@ -362,6 +442,8 @@ Vul confidence naar eigen inzicht in; het systeem herberekent met vaste gewichte
 timeline[]: chronologie van publieke gebeurtenissen die de opdracht verklaren.
 openQuestions[]: wat een mens nog moet checken.
 
+Houd het compact: max 4 bewijsregels per kandidaat, claims van één zin, geen herhaling.
+
 JSON: { ranking: [{name, confidence, why, whyLower, evidence: [{claim, strength, source, factor}], counterEvidence: []}], why, counterEvidence: [], timeline: [], openQuestions: [], scoringNotes }`,
     user: `Bureau: ${agency}${recruiter ? `\nRecruiter: ${recruiter}` : ""}
 
@@ -386,22 +468,32 @@ ${openQuestions.length ? `=== OPENSTAANDE VRAGEN UIT SHORTLIST ===\n${openQuesti
 ${blob.slice(0, 3500)}
 """`,
     temperature: 0.12,
-    maxTokens: 3000,
+    maxTokens: 8000,
   });
 
   const model = analyze.model || extracted.model;
-  if (!analyze.json) {
-    return { guess: null, model, detail: analyze.detail, report: null };
-  }
+  const parsed = analyze.json ? ReportSchema.safeParse(analyze.json) : null;
 
-  const parsed = ReportSchema.safeParse(analyze.json);
-  if (!parsed.success) {
-    return {
-      guess: null,
-      model,
-      detail: `Research-schema: ${parsed.error.issues[0]?.message || "ongeldig"}`,
-      report: null,
-    };
+  if (!parsed?.success) {
+    const reason =
+      parsed && !parsed.success
+        ? `Research-schema: ${parsed.error.issues[0]?.message || "ongeldig"}`
+        : analyze.detail;
+    // Don't throw away a usable shortlist because the final write-up failed.
+    const fallback = shortlistFallback({
+      names: shortlistNames,
+      why: shortlistWhy,
+      reason,
+      hits,
+      related,
+      depth,
+      budget,
+      rounds,
+      openQuestions,
+    });
+    return fallback
+      ? { ...fallback, model }
+      : { guess: null, model, detail: reason, report: null };
   }
 
   const raw = parsed.data;
@@ -422,7 +514,20 @@ ${blob.slice(0, 3500)}
     .filter((r) => r.name.length >= 2 && !isAgencyName(r.name));
 
   if (!rawRanking.length) {
-    return { guess: null, model, detail: "Geen bruikbare kandidaten na research", report: null };
+    const fallback = shortlistFallback({
+      names: shortlistNames,
+      why: shortlistWhy,
+      reason: "Geen bruikbare kandidaten in de eindanalyse",
+      hits,
+      related,
+      depth,
+      budget,
+      rounds,
+      openQuestions,
+    });
+    return fallback
+      ? { ...fallback, model }
+      : { guess: null, model, detail: "Geen bruikbare kandidaten na research", report: null };
   }
 
   // ── Round 4: deterministic scoring ──
