@@ -6,6 +6,7 @@ import { buildPlacement, placementFromSignals } from "@/lib/placement";
 import type { PlacementProposal } from "@/lib/placement";
 import { listCrmOpportunities } from "@/lib/crm";
 import { loadDeskMeta } from "@/lib/desk-meta";
+import { loadHuntSettings } from "@/lib/hunt";
 
 const DEMO = {
   company: "Politie Opleiding Centrum Zuid Nederland",
@@ -37,6 +38,8 @@ export type DeskItem = {
 export async function GET() {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+
+  await loadHuntSettings();
 
   const [rows, crm, meta] = await Promise.all([
     listRadar(),
@@ -88,6 +91,7 @@ export async function GET() {
   // Bureau-confirmed eindklanten without a Radar row still need a Voorstel.
   for (const c of crm) {
     if (c.lane !== "bureau") continue;
+    if (c.demo) continue;
     if (seenCompanies.has(c.endClient.toLowerCase())) continue;
     seenCompanies.add(c.endClient.toLowerCase());
 

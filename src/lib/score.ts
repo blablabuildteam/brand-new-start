@@ -201,12 +201,32 @@ export function scoreSignals(
     });
   }
 
-  // Recency on first-seen / scrape time
-  const newest = Math.max(...companySignals.map((s) => s.seenAt.getTime()));
-  const days = (Date.now() - newest) / (1000 * 60 * 60 * 24);
+  // Recency must come from FIRST discovery, not the last scrape. seenAt is
+  // refreshed on every sync, so scoring on it makes a stale job look brand new.
+  const discovered = Math.max(
+    ...companySignals.map((s) => {
+      const posted = parsePostedAt(rawOf(s));
+      const first = s.firstSeenAt?.getTime() ?? s.seenAt.getTime();
+      // A board's own posting date beats our discovery date when it is older.
+      return posted ? Math.min(posted.getTime(), first) : first;
+    })
+  );
+  const days = (Date.now() - discovered) / (1000 * 60 * 60 * 24);
   if (days <= 1) factors.push({ label: "Net op de radar (≤24u)", points: 14 });
   else if (days <= 3) factors.push({ label: "Vers signaal (≤3 dagen)", points: 10 });
   else if (days <= 10) factors.push({ label: "Recent (≤10 dagen)", points: 5 });
+  else if (days >= 60) factors.push({ label: "Al >60 dagen open — waarschijnlijk moeizaam", points: -6 });
+
+  // Still being re-posted weeks after discovery = the client has not filled it.
+  const lastSeen = Math.max(...companySignals.map((s) => s.seenAt.getTime()));
+  const openDays = (lastSeen - discovered) / (1000 * 60 * 60 * 24);
+  const seenRecently = (Date.now() - lastSeen) / (1000 * 60 * 60 * 24) <= 4;
+  if (openDays >= 21 && seenRecently) {
+    factors.push({
+      label: `Staat al ${Math.round(openDays)} dagen open en is nog live — klant komt er niet door`,
+      points: 10,
+    });
+  }
 
   // Posting age + applicants from board raw metadata
   let bestFreshPost = false;

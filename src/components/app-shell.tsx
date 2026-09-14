@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ScoutMark } from "@/components/scout-mark";
 import { AlertsBell } from "@/components/alerts-bell";
+import { CommandPalette } from "@/components/command-palette";
+import { TodayRail } from "@/components/today-rail";
 import { cacheClear, cacheGet, cachedJson } from "@/lib/client-cache";
 import { partnerForEmail } from "@/lib/partner-brand";
 
@@ -283,6 +285,17 @@ export function AppShell({
             ) : null}
           </div>
           {toolbar ? <div className="app-topbar__tools shrink-0">{toolbar}</div> : null}
+          <TodayRail />
+          <button
+            type="button"
+            className="btn-ghost btn-tool hidden !min-h-9 !px-2.5 lg:inline-flex"
+            onClick={() => window.dispatchEvent(new Event("desk:command"))}
+            aria-label="Zoeken"
+            title="Zoeken (⌘K)"
+          >
+            <span className="text-[0.72rem] font-semibold">Zoek</span>
+            <kbd className="ml-1.5 rounded border border-[var(--line)] px-1 text-[0.6rem] text-[var(--muted)]">⌘K</kbd>
+          </button>
           <div className="shrink-0">
             <AlertsBell />
           </div>
@@ -317,6 +330,7 @@ export function AppShell({
           })}
         </nav>
       </div>
+      <CommandPalette />
     </div>
   );
 }

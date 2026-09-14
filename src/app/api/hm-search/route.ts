@@ -7,6 +7,7 @@ import { buildApproach, companyLinkedinFromSignals } from "@/lib/approach";
 import { searchHiringManagers } from "@/lib/ingest/people-search";
 import { recordSync } from "@/lib/sync-log";
 import { HM_SEARCH_VER } from "@/lib/hm-hunt";
+import { loadHuntSettings } from "@/lib/hunt";
 
 export const maxDuration = 120;
 
@@ -19,6 +20,8 @@ const Body = z.object({
 export async function POST(req: Request) {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+
+  await loadHuntSettings();
 
   const parsed = Body.safeParse(await req.json().catch(() => ({})));
   if (!parsed.success) return NextResponse.json({ error: "ongeldig" }, { status: 400 });
@@ -107,7 +110,11 @@ export async function POST(req: Request) {
       hmHits,
     };
 
-    const signalId = vacancy.signals[0]?.id;
+    // Must be this opening's own vacancy signal. signals[0] is the newest of a
+    // bundle that also carries company-wide pulse/tender signals, so writing
+    // there leaked this manager onto every other opening at the client.
+    const signalId =
+      vacancy.signals.find((s) => s.source === "job-type")?.id || vacancy.signals[0]?.id;
     if (signalId) {
       await patchSignalRaw(signalId, {
         hiringManager: nextOrg.hiringManager,

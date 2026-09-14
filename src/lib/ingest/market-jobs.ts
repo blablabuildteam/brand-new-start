@@ -1,6 +1,7 @@
 import { hasApifyToken, runApifyActor } from "@/lib/apify";
 import { matchesContract, matchesRole, detectRoleLabel } from "@/lib/niche";
-import { ingestSignal } from "@/lib/store";
+import { ingestSignal, isJunkCompanyName, isJunkJobTitle } from "@/lib/store";
+import { isWatchedAgency, matchAgency } from "@/lib/agency";
 import { recordSync, type SyncHit } from "@/lib/sync-log";
 import { INGEST_POLICY } from "@/lib/costs";
 import { extractOrgContext, orgContextToRaw } from "@/lib/org-context";
@@ -201,6 +202,20 @@ export async function ingestMarketJobs(
 
   for (const job of jobs) {
     scanned += 1;
+    // Same gate as the board ingest: placeholder/"Confidential" posters and
+    // jobs from agencies we do not follow are filtered out at read time
+    // anyway, so storing them only adds noise and cost.
+    const agency = matchAgency(job.company);
+    if (isJunkCompanyName(job.company) || isJunkJobTitle(job.title)) {
+      skipped += 1;
+      hits.push({ company: job.company || "?", title: job.title, url: job.url, kept: false, isNew: false });
+      continue;
+    }
+    if (agency && !isWatchedAgency(agency.id)) {
+      skipped += 1;
+      hits.push({ company: job.company, title: job.title, url: job.url, kept: false, isNew: false });
+      continue;
+    }
     const blob = `${job.title} ${job.description || ""} ${job.employmentType || ""}`;
     if (!matchesRole(blob)) {
       skipped += 1;

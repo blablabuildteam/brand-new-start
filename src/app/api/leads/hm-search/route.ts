@@ -9,6 +9,7 @@ import { loadDeskMeta, pushAlert, saveDeskMeta } from "@/lib/desk-meta";
 import { patchSignalRaw } from "@/lib/store";
 import { recordSync } from "@/lib/sync-log";
 import { kansenHref } from "@/lib/desk-links";
+import { loadHuntSettings } from "@/lib/hunt";
 
 export const maxDuration = 120;
 export const runtime = "nodejs";
@@ -28,6 +29,9 @@ const Body = z.object({
 export async function POST(req: Request) {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+
+  // A cold instance would otherwise gate roles/agencies on DEFAULT_HUNT.
+  await loadHuntSettings();
 
   if (!hasApifyToken()) {
     return NextResponse.json(
@@ -54,6 +58,12 @@ export async function POST(req: Request) {
     if (lead.status !== "confirmed") {
       return NextResponse.json({ error: "eerst eindklant bevestigen" }, { status: 400 });
     }
+    if (lead.demo) {
+      return NextResponse.json(
+        { error: "Dit is een voorbeeld-lead — sync eerst echte bureaus.", detail: "demo" },
+        { status: 400 }
+      );
+    }
     company = lead.confirmedClient || lead.guess?.name || "";
     if (!company) return NextResponse.json({ error: "geen eindklant" }, { status: 400 });
     roleLabel = lead.roleLabel;
@@ -64,14 +74,21 @@ export async function POST(req: Request) {
     const items = await listCrmOpportunities();
     const item = items.find((i) => i.id === crmId);
     if (!item) return NextResponse.json({ error: "kans niet gevonden" }, { status: 404 });
+    if (item.demo) {
+      return NextResponse.json(
+        { error: "Dit is een voorbeeld-kans — sync eerst echte bureaus.", detail: "demo" },
+        { status: 400 }
+      );
+    }
     company = item.endClient;
     roleLabel = item.roleLabel;
     openingTitle = item.title;
+    sector = item.sector || null;
     if (item.lane === "bureau" && crmId.startsWith("crm_bureau_")) {
       const leadId = crmId.replace("crm_bureau_", "");
       const leads = await listAgencyLeads();
       const lead = [...leads.live, ...leads.demo].find((l) => l.id === leadId);
-    signalId = lead?.signalId || null;
+      signalId = lead?.signalId || null;
     }
   } else {
     return NextResponse.json({ error: "crmId of leadId verplicht" }, { status: 400 });
@@ -148,6 +165,7 @@ export async function POST(req: Request) {
 
     if (top) {
       await pushAlert({
+        id: `hm_${crmId}`,
         kind: "hm",
         title: `HM: ${top.name}`,
         body: `${top.title || "Hiring manager"} bij ${company} · ${roleLabel}`,

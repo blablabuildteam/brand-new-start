@@ -5,6 +5,7 @@ import { aiExtractVacancy, hasOpenAiKey } from "@/lib/ai-extract";
 import { leadSourceForAi } from "@/lib/opportunity";
 import { listSignals, patchSignalRaw } from "@/lib/store";
 import { pushAlert } from "@/lib/desk-meta";
+import { loadHuntSettings } from "@/lib/hunt";
 
 export const maxDuration = 60;
 
@@ -19,6 +20,8 @@ export async function POST(req: Request) {
   if (!hasOpenAiKey()) {
     return NextResponse.json({ error: "ANTHROPIC_API_KEY ontbreekt", detail: "no-anthropic-key" }, { status: 503 });
   }
+
+  await loadHuntSettings();
 
   const parsed = Body.safeParse(await req.json().catch(() => ({})));
   if (!parsed.success) return NextResponse.json({ error: "ongeldig" }, { status: 400 });

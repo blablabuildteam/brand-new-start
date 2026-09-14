@@ -1,5 +1,5 @@
 import { listAgencyLeads } from "@/lib/opportunity";
-import { listRadar, listSignals, patchSignalRaw } from "@/lib/store";
+import { listAgencySignals, listRadar, patchSignalRaw } from "@/lib/store";
 import { channelLabel } from "@/lib/sync-log";
 import { regieHref } from "@/lib/desk-links";
 import {
@@ -17,7 +17,13 @@ export type CrmOpportunity = {
   id: string;
   lane: CrmLane;
   stage: CrmStage;
+  /** Seeded example, not a real lead — never spend API credits on these. */
+  demo?: boolean;
+  /** Still appearing in syncs (vacancy not filled yet). */
+  stillLive?: boolean;
   endClient: string;
+  /** Client sector when known — drives public-sector HM search wording. */
+  sector?: string | null;
   roleLabel: string;
   title: string;
   kans: number | null;
@@ -49,18 +55,31 @@ function iso(d: Date | string | null | undefined): string | null {
   return t.toISOString();
 }
 
+/**
+ * Freshness = how long ago we FIRST saw it. `lastSeenAt` only means "still
+ * live"; using it would make a three-month-old vacancy read as brand new after
+ * every sync, which is exactly backwards for a head start.
+ */
 function freshnessOf(foundAt: string | null, lastSeenAt: string | null): {
   freshness: CrmOpportunity["freshness"];
   freshnessLabel: string;
+  stillLive: boolean;
 } {
-  const ref = lastSeenAt || foundAt;
-  if (!ref) return { freshness: "onbekend", freshnessLabel: "Onbekend" };
+  const ref = foundAt || lastSeenAt;
+  const stillLive = lastSeenAt
+    ? (Date.now() - new Date(lastSeenAt).getTime()) / 3600000 <= 96
+    : false;
+  if (!ref) return { freshness: "onbekend", freshnessLabel: "Onbekend", stillLive };
   const ageH = (Date.now() - new Date(ref).getTime()) / 3600000;
-  if (ageH < 24) return { freshness: "vers", freshnessLabel: "Laatste 24u" };
-  if (ageH < 72) return { freshness: "actueel", freshnessLabel: "Laatste 3 dagen" };
-  if (ageH < 240) return { freshness: "actueel", freshnessLabel: "Laatste 10 dagen" };
+  if (ageH < 24) return { freshness: "vers", freshnessLabel: "Nieuw · <24u", stillLive };
+  if (ageH < 72) return { freshness: "actueel", freshnessLabel: "Gevonden <3 dagen", stillLive };
+  if (ageH < 240) return { freshness: "actueel", freshnessLabel: "Gevonden <10 dagen", stillLive };
   const days = Math.floor(ageH / 24);
-  return { freshness: "ouder", freshnessLabel: `${days}d geleden` };
+  return {
+    freshness: "ouder",
+    freshnessLabel: stillLive ? `${days}d open, nog live` : `${days}d geleden`,
+    stillLive,
+  };
 }
 
 function normName(s: string) {
@@ -99,7 +118,9 @@ export async function listCrmOpportunities(): Promise<CrmOpportunity[]> {
   const [leads, radar, signals, meta] = await Promise.all([
     listAgencyLeads(),
     listRadar(),
-    listSignals(500),
+    // Uncapped on purpose: a recency cap dropped older confirmed leads, which
+    // then lost their review timestamp and stored stage.
+    listAgencySignals(),
     loadDeskMeta(),
   ]);
 
@@ -121,10 +142,13 @@ export async function listCrmOpportunities(): Promise<CrmOpportunity[]> {
 
     const match = radarByCompany.get(normName(endClient));
     const openings = match?.openings || [];
-    const opening =
-      openings.find((o) =>
-        normName(o.roleLabel).includes(normName(lead.roleLabel).slice(0, 12))
-      ) || openings[0];
+    // Only borrow kans/hiring-manager from an opening that is actually the same
+    // role. Falling back to openings[0] showed the manager of an unrelated
+    // vacancy at the same client.
+    const opening = openings.find((o) =>
+      normName(o.roleLabel).includes(normName(lead.roleLabel).slice(0, 12))
+    );
+    const anyOpening = opening || openings[0];
 
     const id = `crm_bureau_${lead.id}`;
     const hmStored = meta.hmGuesses[id];
@@ -154,20 +178,22 @@ export async function listCrmOpportunities(): Promise<CrmOpportunity[]> {
       meta.crmStages[id] ||
       null;
     const boardSources = sourceLabels([
-      ...(opening?.sources || []),
+      ...(anyOpening?.sources || []),
       ...(sig?.source ? [sig.source] : []),
     ]).filter((s) => s !== "Bureau");
 
     out.push({
       id,
       lane: "bureau",
+      demo: lead.demo || undefined,
       stage: inferStage({ stored: storedStage, lane: "bureau", hiringManager }),
       endClient,
+      sector: match?.company.sector || null,
       roleLabel: lead.roleLabel,
       title: lead.title,
       kans: typeof opening?.kans === "number" ? opening.kans : null,
       sources: sourceLabels([
-        ...(opening?.sources || []),
+        ...(anyOpening?.sources || []),
         ...(sig?.source ? [sig.source] : []),
         "bureau",
       ]),
@@ -184,10 +210,13 @@ export async function listCrmOpportunities(): Promise<CrmOpportunity[]> {
       recruiterName: lead.recruiter.name,
       confirmedAt: review?.at || meta.leadReviews[lead.id]?.at || null,
       evidenceUrl: lead.evidenceUrl,
-      href: match
-        ? regieHref({ companyId: match.id, openingId: opening?.id || null })
-        : regieHref({ companyId: id }),
-      companyId: match?.id || null,
+      // Without a matching opening, send Voorstel to the bureau lead itself
+      // rather than to an unrelated vacancy at the same client.
+      href:
+        match && opening
+          ? regieHref({ companyId: match.id, openingId: opening.id })
+          : regieHref({ companyId: id }),
+      companyId: opening ? match?.id || null : null,
       openingId: opening?.id || null,
       extractSummary: extractSummaryFromRaw(raw),
     });
@@ -224,6 +253,7 @@ export async function listCrmOpportunities(): Promise<CrmOpportunity[]> {
         lane: "direct",
         stage: inferStage({ stored: storedStage, lane: "direct", hiringManager: hmName }),
         endClient: row.company.name,
+        sector: row.company.sector,
         roleLabel: o.roleLabel,
         title: o.openingTitle || o.roleLabel,
         kans: o.kans,
@@ -294,12 +324,15 @@ export async function setCrmStage(id: string, stage: CrmStage): Promise<CrmOppor
     const lead = [...leads.live, ...leads.demo].find((l) => l.id === leadId);
     if (lead?.signalId) await patchSignalRaw(lead.signalId, { crmStage: stage });
   } else if (item.openingId) {
-    const signals = await listSignals(500);
-    const hit = signals.find((s) => {
-      const raw = (s.raw && typeof s.raw === "object" ? s.raw : {}) as Record<string, unknown>;
-      return s.id === item.openingId || raw.openingId === item.openingId;
-    });
-    if (hit) await patchSignalRaw(hit.id, { crmStage: stage });
+    // openingId is a rad_* id, never a signal id — resolve the opening first and
+    // patch its own vacancy signal so the stage survives a desk-meta reset.
+    const radar = await listRadar();
+    const opening = radar
+      .flatMap((r) => r.openings || [])
+      .find((o) => o.id === item.openingId);
+    const sig =
+      opening?.signals.find((s) => s.source === "job-type") || opening?.signals[0];
+    if (sig) await patchSignalRaw(sig.id, { crmStage: stage });
   }
 
   return { ...item, stage };

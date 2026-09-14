@@ -1,6 +1,7 @@
 import {
   AGENCY_WATCHLIST,
   agencyCatalog,
+  isAgencyName,
   isWatchedAgency,
   matchAgency,
   watchedAgencies,
@@ -17,7 +18,7 @@ import {
 } from "@/lib/end-client";
 import { rulesReport } from "@/lib/end-client-research";
 import { detectRoleLabel } from "@/lib/niche";
-import { listSignals, patchSignalRaw } from "@/lib/store";
+import { listAgencySignals, patchSignalRaw } from "@/lib/store";
 import { loadDeskMeta, pushAlert, saveDeskMeta } from "@/lib/desk-meta";
 
 export type LeadStatus = "suggest" | "review" | "weak" | "confirmed" | "rejected";
@@ -39,6 +40,9 @@ export type AgencyLead = {
   evidenceUrl: string | null;
   summary: string;
   signalId?: string;
+  hiringManager?: string | null;
+  hiringManagerTitle?: string | null;
+  hiringManagerUrl?: string | null;
 };
 
 type Review = {
@@ -328,7 +332,7 @@ export async function listAgencyLeads(): Promise<{
     aiGuesses().set(id, a);
   }
 
-  const rows = await listSignals(400);
+  const rows = await listAgencySignals();
   const live: AgencyLead[] = [];
   for (const s of rows) {
     const raw = (s.raw && typeof s.raw === "object" ? s.raw : {}) as Record<string, unknown>;
@@ -368,12 +372,13 @@ export async function listAgencyLeads(): Promise<{
       })
     );
   }
+  const seenAtById = new Map(rows.map((s) => [s.id, s.seenAt.getTime()]));
   live.sort((a, b) => {
     const rank = { review: 0, suggest: 1, weak: 2, confirmed: 3, rejected: 4 };
     const ra = rank[a.status] - rank[b.status];
     if (ra !== 0) return ra;
-    // Feeds eerst: recentere kans-posts
-    return 0;
+    // Within a status band the freshest post goes first.
+    return (seenAtById.get(b.id) || 0) - (seenAtById.get(a.id) || 0);
   });
   return {
     watchlist: watchedAgencies().map((a) => ({
@@ -387,8 +392,19 @@ export async function listAgencyLeads(): Promise<{
         linkedinUrl: r.linkedinUrl,
       })),
     })),
-    live,
-    demo: demoLeads(),
+    live: live.map((l) => attachLeadHm(l, meta)),
+    demo: demoLeads().map((l) => attachLeadHm(l, meta)),
+  };
+}
+
+function attachLeadHm(lead: AgencyLead, meta: Awaited<ReturnType<typeof loadDeskMeta>>): AgencyLead {
+  const hm = meta.hmGuesses[`crm_bureau_${lead.id}`];
+  if (!hm) return lead;
+  return {
+    ...lead,
+    hiringManager: hm.hiringManager,
+    hiringManagerTitle: hm.hiringManagerTitle,
+    hiringManagerUrl: hm.hiringManagerUrl,
   };
 }
 
@@ -425,7 +441,7 @@ export async function leadSourceForAi(id: string): Promise<{
     };
   }
 
-  const rows = await listSignals(400);
+  const rows = await listAgencySignals();
   const s = rows.find((r) => r.id === id);
   if (!s) return null;
   const raw = (s.raw && typeof s.raw === "object" ? s.raw : {}) as Record<string, unknown>;
@@ -481,7 +497,15 @@ export async function reviewLead(
     status: action,
     clientName: action === "confirmed" ? clientName || lead.guess?.name : undefined,
   };
-  reviews().set(id, next);
+  // The agency is the intermediary, never the end client — confirming it would
+  // poison the CRM and send the HM hunt after the wrong company.
+  if (action === "confirmed" && next.clientName && isAgencyName(next.clientName)) {
+    throw new Error(
+      `${next.clientName} is een bureau, geen eindklant — vul de opdrachtgever in.`
+    );
+  }
+  // Persist first: writing the in-memory map before the save meant a failed
+  // save still reported "confirmed" until the next reload.
   await saveDeskMeta({
     leadReviews: {
       [id]: { ...next, at: new Date().toISOString() },
@@ -490,6 +514,7 @@ export async function reviewLead(
       ? { crmStages: { [`crm_bureau_${id}`]: "bevestigd" as const } }
       : {}),
   });
+  reviews().set(id, next);
   if (lead.signalId) {
     await patchSignalRaw(lead.signalId, {
       leadReview: { ...next, at: new Date().toISOString() },
@@ -499,6 +524,7 @@ export async function reviewLead(
   if (action === "confirmed") {
     const client = next.clientName || lead.guess?.name || "eindklant";
     await pushAlert({
+      id: `confirm_${id}`,
       kind: "confirm",
       title: `Bevestigd: ${client}`,
       body: `${lead.roleLabel} via ${lead.agency.name} — zoek nu de hiring manager.`,

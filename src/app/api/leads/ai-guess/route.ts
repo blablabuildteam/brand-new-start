@@ -3,6 +3,7 @@ import { z } from "zod";
 import { getSession } from "@/lib/auth";
 import { hasAiKey } from "@/lib/ai-client";
 import { researchEndClient } from "@/lib/end-client-research";
+import { hasWeb } from "@/lib/research/web";
 import { leadSourceForAi, saveAiGuess } from "@/lib/opportunity";
 
 export const maxDuration = 300;
@@ -29,6 +30,20 @@ export async function POST(req: Request) {
 
   const parsed = Body.safeParse(await req.json().catch(() => ({})));
   if (!parsed.success) return NextResponse.json({ error: "ongeldig" }, { status: 400 });
+
+  // Without Firecrawl the agent has no web access and can only reason over the
+  // vacancy text plus our own history. That is a different (and weaker) product
+  // than "deep research", so say so instead of quietly downgrading.
+  if (!hasWeb() && parsed.data.depth === "deep") {
+    return NextResponse.json(
+      {
+        error:
+          "Diep onderzoek vereist websearch — zet FIRECRAWL_API_KEY of kies Standaard.",
+        detail: "no-web",
+      },
+      { status: 503 }
+    );
+  }
 
   const src = await leadSourceForAi(parsed.data.id);
   if (!src) return NextResponse.json({ error: "niet gevonden" }, { status: 404 });
@@ -64,6 +79,7 @@ export async function POST(req: Request) {
       detail: result.detail,
       model: result.model,
       report: result.report,
+      hasWeb: hasWeb(),
       lead,
     });
   } catch (e) {

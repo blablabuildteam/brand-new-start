@@ -1,3 +1,4 @@
+import { createHash } from "crypto";
 import { eq } from "drizzle-orm";
 import type { Company, RadarEntry, Signal } from "@/lib/db/schema";
 import { companies, radarEntries, signals } from "@/lib/db/schema";
@@ -35,6 +36,11 @@ export function openingKeyOf(signal: Signal): string {
   return `fp:${signal.fingerprint}`;
 }
 
+/** Short stable hash of an opening key, safe to use inside an element id. */
+function openingIdHash(key: string): string {
+  return createHash("sha256").update(key).digest("hex").slice(0, 16);
+}
+
 /** Board-placeholders / UI-rommel — geen echte opdrachtgevers. */
 export function isPlaceholderCompany(name: string): boolean {
   const n = name.trim().toLowerCase();
@@ -46,6 +52,36 @@ export function isPlaceholderCompany(name: string): boolean {
     n === "indeed" ||
     n === "linkedin"
   );
+}
+
+/**
+ * Merge fresh scrape data over what we already know without wiping it.
+ * Ingest helpers emit every org field on every run, including `null`, so a
+ * plain spread erased hiring managers and contact details found via HM search.
+ */
+function mergeRaw(
+  prev: Record<string, unknown>,
+  incoming: Record<string, unknown>
+): Record<string, unknown> {
+  const next = { ...prev };
+  for (const [k, v] of Object.entries(incoming)) {
+    if (v === null || v === undefined) continue;
+    if (typeof v === "string" && !v.trim()) continue;
+    if (Array.isArray(v) && !v.length && Array.isArray(prev[k]) && (prev[k] as unknown[]).length) {
+      continue;
+    }
+    next[k] = v;
+  }
+  return next;
+}
+
+const JUNK_COMPANY =
+  /^(indeed|linkedin|glassdoor|facebook|google|youtube|instagram|monster|stepstone|jobbird|nationale vacaturebank|werkzoeken|untitled|n\/a|unknown|confidential|confidential company|vertrouwelijk|onbekend)$/i;
+
+/** Board placeholder or "Confidential" poster — never a real client. */
+export function isJunkCompanyName(name: string | null | undefined): boolean {
+  const n = (name || "").trim();
+  return !n || JUNK_COMPANY.test(n) || isPlaceholderCompany(n);
 }
 
 export function isJunkJobTitle(title: string): boolean {
@@ -251,79 +287,12 @@ function ensureCompanyMem(store: MemoryDb, name: string, sector?: string): Compa
   return row;
 }
 
-async function recomputeRadarPg(companyId: string) {
-  const db = getDb();
-  const company = await db.query.companies.findFirst({ where: eq(companies.id, companyId) });
-  if (!company) return;
-  const companySignals = await db.query.signals.findMany({
-    where: eq(signals.companyId, companyId),
-  });
-  if (!companySignals.length) return;
-
-  // Match memory path: drop old bundles so company+role unique index cannot collide
-  // when opening keys switch between role-slug and fingerprint ids.
-  await db.delete(radarEntries).where(eq(radarEntries.companyId, companyId));
-
-  const bundles = buildOpeningBundles(companySignals);
-  for (const bundle of bundles) {
-    const scored = scoreSignals(bundle.signals, {
-      primary: bundle.primary,
-      siblingOpenings: bundle.siblingOpenings,
-    });
-    const id =
-      bundle.key === "company"
-        ? `rad_${companyId}_${slugify(scored.roleLabel)}`
-        : `rad_${companyId}_${bundle.primary.fingerprint}`;
-    const row: RadarEntry = {
-      id,
-      companyId,
-      roleLabel: scored.roleLabel,
-      status: scored.status,
-      kans: scored.kans,
-      hiringManager: null,
-      angle: scored.angle,
-      sources: scored.sources,
-      factors: scored.factors,
-      updatedAt: new Date(),
-    };
-    await db.insert(radarEntries).values(row);
-  }
-}
-
-function recomputeRadarMem(store: MemoryDb, companyId: string) {
-  const company = store.companies.get(companyId);
-  if (!company) return;
-  const companySignals = [...store.signals.values()].filter((s) => s.companyId === companyId);
-  if (!companySignals.length) return;
-
-  // Drop oude company-bundel rijen voor deze company
-  for (const id of [...store.radar.keys()]) {
-    if (id.startsWith(`rad_${companyId}_`)) store.radar.delete(id);
-  }
-
-  for (const bundle of buildOpeningBundles(companySignals)) {
-    const scored = scoreSignals(bundle.signals, {
-      primary: bundle.primary,
-      siblingOpenings: bundle.siblingOpenings,
-    });
-    const id =
-      bundle.key === "company"
-        ? `rad_${companyId}_${slugify(scored.roleLabel)}`
-        : `rad_${companyId}_${bundle.primary.fingerprint}`;
-    store.radar.set(id, {
-      id,
-      companyId,
-      roleLabel: scored.roleLabel,
-      status: scored.status,
-      kans: scored.kans,
-      hiringManager: null,
-      angle: scored.angle,
-      sources: scored.sources,
-      factors: scored.factors,
-      updatedAt: new Date(),
-    });
-  }
-}
+// NOTE: there used to be a radar_entries cache rebuilt on every ingested
+// signal (one DELETE + N INSERTs per signal). `listRadar` always recomputes
+// from signals + companies and never read it back, so the writes were pure
+// overhead during sync and two concurrent ingests for the same company could
+// collide on the primary key and abort the run. The table is kept for
+// migration compatibility but is no longer written per signal.
 
 export async function ingestSignal(input: IngestInput): Promise<{
   ok: boolean;
@@ -362,10 +331,10 @@ export async function ingestSignal(input: IngestInput): Promise<{
       const updated: Signal = {
         ...existing,
         seenAt,
-        summary: input.summary,
+        summary: input.summary || existing.summary,
         evidenceUrl: input.evidenceUrl ?? existing.evidenceUrl,
         employmentHint: input.employmentHint ?? existing.employmentHint,
-        raw: { ...prevRaw, ...(input.raw || {}), channel },
+        raw: { ...mergeRaw(prevRaw, input.raw || {}), channel },
       };
       await db
         .update(signals)
@@ -377,7 +346,6 @@ export async function ingestSignal(input: IngestInput): Promise<{
           raw: updated.raw,
         })
         .where(eq(signals.id, existing.id));
-      await recomputeRadarPg(company.id);
       return { ok: true, signal: updated, created: false };
     }
 
@@ -398,7 +366,6 @@ export async function ingestSignal(input: IngestInput): Promise<{
       fingerprint: fp,
     };
     await db.insert(signals).values(signal);
-    await recomputeRadarPg(company.id);
     return { ok: true, signal, created: true };
   }
 
@@ -425,13 +392,12 @@ export async function ingestSignal(input: IngestInput): Promise<{
     const updated: Signal = {
       ...existing,
       seenAt,
-      summary: input.summary,
+      summary: input.summary || existing.summary,
       evidenceUrl: input.evidenceUrl ?? existing.evidenceUrl,
       employmentHint: input.employmentHint ?? existing.employmentHint,
-      raw: { ...prevRaw, ...(input.raw || {}), channel },
+      raw: { ...mergeRaw(prevRaw, input.raw || {}), channel },
     };
     store.signals.set(existing.id, updated);
-    recomputeRadarMem(store, company.id);
     return { ok: true, signal: updated, created: false };
   }
 
@@ -452,7 +418,6 @@ export async function ingestSignal(input: IngestInput): Promise<{
     fingerprint: fp,
   };
   store.signals.set(signal.id, signal);
-  recomputeRadarMem(store, company.id);
   return { ok: true, signal, created: true };
 }
 
@@ -496,10 +461,13 @@ export async function listRadar() {
           companyLinkedinUrl: companyLinkedinFromSignals(bundle.signals),
           sector: company.sector,
         });
+        // Stable across re-posts: keyed on the opening, not on the newest
+        // signal's fingerprint (which changes when the vacancy URL changes and
+        // would orphan the CRM stage + hiring manager stored under the old id).
         const id =
           bundle.key === "company"
             ? `rad_${companyId}_${slugify(scored.roleLabel)}`
-            : `rad_${companyId}_${bundle.primary.fingerprint}`;
+            : `rad_${companyId}_${openingIdHash(bundle.key)}`;
         return {
           id,
           roleLabel: scored.roleLabel,
@@ -587,9 +555,6 @@ export async function listRadar() {
   }
 
   const store = mem();
-  for (const companyId of new Set([...store.signals.values()].map((s) => s.companyId))) {
-    recomputeRadarMem(store, companyId);
-  }
   const coMap = store.companies;
   const byCompany = new Map<string, Signal[]>();
   for (const s of store.signals.values()) {
@@ -623,6 +588,39 @@ export async function patchSignalRaw(signalId: string, patch: Record<string, unk
   const updated = { ...row, raw: { ...prev, ...patch } };
   store.signals.set(signalId, updated);
   return updated;
+}
+
+/**
+ * Signals that can become a bureau lead (recruiter feeds + agency-posted jobs).
+ * Deliberately not capped: a global recency cap silently dropped confirmed
+ * leads out of Bureaus and Kansen once the store grew past the limit.
+ */
+export async function listAgencySignals() {
+  const isAgencyFeed = (s: Signal & { company?: Company }) =>
+    s.source === "agency-swarm" ||
+    Boolean((s.raw as { recruiterFeed?: boolean } | null)?.recruiterFeed) ||
+    isAgencyName(s.company?.name ?? "");
+
+  if (hasDatabase()) {
+    const db = getDb();
+    const [rows, cos] = await Promise.all([
+      db.query.signals.findMany(),
+      db.query.companies.findMany(),
+    ]);
+    const coMap = new Map(cos.map((c) => [c.id, c]));
+    return rows
+      .filter((s) => s.source !== "hm-post")
+      .map((s) => ({ ...s, company: coMap.get(s.companyId)! }))
+      .filter((s) => s.company && isAgencyFeed(s))
+      .sort((a, b) => b.seenAt.getTime() - a.seenAt.getTime());
+  }
+
+  const store = mem();
+  return [...store.signals.values()]
+    .filter((s) => s.source !== "hm-post")
+    .map((s) => ({ ...s, company: store.companies.get(s.companyId)! }))
+    .filter((s) => s.company && isAgencyFeed(s))
+    .sort((a, b) => b.seenAt.getTime() - a.seenAt.getTime());
 }
 
 export async function listSignals(limit = 40) {

@@ -39,15 +39,17 @@ async function alertNewHits(opts: {
   kept: number;
   hits?: { company: string; title: string; kept: boolean; isNew?: boolean }[];
 }) {
+  // `kept` counts re-seen vacancies too, so alerting on it produced a "nieuwe
+  // hits" notification on every cron run even when nothing changed.
   const neu = (opts.hits || []).filter((h) => h.kept && h.isNew);
-  if (!opts.kept && !neu.length) return;
+  if (!neu.length) return;
   const sample = neu
     .slice(0, 3)
     .map((h) => `${h.company}: ${h.title}`)
     .join(" · ");
   await pushAlert({
     kind: "sync",
-    title: `${opts.kept} nieuwe hits (${opts.kind})`,
+    title: `${neu.length} ${neu.length === 1 ? "nieuwe hit" : "nieuwe hits"} (${opts.kind})`,
     body: sample || "Open Radar voor details.",
     href: "/radar",
   });

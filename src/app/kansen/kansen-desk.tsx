@@ -63,6 +63,7 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
   const [hmBusy, setHmBusy] = useState(false);
   const [hmError, setHmError] = useState<string | null>(null);
   const [hmAutoRan, setHmAutoRan] = useState(false);
+  const [q, setQ] = useState("");
 
   function refresh() {
     return import("@/lib/client-cache").then(({ cachedJson, cacheClear }) => {
@@ -145,10 +146,18 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
   }, [params, items, loading, hmAutoRan]);
 
   const filtered = useMemo(() => {
-    if (filter === "all") return items;
-    if (filter === "bureau" || filter === "direct") return items.filter((i) => i.lane === filter);
-    return items.filter((i) => i.stage === filter);
-  }, [items, filter]);
+    const n = q.trim().toLowerCase();
+    return items.filter((i) => {
+      if (filter === "bureau" || filter === "direct") {
+        if (i.lane !== filter) return false;
+      } else if (filter !== "all" && i.stage !== filter) {
+        return false;
+      }
+      if (!n) return true;
+      const blob = `${i.endClient} ${i.roleLabel} ${i.title} ${i.hiringManager || ""} ${i.bronLabel}`.toLowerCase();
+      return blob.includes(n);
+    });
+  }, [items, filter, q]);
 
   async function setStage(id: string, stage: CrmStage) {
     setStageBusy(true);
@@ -170,13 +179,23 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
     }
   }
 
-  const active = sel ? filtered.find((i) => i.id === sel) || null : null;
+  const active = sel ? items.find((i) => i.id === sel) || null : null;
 
   useEffect(() => {
-    if (sel && !filtered.some((i) => i.id === sel)) {
-      setSel(null);
-      setMobilePane("list");
+    function onKey(e: KeyboardEvent) {
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
+      if (e.key !== "j" && e.key !== "k") return;
+      if (!filtered.length) return;
+      const idx = sel ? filtered.findIndex((i) => i.id === sel) : -1;
+      const next =
+        e.key === "j"
+          ? filtered[Math.min(filtered.length - 1, Math.max(0, idx) + 1)]
+          : filtered[Math.max(0, (idx < 0 ? 1 : idx) - 1)];
+      if (next) pick(next.id);
     }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
   }, [filtered, sel]);
 
   function pick(id: string) {
@@ -209,7 +228,7 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
           <p className="ws-intro__text">
             Alle serieuze kansen op één rij. <strong>Bron</strong> = waar de kans vandaan komt:{" "}
             <em>Bureau · …</em> (via detacheerder, bevestigd) of een jobboard zoals LinkedIn/Indeed
-            (direct bij de eindklant). Klik een regel voor detail, hiring manager en voorstel.
+            (direct bij de eindklant). <kbd className="rounded border border-[var(--line)] px-1 font-mono text-[0.65rem]">j</kbd>/<kbd className="rounded border border-[var(--line)] px-1 font-mono text-[0.65rem]">k</kbd> door de lijst · ⌘K overal.
           </p>
         </section>
 
@@ -223,7 +242,12 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
                 <li key={a.id}>
                   <button
                     type="button"
-                    onClick={() => pick(a.id)}
+                    onClick={() => {
+                      pick(a.id);
+                      if (!a.hiringManager && a.nextAction === "Zoek hiring manager") {
+                        void searchHm(a.id);
+                      }
+                    }}
                     className="flex w-full items-center gap-3 py-2 text-left hover:bg-[var(--surface-2)]"
                   >
                     <span className="min-w-0 flex-1">
@@ -241,10 +265,19 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
         ) : null}
 
         <div
-          className={`flex shrink-0 gap-2 overflow-x-auto pb-0.5 ${
+          className={`flex shrink-0 flex-wrap items-center gap-2 pb-0.5 ${
             mobilePane === "detail" ? "max-lg:hidden" : ""
           }`}
-        >          {filters.map((f) => (
+        >
+          <input
+            type="search"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Filter op eindklant, rol of HM…"
+            className="min-w-[12rem] flex-1 rounded-[var(--radius)] border border-[var(--line)] bg-[var(--surface)] px-2.5 py-1.5 text-sm outline-none focus:border-[var(--accent)]"
+            aria-label="Filter kansen"
+          />
+          {filters.map((f) => (
             <button
               key={f.id}
               type="button"

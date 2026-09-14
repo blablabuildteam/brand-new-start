@@ -56,7 +56,7 @@ const emptyMeta = (): DeskMeta => ({
   alerts: [],
 });
 
-const g = globalThis as unknown as { __bnsDeskMeta?: DeskMeta };
+const g = globalThis as unknown as { __bnsDeskMeta?: DeskMeta; __bnsDeskMetaStale?: boolean };
 
 function mem(): DeskMeta {
   if (!g.__bnsDeskMeta) g.__bnsDeskMeta = emptyMeta();
@@ -77,14 +77,21 @@ export async function loadDeskMeta(): Promise<DeskMeta> {
       alerts: Array.isArray(raw?.alerts) ? raw!.alerts.slice(0, 40) : [],
     };
     g.__bnsDeskMeta = next;
+    g.__bnsDeskMetaStale = false;
     return next;
   } catch {
+    // Fall back to whatever we have, but remember that it may be incomplete so
+    // a following save cannot overwrite the row with an empty blob.
+    g.__bnsDeskMetaStale = true;
     return mem();
   }
 }
 
 export async function saveDeskMeta(patch: Partial<DeskMeta>): Promise<DeskMeta> {
   const prev = await loadDeskMeta();
+  if (hasDatabase() && g.__bnsDeskMetaStale) {
+    throw new Error("Desk-data kon niet gelezen worden — niet opgeslagen om verlies te voorkomen.");
+  }
   const next: DeskMeta = {
     leadReviews: { ...prev.leadReviews, ...patch.leadReviews },
     aiGuesses: { ...prev.aiGuesses, ...patch.aiGuesses },
@@ -114,7 +121,9 @@ export async function pushAlert(
 ): Promise<DeskMeta> {
   const meta = await loadDeskMeta();
   const row: DeskAlert = {
-    id: alert.id || `al_${Date.now().toString(36)}`,
+    id:
+      alert.id ||
+      `al_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
     at: new Date().toISOString(),
     kind: alert.kind,
     title: alert.title,
@@ -122,12 +131,15 @@ export async function pushAlert(
     href: alert.href,
     read: false,
   };
-  const alerts = [row, ...meta.alerts].slice(0, 40);
+  // A caller-supplied id means "this event, once" — re-running an HM search or
+  // re-confirming a lead should refresh the alert, not stack duplicates.
+  const alerts = [row, ...meta.alerts.filter((a) => a.id !== row.id)].slice(0, 40);
   const saved = await saveDeskMeta({ alerts });
 
   const hook = process.env.ALERT_WEBHOOK_URL?.trim();
   if (hook) {
-    void fetch(hook, {
+    // Awaited: a serverless runtime may freeze before a detached fetch flushes.
+    await fetch(hook, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ text: `*${row.title}*\n${row.body}${row.href ? `\n${row.href}` : ""}` }),

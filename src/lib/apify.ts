@@ -6,7 +6,7 @@ export async function runApifyActor<T = Record<string, unknown>>(
   actorId: string,
   input: Record<string, unknown>,
   opts?: { waitSecs?: number }
-): Promise<{ items: T[]; runId?: string }> {
+): Promise<{ items: T[]; runId?: string; status?: string; partial?: boolean }> {
   const token = process.env.APIFY_TOKEN;
   if (!token) {
     throw new Error("APIFY_TOKEN missing");
@@ -34,8 +34,12 @@ export async function runApifyActor<T = Record<string, unknown>>(
     data?: { defaultDatasetId?: string; id?: string; status?: string };
   };
   const datasetId = run.data?.defaultDatasetId;
+  const status = run.data?.status;
   if (!datasetId) {
-    throw new Error(`Apify ${actorId}: no dataset (status=${run.data?.status})`);
+    throw new Error(`Apify ${actorId}: no dataset (status=${status})`);
+  }
+  if (status === "FAILED" || status === "ABORTED") {
+    throw new Error(`Apify ${actorId}: run ${status.toLowerCase()}`);
   }
 
   const itemsRes = await fetch(
@@ -47,7 +51,18 @@ export async function runApifyActor<T = Record<string, unknown>>(
   }
 
   const items = (await itemsRes.json()) as T[];
-  return { items, runId: run.data?.id };
+  // A run that is still going (or timed out) returns an empty/short dataset.
+  // Without this check "the market had nothing" and "the scrape never finished"
+  // look identical, and signals silently vanish between syncs.
+  if (status !== "SUCCEEDED" && !items.length) {
+    throw new Error(`Apify ${actorId}: run niet klaar binnen ${wait}s (status=${status})`);
+  }
+  return {
+    items,
+    runId: run.data?.id,
+    status,
+    partial: status !== "SUCCEEDED",
+  };
 }
 
 export function hasApifyToken() {

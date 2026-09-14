@@ -21,9 +21,17 @@ const Body = z.object({
 export async function POST(req: Request) {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  await loadHuntSettings();
   const parsed = Body.safeParse(await req.json().catch(() => ({})));
   if (!parsed.success) return NextResponse.json({ error: "ongeldig" }, { status: 400 });
-  const lead = await reviewLead(parsed.data.id, parsed.data.action, parsed.data.clientName);
-  if (!lead) return NextResponse.json({ error: "niet gevonden" }, { status: 404 });
-  return NextResponse.json({ ok: true, lead });
+  try {
+    const lead = await reviewLead(parsed.data.id, parsed.data.action, parsed.data.clientName);
+    if (!lead) return NextResponse.json({ error: "niet gevonden" }, { status: 404 });
+    return NextResponse.json({ ok: true, lead });
+  } catch (e) {
+    return NextResponse.json(
+      { error: e instanceof Error ? e.message.slice(0, 200) : "opslaan mislukt" },
+      { status: 400 }
+    );
+  }
 }

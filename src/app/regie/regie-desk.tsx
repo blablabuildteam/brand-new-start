@@ -17,6 +17,8 @@ type DeskItem = {
   hmSearched?: boolean;
   demoOpening?: boolean;
   sampleBench?: boolean;
+  /** Bureau-confirmed client without a Radar row — uses the bureau HM endpoint. */
+  bureauLane?: boolean;
   proposal: PlacementProposal;
 };
 
@@ -74,6 +76,7 @@ export default function RegieDesk({
   const [huntErr, setHuntErr] = useState("");
   const [lushaBusy, setLushaBusy] = useState("");
   const [mobilePane, setMobilePane] = useState<"list" | "detail">("list");
+  const [q, setQ] = useState("");
 
   useEffect(() => {
     fetch("/api/placement")
@@ -108,7 +111,14 @@ export default function RegieDesk({
   }, [item, sel.companyId, sel.openingId]);
 
   const proposal = item?.proposal ?? null;
-  const groups = useMemo(() => groupRail(items), [items]);
+  const visible = useMemo(() => {
+    const n = q.trim().toLowerCase();
+    if (!n) return items;
+    return items.filter((i) =>
+      `${i.company} ${i.title} ${i.roleLabel}`.toLowerCase().includes(n)
+    );
+  }, [items, q]);
+  const groups = useMemo(() => groupRail(visible), [visible]);
 
   useEffect(() => {
     setTab(defaultTab(proposal));
@@ -140,17 +150,50 @@ export default function RegieDesk({
     setHuntBusy(true);
     setHuntErr("");
     try {
-      const res = await fetch("/api/hm-search", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ companyId: item.companyId, openingId: item.openingId, force }),
-      });
+      // Bureau-lane items have no Radar opening — /api/hm-search would 404 on
+      // their crm_bureau_* id, so they go through the CRM-aware endpoint.
+      const res = item.bureauLane
+        ? await fetch("/api/leads/hm-search", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ crmId: item.companyId, force }),
+          })
+        : await fetch("/api/hm-search", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ companyId: item.companyId, openingId: item.openingId, force }),
+          });
       const data = (await res.json()) as {
         error?: string;
         empty?: boolean;
         detail?: string;
         targets?: ApproachTarget[];
+        hiringManager?: string | null;
+        hiringManagerTitle?: string | null;
+        hiringManagerUrl?: string | null;
+        hits?: { name: string; title: string | null; url: string | null }[];
       };
+      if (item.bureauLane && res.ok && !data.targets && data.hiringManager) {
+        data.targets = [
+          {
+            kind: "person",
+            cta: "bericht",
+            label: data.hiringManager,
+            subtitle: data.hiringManagerTitle || null,
+            url: data.hiringManagerUrl || "",
+          } as ApproachTarget,
+          ...(data.hits || []).slice(1).map(
+            (h) =>
+              ({
+                kind: "person",
+                cta: "bericht",
+                label: h.name,
+                subtitle: h.title,
+                url: h.url || "",
+              }) as ApproachTarget
+          ),
+        ];
+      }
       if (!res.ok) throw new Error(data.error || "zoeken mislukt");
       if (data.empty || !data.targets?.length) {
         setHuntErr(
@@ -270,15 +313,30 @@ export default function RegieDesk({
           <div className="radar-scroll-pane__head">
             <p className="ws-label">Openingen</p>
             <p className="tabular-nums text-[0.68rem] text-[var(--muted)]" style={{ fontFamily: "var(--mono)" }}>
-              {items.length || 0}
+              {visible.length || 0}
             </p>
+          </div>
+          <div className="px-2 pb-2">
+            <input
+              type="search"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Filter bedrijf of rol…"
+              className="w-full rounded-[calc(var(--radius)-2px)] border border-[var(--line)] bg-[var(--surface)] px-2 py-1.5 text-[0.78rem] outline-none focus:border-[var(--accent)]"
+              aria-label="Filter openingen"
+            />
           </div>
           <div className="radar-scroll-pane__body !px-1.5">
             {groups.map((g) => {
               const companyActive = item?.companyId === g.companyId;
               return (
                 <div key={g.companyId} className="mb-3 last:mb-0">
-                  <p className="px-2 pb-1 pt-1 text-[0.7rem] font-semibold text-[var(--ink)]">{g.company}</p>
+                  <p className="px-2 pb-1 pt-1 text-[0.7rem] font-semibold text-[var(--ink)]">
+                    {g.company}
+                    {g.openings.some((o) => o.bureauLane) ? (
+                      <span className="ml-1.5 font-medium text-[var(--muted)]">· bureau</span>
+                    ) : null}
+                  </p>
                   <ul className="space-y-0.5">
                     {g.openings.map((r) => {
                       const active = item?.openingId === r.openingId && companyActive;

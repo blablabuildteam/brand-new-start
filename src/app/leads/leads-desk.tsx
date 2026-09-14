@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
 import type { AgencyLead, LeadStatus } from "@/lib/opportunity";
 import type { ResearchDepth } from "@/lib/research/types";
@@ -466,7 +467,28 @@ function LeadCard({
       ) : lead.status === "confirmed" ? (
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <p className="w-full text-[0.75rem] text-[var(--muted)]">
-            Bevestigd als <strong className="text-[var(--ink)]">{client}</strong>. Volgende stap:
+            Bevestigd als <strong className="text-[var(--ink)]">{client}</strong>
+            {lead.hiringManager ? (
+              <>
+                {" · "}
+                HM:{" "}
+                {lead.hiringManagerUrl ? (
+                  <a
+                    href={lead.hiringManagerUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-semibold text-[var(--accent)] no-underline hover:underline"
+                  >
+                    {lead.hiringManager}
+                  </a>
+                ) : (
+                  <strong className="text-[var(--ink)]">{lead.hiringManager}</strong>
+                )}
+                {lead.hiringManagerTitle ? ` · ${lead.hiringManagerTitle}` : ""}
+              </>
+            ) : (
+              ". Volgende stap: hiring manager."
+            )}
           </p>
           <Link href={kansenHref(`crm_bureau_${lead.id}`)} className="btn-ink btn-tool no-underline">
             Open in Kansen
@@ -489,12 +511,15 @@ function LeadCard({
 }
 
 export default function LeadsDesk() {
+  const router = useRouter();
   const [data, setData] = useState<Payload | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [aiId, setAiId] = useState<string | null>(null);
   const [hmId, setHmId] = useState<string | null>(null);
   const [hmNote, setHmNote] = useState<string | null>(null);
+  const [q, setQ] = useState("");
+  const [bucket, setBucket] = useState<"all" | "open" | "confirmed">("all");
   const [watchOpen, setWatchOpen] = useState(false);
   const [clientDrafts, setClientDrafts] = useState<Record<string, string>>({});
 
@@ -536,6 +561,30 @@ export default function LeadsDesk() {
   useEffect(() => {
     load();
   }, []);
+
+  const filteredLive = useMemo(() => {
+    if (!data) return [];
+    const n = q.trim().toLowerCase();
+    return data.live.filter((l) => {
+      if (bucket === "open" && (l.status === "confirmed" || l.status === "rejected")) return false;
+      if (bucket === "confirmed" && l.status !== "confirmed") return false;
+      if (!n) return true;
+      const blob = `${l.title} ${l.agency.name} ${l.confirmedClient || ""} ${l.guess?.name || ""} ${l.roleLabel}`.toLowerCase();
+      return blob.includes(n);
+    });
+  }, [data, q, bucket]);
+
+  const filteredDemo = useMemo(() => {
+    if (!data) return [];
+    const n = q.trim().toLowerCase();
+    return data.demo.filter((l) => {
+      if (bucket === "open" && (l.status === "confirmed" || l.status === "rejected")) return false;
+      if (bucket === "confirmed" && l.status !== "confirmed") return false;
+      if (!n) return true;
+      const blob = `${l.title} ${l.agency.name} ${l.confirmedClient || ""} ${l.guess?.name || ""}`.toLowerCase();
+      return blob.includes(n);
+    });
+  }, [data, q, bucket]);
 
   async function onReview(id: string, action: "confirmed" | "rejected", clientName?: string) {
     setBusy(true);
@@ -623,7 +672,17 @@ export default function LeadsDesk() {
             j.hits && j.hits.length > 1 ? ` (+${j.hits.length - 1} alternatieven)` : ""
           }`
         );
-        window.location.href = kansenHref(j.crmId || `crm_bureau_${id}`);
+        setData((prev) => {
+          if (!prev) return prev;
+          const patch = (list: AgencyLead[]) =>
+            list.map((l) =>
+              l.id === id
+                ? { ...l, hiringManager: j.hiringManager, hiringManagerTitle: j.hiringManagerTitle || null }
+                : l
+            );
+          return { ...prev, live: patch(prev.live), demo: patch(prev.demo) };
+        });
+        router.push(kansenHref(j.crmId || `crm_bureau_${id}`));
       } else {
         setHmNote(j.detail || "Geen hiring manager gevonden — check LinkedIn company-slug of probeer opnieuw.");
       }
@@ -724,9 +783,29 @@ export default function LeadsDesk() {
             <p className="ws-label">Open leads</p>
             {data ? (
               <p className="text-[0.7rem] text-[var(--muted)]" style={{ fontFamily: "var(--mono)" }}>
-                {data.live.length} live · {data.demo.length} voorbeelden
+                {filteredLive.length}/{data.live.length} live
               </p>
             ) : null}
+          </div>
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <input
+              type="search"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Zoek bureau, rol of eindklant…"
+              className="min-w-[12rem] flex-1 rounded-[var(--radius)] border border-[var(--line)] bg-[var(--surface)] px-2.5 py-1.5 text-sm outline-none focus:border-[var(--accent)]"
+              aria-label="Filter leads"
+            />
+            {(["all", "open", "confirmed"] as const).map((b) => (
+              <button
+                key={b}
+                type="button"
+                onClick={() => setBucket(b)}
+                className={`ws-chip ${bucket === b ? "ws-chip--on" : ""}`}
+              >
+                {b === "all" ? "Alles" : b === "open" ? "Te reviewen" : "Bevestigd"}
+              </button>
+            ))}
           </div>
 
           {error ? <p className="mb-3 text-sm text-[var(--warn)]">{error}</p> : null}
@@ -740,12 +819,12 @@ export default function LeadsDesk() {
                 <div className="mb-2 flex items-center justify-between gap-2">
                   <p className="ws-label">Uit je radar</p>
                   <span className="tabular-nums text-[0.68rem] text-[var(--muted)]" style={{ fontFamily: "var(--mono)" }}>
-                    {data.live.length}
+                    {filteredLive.length}
                   </span>
                 </div>
-                {data.live.length ? (
+                {filteredLive.length ? (
                   <div className="space-y-2.5">
-                    {data.live.map((l) => (
+                    {filteredLive.map((l) => (
                       <LeadCard
                         key={l.id}
                         lead={l}
@@ -772,11 +851,11 @@ export default function LeadsDesk() {
                 <div className="mb-2 flex items-center justify-between gap-2">
                   <p className="ws-label">Voorbeelden</p>
                   <span className="tabular-nums text-[0.68rem] text-[var(--muted)]" style={{ fontFamily: "var(--mono)" }}>
-                    {data.demo.length}
+                    {filteredDemo.length}
                   </span>
                 </div>
                 <div className="space-y-2.5">
-                  {data.demo.map((l) => (
+                  {filteredDemo.map((l) => (
                     <LeadCard
                       key={l.id}
                       lead={l}

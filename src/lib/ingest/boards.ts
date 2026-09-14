@@ -6,7 +6,7 @@
 import { hasApifyToken, runApifyActor } from "@/lib/apify";
 import { isAgencyName } from "@/lib/agency";
 import { detectRoleLabel, matchesContract, matchesRole } from "@/lib/niche";
-import { ingestSignal, isJunkJobTitle } from "@/lib/store";
+import { ingestSignal, isJunkCompanyName, isJunkJobTitle } from "@/lib/store";
 import { recordSync, type SyncChannel, type SyncHit } from "@/lib/sync-log";
 import { INGEST_POLICY } from "@/lib/costs";
 import { DEFAULT_ROLES, huntRoles, huntSettings } from "@/lib/hunt";
@@ -32,9 +32,6 @@ type BoardJob = {
   department?: string | null;
 };
 
-const JUNK_COMPANY =
-  /^(indeed|linkedin|glassdoor|facebook|google|youtube|instagram|monster|stepstone|jobbird|nationale vacaturebank|werkzoeken|untitled|n\/a|unknown|confidential|confidential company)$/i;
-
 async function ingestBoardJobs(jobs: BoardJob[]) {
   let scanned = 0;
   let kept = 0;
@@ -43,7 +40,7 @@ async function ingestBoardJobs(jobs: BoardJob[]) {
 
   for (const job of jobs) {
     scanned += 1;
-    if (!job.company?.trim() || JUNK_COMPANY.test(job.company.trim()) || isAgencyName(job.company)) {
+    if (isJunkCompanyName(job.company) || isAgencyName(job.company)) {
       skipped += 1;
       hits.push({ company: job.company || "?", title: job.title, url: job.url, kept: false, isNew: false });
       continue;

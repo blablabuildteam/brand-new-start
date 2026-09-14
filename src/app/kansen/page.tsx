@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import KansenDesk from "./kansen-desk";
 import { listActionQueue, listCrmOpportunities } from "@/lib/crm";
+import { loadHuntSettings } from "@/lib/hunt";
 
 export const dynamic = "force-dynamic";
 
@@ -10,6 +11,9 @@ export const metadata = {
 };
 
 export default async function KansenPage() {
+  // Without this a cold instance gates roles/agencies on DEFAULT_HUNT, so
+  // disabled bureaus reappear and the niche filter is wrong.
+  await loadHuntSettings();
   const items = await listCrmOpportunities();
   const actionQueue = listActionQueue(items);
   const initial = {

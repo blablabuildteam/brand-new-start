@@ -1382,8 +1382,7 @@ export default function RadarApp({
               radar
             </p>
             <p className="mt-1 text-[0.78rem] text-[var(--muted)]">
-              Bevestigd via Bureaus. Zoek de hiring manager op LinkedIn, of wacht tot een admin-sync
-              deze eindklant binnenhaalt.
+              Bevestigd via Bureaus. Zoek de hiring manager vanuit Kansen — geen Radar-opening nodig.
             </p>
             <div className="mt-2.5 flex flex-wrap gap-2">
               {focusLinkedIn ? (

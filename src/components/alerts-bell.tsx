@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 
 type Alert = {
@@ -16,6 +16,7 @@ type Alert = {
 export function AlertsBell() {
   const [open, setOpen] = useState(false);
   const [alerts, setAlerts] = useState<Alert[]>([]);
+  const box = useRef<HTMLDivElement>(null);
   const unread = alerts.filter((a) => !a.read).length;
 
   function load() {
@@ -33,6 +34,22 @@ export function AlertsBell() {
     return () => window.clearInterval(t);
   }, []);
 
+  useEffect(() => {
+    if (!open) return;
+    function onDoc(e: MouseEvent) {
+      if (box.current && !box.current.contains(e.target as Node)) setOpen(false);
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("mousedown", onDoc);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
   async function markAll() {
     const res = await fetch("/api/alerts", {
       method: "POST",
@@ -46,7 +63,7 @@ export function AlertsBell() {
   }
 
   return (
-    <div className="relative">
+    <div className="relative" ref={box}>
       <button
         type="button"
         className="btn-ghost btn-tool relative !min-h-9 !px-2.5"

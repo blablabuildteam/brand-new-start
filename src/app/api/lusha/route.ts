@@ -6,6 +6,7 @@ import { orgContextFromSignals, type HmHit, type OrgContext } from "@/lib/org-co
 import { buildApproach, companyLinkedinFromSignals } from "@/lib/approach";
 import { recordSync } from "@/lib/sync-log";
 import { enrichByLinkedin, hasLushaKey, normalizeLinkedinProfile } from "@/lib/lusha";
+import { HM_SEARCH_VER } from "@/lib/hm-hunt";
 
 export const maxDuration = 30;
 
@@ -100,9 +101,12 @@ export async function POST(req: Request) {
       ],
     });
 
-    const signalId = opening.signals[0]?.id;
+    // Same opening-specific signal as the HM search writes to, with the version
+    // flag — without it `fromRaw` drops the enriched hits on read.
+    const signalId =
+      opening.signals.find((s) => s.source === "job-type")?.id || opening.signals[0]?.id;
     if (signalId) {
-      await patchSignalRaw(signalId, { hmHits: hits });
+      await patchSignalRaw(signalId, { hmHits: hits, hmSearchVer: HM_SEARCH_VER });
     }
 
     const companyUrl = companyLinkedinFromSignals(opening.signals);
