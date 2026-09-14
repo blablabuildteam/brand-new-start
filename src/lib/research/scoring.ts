@@ -274,8 +274,10 @@ export function scoreCandidates(
     if (!opts.hasWebEvidence && !opts.hasInternalEvidence) confidence = Math.min(confidence, 55);
     if (families < 2) confidence = Math.min(confidence, 55);
     if (families < 3) confidence = Math.min(confidence, 68);
-    if (!hasProjectHigh) confidence = Math.min(confidence, 72);
-    if (isAnonLeader && gap < 12) confidence = Math.min(confidence, 70);
+    if (!hasProjectHigh) confidence = Math.min(confidence, 68);
+    if (isAnonLeader && gap < 12) confidence = Math.min(confidence, 68);
+    const contestedUnknown = scored.some((o, j) => j !== i && /onbekend|unknown|niet te zeggen/i.test(o.c.name));
+    if (contestedUnknown && gap < 20) confidence = Math.min(confidence, 58);
     if (s.bestTier > 2 && !hasProjectHigh) confidence = Math.min(confidence, 65);
     if (s.raw <= 0) confidence = Math.min(confidence, 25);
 
