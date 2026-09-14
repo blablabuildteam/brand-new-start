@@ -331,6 +331,51 @@ ${opts.internal}`,
   return { names: names.slice(0, 5), openQuestions: parsed.data.open_questions, rationales };
 }
 
+function nameLooksLike(a: string, b: string) {
+  const n = (s: string) =>
+    s
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/\b(b\.?v\.?|n\.?v\.?|holdings?|group|nederland|netherlands|com)\b/g, "")
+      .replace(/[^a-z0-9]/g, "");
+  const x = n(a);
+  const y = n(b);
+  if (!x || !y) return false;
+  return x === y || x.includes(y) || y.includes(x);
+}
+
+/** Promote a title/code leak or rule hit to hard evidence the scorer understands. */
+function injectHardLeaks(
+  ranking: ResearchCandidate[],
+  opts: { leak?: string | null; prior: ClientGuess | null; title: string }
+) {
+  for (const r of ranking) {
+    const hasExplicit = r.evidence.some((e) => e.factor === "explicit_name");
+    if (opts.leak && nameLooksLike(r.name, opts.leak) && !hasExplicit) {
+      r.evidence.unshift({
+        claim: `Naamlek in titel/opdrachtcode: “${opts.leak}”`,
+        strength: "high",
+        source: opts.title.slice(0, 120),
+        factor: "explicit_name",
+      });
+    } else if (
+      opts.prior &&
+      nameLooksLike(r.name, opts.prior.name) &&
+      opts.prior.confidence >= 80 &&
+      !hasExplicit
+    ) {
+      const quote = opts.prior.evidence[0]?.quote || opts.prior.evidence[0]?.label || opts.title;
+      r.evidence.unshift({
+        claim: `Regel-engine: eindklant met naam genoemd of in de referentie (${opts.prior.name})`,
+        strength: "high",
+        source: String(quote).slice(0, 160),
+        factor: "explicit_name",
+      });
+    }
+  }
+}
+
 /**
  * Degraded result from the shortlist round. The final write-up can fail
  * (token limits, schema drift) while the research itself was fine — in that
@@ -617,6 +662,13 @@ ${blob.slice(0, 3500)}
       ? { ...fallback, model }
       : { guess: null, model, detail: "Geen bruikbare kandidaten na research", report: null };
   }
+
+  // Don't leave a name-leak as a soft "project_match" — the vacancy itself is the source.
+  injectHardLeaks(rawRanking, {
+    leak: signals?.client_name_leak,
+    prior,
+    title: opts.title,
+  });
 
   // ── Round 4: deterministic scoring ──
   const tierByUrl = new Map<string, SourceTier>(hits.map((h) => [h.url, h.tier]));

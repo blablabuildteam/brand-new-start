@@ -14,7 +14,7 @@ import type {
  */
 
 const WEIGHTS: Record<ScoreFactorId, { points: number; label: string }> = {
-  explicit_name: { points: 35, label: "Eindklant expliciet genoemd" },
+  explicit_name: { points: 42, label: "Eindklant expliciet genoemd / naamlek" },
   project_match: { points: 20, label: "Projectbeschrijving matcht" },
   stack_match: { points: 20, label: "Exacte stack-match" },
   cloud_match: { points: 15, label: "Cloudprovider bevestigd" },
@@ -37,18 +37,23 @@ const WEIGHTS: Record<ScoreFactorId, { points: number; label: string }> = {
 
 const STRENGTH_MULTIPLIER = { high: 1, medium: 0.7, low: 0.4 } as const;
 
-/** Raw points → absolute confidence, deliberately flattened at the top. */
+/**
+ * Raw points → confidence.
+ * Design: a name-leak alone (~35) should already feel strong (~78).
+ * Name + city/stack (~65) → mid-80s. Multi-signal without a name (~50) → ~72.
+ * Thin hints stay in the 30–50 band.
+ */
 function rawToConfidence(raw: number): number {
   if (raw <= 0) return 12;
   const table: [number, number][] = [
     [0, 12],
-    [15, 32],
-    [30, 45],
-    [45, 55],
-    [60, 65],
-    [80, 74],
-    [100, 81],
-    [130, 87],
+    [15, 38],
+    [25, 52],
+    [35, 78],
+    [50, 84],
+    [65, 88],
+    [85, 91],
+    [110, 94],
   ];
   for (let i = 1; i < table.length; i++) {
     const [x1, y1] = table[i - 1]!;
@@ -58,7 +63,7 @@ function rawToConfidence(raw: number): number {
       return y1 + t * (y2 - y1);
     }
   }
-  return 90;
+  return 95;
 }
 
 export type ScoredCandidate = ResearchCandidate & {
@@ -193,29 +198,40 @@ export function scoreCandidates(
 
   const masses = scored.map((s) => Math.max(0, s.raw));
   const total = masses.reduce((a, b) => a + b, 0);
+  const bestRaw = Math.max(0, ...masses);
+  const secondRaw = [...masses].sort((a, b) => b - a)[1] ?? 0;
+  const clearLeader = bestRaw > 0 && bestRaw >= secondRaw + 18;
 
   const out: ScoredCandidate[] = scored.map((s, i) => {
     const modelConf = Math.round(s.c.confidence);
     const detConf = rawToConfidence(s.raw);
     const share = total > 0 ? (masses[i]! / total) * 100 : 100 / Math.max(1, scored.length);
-
-    // Deterministic score leads; separation from the runner-up and the model's
-    // own read only nudge.
-    let confidence = 0.55 * detConf + 0.2 * share + 0.25 * modelConf;
-
-    // Guardrails against confident nonsense
     const named = s.lines.some((l) => l.factor === "explicit_name" && l.points > 0);
     const independent = s.positives >= 2;
+    const strongCase = named || (independent && s.raw >= 45);
+    const isLeader = clearLeader && masses[i] === bestRaw;
+
+    // Strong evidence is owned by the deterministic score. Share only separates
+    // near-ties; the model may nudge, but never pull a name-leak down into "review".
+    let confidence = strongCase
+      ? 0.72 * detConf + 0.18 * Math.max(share, isLeader ? 70 : share) + 0.1 * modelConf
+      : 0.5 * detConf + 0.25 * share + 0.25 * modelConf;
+
+    if (named && isLeader) confidence = Math.max(confidence, 82);
+    if (named && independent && isLeader) confidence = Math.max(confidence, 88);
+    if (!named && independent && isLeader && s.raw >= 50) confidence = Math.max(confidence, 74);
+
+    // Guardrails against confident nonsense — not against good hits.
     const officialish = s.bestTier <= 2 || named;
-    if (!opts.hasWebEvidence && !opts.hasInternalEvidence) confidence = Math.min(confidence, 52);
-    if (!independent) confidence = Math.min(confidence, 58);
-    if (!officialish) confidence = Math.min(confidence, 75);
+    if (!opts.hasWebEvidence && !opts.hasInternalEvidence && !named) confidence = Math.min(confidence, 52);
+    if (!independent && !named) confidence = Math.min(confidence, 58);
+    if (!officialish) confidence = Math.min(confidence, 72);
     if (s.raw <= 0) confidence = Math.min(confidence, 25);
 
     return {
       ...s.c,
       modelConfidence: modelConf,
-      confidence: Math.max(5, Math.min(92, Math.round(confidence))),
+      confidence: Math.max(5, Math.min(95, Math.round(confidence))),
       score: { raw: s.raw, lines: s.lines },
     };
   });
@@ -231,10 +247,11 @@ export function scoringExplainer(opts: {
   rounds: number;
 }) {
   return [
-    `Score = vaste gewichten per bewijsfactor (stack +20, cloud +15, stad +15, sector +15, bureau-historie +15, projectmatch +20, expliciete naam +35; tegenbewijs: andere cloud −25, tech −20, geen publiek spoor −20).`,
+    `Score = vaste gewichten per bewijsfactor (expliciete naam/naamlek +42, projectmatch +20, stack +20, cloud/stad/sector/bureau-historie +15; tegenbewijs: andere cloud −25, tech −20, geen publiek spoor −20).`,
+    `Een duidelijke naamlek of multi-signal match mag hoog scoren (80–90+). Dunne hints blijven in de 30–55-band.`,
     `Bronbetrouwbaarheid weegt mee (Tier 1 officieel, Tier 2 platform, Tier 3 aggregator, Tier 4 onbekend), met een bodem van 50%.`,
     `Standplaats geldt als harde eis: matcht een andere kandidaat de stad wel, dan kost dat −12.`,
     `Onderzoek: ${opts.rounds} rondes · ${opts.queries} queries · ${opts.searches} searches · ${opts.scrapes} pagina's gelezen · ${opts.internalMatches} eigen vacature-matches.`,
-    `Percentages zijn probabilistische inschattingen op publieke signalen — geen bewezen kansen.`,
+    `Percentages zijn inschattingen op publieke signalen — geen bewezen kansen.`,
   ].join(" ");
 }

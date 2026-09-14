@@ -127,8 +127,8 @@ export async function runEvalCase(c: EvalCase, depth: ResearchDepth): Promise<Ev
     : c.ambiguous
       ? (confidence ?? 0) <= 70
       : hitAt1
-        ? (confidence ?? 0) >= 55
-        : (confidence ?? 0) <= 60;
+        ? (confidence ?? 0) >= 70
+        : (confidence ?? 0) <= 55;
 
   return {
     id: c.id,
