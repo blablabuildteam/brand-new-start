@@ -345,7 +345,7 @@ function nameLooksLike(a: string, b: string) {
   return x === y || x.includes(y) || y.includes(x);
 }
 
-/** Promote a title/code leak or rule hit to hard evidence the scorer understands. */
+/** Promote a title/code leak or strong rule hit to hard evidence the scorer understands. */
 function injectHardLeaks(
   ranking: ResearchCandidate[],
   opts: { leak?: string | null; prior: ClientGuess | null; title: string }
@@ -359,12 +359,14 @@ function injectHardLeaks(
         source: opts.title.slice(0, 120),
         factor: "explicit_name",
       });
-    } else if (
-      opts.prior &&
-      nameLooksLike(r.name, opts.prior.name) &&
-      opts.prior.confidence >= 80 &&
-      !hasExplicit
-    ) {
+      continue;
+    }
+
+    if (!opts.prior || !nameLooksLike(r.name, opts.prior.name) || opts.prior.confidence < 70) continue;
+
+    // Strong catalog/rule match without a name-leak — this is the product path.
+    if (!hasExplicit && opts.prior.confidence >= 84) {
+      // Explicit-enough from rules (named in text or job code reference)
       const quote = opts.prior.evidence[0]?.quote || opts.prior.evidence[0]?.label || opts.title;
       r.evidence.unshift({
         claim: `Regel-engine: eindklant met naam genoemd of in de referentie (${opts.prior.name})`,
@@ -372,7 +374,53 @@ function injectHardLeaks(
         source: String(quote).slice(0, 160),
         factor: "explicit_name",
       });
+    } else if (!r.evidence.some((e) => e.factor === "project_match")) {
+      r.evidence.unshift({
+        claim: `Catalogus/regels: ${opts.prior.evidence.map((e) => e.label).join("; ") || "sterke tag-overlap"}`,
+        strength: opts.prior.confidence >= 70 ? "high" : "medium",
+        source: "rules",
+        factor: "project_match",
+      });
     }
+
+    if (
+      opts.prior.confidence >= 65 &&
+      !r.evidence.some((e) => e.factor === "city_match") &&
+      /locatie|stad|rotterdam|amsterdam|utrecht|arnhem|den haag|eindhoven|profiel:/i.test(
+        opts.prior.evidence.map((e) => e.label).join(" ")
+      )
+    ) {
+      r.evidence.push({
+        claim: `Standplaats past bij catalogus-match voor ${opts.prior.name}`,
+        strength: "medium",
+        source: "rules",
+        factor: "city_match",
+      });
+    }
+  }
+
+  // If rules found a strong anonymous match that the LLM omitted, append it.
+  if (
+    opts.prior &&
+    opts.prior.confidence >= 65 &&
+    !opts.leak &&
+    !ranking.some((r) => nameLooksLike(r.name, opts.prior!.name))
+  ) {
+    ranking.push({
+      name: opts.prior.name,
+      confidence: opts.prior.confidence,
+      why: opts.prior.evidence.map((e) => e.label).join("; ") || "Sterke catalogus-match",
+      whyLower: undefined,
+      evidence: [
+        {
+          claim: `Catalogus/regels: ${opts.prior.evidence.map((e) => e.label).join("; ")}`,
+          strength: "high" as const,
+          source: "rules",
+          factor: "project_match" as const,
+        },
+      ],
+      counterEvidence: ["Door regels toegevoegd — niet door de LLM gerankt."],
+    });
   }
 }
 
@@ -529,7 +577,13 @@ export async function researchEndClient(opts: {
     shortlistNames = sl.names;
     shortlistWhy = sl.rationales;
 
-    const probeNames = sl.names.slice(0, depth === "deep" ? 4 : 2);
+    // Always verify the rule-engine prior — that's often the anonymous product hit.
+    if (prior && prior.confidence >= 55 && !shortlistNames.some((n) => nameLooksLike(n, prior.name))) {
+      shortlistNames = [prior.name, ...shortlistNames].slice(0, 5);
+      shortlistWhy.set(prior.name, `Regel-hypothese ${prior.confidence}%`);
+    }
+
+    const probeNames = shortlistNames.slice(0, depth === "deep" ? 4 : 3);
     if (probeNames.length) {
       rounds = 3;
       const queries = probeNames.flatMap((name) => [
@@ -677,7 +731,7 @@ ${blob.slice(0, 3500)}
   const tierByUrl = new Map<string, SourceTier>(hits.map((h) => [h.url, h.tier]));
   const tierBySource = (source?: string): SourceTier => {
     if (!source) return 4;
-    if (/^EIGEN\s*\d/i.test(source.trim())) return 2;
+    if (/^EIGEN\s*\d/i.test(source.trim()) || source.trim() === "rules") return 2;
     const direct = tierByUrl.get(source.trim());
     if (direct) return direct;
     for (const [url, tier] of tierByUrl) {

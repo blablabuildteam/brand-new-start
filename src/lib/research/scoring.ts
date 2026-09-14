@@ -250,25 +250,33 @@ export function scoreCandidates(
 
     // ── Product path: anonymous OSINT ──
     const detConf = anonymousRawToConfidence(anonRaw(s));
-    let confidence = 0.7 * detConf + 0.2 * Math.max(share, isAnonLeader ? 65 : share) + 0.1 * modelConf;
+    const gap = isAnonLeader ? bestAnon - secondAnon : 0;
+    let confidence = 0.65 * detConf + 0.2 * share + 0.15 * modelConf;
 
-    // Floors for the cases the product is supposed to win
-    if (families >= 3 && isAnonLeader) confidence = Math.max(confidence, 85);
-    if (families >= 4 && isAnonLeader) confidence = Math.max(confidence, 90);
-    if (families >= 3 && isAnonLeader && (opts.hasWebEvidence || opts.hasInternalEvidence)) {
-      confidence = Math.max(confidence, 88);
-    }
-    // Distinctive programme + place is often enough for Port-of-Rotterdam-style hits
-    const hasProject = s.lines.some((l) => l.factor === "project_match" && l.points > 0);
+    const hasProjectHigh = s.lines.some(
+      (l) => (l.factor === "project_match" || l.factor === "modernization") && l.points >= 18
+    );
     const hasPlace = s.lines.some((l) => l.factor === "city_match" && l.points > 0);
-    if (hasProject && hasPlace && families >= 3 && isAnonLeader) {
-      confidence = Math.max(confidence, 88);
+    const hasStackOrSector = s.lines.some(
+      (l) => (l.factor === "stack_match" || l.factor === "sector_match" || l.factor === "cloud_match") && l.points > 0
+    );
+
+    // High anonymous confidence only when the lead is decisive *and* distinctive.
+    // A thin 3-family match with a close runner-up must NOT get a 88% floor.
+    if (isAnonLeader && hasProjectHigh && hasPlace && hasStackOrSector && gap >= 22) {
+      confidence = Math.max(confidence, 86);
+    }
+    if (isAnonLeader && hasProjectHigh && hasPlace && families >= 4 && gap >= 28) {
+      confidence = Math.max(confidence, 90);
     }
 
-    // Guardrails — keep thin guesses humble
+    // Guardrails — keep thin / contested guesses humble
     if (!opts.hasWebEvidence && !opts.hasInternalEvidence) confidence = Math.min(confidence, 55);
-    if (families < 2) confidence = Math.min(confidence, 58);
-    if (families < 3 && s.bestTier > 2) confidence = Math.min(confidence, 70);
+    if (families < 2) confidence = Math.min(confidence, 55);
+    if (families < 3) confidence = Math.min(confidence, 68);
+    if (!hasProjectHigh) confidence = Math.min(confidence, 72);
+    if (isAnonLeader && gap < 12) confidence = Math.min(confidence, 70);
+    if (s.bestTier > 2 && !hasProjectHigh) confidence = Math.min(confidence, 65);
     if (s.raw <= 0) confidence = Math.min(confidence, 25);
 
     return {
