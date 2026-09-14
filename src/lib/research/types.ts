@@ -113,6 +113,10 @@ export type JobSignals = {
   recruiter?: string | null;
   agency?: string | null;
   hard_signals: string[];
+  /** Job/reference code, e.g. "12785" or "BBBH222439". */
+  reference_code?: string | null;
+  /** Client name left behind in a code, title, URL, e-mail or project name. */
+  client_name_leak?: string | null;
   search_queries: string[];
 };
 

@@ -156,11 +156,27 @@ export function scoreCandidates(
     tierBySource: (source?: string) => SourceTier;
     hasWebEvidence: boolean;
     hasInternalEvidence: boolean;
+    /** Set when the vacancy names a city/region — then location is a hard filter. */
+    cityKnown?: boolean;
   }
 ): ScoredCandidate[] {
   const scored = candidates.map((c) => {
     const { raw, lines, positives, bestTier } = scoreOne(c.evidence, c.counterEvidence, opts.tierBySource);
-    return { c, raw, lines, positives, bestTier };
+    let adjusted = raw;
+
+    // Standplaats is a hard requirement in NL contracting. A candidate that
+    // nobody could place in the named city is probably the wrong company.
+    if (opts.cityKnown && !lines.some((l) => l.factor === "city_match" || l.factor === "city_mismatch")) {
+      lines.push({
+        factor: "city_mismatch",
+        label: "Standplaats niet bevestigd",
+        points: -12,
+        note: "Geen bron die deze organisatie aan de genoemde stad/regio koppelt",
+      });
+      adjusted -= 12;
+    }
+
+    return { c, raw: adjusted, lines, positives, bestTier };
   });
 
   const masses = scored.map((s) => Math.max(0, s.raw));

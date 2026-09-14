@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { aiJsonCompletion, hasAiKey } from "@/lib/ai-client";
 import { isAgencyName } from "@/lib/agency";
-import type { ClientGuess, Evidence } from "@/lib/end-client";
+import { guessEndClient, type ClientGuess, type Evidence } from "@/lib/end-client";
 import { findRelatedJobs, relatedJobsBlock, type RelatedJob } from "@/lib/research/corpus";
 import { candidateQueries, discoveryQueries, falsificationQueries } from "@/lib/research/queries";
 import { scoreCandidates, scoringExplainer } from "@/lib/research/scoring";
@@ -84,6 +84,8 @@ const SignalsSchema = z
     recruiter: flexString(80).optional(),
     agency: flexString(80).optional(),
     hard_signals: flexStringArray(160).optional().default([]),
+    reference_code: flexString(60).optional(),
+    client_name_leak: flexString(80).optional(),
     search_queries: flexStringArray(160).optional().default([]),
   })
   .passthrough();
@@ -204,6 +206,24 @@ function scrapeBlock(hits: SearchHit[]) {
     .join("\n\n---\n\n");
 }
 
+/** The rule engine already reads explicit names and job codes — don't waste that. */
+function priorBlock(prior: ClientGuess | null, leak?: string | null) {
+  const lines: string[] = [];
+  if (leak) {
+    lines.push(`Naamlek uit titel/code/URL: "${leak}" — dit is doorgaans de eindklant, tenzij het een bureau is.`);
+  }
+  if (prior) {
+    lines.push(
+      `Regel-hypothese: ${prior.name} (${prior.confidence}%) — ${prior.evidence.map((e) => e.label).join("; ")}`
+    );
+    if (prior.alternatives.length) {
+      lines.push(`Regel-alternatieven: ${prior.alternatives.map((a) => `${a.name} (${a.confidence}%)`).join(", ")}`);
+    }
+  }
+  if (!lines.length) return "(geen lokale hypothese — regels vonden niets)";
+  return `${lines.join("\n")}\n\nVerifieer dit, neem het niet blind over: de regels kennen maar een beperkte catalogus.`;
+}
+
 function signalsBlock(signals: JobSignals | null, queries: string[], agency: string, recruiter: string) {
   if (!signals) return "(signal-extract mislukt — werk vanuit de ruwe vacature)";
   return JSON.stringify(
@@ -234,10 +254,14 @@ team_size_signal, project_signals[] (concrete programma-/projectbeschrijvingen),
 language_requirements[], recruiter, agency,
 hard_signals[] (zeldzame, onderscheidende details: eigen tooling, domeinjargon, certificeringen,
 specifieke systemen, ongebruikelijke combinaties),
+reference_code (opdracht-/vacaturenummer of projectcode),
+client_name_leak (naam die doorschemert in de titel, een opdrachtcode, URL, e-mailadres,
+bestandsnaam of projectnaam — bureaus laten die vaak per ongeluk staan, bv. "Booking — 12785 — SE2"),
 search_queries[] (4–6 korte webzoekopdrachten; bedrijfsnamen ALTIJD tussen "quotes";
 combineer 3–4 harde signalen; vermijd losse woorden die homoniemen geven).
 
-Verzin niets. Laat velden leeg als de tekst ze niet bevat.`,
+Verzin niets. Laat velden leeg als de tekst ze niet bevat.
+Let extra op de TITEL: die is vaak minder geanonimiseerd dan de vacaturetekst.`,
     user: `Bureau: ${opts.agency}${opts.recruiter ? `\nRecruiter: ${opts.recruiter}` : ""}
 
 Vacature:
@@ -259,6 +283,7 @@ async function shortlist(opts: {
   signalsText: string;
   serp: string;
   internal: string;
+  prior: string;
 }): Promise<{ names: string[]; openQuestions: string[]; rationales: Map<string, string> }> {
   const res = await aiJsonCompletion({
     system: `Je maakt een SHORTLIST van mogelijke eindklanten (NL) op basis van eerste zoekresultaten.
@@ -268,10 +293,14 @@ Regels:
 - Het bureau (${opts.agency}) en andere detacheerders/bureaus zijn NOOIT kandidaat.
 - Alleen echte, bestaande Nederlandse organisaties die bij de signalen passen.
 - Liever een plausibele kandidaat met een verifieerbaar spoor dan een wilde gok.
+- Staat er een naamlek of regel-hypothese? Neem die ALTIJD als kandidaat mee, ook om hem te kunnen uitsluiten.
 - open_questions[]: wat moet er nog gecheckt worden om te kunnen kiezen.
 
 JSON: { candidates: [{name, rationale}], open_questions: [] }`,
-    user: `Signalen:
+    user: `Lokale hypothese:
+${opts.prior}
+
+Signalen:
 ${opts.signalsText}
 
 Eerste webresultaten:
@@ -424,6 +453,19 @@ export async function researchEndClient(opts: {
 
   const internalText = relatedJobsBlock(related);
   const signalsText = signalsBlock(signals, budget.queries, agency, recruiter);
+  const prior = guessEndClient({ title: opts.title, text: opts.text });
+  const priorText = priorBlock(prior, signals?.client_name_leak);
+
+  // A name leaked in the title/code is the strongest lead we have — chase it.
+  if (signals?.client_name_leak && !isAgencyName(signals.client_name_leak)) {
+    const leakHits = await multiSearch(
+      candidateQueries({ candidate: signals.client_name_leak, signals, agency }).slice(0, 2),
+      budget,
+      { perQuery: 4, seen: seenUrls }
+    );
+    hits.push(...leakHits);
+    await scrapeBest(leakHits, budget, 1);
+  }
 
   // ── Round 2: shortlist → targeted verification + falsification ──
   let openQuestions: string[] = [];
@@ -436,6 +478,7 @@ export async function researchEndClient(opts: {
       signalsText,
       serp: serpBlock(hits, 14),
       internal: internalText,
+      prior: priorText,
     });
     openQuestions = sl.openQuestions;
     shortlistNames = sl.names;
@@ -468,6 +511,10 @@ Werkwijze:
 
 Bewijsregels:
 - Het bureau (${agency}) is NOOIT de eindklant. Andere detacheerders ook niet.
+- Een naam die doorschemert in de titel, opdrachtcode, URL of e-mail is het sterkste signaal dat er is:
+  neem die kandidaat op met factor explicit_name, tenzij je hem actief kunt weerleggen.
+- Standplaats is in NL contracting een harde eis: een kandidaat zonder vestiging in de genoemde
+  stad/regio is vrijwel altijd fout. Geef die dan city_mismatch, niet het voordeel van de twijfel.
 - Tag elk bewijs met factor uit: ${FACTORS.join(", ")}.
 - strength: high = officiële bron of expliciete naam; medium = sterke indirecte match; low = zwakke hint.
 - source = URL of "EIGEN n" van de gebruikte bron. Geen bron = geen high.
@@ -484,6 +531,9 @@ Houd het compact: max 4 bewijsregels per kandidaat, claims van één zin, geen h
 
 JSON: { ranking: [{name, confidence, why, whyLower, evidence: [{claim, strength, source, factor}], counterEvidence: []}], why, counterEvidence: [], timeline: [], openQuestions: [], scoringNotes }`,
     user: `Bureau: ${agency}${recruiter ? `\nRecruiter: ${recruiter}` : ""}
+
+=== LOKALE HYPOTHESE (regels + naamlek) ===
+${priorText}
 
 === GEËXTRAHEERDE SIGNALEN ===
 ${signalsText}
@@ -585,6 +635,7 @@ ${blob.slice(0, 3500)}
     tierBySource,
     hasWebEvidence: hits.length > 0,
     hasInternalEvidence: related.length > 0,
+    cityKnown: Boolean(signals?.location?.city || signals?.location?.region),
   });
 
   const top = ranking[0]!;
