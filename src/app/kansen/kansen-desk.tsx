@@ -60,6 +60,51 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
   const [sel, setSel] = useState<string | null>(params.get("id"));
   const [mobilePane, setMobilePane] = useState<"list" | "detail">(params.get("id") ? "detail" : "list");
   const [stageBusy, setStageBusy] = useState(false);
+  const [hmBusy, setHmBusy] = useState(false);
+  const [hmError, setHmError] = useState<string | null>(null);
+  const [hmAutoRan, setHmAutoRan] = useState(false);
+
+  function refresh() {
+    return import("@/lib/client-cache").then(({ cachedJson, cacheClear }) => {
+      cacheClear("crm");
+      return cachedJson<InitialCrm>("crm", "/api/crm", { ttlMs: 5_000 }).then(
+        (j: InitialCrm & { actionQueue?: ActionItem[] }) => {
+          setItems(j.items);
+          setCounts(j.counts);
+          if (j.actionQueue) setActionQueue(j.actionQueue);
+        }
+      );
+    });
+  }
+
+  async function searchHm(crmId: string, force = false) {
+    setHmBusy(true);
+    setHmError(null);
+    try {
+      const res = await fetch("/api/leads/hm-search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ crmId, force }),
+      });
+      const j = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        empty?: boolean;
+        hiringManager?: string | null;
+        error?: string;
+        detail?: string;
+      };
+      if (!res.ok) {
+        setHmError(j.error || "HM-zoeken mislukt");
+        return;
+      }
+      if (j.empty || !j.hiringManager) {
+        setHmError(j.detail || "Geen hiring manager gevonden bij dit bedrijf op LinkedIn.");
+      }
+      await refresh().catch(() => null);
+    } finally {
+      setHmBusy(false);
+    }
+  }
 
   useEffect(() => {
     // Always refresh in the background; show SSR data immediately when present.
@@ -87,6 +132,17 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
       setMobilePane("detail");
     }
   }, [params]);
+
+  useEffect(() => {
+    const id = params.get("id");
+    const wantHm = params.get("hm") === "1";
+    if (!wantHm || !id || hmAutoRan || loading) return;
+    const row = items.find((i) => i.id === id);
+    if (!row) return;
+    setHmAutoRan(true);
+    if (!row.hiringManager) void searchHm(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- one-shot from deep link
+  }, [params, items, loading, hmAutoRan]);
 
   const filtered = useMemo(() => {
     if (filter === "all") return items;
@@ -472,7 +528,18 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
                     <dd className="mt-1 text-[var(--ink)]">
                       {active.hiringManager ? (
                         <>
-                          <span className="font-semibold">{active.hiringManager}</span>
+                          {active.hiringManagerUrl ? (
+                            <a
+                              href={active.hiringManagerUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="font-semibold text-[var(--accent)] no-underline hover:underline"
+                            >
+                              {active.hiringManager}
+                            </a>
+                          ) : (
+                            <span className="font-semibold">{active.hiringManager}</span>
+                          )}
                           {active.hiringManagerTitle ? (
                             <span className="block text-[0.8rem] text-[var(--muted)]">
                               {active.hiringManagerTitle}
@@ -483,6 +550,28 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
                         <span className="text-[var(--muted)]">Nog niet gevonden</span>
                       )}
                     </dd>
+                    {active.hmHits?.length > 1 ? (
+                      <ul className="mt-2 space-y-1">
+                        {active.hmHits.slice(0, 4).map((h) => (
+                          <li key={h.name} className="text-[0.75rem] text-[var(--muted)]">
+                            {h.url ? (
+                              <a
+                                href={h.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="font-medium text-[var(--ink)] no-underline hover:underline"
+                              >
+                                {h.name}
+                              </a>
+                            ) : (
+                              <span className="font-medium text-[var(--ink)]">{h.name}</span>
+                            )}
+                            {h.title ? ` · ${h.title}` : ""}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : null}
+                    {hmError ? <p className="mt-2 text-[0.75rem] text-[var(--warn)]">{hmError}</p> : null}
                   </div>
                 </dl>
 
@@ -504,6 +593,18 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
                 </div>
 
                 <div className="mt-5 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    disabled={hmBusy}
+                    onClick={() => void searchHm(active.id, Boolean(active.hiringManager))}
+                    className="btn-signal btn-tool"
+                  >
+                    {hmBusy
+                      ? "LinkedIn zoeken…"
+                      : active.hiringManager
+                        ? "Opnieuw HM zoeken"
+                        : "Zoek hiring manager"}
+                  </button>
                   {active.href ? (
                     <Link href={active.href} className="btn-ink btn-tool no-underline">
                       Open voorstel
@@ -519,16 +620,15 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
                       Vacature
                     </a>
                   ) : null}
-                  {active.companyId || active.endClient ? (
+                  {active.companyId ? (
                     <Link
                       href={radarHref({
                         companyId: active.companyId,
                         openingId: active.openingId,
-                        q: active.companyId ? null : active.endClient,
                       })}
                       className="btn-ghost btn-tool no-underline"
                     >
-                      {active.hiringManager ? "Open op Radar" : "Zoek manager op Radar"}
+                      Open op Radar
                     </Link>
                   ) : null}
                 </div>

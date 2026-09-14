@@ -5,7 +5,7 @@ import Link from "next/link";
 import { AppShell } from "@/components/app-shell";
 import type { AgencyLead, LeadStatus } from "@/lib/opportunity";
 import type { ResearchDepth } from "@/lib/research/types";
-import { kansenHref, radarHref, regieHref } from "@/lib/desk-links";
+import { kansenHref, regieHref } from "@/lib/desk-links";
 
 type Payload = {
   watchlist: {
@@ -55,14 +55,18 @@ function LeadCard({
   onClientDraft,
   onReview,
   onAiGuess,
+  onHmSearch,
+  hmBusy,
 }: {
   lead: AgencyLead;
   busy: boolean;
   aiBusy: boolean;
+  hmBusy?: boolean;
   clientDraft: string;
   onClientDraft: (v: string) => void;
   onReview: (id: string, action: "confirmed" | "rejected", clientName?: string) => void;
   onAiGuess: (id: string, depth?: ResearchDepth) => void;
+  onHmSearch?: (id: string) => void;
 }) {
   const [showText, setShowText] = useState(false);
   const [showScore, setShowScore] = useState(false);
@@ -467,12 +471,14 @@ function LeadCard({
           <Link href={kansenHref(`crm_bureau_${lead.id}`)} className="btn-ink btn-tool no-underline">
             Open in Kansen
           </Link>
-          <Link
-            href={radarHref({ q: client || undefined })}
-            className="btn-ghost btn-tool no-underline"
+          <button
+            type="button"
+            disabled={hmBusy}
+            onClick={() => onHmSearch?.(lead.id)}
+            className="btn-signal btn-tool"
           >
-            Zoek hiring manager
-          </Link>
+            {hmBusy ? "HM zoeken…" : "Zoek hiring manager"}
+          </button>
           <Link href={regieHref({})} className="btn-ghost btn-tool no-underline">
             Naar Voorstel
           </Link>
@@ -487,6 +493,8 @@ export default function LeadsDesk() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [aiId, setAiId] = useState<string | null>(null);
+  const [hmId, setHmId] = useState<string | null>(null);
+  const [hmNote, setHmNote] = useState<string | null>(null);
   const [watchOpen, setWatchOpen] = useState(false);
   const [clientDrafts, setClientDrafts] = useState<Record<string, string>>({});
 
@@ -581,16 +589,58 @@ export default function LeadsDesk() {
     }
   }
 
+  async function onHmSearch(id: string) {
+    setHmId(id);
+    setError(null);
+    setHmNote(null);
+    try {
+      const res = await fetch("/api/leads/hm-search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ leadId: id }),
+      });
+      const j = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        empty?: boolean;
+        hiringManager?: string | null;
+        hiringManagerTitle?: string | null;
+        hits?: { name: string; title: string | null }[];
+        error?: string;
+        detail?: string;
+        crmId?: string;
+      };
+      if (res.status === 503) {
+        setError(j.error || "APIFY_TOKEN ontbreekt");
+        return;
+      }
+      if (!res.ok) {
+        setError(j.error || "HM-zoeken mislukt");
+        return;
+      }
+      if (j.hiringManager) {
+        setHmNote(
+          `${j.hiringManager}${j.hiringManagerTitle ? ` · ${j.hiringManagerTitle}` : ""}${
+            j.hits && j.hits.length > 1 ? ` (+${j.hits.length - 1} alternatieven)` : ""
+          }`
+        );
+        window.location.href = kansenHref(j.crmId || `crm_bureau_${id}`);
+      } else {
+        setHmNote(j.detail || "Geen hiring manager gevonden — check LinkedIn company-slug of probeer opnieuw.");
+      }
+    } finally {
+      setHmId(null);
+    }
+  }
+
   return (
     <AppShell current="leads" title="Bureaus" subtitle="Eerst eindklant, dan hiring manager" fill>
       <div className="ws-shell ws-shell--split">
         <section className="ws-intro lg:col-span-2">
           <p className="ws-intro__title">Wat doe je hier?</p>
           <p className="ws-intro__text">
-            Feeds van de recruiters die je volgt. <strong>Eerste eindklant</strong> komt uit regels
-            (naam/tags in de tekst). <strong>AI research</strong> doet dieper: signalen → webzoeken →
-            kandidaten + tegenbewijs. Open “Waarop is deze score gebaseerd?” voor de uitleg. Admin sync:{" "}
-            <strong>Recruiter-feeds</strong> onder Sync &amp; meer.
+            Feeds van de recruiters die je volgt. Bevestig de eindklant (regels of AI research),
+            daarna <strong>Zoek hiring manager</strong> — LinkedIn people-search op de eindklant,
+            zonder Radar-opening nodig. Resultaat landt in Kansen + Voorstel.
           </p>
         </section>
         <aside className={`radar-scroll-pane min-h-0 shrink-0 lg:max-h-none ${watchOpen ? "max-lg:max-h-64" : "max-lg:max-h-none"}`}>
@@ -680,6 +730,7 @@ export default function LeadsDesk() {
           </div>
 
           {error ? <p className="mb-3 text-sm text-[var(--warn)]">{error}</p> : null}
+          {hmNote ? <p className="mb-3 text-sm text-[var(--accent)]">{hmNote}</p> : null}
 
           {!data ? (
             <p className="text-sm text-[var(--muted)]">Laden…</p>
@@ -700,10 +751,12 @@ export default function LeadsDesk() {
                         lead={l}
                         busy={busy}
                         aiBusy={aiId === l.id}
+                        hmBusy={hmId === l.id}
                         clientDraft={clientDrafts[l.id] || ""}
                         onClientDraft={(v) => setClientDrafts((d) => ({ ...d, [l.id]: v }))}
                         onReview={onReview}
                         onAiGuess={onAiGuess}
+                        onHmSearch={onHmSearch}
                       />
                     ))}
                   </div>
@@ -729,10 +782,12 @@ export default function LeadsDesk() {
                       lead={l}
                       busy={busy}
                       aiBusy={aiId === l.id}
+                      hmBusy={hmId === l.id}
                       clientDraft={clientDrafts[l.id] || ""}
                       onClientDraft={(v) => setClientDrafts((d) => ({ ...d, [l.id]: v }))}
                       onReview={onReview}
                       onAiGuess={onAiGuess}
+                      onHmSearch={onHmSearch}
                     />
                   ))}
                 </div>

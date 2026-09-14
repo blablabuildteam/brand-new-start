@@ -70,6 +70,21 @@ const EXTRA_SLUGS: Record<string, string[]> = {
   "nn group": ["nn-group", "nationale-nederlanden"],
   nn: ["nn-group"],
   "nationale nederlanden": ["nn-group", "nationale-nederlanden"],
+  "booking.com": ["booking", "bookingcom"],
+  booking: ["booking", "bookingcom"],
+  "havenbedrijf rotterdam": ["port-of-rotterdam", "havenbedrijf-rotterdam"],
+  "port of rotterdam": ["port-of-rotterdam", "havenbedrijf-rotterdam"],
+  adyen: ["adyen"],
+  "bol.com": ["bol-com", "bol"],
+  bol: ["bol-com"],
+  alliander: ["alliander"],
+  stedin: ["stedin"],
+  ing: ["ing_com", "ing"],
+  rabobank: ["rabobank"],
+  "abn amro": ["abn-amro"],
+  vgz: ["vgz"],
+  ccv: ["ccv"],
+  logius: ["logius"],
 };
 
 function slugifyCompanyName(name: string): string {

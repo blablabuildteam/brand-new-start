@@ -4,6 +4,8 @@ import { listRadar } from "@/lib/store";
 import { orgContextFromSignals } from "@/lib/org-context";
 import { buildPlacement, placementFromSignals } from "@/lib/placement";
 import type { PlacementProposal } from "@/lib/placement";
+import { listCrmOpportunities } from "@/lib/crm";
+import { loadDeskMeta } from "@/lib/desk-meta";
 
 const DEMO = {
   company: "Politie Opleiding Centrum Zuid Nederland",
@@ -27,6 +29,8 @@ export type DeskItem = {
   demoOpening?: boolean;
   /** Shortlist uit voorbeeld-bench (niet echte CRM) */
   sampleBench?: boolean;
+  /** From bureau lane without a Radar company row */
+  bureauLane?: boolean;
   proposal: PlacementProposal;
 };
 
@@ -34,26 +38,15 @@ export async function GET() {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
-  const rows = await listRadar();
-
-  if (!rows.length) {
-    const proposal = buildPlacement(DEMO);
-    const item: DeskItem = {
-      companyId: "demo",
-      openingId: "demo",
-      company: DEMO.company,
-      sector: "Overheid",
-      title: DEMO.openingTitle,
-      roleLabel: DEMO.roleLabel,
-      kans: 46,
-      demoOpening: true,
-      sampleBench: true,
-      proposal,
-    };
-    return NextResponse.json({ items: [item], demo: true });
-  }
+  const [rows, crm, meta] = await Promise.all([
+    listRadar(),
+    listCrmOpportunities(),
+    loadDeskMeta(),
+  ]);
 
   const items: DeskItem[] = [];
+  const seenCompanies = new Set<string>();
+
   for (const r of rows) {
     const openings = r.openings?.length
       ? r.openings
@@ -69,6 +62,7 @@ export async function GET() {
         ];
     for (const opening of openings) {
       const org = opening.org || orgContextFromSignals(opening.signals);
+      seenCompanies.add(r.company.name.toLowerCase());
       items.push({
         companyId: r.id,
         openingId: opening.id,
@@ -89,6 +83,58 @@ export async function GET() {
         }),
       });
     }
+  }
+
+  // Bureau-confirmed eindklanten without a Radar row still need a Voorstel.
+  for (const c of crm) {
+    if (c.lane !== "bureau") continue;
+    if (seenCompanies.has(c.endClient.toLowerCase())) continue;
+    seenCompanies.add(c.endClient.toLowerCase());
+
+    const hm = meta.hmGuesses[c.id];
+    items.unshift({
+      companyId: c.id,
+      openingId: c.id,
+      company: c.endClient,
+      sector: null,
+      title: c.title,
+      roleLabel: c.roleLabel,
+      kans: c.kans ?? 40,
+      hmSearched: Boolean(c.hiringManager || hm?.hits?.length),
+      sampleBench: true,
+      bureauLane: true,
+      proposal: buildPlacement({
+        company: c.endClient,
+        openingTitle: c.title,
+        roleLabel: c.roleLabel,
+        hiringManager: c.hiringManager || hm?.hiringManager || undefined,
+        hiringManagerTitle: c.hiringManagerTitle || hm?.hiringManagerTitle || undefined,
+        contactUrl: c.hiringManagerUrl || hm?.hiringManagerUrl || undefined,
+        hmHits: (c.hmHits?.length ? c.hmHits : hm?.hits || []).map((h) => ({
+          name: h.name,
+          title: h.title,
+          url: h.url,
+        })),
+        summary: c.extractSummary || c.title,
+      }),
+    });
+  }
+
+  if (!items.length) {
+    const proposal = buildPlacement(DEMO);
+    const item: DeskItem = {
+      companyId: "demo",
+      openingId: "demo",
+      company: DEMO.company,
+      sector: "Overheid",
+      title: DEMO.openingTitle,
+      roleLabel: DEMO.roleLabel,
+      kans: 46,
+      demoOpening: true,
+      sampleBench: true,
+      proposal,
+    };
+    return NextResponse.json({ items: [item], demo: true });
   }
 
   return NextResponse.json({ items, demo: false });

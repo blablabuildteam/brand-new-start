@@ -501,8 +501,8 @@ export async function reviewLead(
     await pushAlert({
       kind: "confirm",
       title: `Bevestigd: ${client}`,
-      body: `${lead.roleLabel} via ${lead.agency.name} — zoek hiring manager of open Kansen.`,
-      href: `/radar?q=${encodeURIComponent(client)}`,
+      body: `${lead.roleLabel} via ${lead.agency.name} — zoek nu de hiring manager.`,
+      href: `/kansen?id=${encodeURIComponent(`crm_bureau_${id}`)}&hm=1`,
     });
   }
   return applyReview({

@@ -17,6 +17,16 @@ export type DeskAlert = {
   read: boolean;
 };
 
+export type HmGuessRow = {
+  hiringManager: string | null;
+  hiringManagerTitle: string | null;
+  hiringManagerUrl: string | null;
+  hits: { name: string; title: string | null; url: string | null; score?: number }[];
+  planKeywords?: string;
+  detail?: string;
+  at: string;
+};
+
 type ReviewRow = {
   status: "confirmed" | "rejected";
   clientName?: string;
@@ -33,6 +43,8 @@ export type DeskMeta = {
   leadReviews: Record<string, ReviewRow>;
   aiGuesses: Record<string, AiRow>;
   crmStages: Record<string, CrmStage>;
+  /** Hiring-manager results keyed by CRM id (crm_bureau_* / crm_direct_*). */
+  hmGuesses: Record<string, HmGuessRow>;
   alerts: DeskAlert[];
 };
 
@@ -40,6 +52,7 @@ const emptyMeta = (): DeskMeta => ({
   leadReviews: {},
   aiGuesses: {},
   crmStages: {},
+  hmGuesses: {},
   alerts: [],
 });
 
@@ -60,6 +73,7 @@ export async function loadDeskMeta(): Promise<DeskMeta> {
       leadReviews: raw?.leadReviews && typeof raw.leadReviews === "object" ? raw.leadReviews : {},
       aiGuesses: raw?.aiGuesses && typeof raw.aiGuesses === "object" ? raw.aiGuesses : {},
       crmStages: raw?.crmStages && typeof raw.crmStages === "object" ? raw.crmStages : {},
+      hmGuesses: raw?.hmGuesses && typeof raw.hmGuesses === "object" ? raw.hmGuesses : {},
       alerts: Array.isArray(raw?.alerts) ? raw!.alerts.slice(0, 40) : [],
     };
     g.__bnsDeskMeta = next;
@@ -75,6 +89,7 @@ export async function saveDeskMeta(patch: Partial<DeskMeta>): Promise<DeskMeta> 
     leadReviews: { ...prev.leadReviews, ...patch.leadReviews },
     aiGuesses: { ...prev.aiGuesses, ...patch.aiGuesses },
     crmStages: { ...prev.crmStages, ...patch.crmStages },
+    hmGuesses: { ...prev.hmGuesses, ...patch.hmGuesses },
     alerts: patch.alerts ?? prev.alerts,
   };
   g.__bnsDeskMeta = next;
