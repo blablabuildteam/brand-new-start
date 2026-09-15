@@ -23,12 +23,6 @@ function formatDay(isoStr: string | null) {
   }
 }
 
-function freshClass(f: CrmOpportunity["freshness"]) {
-  if (f === "vers") return "border-[var(--green)]/30 bg-[var(--green-soft)] text-[var(--green)]";
-  if (f === "actueel") return "border-[var(--accent)]/25 bg-[var(--accent-soft)] text-[var(--accent)]";
-  return "border-[var(--line)] bg-[var(--surface-2)] text-[var(--muted)]";
-}
-
 function sourceLine(row: CrmOpportunity) {
   return row.bronLabel || (row.lane === "bureau" ? "Bureau" : "Direct");
 }
@@ -38,15 +32,6 @@ function nextActionOf(row: CrmOpportunity) {
   if (!row.hiringManager) return "Zoek hiring manager";
   if (row.stage === "outreach") return "Follow-up";
   return "Open voorstel";
-}
-
-function stageClass(stage: CrmStage) {
-  if (stage === "won") return "border-[var(--green)]/30 bg-[var(--green-soft)] text-[var(--green)]";
-  if (stage === "lost") return "border-[var(--line)] bg-[var(--surface-2)] text-[var(--muted)]";
-  if (stage === "outreach" || stage === "hm") {
-    return "border-[var(--accent)]/25 bg-[var(--accent-soft)] text-[var(--accent)]";
-  }
-  return "border-[var(--line)] bg-[var(--surface)] text-[var(--ink)]";
 }
 
 type ActionItem = CrmOpportunity & { nextAction: string; nextHref: string };
