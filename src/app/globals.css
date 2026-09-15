@@ -780,9 +780,9 @@ button:focus-visible {
 
   .kans-row__main {
     display: grid;
-    grid-template-columns: minmax(11rem, 1.1fr) minmax(14rem, 1.4fr) minmax(10rem, 1fr);
+    grid-template-columns: minmax(14rem, 1.4fr) minmax(10rem, 1fr);
     align-items: center;
-    gap: 1rem 1.25rem;
+    gap: 1rem 1.5rem;
   }
 
   .kans-row__side {
@@ -792,7 +792,7 @@ button:focus-visible {
   }
 
   .kans-row__next {
-    max-width: 8.5rem;
+    max-width: 9rem;
   }
 }
 

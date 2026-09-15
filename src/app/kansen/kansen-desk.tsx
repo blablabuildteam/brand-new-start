@@ -236,6 +236,46 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
   return (
     <AppShell current="kansen" title="Kansen" subtitle="Eén lijst · volgende actie in de rij" fill>
       <div className="ws-shell">
+        <details className="ws-fold shrink-0">
+          <summary>
+            <span>Wat is Kansen?</span>
+            <span className="ws-fold__meta">Actielijst · HM · voorstel</span>
+          </summary>
+          <div className="ws-fold__body">
+            <p className="m-0 text-[0.8rem] leading-relaxed text-[var(--muted)]">
+              Hier staan <strong className="font-semibold text-[var(--ink)]">bevestigde bureau-kansen</strong> en{" "}
+              <strong className="font-semibold text-[var(--ink)]">warme directe hits</strong> uit Radar. Per rij
+              zie je de volgende stap — meestal: hiring manager zoeken of voorstel openen.
+            </p>
+            <ol className="ws-fold__steps">
+              <li>
+                <span className="ws-fold__n">1</span>
+                <span>
+                  <strong className="font-semibold text-[var(--ink)]">Filter</strong> — nieuw, bevestigd, of zonder
+                  manager.
+                </span>
+              </li>
+              <li>
+                <span className="ws-fold__n">2</span>
+                <span>
+                  <strong className="font-semibold text-[var(--ink)]">Actie</strong> — klik een rij voor detail, stage
+                  en HM-zoek.
+                </span>
+              </li>
+              <li>
+                <span className="ws-fold__n">3</span>
+                <span>
+                  <strong className="font-semibold text-[var(--ink)]">Door</strong> — met manager klaar voor{" "}
+                  <a href="/regie" className="font-semibold text-[var(--ink)] underline underline-offset-2">
+                    Voorstel
+                  </a>
+                  .
+                </span>
+              </li>
+            </ol>
+          </div>
+        </details>
+
         <div className="flex shrink-0 flex-wrap items-center gap-2">
           <input
             type="search"
@@ -266,7 +306,6 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
             <p className="tabular-nums text-[0.68rem] text-[var(--muted)]" style={{ fontFamily: "var(--mono)" }}>
               {filtered.length}
               {needsHm ? ` · ${needsHm} zonder HM` : ""}
-              {counts.withHm ? ` · ${counts.withHm} met manager` : ""}
             </p>
           </div>
           <div className="radar-scroll-pane__body !p-0">
@@ -279,12 +318,12 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
             ) : null}
 
             {!loading && filtered.length ? (
-              <ul className="divide-y divide-[var(--line)]/80">
+              <ul className="divide-y divide-[var(--line)]">
                 {filtered.map((row) => {
                   const on = active?.id === row.id;
                   const next = nextActionOf(row);
                   return (
-                    <li key={row.id} className={on ? "bg-[var(--accent-soft)]/35" : ""}>
+                    <li key={row.id} className={on ? "bg-[var(--surface-2)]" : ""}>
                       <button
                         type="button"
                         onClick={() => pick(row.id)}
@@ -297,29 +336,20 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
                             <span className="truncate text-[0.95rem] font-semibold text-[var(--ink)]">
                               {row.endClient}
                             </span>
-                            <span className="truncate text-[0.8rem] text-[var(--muted)]">{row.roleLabel}</span>
-                          </span>
-                          <span className="kans-row__meta">
-                            <span className="ws-badge">{row.lane === "bureau" ? "Bureau" : "Direct"}</span>
-                            <span className={`ws-badge ${stageClass(row.stage)}`}>
-                              {CRM_STAGE_NL[row.stage] || row.stage}
-                            </span>
-                            <span className={`ws-badge ${freshClass(row.freshness)}`}>{row.freshnessLabel}</span>
-                            <span className="truncate text-[0.72rem] text-[var(--muted)]">
-                              {sourceLine(row)}
-                              {row.bronDetail ? ` · ${row.bronDetail}` : ""}
+                            <span className="truncate text-[0.8rem] text-[var(--muted)]">
+                              {row.roleLabel}
+                              <span className="opacity-80">
+                                {" · "}
+                                {row.lane === "bureau" ? "Bureau" : "Direct"}
+                                {row.freshnessLabel ? ` · ${row.freshnessLabel}` : ""}
+                              </span>
                             </span>
                           </span>
                           <span className="kans-row__hm">
                             {row.hiringManager ? (
-                              <>
-                                <span className="font-medium text-[var(--ink)]">{row.hiringManager}</span>
-                                {row.hiringManagerTitle ? (
-                                  <span className="text-[var(--muted)]"> · {row.hiringManagerTitle}</span>
-                                ) : null}
-                              </>
+                              <span className="font-medium text-[var(--ink)]">{row.hiringManager}</span>
                             ) : (
-                              <span className="text-[var(--warn)]">Geen hiring manager</span>
+                              <span className="text-[var(--muted)]">Geen hiring manager</span>
                             )}
                           </span>
                         </span>
@@ -357,7 +387,7 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
                                         href={row.hiringManagerUrl}
                                         target="_blank"
                                         rel="noopener noreferrer"
-                                        className="font-semibold text-[var(--accent)] no-underline hover:underline"
+                                        className="font-semibold text-[var(--ink)] no-underline hover:underline"
                                       >
                                         {row.hiringManager}
                                       </a>

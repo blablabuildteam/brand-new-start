@@ -620,19 +620,6 @@ export default function LeadsDesk() {
     });
   }, [data, q, bucket, watchAgency]);
 
-  const watchPeople = useMemo(() => {
-    if (!data?.watchlist.length) return [];
-    return data.watchlist.flatMap((a) =>
-      a.recruiters.map((r) => ({
-        key: `${a.id}:${r.name}`,
-        agencyName: a.name,
-        name: r.name,
-        url: r.linkedinUrl,
-        brand: r.brand,
-      })),
-    );
-  }, [data]);
-
   const deepOpenCount = data?.live.filter(
     (l) => l.status !== "confirmed" && l.status !== "rejected" && !l.aiGuess && !aiJobs[l.id]
   ).length ?? 0;
@@ -790,22 +777,44 @@ export default function LeadsDesk() {
       <div className="ws-shell flex min-h-0 flex-1 flex-col gap-3">
         <details className="ws-fold shrink-0">
           <summary>
-            <span>Wat doe je hier?</span>
-            <span className="ws-fold__meta">Eindklant → hiring manager</span>
+            <span>Wat is Bureaus?</span>
+            <span className="ws-fold__meta">Recruiter-feeds · eindklant</span>
           </summary>
           <div className="ws-fold__body">
             <p className="m-0 text-[0.8rem] leading-relaxed text-[var(--muted)]">
-              Feeds van de recruiters die je volgt. Bevestig de eindklant (regels of AI research),
-              daarna <strong className="font-semibold text-[var(--ink)]">Zoek hiring manager</strong> —
-              LinkedIn people-search op de eindklant, zonder Radar-opening nodig. Resultaat landt in
-              Kansen + Voorstel.
+              Hier landen vacatures van de <strong className="font-semibold text-[var(--ink)]">kantoren en recruiters die je volgt</strong>.
+              Jij bevestigt de eindklant — daarna zoek je de hiring manager.
             </p>
+            <ol className="ws-fold__steps">
+              <li>
+                <span className="ws-fold__n">1</span>
+                <span>
+                  <strong className="font-semibold text-[var(--ink)]">Review</strong> — AI of regels raden de eindklant; jij bevestigt of wijst af.
+                </span>
+              </li>
+              <li>
+                <span className="ws-fold__n">2</span>
+                <span>
+                  <strong className="font-semibold text-[var(--ink)]">Hiring manager</strong> — zoek op de bevestigde eindklant (LinkedIn people-search).
+                </span>
+              </li>
+              <li>
+                <span className="ws-fold__n">3</span>
+                <span>
+                  <strong className="font-semibold text-[var(--ink)]">Vervolg</strong> — resultaat staat in{" "}
+                  <a href="/kansen" className="font-semibold text-[var(--ink)] underline underline-offset-2">
+                    Kansen
+                  </a>{" "}
+                  en klaar voor Voorstel.
+                </span>
+              </li>
+            </ol>
           </div>
         </details>
 
-        <section className="ws-panel shrink-0 px-3 py-2.5 sm:px-4">
-          <div className="flex items-center justify-between gap-2">
-            <p className="ws-label">Die je volgt</p>
+        <section className="ws-panel shrink-0 overflow-hidden">
+          <div className="flex items-center justify-between gap-2 border-b border-[var(--line)] px-3.5 py-2.5 sm:px-4">
+            <p className="ws-label">Kantoren die je volgt</p>
             <Link
               href="/instellingen#volgen"
               className="text-[0.72rem] font-semibold text-[var(--muted)] no-underline hover:text-[var(--ink)] hover:underline"
@@ -814,39 +823,92 @@ export default function LeadsDesk() {
             </Link>
           </div>
           {!data ? (
-            <p className="mt-2 text-[0.78rem] text-[var(--muted)]">Laden…</p>
-          ) : watchPeople.length === 0 ? (
-            <p className="mt-2 text-[0.78rem] text-[var(--muted)]">
-              Nog niemand.{" "}
+            <p className="px-3.5 py-3 text-[0.78rem] text-[var(--muted)] sm:px-4">Laden…</p>
+          ) : data.watchlist.length === 0 ? (
+            <p className="px-3.5 py-3 text-[0.78rem] text-[var(--muted)] sm:px-4">
+              Nog geen kantoren.{" "}
               <Link href="/instellingen#volgen" className="font-semibold text-[var(--ink)] no-underline hover:underline">
                 Stel in →
               </Link>
             </p>
           ) : (
-            <div className="mt-2 flex gap-1.5 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-              <button
-                type="button"
-                onClick={() => setWatchAgency(null)}
-                className={`ws-chip shrink-0 ${!watchAgency ? "ws-chip--on" : ""}`}
-              >
-                Alles
-              </button>
-              {watchPeople.map((p) => {
-                const on = watchAgency?.toLowerCase() === p.agencyName.toLowerCase();
+            <ul className="divide-y divide-[var(--line)]">
+              <li>
+                <button
+                  type="button"
+                  onClick={() => setWatchAgency(null)}
+                  className={`flex w-full items-center justify-between gap-2 px-3.5 py-2.5 text-left text-sm transition hover:bg-[var(--surface-2)] sm:px-4 ${
+                    !watchAgency ? "bg-[var(--accent-soft)] font-semibold text-[var(--ink)]" : "text-[var(--ink)]"
+                  }`}
+                >
+                  <span>Alle kantoren</span>
+                  <span className="tabular-nums text-[0.7rem] text-[var(--muted)]" style={{ fontFamily: "var(--mono)" }}>
+                    {data.live.length} leads
+                  </span>
+                </button>
+              </li>
+              {data.watchlist.map((a) => {
+                const on = watchAgency?.toLowerCase() === a.name.toLowerCase();
+                const leadCount = data.live.filter((l) => l.agency.name.toLowerCase() === a.name.toLowerCase()).length;
                 return (
-                  <button
-                    key={p.key}
-                    type="button"
-                    onClick={() => setWatchAgency(on ? null : p.agencyName)}
-                    className={`ws-chip shrink-0 max-w-[14rem] ${on ? "ws-chip--on" : ""}`}
-                    title={p.url ? `${p.name} · open LinkedIn` : p.name}
-                  >
-                    <span className="truncate">{p.name}</span>
-                    <span className="truncate opacity-70">{p.brand || p.agencyName}</span>
-                  </button>
+                  <li key={a.id} className={on ? "bg-[var(--accent-soft)]/40" : ""}>
+                    <details className="group">
+                      <summary className="flex cursor-pointer list-none items-center gap-2 px-3.5 py-2.5 hover:bg-[var(--surface-2)] sm:px-4 [&::-webkit-details-marker]:hidden">
+                        <span
+                          role="button"
+                          tabIndex={0}
+                          className={`min-w-0 flex-1 truncate text-left text-sm ${
+                            on ? "font-semibold text-[var(--ink)]" : "font-medium text-[var(--ink)]"
+                          }`}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setWatchAgency(on ? null : a.name);
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              setWatchAgency(on ? null : a.name);
+                            }
+                          }}
+                        >
+                          {a.name}
+                        </span>
+                        <span className="shrink-0 tabular-nums text-[0.7rem] text-[var(--muted)]" style={{ fontFamily: "var(--mono)" }}>
+                          {leadCount} leads · {a.recruiters.length}
+                        </span>
+                        <span className="shrink-0 text-[0.65rem] text-[var(--muted)] transition group-open:rotate-180" aria-hidden>
+                          ▾
+                        </span>
+                      </summary>
+                      <div className="border-t border-[var(--line)]/70 bg-[var(--surface-2)]/50 px-3.5 py-2.5 sm:px-4">
+                        {a.note ? <p className="mb-2 text-[0.72rem] text-[var(--muted)]">{a.note}</p> : null}
+                        <ul className="space-y-1.5">
+                          {a.recruiters.map((r) => (
+                            <li key={r.name} className="flex items-center justify-between gap-3 text-[0.78rem]">
+                              {r.linkedinUrl ? (
+                                <a
+                                  href={r.linkedinUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="font-medium text-[var(--ink)] no-underline hover:underline"
+                                >
+                                  {r.name}
+                                </a>
+                              ) : (
+                                <span className="font-medium text-[var(--ink)]">{r.name}</span>
+                              )}
+                              {r.brand ? <span className="truncate text-[var(--muted)]">{r.brand}</span> : null}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    </details>
+                  </li>
                 );
               })}
-            </div>
+            </ul>
           )}
         </section>
 
