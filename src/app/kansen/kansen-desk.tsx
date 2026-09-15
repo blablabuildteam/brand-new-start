@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
-import { ScoreChip, SCORE_BAND, scoreTone } from "@/components/score-chip";
+import { ScoreChip } from "@/components/score-chip";
 import type { CrmLane, CrmOpportunity, CrmStage } from "@/lib/crm";
 import { CRM_STAGE_NL } from "@/lib/crm";
 import { radarHref } from "@/lib/desk-links";
@@ -33,6 +33,22 @@ function sourceLine(row: CrmOpportunity) {
   return row.bronLabel || (row.lane === "bureau" ? "Bureau" : "Direct");
 }
 
+function nextActionOf(row: CrmOpportunity) {
+  if (row.stage === "won" || row.stage === "lost") return CRM_STAGE_NL[row.stage];
+  if (!row.hiringManager) return "Zoek hiring manager";
+  if (row.stage === "outreach") return "Follow-up";
+  return "Open voorstel";
+}
+
+function stageClass(stage: CrmStage) {
+  if (stage === "won") return "border-[var(--green)]/30 bg-[var(--green-soft)] text-[var(--green)]";
+  if (stage === "lost") return "border-[var(--line)] bg-[var(--surface-2)] text-[var(--muted)]";
+  if (stage === "outreach" || stage === "hm") {
+    return "border-[var(--accent)]/25 bg-[var(--accent-soft)] text-[var(--accent)]";
+  }
+  return "border-[var(--line)] bg-[var(--surface)] text-[var(--ink)]";
+}
+
 type ActionItem = CrmOpportunity & { nextAction: string; nextHref: string };
 
 type InitialCrm = {
@@ -50,7 +66,6 @@ type InitialCrm = {
 export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
   const params = useSearchParams();
   const [items, setItems] = useState<CrmOpportunity[]>(initial?.items || []);
-  const [actionQueue, setActionQueue] = useState<ActionItem[]>(initial?.actionQueue || []);
   const [counts, setCounts] = useState(
     initial?.counts || { all: 0, bureau: 0, direct: 0, withHm: 0 }
   );
@@ -58,7 +73,6 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
   const [loading, setLoading] = useState(!initial);
   const [filter, setFilter] = useState<Filter>("all");
   const [sel, setSel] = useState<string | null>(params.get("id"));
-  const [mobilePane, setMobilePane] = useState<"list" | "detail">(params.get("id") ? "detail" : "list");
   const [stageBusy, setStageBusy] = useState(false);
   const [hmBusy, setHmBusy] = useState(false);
   const [hmError, setHmError] = useState<string | null>(null);
@@ -68,13 +82,10 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
   function refresh() {
     return import("@/lib/client-cache").then(({ cachedJson, cacheClear }) => {
       cacheClear("crm");
-      return cachedJson<InitialCrm>("crm", "/api/crm", { ttlMs: 5_000 }).then(
-        (j: InitialCrm & { actionQueue?: ActionItem[] }) => {
-          setItems(j.items);
-          setCounts(j.counts);
-          if (j.actionQueue) setActionQueue(j.actionQueue);
-        }
-      );
+      return cachedJson<InitialCrm>("crm", "/api/crm", { ttlMs: 5_000 }).then((j: InitialCrm) => {
+        setItems(j.items);
+        setCounts(j.counts);
+      });
     });
   }
 
@@ -108,14 +119,12 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
   }
 
   useEffect(() => {
-    // Always refresh in the background; show SSR data immediately when present.
     if (initial) setLoading(false);
     import("@/lib/client-cache").then(({ cachedJson }) =>
       cachedJson<InitialCrm>("crm", "/api/crm", { ttlMs: initial ? 20_000 : 60_000 })
-        .then((j: InitialCrm & { actionQueue?: ActionItem[] }) => {
+        .then((j: InitialCrm) => {
           setItems(j.items);
           setCounts(j.counts);
-          if (j.actionQueue) setActionQueue(j.actionQueue);
         })
         .catch((e: unknown) => {
           const status = (e as { status?: number }).status;
@@ -128,10 +137,7 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
 
   useEffect(() => {
     const id = params.get("id");
-    if (id) {
-      setSel(id);
-      setMobilePane("detail");
-    }
+    if (id) setSel(id);
   }, [params]);
 
   useEffect(() => {
@@ -147,15 +153,24 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
 
   const filtered = useMemo(() => {
     const n = q.trim().toLowerCase();
-    return items.filter((i) => {
+    const rows = items.filter((i) => {
       if (filter === "bureau" || filter === "direct") {
         if (i.lane !== filter) return false;
       } else if (filter !== "all" && i.stage !== filter) {
         return false;
       }
       if (!n) return true;
-      const blob = `${i.endClient} ${i.roleLabel} ${i.title} ${i.hiringManager || ""} ${i.bronLabel}`.toLowerCase();
+      const blob = `${i.endClient} ${i.roleLabel} ${i.title} ${i.hiringManager || ""} ${i.bronLabel} ${i.bronDetail || ""} ${i.agencyName || ""}`.toLowerCase();
       return blob.includes(n);
+    });
+    return rows.slice().sort((a, b) => {
+      const ah = a.hiringManager ? 1 : 0;
+      const bh = b.hiringManager ? 1 : 0;
+      if (ah !== bh) return ah - bh;
+      const ak = a.kans ?? -1;
+      const bk = b.kans ?? -1;
+      if (bk !== ak) return bk - ak;
+      return (b.foundAt || "").localeCompare(a.foundAt || "");
     });
   }, [items, filter, q]);
 
@@ -192,23 +207,19 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
         e.key === "j"
           ? filtered[Math.min(filtered.length - 1, Math.max(0, idx) + 1)]
           : filtered[Math.max(0, (idx < 0 ? 1 : idx) - 1)];
-      if (next) pick(next.id);
+      if (next) setSel(next.id);
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [filtered, sel]);
 
   function pick(id: string) {
-    setSel(id);
-    if (typeof window !== "undefined" && window.matchMedia("(max-width: 1023px)").matches) {
-      setMobilePane("detail");
-    }
+    setSel((cur) => (cur === id ? null : id));
   }
 
   function setFilterSafe(next: Filter) {
     setFilter(next);
     setSel(null);
-    setMobilePane("list");
   }
 
   const filters: { id: Filter; label: string; n: number }[] = [
@@ -220,55 +231,12 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
     { id: "direct", label: "Direct", n: counts.direct },
   ];
 
+  const needsHm = filtered.filter((r) => !r.hiringManager && r.stage !== "won" && r.stage !== "lost").length;
+
   return (
-    <AppShell current="kansen" title="Kansen" subtitle="CRM-pipeline · bevestigd & actueel" fill>
+    <AppShell current="kansen" title="Kansen" subtitle="Eén lijst · volgende actie in de rij" fill>
       <div className="ws-shell">
-        <section className={`ws-intro shrink-0 ${mobilePane === "detail" ? "max-lg:hidden" : ""}`}>
-          <p className="ws-intro__title">Pipeline</p>
-          <p className="ws-intro__text">
-            Alle serieuze kansen op één rij. <strong>Bron</strong> = waar de kans vandaan komt:{" "}
-            <em>Bureau · …</em> (via detacheerder, bevestigd) of een jobboard zoals LinkedIn/Indeed
-            (direct bij de eindklant). <kbd className="rounded border border-[var(--line)] px-1 font-mono text-[0.65rem]">j</kbd>/<kbd className="rounded border border-[var(--line)] px-1 font-mono text-[0.65rem]">k</kbd> door de lijst · ⌘K overal.
-          </p>
-        </section>
-
-        {actionQueue.length ? (
-          <section
-            className={`ws-panel shrink-0 px-3.5 py-3 ${mobilePane === "detail" ? "max-lg:hidden" : ""}`}
-          >
-            <p className="ws-label">Actie vandaag</p>
-            <ul className="mt-2 divide-y divide-[var(--line)]/70">
-              {actionQueue.slice(0, 5).map((a) => (
-                <li key={a.id}>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      pick(a.id);
-                      if (!a.hiringManager && a.nextAction === "Zoek hiring manager") {
-                        void searchHm(a.id);
-                      }
-                    }}
-                    className="flex w-full items-center gap-3 py-2 text-left hover:bg-[var(--surface-2)]"
-                  >
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-semibold text-[var(--ink)]">{a.endClient}</span>
-                      <span className="block truncate text-[0.72rem] text-[var(--muted)]">
-                        {a.roleLabel} · {a.nextAction}
-                      </span>
-                    </span>
-                    {a.kans != null ? <ScoreChip kans={a.kans} /> : null}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </section>
-        ) : null}
-
-        <div
-          className={`flex shrink-0 flex-wrap items-center gap-2 pb-0.5 ${
-            mobilePane === "detail" ? "max-lg:hidden" : ""
-          }`}
-        >
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
           <input
             type="search"
             value={q}
@@ -290,150 +258,114 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
               </span>
             </button>
           ))}
-          <p
-            className="ml-auto hidden shrink-0 self-center text-[0.7rem] text-[var(--muted)] sm:block"
-            style={{ fontFamily: "var(--mono)" }}
-          >
-            {counts.withHm} met manager
-          </p>
         </div>
 
-        <div
-          className={`flex min-h-0 flex-1 flex-col gap-3 ${
-            active ? "lg:grid lg:grid-cols-[minmax(0,1.35fr)_minmax(280px,0.85fr)] lg:gap-4" : ""
-          }`}
-        >
-          <section
-            className={`radar-scroll-pane min-h-0 flex-1 ${
-              mobilePane === "detail" ? "max-lg:hidden" : ""
-            }`}
-          >
-            <div className="radar-scroll-pane__head">
-              <p className="ws-label">Overzicht</p>
-              <p className="tabular-nums text-[0.68rem] text-[var(--muted)]" style={{ fontFamily: "var(--mono)" }}>
-                {filtered.length}
+        <section className="radar-scroll-pane min-h-0 flex-1">
+          <div className="radar-scroll-pane__head">
+            <p className="ws-label">Lijst</p>
+            <p className="tabular-nums text-[0.68rem] text-[var(--muted)]" style={{ fontFamily: "var(--mono)" }}>
+              {filtered.length}
+              {needsHm ? ` · ${needsHm} zonder HM` : ""}
+              {counts.withHm ? ` · ${counts.withHm} met manager` : ""}
+            </p>
+          </div>
+          <div className="radar-scroll-pane__body !p-0">
+            {error ? <p className="px-5 py-3 text-sm text-[var(--warn)]">{error}</p> : null}
+            {loading ? <p className="px-5 py-3 text-sm text-[var(--muted)]">Laden…</p> : null}
+            {!loading && !filtered.length ? (
+              <p className="ws-empty m-4">
+                Nog geen kansen hier. Bevestig een eindklant op Bureaus, of wacht op warme radar-hits.
               </p>
-            </div>
-            <div className="radar-scroll-pane__body !p-0">
-              {error ? <p className="px-3 py-3 text-sm text-[var(--warn)]">{error}</p> : null}
-              {loading ? <p className="px-3 py-3 text-sm text-[var(--muted)]">Laden…</p> : null}
-              {!loading && !filtered.length ? (
-                <p className="ws-empty m-3">
-                  Nog geen kansen hier. Bevestig een eindklant op Bureaus, of wacht op warme radar-hits.
-                </p>
-              ) : null}
+            ) : null}
 
-              {!loading && filtered.length ? (
-                <>
-                  {/* Mobile list cards */}
-                  <ul className="divide-y divide-[var(--line)]/80 lg:hidden">
-                    {filtered.map((row) => {
-                      const on = active?.id === row.id;
-                      return (
-                        <li key={row.id}>
-                          <button
-                            type="button"
-                            onClick={() => pick(row.id)}
-                            aria-current={on ? "true" : undefined}
-                            className={`flex w-full min-h-12 items-start gap-3 px-3 py-3 text-left touch-manipulation ${
-                              on ? "bg-[var(--accent-soft)]/60" : "hover:bg-[var(--surface-2)]"
-                            }`}
-                          >
-                            <span className="min-w-0 flex-1">
-                              <span className="flex flex-wrap items-center gap-1.5">
-                                <span className="truncate text-[0.9rem] font-semibold text-[var(--ink)]">
-                                  {row.endClient}
-                                </span>
-                                <span className="ws-badge">
-                                  {row.lane === "bureau" ? "Bureau" : "Direct"}
-                                </span>
-                              </span>
-                              <span className="mt-0.5 block truncate text-[0.75rem] text-[var(--muted)]">
-                                {row.roleLabel}
-                              </span>
-                              <span className="mt-1 block truncate text-[0.7rem] text-[var(--muted)]">
-                                {sourceLine(row)}
-                                {row.bronDetail ? ` · ${row.bronDetail}` : ""}
-                              </span>
-                              <span className="mt-0.5 block truncate text-[0.68rem] text-[var(--muted)]">
-                                HM: {row.hiringManager || "nog niet gevonden"}
-                              </span>
+            {!loading && filtered.length ? (
+              <ul className="divide-y divide-[var(--line)]/80">
+                {filtered.map((row) => {
+                  const on = active?.id === row.id;
+                  const next = nextActionOf(row);
+                  return (
+                    <li key={row.id} className={on ? "bg-[var(--accent-soft)]/35" : ""}>
+                      <button
+                        type="button"
+                        onClick={() => pick(row.id)}
+                        aria-expanded={on}
+                        aria-current={on ? "true" : undefined}
+                        className={`kans-row ${on ? "kans-row--on" : ""}`}
+                      >
+                        <span className="kans-row__main">
+                          <span className="kans-row__title">
+                            <span className="truncate text-[0.95rem] font-semibold text-[var(--ink)]">
+                              {row.endClient}
                             </span>
-                            {row.kans != null ? <ScoreChip kans={row.kans} /> : (
-                              <span className="shrink-0 text-[0.65rem] text-[var(--muted)]">—</span>
-                            )}
-                          </button>
-                        </li>
-                      );
-                    })}
-                  </ul>
-
-                  {/* Desktop CRM table */}
-                  <div className="hidden overflow-x-auto lg:block">
-                    <table className="w-full min-w-[780px] border-collapse text-left text-sm">
-                      <thead className="sticky top-0 z-[1] bg-[var(--surface)]">
-                        <tr className="border-b border-[var(--line)] text-[0.65rem] uppercase tracking-[0.06em] text-[var(--muted)]">
-                          <th className="px-3 py-2.5 font-semibold">Eindklant</th>
-                          <th className="px-3 py-2.5 font-semibold">Stage</th>
-                          <th className="px-3 py-2.5 font-semibold">Rol</th>
-                          <th className="px-3 py-2.5 font-semibold">Bron</th>
-                          <th className="px-3 py-2.5 font-semibold">Hiring manager</th>
-                          <th className="px-3 py-2.5 font-semibold">Versheid</th>
-                          <th className="px-3 py-2.5 text-right font-semibold">Kans</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {filtered.map((row) => {
-                          const on = active?.id === row.id;
-                          return (
-                            <tr
-                              key={row.id}
-                              tabIndex={0}
-                              role="button"
-                              aria-current={on ? "true" : undefined}
-                              onClick={() => pick(row.id)}
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter" || e.key === " ") {
-                                  e.preventDefault();
-                                  pick(row.id);
-                                }
-                              }}
-                              className={`cursor-pointer border-b border-[var(--line)]/70 transition ${
-                                on
-                                  ? "bg-[var(--accent-soft)]/55 shadow-[inset_3px_0_0_0_var(--accent)]"
-                                  : "hover:bg-[var(--surface-2)]"
-                              }`}
-                            >
-                              <td className="px-3 py-3 align-top">
-                                <span className="block font-semibold text-[var(--ink)]">{row.endClient}</span>
-                                <span className="mt-1 inline-flex">
-                                  <span className="ws-badge">
-                                    {row.lane === "bureau" ? "Bureau" : "Direct"}
-                                  </span>
-                                </span>
-                              </td>
-                              <td className="px-3 py-3 align-top">
-                                <span className="ws-badge">{CRM_STAGE_NL[row.stage] || row.stage}</span>
-                              </td>
-                              <td className="max-w-[12rem] px-3 py-3 align-top text-[var(--muted)]">
-                                <span className="line-clamp-2">{row.roleLabel}</span>
-                              </td>
-                              <td className="max-w-[14rem] px-3 py-3 align-top">
-                                <span className="block font-medium text-[var(--ink)]">{sourceLine(row)}</span>
-                                {row.bronDetail ? (
-                                  <span className="mt-0.5 block line-clamp-2 text-[0.72rem] text-[var(--muted)]">
-                                    {row.bronDetail}
-                                  </span>
+                            <span className="truncate text-[0.8rem] text-[var(--muted)]">{row.roleLabel}</span>
+                          </span>
+                          <span className="kans-row__meta">
+                            <span className="ws-badge">{row.lane === "bureau" ? "Bureau" : "Direct"}</span>
+                            <span className={`ws-badge ${stageClass(row.stage)}`}>
+                              {CRM_STAGE_NL[row.stage] || row.stage}
+                            </span>
+                            <span className={`ws-badge ${freshClass(row.freshness)}`}>{row.freshnessLabel}</span>
+                            <span className="truncate text-[0.72rem] text-[var(--muted)]">
+                              {sourceLine(row)}
+                              {row.bronDetail ? ` · ${row.bronDetail}` : ""}
+                            </span>
+                          </span>
+                          <span className="kans-row__hm">
+                            {row.hiringManager ? (
+                              <>
+                                <span className="font-medium text-[var(--ink)]">{row.hiringManager}</span>
+                                {row.hiringManagerTitle ? (
+                                  <span className="text-[var(--muted)]"> · {row.hiringManagerTitle}</span>
                                 ) : null}
-                              </td>
-                              <td className="max-w-[12rem] px-3 py-3 align-top">
+                              </>
+                            ) : (
+                              <span className="text-[var(--warn)]">Geen hiring manager</span>
+                            )}
+                          </span>
+                        </span>
+                        <span className="kans-row__side">
+                          <span className="kans-row__next">{next}</span>
+                          {row.kans != null ? (
+                            <ScoreChip kans={row.kans} />
+                          ) : (
+                            <span className="text-[0.7rem] text-[var(--muted)]">—</span>
+                          )}
+                        </span>
+                      </button>
+
+                      {on ? (
+                        <div className="kans-row__detail">
+                          <p className="text-sm text-[var(--muted)]">{row.title}</p>
+                          <dl className="mt-3 grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-3">
+                            <div>
+                              <dt className="ws-label">Bron</dt>
+                              <dd className="mt-1 font-medium text-[var(--ink)]">{sourceLine(row)}</dd>
+                              {row.bronDetail ? (
+                                <dd className="mt-0.5 text-[0.78rem] text-[var(--muted)]">{row.bronDetail}</dd>
+                              ) : null}
+                              {row.agencyName ? (
+                                <dd className="mt-0.5 text-[0.78rem] text-[var(--muted)]">{row.agencyName}</dd>
+                              ) : null}
+                            </div>
+                            <div>
+                              <dt className="ws-label">Hiring manager</dt>
+                              <dd className="mt-1 text-[var(--ink)]">
                                 {row.hiringManager ? (
                                   <>
-                                    <span className="block font-medium text-[var(--ink)]">
-                                      {row.hiringManager}
-                                    </span>
+                                    {row.hiringManagerUrl ? (
+                                      <a
+                                        href={row.hiringManagerUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="font-semibold text-[var(--accent)] no-underline hover:underline"
+                                      >
+                                        {row.hiringManager}
+                                      </a>
+                                    ) : (
+                                      <span className="font-semibold">{row.hiringManager}</span>
+                                    )}
                                     {row.hiringManagerTitle ? (
-                                      <span className="mt-0.5 block truncate text-[0.72rem] text-[var(--muted)]">
+                                      <span className="block text-[0.8rem] text-[var(--muted)]">
                                         {row.hiringManagerTitle}
                                       </span>
                                     ) : null}
@@ -441,234 +373,121 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
                                 ) : (
                                   <span className="text-[var(--muted)]">Nog niet gevonden</span>
                                 )}
-                              </td>
-                              <td className="px-3 py-3 align-top">
-                                <span
-                                  className={`inline-flex rounded-[calc(var(--radius)-2px)] border px-2 py-0.5 text-[0.65rem] font-semibold ${freshClass(row.freshness)}`}
-                                >
-                                  {row.freshnessLabel}
-                                </span>
-                                <span className="mt-1 block text-[0.68rem] text-[var(--muted)]">
-                                  {formatDay(row.foundAt)}
-                                </span>
-                              </td>
-                              <td className="px-3 py-3 text-right align-top">
-                                {row.kans != null ? (
-                                  <span className="inline-flex flex-col items-end gap-0.5">
-                                    <ScoreChip kans={row.kans} />
-                                    <span className="text-[0.65rem] text-[var(--muted)]">
-                                      {SCORE_BAND[scoreTone(row.kans)]}
-                                    </span>
-                                  </span>
-                                ) : (
-                                  <span className="text-[var(--muted)]">—</span>
-                                )}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                </>
-              ) : null}
-            </div>
-          </section>
+                              </dd>
+                              {row.hmHits?.length > 1 ? (
+                                <ul className="mt-1.5 space-y-0.5">
+                                  {row.hmHits.slice(0, 4).map((h) => (
+                                    <li key={h.name} className="text-[0.75rem] text-[var(--muted)]">
+                                      {h.url ? (
+                                        <a
+                                          href={h.url}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="font-medium text-[var(--ink)] no-underline hover:underline"
+                                        >
+                                          {h.name}
+                                        </a>
+                                      ) : (
+                                        <span className="font-medium text-[var(--ink)]">{h.name}</span>
+                                      )}
+                                      {h.title ? ` · ${h.title}` : ""}
+                                    </li>
+                                  ))}
+                                </ul>
+                              ) : null}
+                            </div>
+                            <div>
+                              <dt className="ws-label">Tijdlijn</dt>
+                              <dd className="mt-1 text-[var(--ink)]">
+                                Gevonden {formatDay(row.foundAt)}
+                                {row.lastSeenAt ? ` · gezien ${formatDay(row.lastSeenAt)}` : ""}
+                                {row.confirmedAt ? ` · bevestigd ${formatDay(row.confirmedAt)}` : ""}
+                              </dd>
+                              {row.sources.length > 1 ? (
+                                <dd className="mt-1 text-[0.75rem] text-[var(--muted)]">
+                                  {row.sources.join(" · ")}
+                                </dd>
+                              ) : null}
+                            </div>
+                          </dl>
 
-          {active ? (
-            <aside
-              className={`ws-panel ws-panel--scroll min-h-0 flex-1 overscroll-contain px-4 py-4 ${
-                mobilePane === "list" ? "max-lg:hidden" : ""
-              }`}
-            >
-              <div className="animate-fade-in pb-8 lg:pb-4">
-                <button
-                  type="button"
-                  className="btn-ghost btn-tool mb-3 min-h-11 touch-manipulation lg:hidden"
-                  onClick={() => {
-                    setMobilePane("list");
-                    setSel(null);
-                  }}
-                >
-                  ← Overzicht
-                </button>
-                <button
-                  type="button"
-                  className="btn-ghost btn-tool mb-3 hidden lg:inline-flex"
-                  onClick={() => setSel(null)}
-                >
-                  Sluiten
-                </button>
-
-                <p className="ws-label">{active.lane === "bureau" ? "Bevestigde kans" : "Directe kans"}</p>
-                <h2 className="ws-title mt-1">{active.endClient}</h2>
-                <p className="mt-1 text-sm text-[var(--muted)]">{active.title}</p>
-
-                <div className="mt-4 flex flex-wrap items-center gap-2">
-                  {active.kans != null ? (
-                    <>
-                      <ScoreChip kans={active.kans} />
-                      <span className="text-sm font-semibold text-[var(--ink)]">
-                        {SCORE_BAND[scoreTone(active.kans)]}
-                      </span>
-                    </>
-                  ) : (
-                    <span className="text-sm text-[var(--muted)]">Nog geen kans-score</span>
-                  )}
-                  <span
-                    className={`rounded-[calc(var(--radius)-2px)] border px-2 py-0.5 text-[0.65rem] font-semibold ${freshClass(active.freshness)}`}
-                  >
-                    {active.freshnessLabel}
-                  </span>
-                </div>
-
-                <dl className="mt-5 space-y-3 border-t border-[var(--line)]/80 pt-4 text-sm">
-                  <div>
-                    <dt className="ws-label">Rol</dt>
-                    <dd className="mt-1 font-medium text-[var(--ink)]">{active.roleLabel}</dd>
-                  </div>
-                  <div>
-                    <dt className="ws-label">Bron</dt>
-                    <dd className="mt-1 font-medium text-[var(--ink)]">{sourceLine(active)}</dd>
-                    {active.bronDetail ? (
-                      <dd className="mt-0.5 text-sm text-[var(--muted)]">{active.bronDetail}</dd>
-                    ) : null}
-                  </div>
-                  {active.sources.length > 1 ? (
-                    <div>
-                      <dt className="ws-label">Alle signalen</dt>
-                      <dd className="mt-1 text-[var(--muted)]">{active.sources.join(" · ")}</dd>
-                    </div>
-                  ) : null}
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <dt className="ws-label">Gevonden</dt>
-                      <dd className="mt-1 text-[var(--ink)]">{formatDay(active.foundAt)}</dd>
-                    </div>
-                    <div>
-                      <dt className="ws-label">Laatst gezien</dt>
-                      <dd className="mt-1 text-[var(--ink)]">{formatDay(active.lastSeenAt)}</dd>
-                    </div>
-                  </div>
-                  {active.confirmedAt ? (
-                    <div>
-                      <dt className="ws-label">Bevestigd</dt>
-                      <dd className="mt-1 text-[var(--ink)]">{formatDay(active.confirmedAt)}</dd>
-                    </div>
-                  ) : null}
-                  <div>
-                    <dt className="ws-label">Hiring manager</dt>
-                    <dd className="mt-1 text-[var(--ink)]">
-                      {active.hiringManager ? (
-                        <>
-                          {active.hiringManagerUrl ? (
-                            <a
-                              href={active.hiringManagerUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="font-semibold text-[var(--accent)] no-underline hover:underline"
-                            >
-                              {active.hiringManager}
-                            </a>
-                          ) : (
-                            <span className="font-semibold">{active.hiringManager}</span>
-                          )}
-                          {active.hiringManagerTitle ? (
-                            <span className="block text-[0.8rem] text-[var(--muted)]">
-                              {active.hiringManagerTitle}
-                            </span>
+                          {hmError && active?.id === row.id ? (
+                            <p className="mt-3 text-[0.75rem] text-[var(--warn)]">{hmError}</p>
                           ) : null}
-                        </>
-                      ) : (
-                        <span className="text-[var(--muted)]">Nog niet gevonden</span>
-                      )}
-                    </dd>
-                    {active.hmHits?.length > 1 ? (
-                      <ul className="mt-2 space-y-1">
-                        {active.hmHits.slice(0, 4).map((h) => (
-                          <li key={h.name} className="text-[0.75rem] text-[var(--muted)]">
-                            {h.url ? (
-                              <a
-                                href={h.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="font-medium text-[var(--ink)] no-underline hover:underline"
+
+                          <div className="mt-5 border-t border-[var(--line)] pt-4">
+                            <div className="flex flex-wrap items-end justify-between gap-3">
+                              <label className="block min-w-[10rem] flex-1">
+                                <span className="ws-label">Stage</span>
+                                <select
+                                  className="ws-input mt-1.5 w-full max-w-xs"
+                                  disabled={stageBusy}
+                                  value={row.stage}
+                                  onChange={(e) => void setStage(row.id, e.target.value as CrmStage)}
+                                >
+                                  {(["bevestigd", "hm", "outreach", "won", "lost"] as CrmStage[]).map((st) => (
+                                    <option key={st} value={st}>
+                                      {CRM_STAGE_NL[st]}
+                                    </option>
+                                  ))}
+                                </select>
+                              </label>
+                              {row.kans != null ? <ScoreChip kans={row.kans} large /> : null}
+                            </div>
+
+                            <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
+                              <button
+                                type="button"
+                                disabled={hmBusy}
+                                onClick={() => void searchHm(row.id, Boolean(row.hiringManager))}
+                                className="btn-ink btn-tool"
                               >
-                                {h.name}
-                              </a>
-                            ) : (
-                              <span className="font-medium text-[var(--ink)]">{h.name}</span>
-                            )}
-                            {h.title ? ` · ${h.title}` : ""}
-                          </li>
-                        ))}
-                      </ul>
-                    ) : null}
-                    {hmError ? <p className="mt-2 text-[0.75rem] text-[var(--warn)]">{hmError}</p> : null}
-                  </div>
-                </dl>
-
-                <div className="mt-4">
-                  <p className="ws-label">Stage</p>
-                  <div className="mt-2 flex flex-wrap gap-1.5">
-                    {(["bevestigd", "hm", "outreach", "won", "lost"] as CrmStage[]).map((st) => (
-                      <button
-                        key={st}
-                        type="button"
-                        disabled={stageBusy}
-                        onClick={() => void setStage(active.id, st)}
-                        className={`ws-chip !py-1.5 ${active.stage === st ? "ws-chip--on" : ""}`}
-                      >
-                        {CRM_STAGE_NL[st]}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="mt-5 flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    disabled={hmBusy}
-                    onClick={() => void searchHm(active.id, Boolean(active.hiringManager))}
-                    className="btn-signal btn-tool"
-                  >
-                    {hmBusy
-                      ? "LinkedIn zoeken…"
-                      : active.hiringManager
-                        ? "Opnieuw HM zoeken"
-                        : "Zoek hiring manager"}
-                  </button>
-                  {active.href ? (
-                    <Link href={active.href} className="btn-ink btn-tool no-underline">
-                      Open voorstel
-                    </Link>
-                  ) : null}
-                  {active.evidenceUrl ? (
-                    <a
-                      href={active.evidenceUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="btn-ghost btn-tool no-underline"
-                    >
-                      Vacature
-                    </a>
-                  ) : null}
-                  {active.companyId ? (
-                    <Link
-                      href={radarHref({
-                        companyId: active.companyId,
-                        openingId: active.openingId,
-                      })}
-                      className="btn-ghost btn-tool no-underline"
-                    >
-                      Open op Radar
-                    </Link>
-                  ) : null}
-                </div>
-              </div>
-            </aside>
-          ) : null}
-        </div>
+                                {hmBusy
+                                  ? "LinkedIn zoeken…"
+                                  : row.hiringManager
+                                    ? "Opnieuw HM zoeken"
+                                    : "Zoek hiring manager"}
+                              </button>
+                              {row.href ? (
+                                <Link
+                                  href={row.href}
+                                  className="text-[0.8rem] font-semibold text-[var(--ink)] no-underline hover:underline"
+                                >
+                                  Open voorstel
+                                </Link>
+                              ) : null}
+                              {row.evidenceUrl ? (
+                                <a
+                                  href={row.evidenceUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-[0.8rem] font-medium text-[var(--muted)] no-underline hover:text-[var(--ink)] hover:underline"
+                                >
+                                  Vacature
+                                </a>
+                              ) : null}
+                              {row.companyId ? (
+                                <Link
+                                  href={radarHref({
+                                    companyId: row.companyId,
+                                    openingId: row.openingId,
+                                  })}
+                                  className="text-[0.8rem] font-medium text-[var(--muted)] no-underline hover:text-[var(--ink)] hover:underline"
+                                >
+                                  Op Radar
+                                </Link>
+                              ) : null}
+                            </div>
+                          </div>
+                        </div>
+                      ) : null}
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : null}
+          </div>
+        </section>
       </div>
     </AppShell>
   );

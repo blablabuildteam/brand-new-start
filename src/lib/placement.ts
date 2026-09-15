@@ -1,4 +1,4 @@
-import { BENCH, type BenchPerson, type Domain } from "@/lib/bench";
+import { type BenchPerson, type Domain } from "@/lib/bench";
 import { detectFamily, type RoleFamily } from "@/lib/niche";
 import {
   buildApproach,
@@ -7,6 +7,7 @@ import {
   linkedinPeopleAtCompany,
 } from "@/lib/approach";
 import type { HmHit, OrgContext } from "@/lib/org-context";
+import { huntBench } from "@/lib/hunt";
 
 export type PlacementInput = {
   company: string;
@@ -173,18 +174,21 @@ export function buildPlacement(input: PlacementInput): PlacementProposal {
     sector: input.sector,
   }).targets;
 
-  const ranked: RankedPerson[] = BENCH.map((person) => {
+  const bench = huntBench();
+  const ranked: RankedPerson[] = bench.map((person) => {
     const s = scorePerson(person, { family, domain, mustHaves, text: blob });
     return {
       person,
       score: s.score,
       factors: s.factors,
       why: s.why,
-      linkedinUrl: linkedinPeopleAtCompany({
-        company: input.company,
-        companyLinkedinUrl: input.companyLinkedinUrl,
-        keywords: `"${person.name}"`,
-      }),
+      linkedinUrl:
+        person.linkedinUrl ||
+        linkedinPeopleAtCompany({
+          company: input.company,
+          companyLinkedinUrl: input.companyLinkedinUrl,
+          keywords: `"${person.name}"`,
+        }),
     };
   }).sort((a, b) => b.score - a.score);
 
@@ -195,9 +199,11 @@ export function buildPlacement(input: PlacementInput): PlacementProposal {
     ? "deze maand"
     : "binnen twee tot vier weken";
   const pitch =
-    shortlist.length === 3
-      ? `Drie ZZP’ers klaar voor ${input.roleLabel.toLowerCase()} bij ${companyShort} — ${start}.`
-      : `Te weinig match in de bench voor ${input.roleLabel}; boolean-zoek staat klaar.`;
+    !bench.length
+      ? `Geen bench-personen ingesteld — voeg ZZP’ers toe onder Instellingen → Bench.`
+      : shortlist.length === 3
+        ? `Drie ZZP’ers klaar voor ${input.roleLabel.toLowerCase()} bij ${companyShort} — ${start}.`
+        : `Te weinig match in de bench voor ${input.roleLabel}; boolean-zoek staat klaar.`;
 
   const hmName = hmFirstName(hiring);
   const greet = hmName ? `Hoi ${hmName}` : `Hoi`;
@@ -248,7 +254,7 @@ Heb je ruimte voor een kort gesprek?
       liveScrapeEur: { low: 1, high: 5 },
       note: "Bench-match is €0. Live people-scrape (optioneel, later) ≈ €1–5 per opening.",
     },
-    scanned: BENCH.length,
+    scanned: bench.length,
   };
 }
 

@@ -2,6 +2,15 @@
 
 export type ResearchDepth = "quick" | "standard" | "deep";
 
+/** Live step from the research agent — streamed to the desk while a run is open. */
+export type ResearchProgress = {
+  step: string;
+  label: string;
+  detail?: string;
+  pct: number;
+  etaSec: number;
+};
+
 /** Source reliability tiers (1 = official, 4 = unverified chatter). */
 export type SourceTier = 1 | 2 | 3 | 4;
 

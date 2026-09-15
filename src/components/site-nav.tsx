@@ -31,7 +31,7 @@ export function SiteNav({
       <header className="scout-nav pt-[env(safe-area-inset-top)]">
         <div className="scout-nav__bar">
           <Link href="/" className="scout-nav__brand" aria-label={`${name} home`}>
-            <ScoutWordmark name={name} tone="light" />
+            <ScoutWordmark name={name} tone="ink" lockup="scout" font="manrope" />
           </Link>
 
           <nav className="scout-nav__actions" aria-label="Primary">
@@ -48,7 +48,7 @@ export function SiteNav({
                 </button>
               </>
             ) : (
-              <Link href="/login?next=%2Fradar" className="scout-nav__btn scout-nav__btn--solid">
+              <Link href="/login?next=%2Fradar" className="scout-nav__btn scout-nav__btn--signal">
                 Inloggen
               </Link>
             )}

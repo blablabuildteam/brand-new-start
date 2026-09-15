@@ -21,7 +21,7 @@ function NavIcon({ kind, on }: { kind: "radar" | "bureaus" | "voorstel"; on: boo
       <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden>
         <circle cx="8" cy="8" r="5.5" stroke={stroke} strokeWidth="1.4" />
         <circle cx="8" cy="8" r="2" stroke={stroke} strokeWidth="1.3" />
-        <path d="M8 8 L13 4" stroke={on ? "#ebf212" : stroke} strokeWidth="1.5" strokeLinecap="round" />
+        <path d="M8 8 L13 4" stroke={on ? "#f9ff2c" : stroke} strokeWidth="1.5" strokeLinecap="round" />
       </svg>
     );
   }

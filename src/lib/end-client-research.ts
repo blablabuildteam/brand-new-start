@@ -10,6 +10,7 @@ export { researchEndClient } from "@/lib/research/agent";
 export type {
   ResearchCandidate,
   ResearchDepth,
+  ResearchProgress,
   ResearchReport,
   ResearchSource,
   ScoreLine,

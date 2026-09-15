@@ -66,17 +66,25 @@ export function AlertsBell() {
     <div className="relative" ref={box}>
       <button
         type="button"
-        className="btn-ghost btn-tool relative !min-h-9 !px-2.5"
-        aria-label="Alerts"
+        className="relative inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[var(--radius)] border border-[var(--line)] text-[var(--ink)] hover:bg-[var(--surface-2)]"
+        aria-label={unread ? `${unread} alerts` : "Alerts"}
         onClick={() => {
           setOpen((v) => !v);
           if (!open) load();
         }}
       >
-        Alerts
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
+          <path
+            d="M8 2.5a3.5 3.5 0 0 0-3.5 3.5v2.2L3.2 10.8h9.6L11.5 8.2V6A3.5 3.5 0 0 0 8 2.5Z"
+            stroke="currentColor"
+            strokeWidth="1.4"
+            strokeLinejoin="round"
+          />
+          <path d="M6.6 12.2a1.5 1.5 0 0 0 2.8 0" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+        </svg>
         {unread ? (
           <span
-            className="ml-1 inline-flex min-w-4 items-center justify-center rounded-full bg-[var(--signal)] px-1 text-[0.62rem] font-bold text-[var(--ink)]"
+            className="absolute -right-1 -top-1 inline-flex min-w-4 items-center justify-center rounded-full bg-[var(--signal)] px-1 text-[0.58rem] font-bold leading-4 text-[var(--ink)]"
             style={{ fontFamily: "var(--mono)" }}
           >
             {unread}

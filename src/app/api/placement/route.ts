@@ -75,7 +75,7 @@ export async function GET() {
         roleLabel: opening.roleLabel,
         kans: opening.kans,
         hmSearched: Boolean(org.hmHits?.length),
-        sampleBench: true,
+        sampleBench: false,
         proposal: placementFromSignals({
           company: r.company.name,
           openingTitle: opening.openingTitle || opening.roleLabel,
@@ -105,7 +105,7 @@ export async function GET() {
       roleLabel: c.roleLabel,
       kans: c.kans ?? 40,
       hmSearched: Boolean(c.hiringManager || hm?.hits?.length),
-      sampleBench: true,
+      sampleBench: false,
       bureauLane: true,
       proposal: buildPlacement({
         company: c.endClient,
@@ -135,7 +135,7 @@ export async function GET() {
       roleLabel: DEMO.roleLabel,
       kans: 46,
       demoOpening: true,
-      sampleBench: true,
+      sampleBench: false,
       proposal,
     };
     return NextResponse.json({ items: [item], demo: true });

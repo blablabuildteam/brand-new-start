@@ -15,13 +15,88 @@ export type BenchPerson = {
   domains: Domain[];
   last: string;
   highlights: string[];
+  /** Optional direct LinkedIn profile — otherwise Voorstel bouwt een people-search. */
+  linkedinUrl?: string;
 };
 
+const FAMILIES = new Set<RoleFamily>([
+  "agile",
+  "cloud-devops",
+  "software",
+  "data",
+  "frontend-design",
+  "security",
+  "ba-pm",
+  "test",
+  "architecture-apps",
+]);
+
+const DOMAINS = new Set<Domain>(["overheid", "finance", "zorg", "logistiek", "energie", "tech"]);
+const AVAIL = new Set(["nu", "2w", "1m"]);
+
+/** Parse / sanitize bench rows from Instellingen. */
+export function normalizeBenchPeople(raw: unknown): BenchPerson[] {
+  if (!Array.isArray(raw)) return [];
+  const out: BenchPerson[] = [];
+  for (const item of raw.slice(0, 80)) {
+    if (!item || typeof item !== "object") continue;
+    const o = item as Record<string, unknown>;
+    const name = typeof o.name === "string" ? o.name.trim() : "";
+    const title = typeof o.title === "string" ? o.title.trim() : "";
+    if (name.length < 2 || title.length < 2) continue;
+    const family = (typeof o.family === "string" && FAMILIES.has(o.family as RoleFamily)
+      ? o.family
+      : "ba-pm") as RoleFamily;
+    const available = (typeof o.available === "string" && AVAIL.has(o.available)
+      ? o.available
+      : "nu") as BenchPerson["available"];
+    const stack = Array.isArray(o.stack)
+      ? o.stack.map((s) => String(s).trim()).filter(Boolean).slice(0, 12)
+      : typeof o.stack === "string"
+        ? o.stack.split(/[,;\n]/).map((s) => s.trim()).filter(Boolean).slice(0, 12)
+        : [];
+    const domains = Array.isArray(o.domains)
+      ? o.domains
+          .map((d) => String(d).trim())
+          .filter((d): d is Domain => DOMAINS.has(d as Domain))
+          .slice(0, 6)
+      : [];
+    const highlights = Array.isArray(o.highlights)
+      ? o.highlights.map((h) => String(h).trim()).filter(Boolean).slice(0, 4)
+      : typeof o.highlights === "string"
+        ? o.highlights.split("\n").map((h) => h.trim()).filter(Boolean).slice(0, 4)
+        : [];
+    const id =
+      typeof o.id === "string" && o.id.trim()
+        ? o.id.trim().slice(0, 64)
+        : `bp_${name.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 24)}_${out.length}`;
+    out.push({
+      id,
+      name: name.slice(0, 80),
+      title: title.slice(0, 100),
+      family,
+      city: (typeof o.city === "string" && o.city.trim() ? o.city.trim() : "Nederland").slice(0, 60),
+      rate: Math.max(40, Math.min(250, Number(o.rate) || 90)),
+      available,
+      zzpYears: Math.max(0, Math.min(40, Number(o.zzpYears) || 5)),
+      stack,
+      domains: domains.length ? domains : ["tech"],
+      last: (typeof o.last === "string" ? o.last.trim() : "").slice(0, 160),
+      highlights,
+      linkedinUrl:
+        typeof o.linkedinUrl === "string" && o.linkedinUrl.trim()
+          ? o.linkedinUrl.trim().slice(0, 240)
+          : undefined,
+    });
+  }
+  return out;
+}
+
 /**
- * Vervangbare bench — dit is wat een licentienemer inwisselt voor eigen CRM.
- * Fictieve namen, echte NL contracting-patronen.
+ * Voorbeeld-bench — alleen nog als referentie / admin-seed, niet meer als default
+ * in Voorstel. Productpad = jullie eigen mensen in Instellingen.
  */
-export const BENCH: BenchPerson[] = [
+export const SAMPLE_BENCH: BenchPerson[] = [
   {
     id: "ba-joost",
     name: "Joost van Dijk",

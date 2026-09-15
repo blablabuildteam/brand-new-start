@@ -49,6 +49,10 @@ export default function CostsPage() {
           router.replace("/login");
           return null;
         }
+        if (res.status === 403) {
+          router.replace("/radar");
+          return null;
+        }
         return res.json();
       })
       .then((j) => j && setData(j));
@@ -208,14 +212,14 @@ export default function CostsPage() {
             & meer). Bedragen zijn schattingen op basis van ~1×/3 dagen — echte factuur = Apify +
             Firecrawl. Per-run bedragen: zie{" "}
             <Link href="/methode" className="text-[var(--accent)]">
-              Methode
+              Hoe het werkt
             </Link>
             .
           </p>
 
           <p className="mt-4 text-sm">
             <Link href="/methode" className="font-medium text-[var(--accent)]">
-              Methode & queries (wat zoeken we, wat kost een sync) →
+              Hoe het werkt (bronnen & per-run) →
             </Link>
           </p>
           <p className="mt-2 text-sm">

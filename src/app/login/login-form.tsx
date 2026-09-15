@@ -64,7 +64,7 @@ export default function LoginForm() {
               <p className="mt-2 text-sm text-[var(--muted)]">{partner.tagline} desk</p>
             </div>
           ) : null}
-          <h1 className="text-[2rem] tracking-tight text-[var(--accent)]" style={{ fontFamily: "var(--display)" }}>
+          <h1 className="text-[1.75rem] font-bold tracking-tight text-[var(--ink)]">
             Inloggen
           </h1>
           <p className="mt-2 mb-6 text-sm leading-relaxed text-[var(--muted)]">
@@ -75,7 +75,7 @@ export default function LoginForm() {
           <label className="mb-3 block text-sm font-medium">
             E-mail
             <input
-              className="mt-1 w-full rounded-xl border border-[var(--line)] bg-[var(--surface-2)] px-3 py-2.5"
+              className="mt-1 w-full rounded-[var(--radius)] border border-[var(--line)] bg-[var(--surface-2)] px-3 py-2.5"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               type="email"
@@ -86,7 +86,7 @@ export default function LoginForm() {
           <label className="mb-4 block text-sm font-medium">
             Wachtwoord
             <input
-              className="mt-1 w-full rounded-xl border border-[var(--line)] bg-[var(--surface-2)] px-3 py-2.5"
+              className="mt-1 w-full rounded-[var(--radius)] border border-[var(--line)] bg-[var(--surface-2)] px-3 py-2.5"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               type="password"
@@ -99,7 +99,7 @@ export default function LoginForm() {
           <button
             type="submit"
             disabled={loading}
-            className="btn-ink w-full rounded-full px-4 py-2.5 text-sm font-semibold disabled:opacity-60"
+            className="btn-ink w-full rounded-[var(--radius)] px-4 py-2.5 text-sm font-semibold disabled:opacity-60"
           >
             {loading ? "Bezig…" : "Naar de desk"}
           </button>

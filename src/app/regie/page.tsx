@@ -1,7 +1,7 @@
 import RegieDesk from "./regie-desk";
 
 export const metadata = {
-  title: "Voorstel — Regie",
+  title: "Voorstel — Recruitment Scout",
   description: "Hiring manager + drie namen + bericht. Jij verstuurt.",
 };
 

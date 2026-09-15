@@ -15,9 +15,9 @@ export function RegieMark({
     >
       <rect width="32" height="32" rx="8" fill={onDark ? "#2c2c2c" : "#1a1a1a"} />
       <circle cx="16" cy="16" r="7.5" stroke="#f7f5f2" strokeWidth="1.5" opacity="0.55" />
-      <circle cx="16" cy="16" r="3.2" stroke="#ebf212" strokeWidth="1.5" />
-      <path d="M16 16 L26 8" stroke="#ebf212" strokeWidth="1.8" strokeLinecap="round" />
-      <circle cx="16" cy="16" r="1.35" fill="#ebf212" />
+      <circle cx="16" cy="16" r="3.2" stroke="#f9ff2c" strokeWidth="1.5" />
+      <path d="M16 16 L26 8" stroke="#f9ff2c" strokeWidth="1.8" strokeLinecap="round" />
+      <circle cx="16" cy="16" r="1.35" fill="#f9ff2c" />
     </svg>
   );
 }

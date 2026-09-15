@@ -9,6 +9,8 @@ import {
   type ManagedAgency,
   type ManagedRecruiter,
 } from "@/lib/hunt";
+import type { BenchPerson, Domain } from "@/lib/bench";
+import { ROLE_FAMILIES, type RoleFamily } from "@/lib/niche";
 
 type SettingsPayload = {
   name: string;
@@ -17,6 +19,7 @@ type SettingsPayload = {
   requireContract: boolean;
   employmentKinds: EmploymentKind[];
   agencies: ManagedAgency[];
+  bench?: BenchPerson[];
   catalog: {
     employmentKinds: { id: EmploymentKind; label: string; hint: string }[];
   };
@@ -298,6 +301,7 @@ export default function SettingsForm() {
           requireContract: hunt.requireContract,
           employmentKinds: hunt.employmentKinds,
           agencies: hunt.agencies,
+          bench: hunt.bench || [],
         }),
       });
       if (!res.ok) {
@@ -311,6 +315,7 @@ export default function SettingsForm() {
               ...prev,
               ...next,
               agencies: next.agencies || prev.agencies,
+              bench: next.bench || prev.bench || [],
               catalog: prev.catalog,
               integrations: prev.integrations,
             }
@@ -329,13 +334,19 @@ export default function SettingsForm() {
   return (
     <AppShell current="instellingen" title="Instellingen" subtitle="Wat je zoekt en wie je volgt">
       <main className="ws-shell ws-shell--page">
-        <section className="ws-intro">
-          <p className="ws-intro__title">Wat stel je hier in?</p>
-          <p className="ws-intro__text">
-            Toolnaam, functies, soort opdracht, en de bureaus/recruiters die je volgt. Recruiter
-            LinkedIn-feeds voeden Bureaus; eindklanten bevestig je daarna zelf.
-          </p>
-        </section>
+        <details className="ws-fold">
+          <summary>
+            <span>Wat stel je hier in?</span>
+            <span className="ws-fold__meta">Rollen · bureaus · bench</span>
+          </summary>
+          <div className="ws-fold__body">
+            <p className="m-0 text-[0.8rem] leading-relaxed text-[var(--muted)]">
+              Toolnaam, functies, soort opdracht, de bureaus/recruiters die je volgt, en jullie
+              ZZP-bench voor Voorstel. Recruiter LinkedIn-feeds voeden Bureaus; eindklanten bevestig
+              je daarna zelf.
+            </p>
+          </div>
+        </details>
 
         {hunt?.integrations ? (
           <section className="ws-panel mb-3 px-4 py-3">
@@ -722,6 +733,225 @@ export default function SettingsForm() {
                 })}
               </div>
               ) : null}
+            </Section>
+
+            <Section
+              id="bench"
+              title="Bench (ZZP’ers)"
+              hint="Jullie echte mensen voor Voorstel. Geen fictieve namen meer — shortlist komt alleen uit deze lijst."
+            >
+              <ul className="space-y-3">
+                {(hunt.bench || []).map((p, idx) => (
+                  <li key={p.id} className="rounded-[var(--radius)] border border-[var(--line)] bg-[var(--surface-2)] px-3 py-3">
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <p className="text-sm font-semibold text-[var(--ink)]">
+                        {p.name || "Naamloos"}
+                        {p.title ? <span className="font-normal text-[var(--muted)]"> · {p.title}</span> : null}
+                      </p>
+                      <button
+                        type="button"
+                        className="text-[0.72rem] font-semibold text-[var(--warn)] hover:underline"
+                        onClick={() =>
+                          setHunt({
+                            ...hunt,
+                            bench: (hunt.bench || []).filter((_, i) => i !== idx),
+                          })
+                        }
+                      >
+                        Verwijder
+                      </button>
+                    </div>
+                    <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                      <label className="block text-[0.72rem] font-medium text-[var(--muted)]">
+                        Naam
+                        <input
+                          className="ws-input mt-0.5"
+                          value={p.name}
+                          onChange={(e) => {
+                            const bench = [...(hunt.bench || [])];
+                            bench[idx] = { ...p, name: e.target.value };
+                            setHunt({ ...hunt, bench });
+                          }}
+                        />
+                      </label>
+                      <label className="block text-[0.72rem] font-medium text-[var(--muted)]">
+                        Titel
+                        <input
+                          className="ws-input mt-0.5"
+                          value={p.title}
+                          onChange={(e) => {
+                            const bench = [...(hunt.bench || [])];
+                            bench[idx] = { ...p, title: e.target.value };
+                            setHunt({ ...hunt, bench });
+                          }}
+                        />
+                      </label>
+                      <label className="block text-[0.72rem] font-medium text-[var(--muted)]">
+                        Familie
+                        <select
+                          className="ws-input mt-0.5"
+                          value={p.family}
+                          onChange={(e) => {
+                            const bench = [...(hunt.bench || [])];
+                            bench[idx] = { ...p, family: e.target.value as RoleFamily };
+                            setHunt({ ...hunt, bench });
+                          }}
+                        >
+                          {ROLE_FAMILIES.map((f) => (
+                            <option key={f.id} value={f.id}>
+                              {f.label}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="block text-[0.72rem] font-medium text-[var(--muted)]">
+                        Stad
+                        <input
+                          className="ws-input mt-0.5"
+                          value={p.city}
+                          onChange={(e) => {
+                            const bench = [...(hunt.bench || [])];
+                            bench[idx] = { ...p, city: e.target.value };
+                            setHunt({ ...hunt, bench });
+                          }}
+                        />
+                      </label>
+                      <label className="block text-[0.72rem] font-medium text-[var(--muted)]">
+                        Tarief €/u
+                        <input
+                          type="number"
+                          className="ws-input mt-0.5"
+                          value={p.rate}
+                          onChange={(e) => {
+                            const bench = [...(hunt.bench || [])];
+                            bench[idx] = { ...p, rate: Number(e.target.value) || 0 };
+                            setHunt({ ...hunt, bench });
+                          }}
+                        />
+                      </label>
+                      <label className="block text-[0.72rem] font-medium text-[var(--muted)]">
+                        Beschikbaar
+                        <select
+                          className="ws-input mt-0.5"
+                          value={p.available}
+                          onChange={(e) => {
+                            const bench = [...(hunt.bench || [])];
+                            bench[idx] = {
+                              ...p,
+                              available: e.target.value as BenchPerson["available"],
+                            };
+                            setHunt({ ...hunt, bench });
+                          }}
+                        >
+                          <option value="nu">Nu</option>
+                          <option value="2w">±2 weken</option>
+                          <option value="1m">±1 maand</option>
+                        </select>
+                      </label>
+                      <label className="block text-[0.72rem] font-medium text-[var(--muted)] sm:col-span-2">
+                        Stack (komma’s)
+                        <input
+                          className="ws-input mt-0.5"
+                          value={p.stack.join(", ")}
+                          onChange={(e) => {
+                            const bench = [...(hunt.bench || [])];
+                            bench[idx] = {
+                              ...p,
+                              stack: e.target.value
+                                .split(/[,;]/)
+                                .map((s) => s.trim())
+                                .filter(Boolean),
+                            };
+                            setHunt({ ...hunt, bench });
+                          }}
+                        />
+                      </label>
+                      <label className="block text-[0.72rem] font-medium text-[var(--muted)] sm:col-span-2">
+                        LinkedIn-URL (optioneel)
+                        <input
+                          className="ws-input mt-0.5"
+                          value={p.linkedinUrl || ""}
+                          placeholder="https://www.linkedin.com/in/…"
+                          onChange={(e) => {
+                            const bench = [...(hunt.bench || [])];
+                            bench[idx] = { ...p, linkedinUrl: e.target.value || undefined };
+                            setHunt({ ...hunt, bench });
+                          }}
+                        />
+                      </label>
+                      <label className="block text-[0.72rem] font-medium text-[var(--muted)] sm:col-span-2">
+                        Laatste opdracht
+                        <input
+                          className="ws-input mt-0.5"
+                          value={p.last}
+                          onChange={(e) => {
+                            const bench = [...(hunt.bench || [])];
+                            bench[idx] = { ...p, last: e.target.value };
+                            setHunt({ ...hunt, bench });
+                          }}
+                        />
+                      </label>
+                      <fieldset className="sm:col-span-2">
+                        <legend className="text-[0.72rem] font-medium text-[var(--muted)]">Domeinen</legend>
+                        <div className="mt-1 flex flex-wrap gap-2">
+                          {(["overheid", "finance", "zorg", "logistiek", "energie", "tech"] as Domain[]).map(
+                            (d) => {
+                              const on = p.domains.includes(d);
+                              return (
+                                <button
+                                  key={d}
+                                  type="button"
+                                  className={`ws-chip !py-1 ${on ? "ws-chip--on" : ""}`}
+                                  onClick={() => {
+                                    const bench = [...(hunt.bench || [])];
+                                    bench[idx] = {
+                                      ...p,
+                                      domains: on
+                                        ? p.domains.filter((x) => x !== d)
+                                        : [...p.domains, d],
+                                    };
+                                    setHunt({ ...hunt, bench });
+                                  }}
+                                >
+                                  {d}
+                                </button>
+                              );
+                            }
+                          )}
+                        </div>
+                      </fieldset>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+              <button
+                type="button"
+                className="btn-ghost btn-tool"
+                onClick={() =>
+                  setHunt({
+                    ...hunt,
+                    bench: [
+                      ...(hunt.bench || []),
+                      {
+                        id: `bp_${Date.now().toString(36)}`,
+                        name: "",
+                        title: "",
+                        family: "ba-pm",
+                        city: "Nederland",
+                        rate: 90,
+                        available: "nu",
+                        zzpYears: 5,
+                        stack: [],
+                        domains: ["tech"],
+                        last: "",
+                        highlights: [],
+                      },
+                    ],
+                  })
+                }
+              >
+                + ZZP’er toevoegen
+              </button>
             </Section>
 
             {error ? <p className="text-sm text-[var(--warn)]">{error}</p> : null}

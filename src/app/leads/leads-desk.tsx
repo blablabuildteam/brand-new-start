@@ -1,12 +1,24 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
-import type { AgencyLead, LeadStatus } from "@/lib/opportunity";
-import type { ResearchDepth } from "@/lib/research/types";
+import { ResearchMeter } from "@/components/research-meter";
 import { kansenHref, regieHref } from "@/lib/desk-links";
+import type { AgencyLead, LeadStatus } from "@/lib/opportunity";
+import { streamResearch } from "@/lib/research/client";
+import { startingProgress } from "@/lib/research/progress";
+import type { ResearchDepth, ResearchProgress } from "@/lib/research/types";
+
+const MAX_PARALLEL_RESEARCH = 3;
+
+type AiJob = {
+  depth: ResearchDepth;
+  progress: ResearchProgress;
+  status: "queued" | "running" | "error";
+  error?: string;
+};
 
 type Payload = {
   watchlist: {
@@ -52,6 +64,10 @@ function LeadCard({
   lead,
   busy,
   aiBusy,
+  aiDepth,
+  aiProgress,
+  aiQueued,
+  aiError,
   clientDraft,
   onClientDraft,
   onReview,
@@ -62,6 +78,10 @@ function LeadCard({
   lead: AgencyLead;
   busy: boolean;
   aiBusy: boolean;
+  aiDepth?: ResearchDepth | null;
+  aiProgress?: ResearchProgress | null;
+  aiQueued?: boolean;
+  aiError?: string | null;
   hmBusy?: boolean;
   clientDraft: string;
   onClientDraft: (v: string) => void;
@@ -77,6 +97,7 @@ function LeadCard({
   const multi =
     open && lead.guess && (lead.guess.alternatives.length > 0 || lead.guess.confidence < 80);
   const report = lead.guess?.report;
+  const researchLock = busy || aiBusy || Boolean(aiQueued);
   const sourceLabel =
     lead.guess?.source === "deep"
       ? "AI research"
@@ -121,7 +142,7 @@ function LeadCard({
           {factsLine(lead) ? <p className="mt-1 text-[0.72rem] text-[var(--muted)]">{factsLine(lead)}</p> : null}
         </div>
         <span
-          className={`shrink-0 rounded-[calc(var(--radius)-2px)] border px-2 py-0.5 text-[0.65rem] font-semibold ${statusClass(lead.status)}`}
+          className={`ws-status shrink-0 ${statusClass(lead.status)}`}
           title={STATUS_HINT[lead.status]}
         >
           {STATUS_NL[lead.status]}
@@ -409,19 +430,27 @@ function LeadCard({
         ) : null}
       </div>
 
+      {aiQueued ? (
+        <p className="mt-3 rounded-[var(--radius)] border border-[var(--line)] bg-[var(--surface-2)] px-3.5 py-2 text-[0.78rem] text-[var(--muted)]">
+          In de wachtrij — start zodra er een plek vrij is (max {MAX_PARALLEL_RESEARCH} tegelijk).
+        </p>
+      ) : null}
+      {aiBusy && aiProgress && aiDepth ? <ResearchMeter depth={aiDepth} progress={aiProgress} /> : null}
+      {aiError ? <p className="mt-2 text-[0.75rem] text-[var(--warn)]">{aiError}</p> : null}
+
       {open ? (
         <div className="mt-3 flex flex-wrap items-center gap-2 max-sm:[&>button]:min-w-[calc(50%-0.25rem)] max-sm:[&>button]:flex-1">
           <button
             type="button"
-            disabled={busy || aiBusy}
+            disabled={researchLock}
             onClick={() => onAiGuess(lead.id, "standard")}
-            className="btn-signal btn-tool"
+            className="btn-ink btn-tool"
           >
-            {aiBusy ? "Research bezig…" : lead.aiGuess ? "Opnieuw research" : "AI research"}
+            {aiBusy ? "Bezig…" : aiQueued ? "Wachtrij…" : lead.aiGuess ? "Opnieuw research" : "AI research"}
           </button>
           <button
             type="button"
-            disabled={busy || aiBusy}
+            disabled={researchLock}
             onClick={() => onAiGuess(lead.id, "quick")}
             className="btn-ghost btn-tool"
             title="Eén zoekronde — snel en goedkoop, lagere zekerheid"
@@ -430,7 +459,7 @@ function LeadCard({
           </button>
           <button
             type="button"
-            disabled={busy || aiBusy}
+            disabled={researchLock}
             onClick={() => onAiGuess(lead.id, "deep")}
             className="btn-ghost btn-tool"
             title="Drie rondes: shortlist, verificatie per kandidaat en actieve falsificatie (langzaam)"
@@ -497,7 +526,7 @@ function LeadCard({
             type="button"
             disabled={hmBusy}
             onClick={() => onHmSearch?.(lead.id)}
-            className="btn-signal btn-tool"
+            className="btn-ink btn-tool"
           >
             {hmBusy ? "HM zoeken…" : "Zoek hiring manager"}
           </button>
@@ -515,12 +544,15 @@ export default function LeadsDesk() {
   const [data, setData] = useState<Payload | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [aiId, setAiId] = useState<string | null>(null);
+  const [aiJobs, setAiJobs] = useState<Record<string, AiJob>>({});
+  const aiJobsRef = useRef<Record<string, AiJob>>({});
+  const runningRef = useRef(new Set<string>());
+  const pumpRef = useRef<() => void>(() => undefined);
   const [hmId, setHmId] = useState<string | null>(null);
   const [hmNote, setHmNote] = useState<string | null>(null);
   const [q, setQ] = useState("");
   const [bucket, setBucket] = useState<"all" | "open" | "confirmed">("all");
-  const [watchOpen, setWatchOpen] = useState(false);
+  const [watchAgency, setWatchAgency] = useState<string | null>(null);
   const [clientDrafts, setClientDrafts] = useState<Record<string, string>>({});
 
   function upsertLead(next: AgencyLead) {
@@ -568,11 +600,12 @@ export default function LeadsDesk() {
     return data.live.filter((l) => {
       if (bucket === "open" && (l.status === "confirmed" || l.status === "rejected")) return false;
       if (bucket === "confirmed" && l.status !== "confirmed") return false;
+      if (watchAgency && l.agency.name.toLowerCase() !== watchAgency.toLowerCase()) return false;
       if (!n) return true;
       const blob = `${l.title} ${l.agency.name} ${l.confirmedClient || ""} ${l.guess?.name || ""} ${l.roleLabel}`.toLowerCase();
       return blob.includes(n);
     });
-  }, [data, q, bucket]);
+  }, [data, q, bucket, watchAgency]);
 
   const filteredDemo = useMemo(() => {
     if (!data) return [];
@@ -580,11 +613,37 @@ export default function LeadsDesk() {
     return data.demo.filter((l) => {
       if (bucket === "open" && (l.status === "confirmed" || l.status === "rejected")) return false;
       if (bucket === "confirmed" && l.status !== "confirmed") return false;
+      if (watchAgency && l.agency.name.toLowerCase() !== watchAgency.toLowerCase()) return false;
       if (!n) return true;
       const blob = `${l.title} ${l.agency.name} ${l.confirmedClient || ""} ${l.guess?.name || ""}`.toLowerCase();
       return blob.includes(n);
     });
-  }, [data, q, bucket]);
+  }, [data, q, bucket, watchAgency]);
+
+  const watchPeople = useMemo(() => {
+    if (!data?.watchlist.length) return [];
+    return data.watchlist.flatMap((a) =>
+      a.recruiters.map((r) => ({
+        key: `${a.id}:${r.name}`,
+        agencyName: a.name,
+        name: r.name,
+        url: r.linkedinUrl,
+        brand: r.brand,
+      })),
+    );
+  }, [data]);
+
+  const deepOpenCount = data?.live.filter(
+    (l) => l.status !== "confirmed" && l.status !== "rejected" && !l.aiGuess && !aiJobs[l.id]
+  ).length ?? 0;
+
+  const researchStrip = useMemo(() => {
+    const jobs = Object.values(aiJobs);
+    const running = jobs.filter((j) => j.status === "running").length;
+    const queued = jobs.filter((j) => j.status === "queued").length;
+    if (!running && !queued) return null;
+    return { running, queued };
+  }, [aiJobs]);
 
   async function onReview(id: string, action: "confirmed" | "rejected", clientName?: string) {
     setBusy(true);
@@ -608,34 +667,69 @@ export default function LeadsDesk() {
     }
   }
 
-  async function onAiGuess(id: string, depth: ResearchDepth = "standard") {
-    setAiId(id);
-    setError(null);
+  function patchJob(id: string, patch: Partial<AiJob> | null) {
+    setAiJobs((prev) => {
+      const next = { ...prev };
+      if (!patch) delete next[id];
+      else next[id] = { ...next[id], ...patch } as AiJob;
+      aiJobsRef.current = next;
+      return next;
+    });
+  }
+
+  async function runResearchJob(id: string, depth: ResearchDepth) {
+    patchJob(id, { status: "running", depth, progress: startingProgress(depth) });
     try {
-      const res = await fetch("/api/leads/ai-guess", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, depth }),
+      const result = await streamResearch<AgencyLead>(id, depth, (p) => {
+        patchJob(id, { progress: p, status: "running" });
       });
-      const j = (await res.json().catch(() => ({}))) as {
-        ok?: boolean;
-        lead?: AgencyLead;
-        error?: string;
-        detail?: string;
-      };
-      if (res.status === 503) {
-        setError("ANTHROPIC_API_KEY ontbreekt in Vercel / .env.local");
+      if (result.lead) upsertLead(result.lead);
+      if (!result.ok) {
+        patchJob(id, { status: "error", error: result.error || result.detail || "AI mislukt" });
         return;
       }
-      if (!res.ok) {
-        setError(j.error || "AI mislukt");
-        return;
-      }
-      if (j.lead) upsertLead(j.lead);
-      if (!j.ok) setError(j.detail || "AI vond geen betrouwbare eindklant");
+      patchJob(id, null);
+    } catch (e) {
+      patchJob(id, {
+        status: "error",
+        error: e instanceof Error ? e.message : "AI mislukt",
+      });
     } finally {
-      setAiId(null);
+      runningRef.current.delete(id);
+      pumpRef.current();
     }
+  }
+
+  function pumpQueue() {
+    const queued = Object.entries(aiJobsRef.current).filter(([, j]) => j.status === "queued");
+    for (const [id, job] of queued) {
+      if (runningRef.current.size >= MAX_PARALLEL_RESEARCH) break;
+      runningRef.current.add(id);
+      void runResearchJob(id, job.depth);
+    }
+  }
+  pumpRef.current = pumpQueue;
+
+  function onAiGuess(id: string, depth: ResearchDepth = "standard") {
+    const current = aiJobsRef.current[id];
+    if (current && (current.status === "running" || current.status === "queued")) return;
+    if (runningRef.current.size >= MAX_PARALLEL_RESEARCH) {
+      patchJob(id, { depth, progress: startingProgress(depth), status: "queued" });
+      return;
+    }
+    runningRef.current.add(id);
+    patchJob(id, { depth, progress: startingProgress(depth), status: "running" });
+    void runResearchJob(id, depth);
+  }
+
+  function deepAllOpen() {
+    if (!data) return;
+    const targets = data.live.filter((l) => {
+      if (l.status === "confirmed" || l.status === "rejected") return false;
+      if (!l.aiGuess) return true;
+      return false;
+    });
+    for (const l of targets) onAiGuess(l.id, "deep");
   }
 
   async function onHmSearch(id: string) {
@@ -693,90 +787,68 @@ export default function LeadsDesk() {
 
   return (
     <AppShell current="leads" title="Bureaus" subtitle="Eerst eindklant, dan hiring manager" fill>
-      <div className="ws-shell ws-shell--split">
-        <section className="ws-intro lg:col-span-2">
-          <p className="ws-intro__title">Wat doe je hier?</p>
-          <p className="ws-intro__text">
-            Feeds van de recruiters die je volgt. Bevestig de eindklant (regels of AI research),
-            daarna <strong>Zoek hiring manager</strong> — LinkedIn people-search op de eindklant,
-            zonder Radar-opening nodig. Resultaat landt in Kansen + Voorstel.
-          </p>
-        </section>
-        <aside className={`radar-scroll-pane min-h-0 shrink-0 lg:max-h-none ${watchOpen ? "max-lg:max-h-64" : "max-lg:max-h-none"}`}>
-          <div className="radar-scroll-pane__head flex w-full items-center justify-between gap-2">
-            <button
-              type="button"
-              className="flex min-w-0 flex-1 items-center justify-between text-left lg:pointer-events-none"
-              onClick={() => setWatchOpen((v) => !v)}
-              aria-expanded={watchOpen}
-            >
-              <p className="ws-label">Die je volgt</p>
-              <span className="flex items-center gap-2">
-                <span className="tabular-nums text-[0.68rem] text-[var(--muted)]" style={{ fontFamily: "var(--mono)" }}>
-                  {data?.watchlist.length ?? 0}
-                </span>
-                <span className="text-[0.7rem] text-[var(--accent)] lg:hidden" aria-hidden>
-                  {watchOpen ? "▴" : "▾"}
-                </span>
-              </span>
-            </button>
+      <div className="ws-shell flex min-h-0 flex-1 flex-col gap-3">
+        <details className="ws-fold shrink-0">
+          <summary>
+            <span>Wat doe je hier?</span>
+            <span className="ws-fold__meta">Eindklant → hiring manager</span>
+          </summary>
+          <div className="ws-fold__body">
+            <p className="m-0 text-[0.8rem] leading-relaxed text-[var(--muted)]">
+              Feeds van de recruiters die je volgt. Bevestig de eindklant (regels of AI research),
+              daarna <strong className="font-semibold text-[var(--ink)]">Zoek hiring manager</strong> —
+              LinkedIn people-search op de eindklant, zonder Radar-opening nodig. Resultaat landt in
+              Kansen + Voorstel.
+            </p>
+          </div>
+        </details>
+
+        <section className="ws-panel shrink-0 px-3 py-2.5 sm:px-4">
+          <div className="flex items-center justify-between gap-2">
+            <p className="ws-label">Die je volgt</p>
             <Link
               href="/instellingen#volgen"
-              className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-[calc(var(--radius)-2px)] border border-[var(--line)] text-[var(--muted)] no-underline hover:border-[var(--accent)] hover:text-[var(--accent)]"
-              title="Bureaus & recruiters bewerken"
-              aria-label="Bureaus & recruiters bewerken"
+              className="text-[0.72rem] font-semibold text-[var(--muted)] no-underline hover:text-[var(--ink)] hover:underline"
             >
-              <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden>
-                <path
-                  d="M11.5 2.5l2 2L5 13H3v-2L11.5 2.5z"
-                  stroke="currentColor"
-                  strokeWidth="1.4"
-                  strokeLinejoin="round"
-                />
-              </svg>
+              Bewerken
             </Link>
           </div>
-          <div className={`radar-scroll-pane__body !px-2 ${watchOpen ? "" : "max-lg:hidden"} lg:!block`}>
-            {!data ? (
-              <p className="px-2 py-2 text-[0.78rem] text-[var(--muted)]">Laden…</p>
-            ) : data.watchlist.length === 0 ? (
-              <p className="px-2 py-2 text-[0.78rem] text-[var(--muted)]">
-                Nog niemand.{" "}
-                <Link href="/instellingen#volgen" className="font-semibold text-[var(--accent)] no-underline hover:underline">
-                  Stel in →
-                </Link>
-              </p>
-            ) : (
-              <ul className="space-y-0.5">
-                {data.watchlist.map((a) => (
-                  <li key={a.id} className="rounded-[var(--radius)] px-2.5 py-2 hover:bg-[var(--surface-2)]">
-                    <p className="text-[0.82rem] font-semibold text-[var(--ink)]">{a.name}</p>
-                    {a.note ? <p className="mt-0.5 text-[0.68rem] leading-snug text-[var(--muted)]">{a.note}</p> : null}
-                    <ul className="mt-1.5 space-y-0.5">
-                      {a.recruiters.map((r) => (
-                        <li key={r.name} className="text-[0.7rem] leading-snug text-[var(--muted)]">
-                          {r.linkedinUrl ? (
-                            <a
-                              href={r.linkedinUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="font-medium text-[var(--ink)] no-underline hover:underline"
-                            >
-                              {r.name}
-                            </a>
-                          ) : (
-                            <span className="font-medium text-[var(--ink)]">{r.name}</span>
-                          )}
-                          {r.brand ? ` · ${r.brand}` : ""}
-                        </li>
-                      ))}
-                    </ul>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        </aside>
+          {!data ? (
+            <p className="mt-2 text-[0.78rem] text-[var(--muted)]">Laden…</p>
+          ) : watchPeople.length === 0 ? (
+            <p className="mt-2 text-[0.78rem] text-[var(--muted)]">
+              Nog niemand.{" "}
+              <Link href="/instellingen#volgen" className="font-semibold text-[var(--ink)] no-underline hover:underline">
+                Stel in →
+              </Link>
+            </p>
+          ) : (
+            <div className="mt-2 flex gap-1.5 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              <button
+                type="button"
+                onClick={() => setWatchAgency(null)}
+                className={`ws-chip shrink-0 ${!watchAgency ? "ws-chip--on" : ""}`}
+              >
+                Alles
+              </button>
+              {watchPeople.map((p) => {
+                const on = watchAgency?.toLowerCase() === p.agencyName.toLowerCase();
+                return (
+                  <button
+                    key={p.key}
+                    type="button"
+                    onClick={() => setWatchAgency(on ? null : p.agencyName)}
+                    className={`ws-chip shrink-0 max-w-[14rem] ${on ? "ws-chip--on" : ""}`}
+                    title={p.url ? `${p.name} · open LinkedIn` : p.name}
+                  >
+                    <span className="truncate">{p.name}</span>
+                    <span className="truncate opacity-70">{p.brand || p.agencyName}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </section>
 
         <main className="ws-main min-h-0 flex-1">
           <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
@@ -784,6 +856,7 @@ export default function LeadsDesk() {
             {data ? (
               <p className="text-[0.7rem] text-[var(--muted)]" style={{ fontFamily: "var(--mono)" }}>
                 {filteredLive.length}/{data.live.length} live
+                {watchAgency ? ` · ${watchAgency}` : ""}
               </p>
             ) : null}
           </div>
@@ -806,7 +879,24 @@ export default function LeadsDesk() {
                 {b === "all" ? "Alles" : b === "open" ? "Te reviewen" : "Bevestigd"}
               </button>
             ))}
+            <button
+              type="button"
+              disabled={!deepOpenCount}
+              onClick={deepAllOpen}
+              className="btn-ghost btn-tool"
+              title="Start Deep research op alle open live leads zonder AI-gok. Max 3 tegelijk, de rest wacht."
+            >
+              Deep alle open{deepOpenCount ? ` · ${deepOpenCount}` : ""}
+            </button>
           </div>
+
+          {researchStrip ? (
+            <p className="mb-3 text-[0.78rem] text-[var(--ink)]">
+              <span className="font-semibold">{researchStrip.running} deep/AI bezig</span>
+              {researchStrip.queued ? ` · ${researchStrip.queued} in wachtrij` : ""}
+              <span className="text-[var(--muted)]"> — meters per kaart</span>
+            </p>
+          ) : null}
 
           {error ? <p className="mb-3 text-sm text-[var(--warn)]">{error}</p> : null}
           {hmNote ? <p className="mb-3 text-sm text-[var(--accent)]">{hmNote}</p> : null}
@@ -829,7 +919,11 @@ export default function LeadsDesk() {
                         key={l.id}
                         lead={l}
                         busy={busy}
-                        aiBusy={aiId === l.id}
+                        aiBusy={aiJobs[l.id]?.status === "running"}
+                        aiQueued={aiJobs[l.id]?.status === "queued"}
+                        aiDepth={aiJobs[l.id]?.depth ?? null}
+                        aiProgress={aiJobs[l.id]?.progress ?? null}
+                        aiError={aiJobs[l.id]?.error ?? null}
                         hmBusy={hmId === l.id}
                         clientDraft={clientDrafts[l.id] || ""}
                         onClientDraft={(v) => setClientDrafts((d) => ({ ...d, [l.id]: v }))}
@@ -860,7 +954,11 @@ export default function LeadsDesk() {
                       key={l.id}
                       lead={l}
                       busy={busy}
-                      aiBusy={aiId === l.id}
+                      aiBusy={aiJobs[l.id]?.status === "running"}
+                      aiQueued={aiJobs[l.id]?.status === "queued"}
+                      aiDepth={aiJobs[l.id]?.depth ?? null}
+                      aiProgress={aiJobs[l.id]?.progress ?? null}
+                      aiError={aiJobs[l.id]?.error ?? null}
                       hmBusy={hmId === l.id}
                       clientDraft={clientDrafts[l.id] || ""}
                       onClientDraft={(v) => setClientDrafts((d) => ({ ...d, [l.id]: v }))}

@@ -12,6 +12,7 @@ import {
   type EmploymentKind,
   type ManagedAgency,
 } from "@/lib/hunt";
+import { normalizeBenchPeople, type BenchPerson } from "@/lib/bench";
 import { z } from "zod";
 
 const RecruiterZ = z.object({
@@ -40,6 +41,7 @@ const Patch = z.object({
   requireContract: z.boolean().optional(),
   employmentKinds: z.array(z.enum(["zzp", "interim", "contract", "detachering"])).max(8).optional(),
   agencies: z.array(AgencyZ).max(40).optional(),
+  bench: z.array(z.record(z.string(), z.unknown())).max(80).optional(),
 });
 
 function resolveAgencies(hunt: Awaited<ReturnType<typeof loadHuntSettings>>): ManagedAgency[] {
@@ -55,6 +57,7 @@ export async function GET() {
   return NextResponse.json({
     ...hunt,
     agencies,
+    bench: hunt.bench || [],
     catalog: {
       employmentKinds: EMPLOYMENT_KINDS,
     },
@@ -80,9 +83,11 @@ export async function PUT(req: Request) {
     ...parsed.data,
     employmentKinds: parsed.data.employmentKinds as EmploymentKind[] | undefined,
     agencies: parsed.data.agencies as ManagedAgency[] | undefined,
+    bench: parsed.data.bench ? normalizeBenchPeople(parsed.data.bench) : undefined,
   });
   return NextResponse.json({
     ...hunt,
     agencies: resolveAgencies(hunt),
+    bench: hunt.bench || ([] as BenchPerson[]),
   });
 }

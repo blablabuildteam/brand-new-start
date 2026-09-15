@@ -6,7 +6,7 @@ import { loadHuntSettings } from "@/lib/hunt";
 export const dynamic = "force-dynamic";
 
 export const metadata = {
-  title: "Kansen — Regie",
+  title: "Kansen — Recruitment Scout",
   description: "Pipeline van bevestigde en actuele contracting-kansen.",
 };
 

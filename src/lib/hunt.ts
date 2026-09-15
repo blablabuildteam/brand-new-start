@@ -1,6 +1,8 @@
 import { eq } from "drizzle-orm";
 import { getDb, hasDatabase } from "@/lib/db/client";
 import { workspaceSettings } from "@/lib/db/schema";
+import { normalizeBenchPeople, type BenchPerson } from "@/lib/bench";
+import { PRODUCT } from "@/lib/product-brand";
 
 /** Soort opdracht waarop sync/radar filtert. */
 export type EmploymentKind = "zzp" | "interim" | "contract" | "detachering";
@@ -45,6 +47,8 @@ export type HuntSettings = {
   requireContract: boolean;
   /** Bureaus + recruiters (aan/uit + zelf toevoegen). */
   agencies?: ManagedAgency[];
+  /** Eigen ZZP-bench voor Voorstel-shortlist (geen fictieve namen). */
+  bench?: BenchPerson[];
   /**
    * Eindklanten / careers-pagina’s die je volgt.
    * `undefined` = nog niet gezet → standaard aan.
@@ -76,11 +80,12 @@ export const DEFAULT_ROLES = [
 export const DEFAULT_EMPLOYMENT: EmploymentKind[] = ["zzp", "interim", "contract", "detachering"];
 
 export const DEFAULT_HUNT: HuntSettings = {
-  name: "Regie",
+  name: PRODUCT.name,
   market: "Nederland",
   roles: DEFAULT_ROLES,
   employmentKinds: DEFAULT_EMPLOYMENT,
   requireContract: true,
+  bench: [],
 };
 
 const SETTINGS_ID = "default";
@@ -90,6 +95,10 @@ let cache: HuntSettings = DEFAULT_HUNT;
 
 export function huntSettings(): HuntSettings {
   return cache;
+}
+
+export function huntBench(): BenchPerson[] {
+  return cache.bench?.length ? cache.bench : [];
 }
 
 export function huntRoles(): string[] {
@@ -207,6 +216,7 @@ function normalize(raw: Partial<HuntSettings> | null | undefined): HuntSettings 
     employmentKinds: normalizeKinds(raw?.employmentKinds),
     requireContract: raw?.requireContract !== false,
     agencies: normalizeManagedAgencies(raw?.agencies),
+    bench: normalizeBenchPeople(raw?.bench),
     companyIds: normalizeIds(raw?.companyIds),
     agencyIds: normalizeIds(raw?.agencyIds),
     recruiterIds: normalizeIds(raw?.recruiterIds),

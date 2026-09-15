@@ -1,7 +1,7 @@
 import LeadsDesk from "./leads-desk";
 
 export const metadata = {
-  title: "Bureaus — Regie",
+  title: "Bureaus — Recruitment Scout",
   description: "Vacatures van recruitmentbureaus, geraden eindklant en review.",
 };
 

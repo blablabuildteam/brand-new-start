@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { AppShell } from "@/components/app-shell";
-import { ScoreChip, SCORE_BAND, scoreTone } from "@/components/score-chip";
+import { ScoreChip } from "@/components/score-chip";
 import type { PlacementProposal } from "@/lib/placement";
 import type { ApproachTarget } from "@/lib/approach";
 
@@ -294,19 +295,32 @@ export default function RegieDesk({
   return (
     <AppShell current="voorstel" title="Voorstel" subtitle="Bericht klaarzetten voor manager of kandidaat" fill>
       <div className="ws-shell ws-shell--split ws-shell--split-wide">
-        <section className={`ws-intro lg:col-span-2 ${mobilePane === "detail" ? "max-lg:hidden" : ""}`}>
-          <p className="ws-intro__title">Wat doe je hier?</p>
-          <p className="ws-intro__text">
-            Kies een opening, pak de hiring manager of kandidaat, en zet het bericht klaar. Jij verstuurt —
-            niets gaat automatisch.
-          </p>
-          {items.some((i) => i.sampleBench) ? (
-            <p className="ws-intro__text mt-2 text-[0.78rem] !text-[var(--muted)]">
-              Shortlist = <strong className="font-semibold text-[var(--ink)]">voorbeeld-bench</strong>{" "}
-              (fictieve namen). Vervang later door jullie echte CRM.
+        <details className={`ws-fold lg:col-span-2 ${mobilePane === "detail" ? "max-lg:hidden" : ""}`}>
+          <summary>
+            <span>Wat doe je hier?</span>
+            <span className="ws-fold__meta">Bericht klaarzetten</span>
+          </summary>
+          <div className="ws-fold__body">
+            <p className="m-0 text-[0.8rem] leading-relaxed text-[var(--muted)]">
+              Kies een opening, pak de hiring manager of kandidaat, en zet het bericht klaar. Jij
+              verstuurt — niets gaat automatisch.
             </p>
-          ) : null}
-        </section>
+            {items.some((i) => i.sampleBench) ? (
+              <p className="mt-2 mb-0 text-[0.78rem] leading-relaxed text-[var(--muted)]">
+                Shortlist = <strong className="font-semibold text-[var(--ink)]">voorbeeld-bench</strong>{" "}
+                (fictieve namen). Vervang later door jullie echte CRM.
+              </p>
+            ) : items.some((i) => !i.proposal.shortlist.length) ? (
+              <p className="mt-2 mb-0 text-[0.78rem] leading-relaxed text-[var(--muted)]">
+                Nog geen shortlist: voeg ZZP’ers toe onder{" "}
+                <Link href="/instellingen#bench" className="font-semibold text-[var(--ink)] underline underline-offset-2">
+                  Instellingen → Bench
+                </Link>
+                . Hiring manager-berichten werken wél zonder bench.
+              </p>
+            ) : null}
+          </div>
+        </details>
         <aside
           className={`radar-scroll-pane min-h-0 max-lg:flex-1 ${mobilePane === "detail" ? "max-lg:hidden" : ""}`}
         >
@@ -402,7 +416,6 @@ export default function RegieDesk({
                   </div>
                   <div className="flex items-center gap-2.5">
                     <ScoreChip kans={item.kans} large />
-                    <p className="text-sm font-semibold text-[var(--ink)]">{SCORE_BAND[scoreTone(item.kans)]}</p>
                   </div>
                 </div>
               </section>
@@ -549,30 +562,41 @@ export default function RegieDesk({
                             </span>
                             <span className="flex flex-col items-end gap-1">
                               {item.sampleBench ? (
-                                <span className="rounded border border-[var(--line)] px-1.5 py-0.5 text-[0.6rem] font-semibold uppercase tracking-wide text-[var(--muted)]">
-                                  Voorbeeld
-                                </span>
+                                <span className="ws-badge">Voorbeeld</span>
                               ) : null}
-                              <span className="tabular-nums text-[0.68rem] text-[var(--muted)]">{i + 1}</span>
+                              <span
+                                className="tabular-nums text-[0.7rem] text-[var(--muted)]"
+                                style={{ fontFamily: "var(--mono)" }}
+                              >
+                                {s.score}
+                              </span>
                             </span>
                           </span>
-                          <span className="mt-3 block text-sm font-semibold text-[var(--ink)]">{s.person.name}</span>
-                          <span className="mt-0.5 block text-[0.78rem] text-[var(--muted)]">{s.person.title}</span>
-                          <span className="mt-2 flex flex-wrap gap-x-2 text-[0.72rem] text-[var(--muted)]">
-                            <span>€{s.person.rate}</span>
-                            <span>·</span>
-                            <span>{s.person.city}</span>
-                            <span>·</span>
-                            <span className={s.person.available === "nu" ? "text-[var(--green)]" : ""}>
-                              {AVAIL[s.person.available]}
-                            </span>
+                          <span className="mt-3 text-[0.95rem] font-semibold text-[var(--ink)]">{s.person.name}</span>
+                          <span className="mt-0.5 text-[0.75rem] text-[var(--muted)]">
+                            {s.person.title} · {s.person.city}
                           </span>
-                          <span className="mt-3 block text-[0.78rem] leading-snug text-[var(--muted)]">{s.why[0]}</span>
+                          <ul className="mt-2 space-y-1">
+                            {s.why.slice(0, 2).map((w) => (
+                              <li key={w} className="text-[0.72rem] leading-snug text-[var(--muted)]">
+                                {w}
+                              </li>
+                            ))}
+                          </ul>
                         </button>
                       </li>
                     );
                   })}
                 </ol>
+                {!proposal.shortlist.length ? (
+                  <p className="mt-2 rounded-[var(--radius)] border border-dashed border-[var(--line)] bg-[var(--surface-2)] px-3 py-3 text-[0.8rem] text-[var(--muted)]">
+                    Geen match — voeg mensen toe in{" "}
+                    <Link href="/instellingen#bench" className="font-semibold text-[var(--accent)] no-underline hover:underline">
+                      Instellingen → Bench
+                    </Link>
+                    .
+                  </p>
+                ) : null}
               </section>
 
               <section className="ws-panel">

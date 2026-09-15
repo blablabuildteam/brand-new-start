@@ -22,13 +22,13 @@ const PRIMARY: { href: string; id: AppNavId; label: string; icon: "radar" | "bur
 type ShellUser = { email: string; role?: string };
 
 function SideIcon({ kind, on }: { kind: "radar" | "bureaus" | "kansen" | "voorstel" | "settings"; on: boolean }) {
-  const stroke = on ? "var(--accent)" : "currentColor";
+  const stroke = on ? "var(--ink)" : "currentColor";
   if (kind === "radar") {
     return (
       <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden className="shrink-0">
         <circle cx="8" cy="8" r="5.5" stroke={stroke} strokeWidth="1.4" />
         <circle cx="8" cy="8" r="2" stroke={stroke} strokeWidth="1.3" />
-        <path d="M8 8 L13 4" stroke={on ? "#ebf212" : stroke} strokeWidth="1.5" strokeLinecap="round" />
+        <path d="M8 8 L13 4" stroke={on ? "var(--ink)" : stroke} strokeWidth="1.5" strokeLinecap="round" />
       </svg>
     );
   }
@@ -44,7 +44,7 @@ function SideIcon({ kind, on }: { kind: "radar" | "bureaus" | "kansen" | "voorst
     return (
       <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden className="shrink-0">
         <path d="M3 12.5V5l5-2.5L13 5v7.5l-5 2.5L3 12.5Z" stroke={stroke} strokeWidth="1.4" strokeLinejoin="round" />
-        <path d="M8 5v10" stroke={on ? "#ebf212" : stroke} strokeWidth="1.3" />
+        <path d="M8 5v10" stroke={on ? "var(--ink)" : stroke} strokeWidth="1.3" />
       </svg>
     );
   }
@@ -72,7 +72,7 @@ function SideIcon({ kind, on }: { kind: "radar" | "bureaus" | "kansen" | "voorst
 function navClass(on: boolean) {
   return `nav-link flex items-center gap-2.5 rounded-[var(--radius)] px-2.5 py-2.5 text-[0.9rem] transition ${
     on
-      ? "bg-[var(--accent-soft)] font-semibold text-[var(--accent)]"
+      ? "bg-[var(--accent-soft)] font-semibold text-[var(--ink)]"
       : "font-medium text-[var(--ink)]/75 hover:bg-[var(--surface-2)] hover:text-[var(--ink)]"
   }`;
 }
@@ -156,19 +156,16 @@ export function AppShell({
           <img
             src={partner.logoSrc}
             alt={partner.name}
-            className="partner-logo h-10 w-auto max-w-[9.5rem] rounded-md object-contain"
+            className="partner-logo h-9 w-auto max-w-[9.5rem] object-contain"
           />
         ) : (
           <>
             <ScoutMark className="h-8 w-8" tone="light" />
-            <span className="min-w-0">
-              <span
-                className="block truncate text-[1.15rem] tracking-tight text-[var(--ink)]"
-                style={{ fontFamily: "var(--display)" }}
-              >
-                {brandName}
-              </span>
-              <span className="block text-[0.7rem] text-[var(--muted)]">{brandTag}</span>
+            <span
+              className="truncate text-[1.05rem] font-bold tracking-tight text-[var(--ink)]"
+              style={{ fontFamily: "var(--font)" }}
+            >
+              {brandName === "Recruitment Scout" ? "Scout" : brandName}
             </span>
           </>
         )}
@@ -209,15 +206,17 @@ export function AppShell({
           className="nav-link block rounded-[var(--radius)] px-2.5 py-2 text-[0.8rem] text-[var(--muted)] hover:bg-[var(--surface-2)] hover:text-[var(--ink)]"
           onClick={() => setOpen(false)}
         >
-          Methode
+          Hoe het werkt
         </Link>
-        <Link
-          href="/costs"
-          className="nav-link block rounded-[var(--radius)] px-2.5 py-2 text-[0.8rem] text-[var(--muted)] hover:bg-[var(--surface-2)] hover:text-[var(--ink)]"
-          onClick={() => setOpen(false)}
-        >
-          Kosten
-        </Link>
+        {user?.role === "admin" ? (
+          <Link
+            href="/costs"
+            className="nav-link block rounded-[var(--radius)] px-2.5 py-2 text-[0.8rem] text-[var(--muted)] hover:bg-[var(--surface-2)] hover:text-[var(--ink)]"
+            onClick={() => setOpen(false)}
+          >
+            Kosten
+          </Link>
+        ) : null}
         {user?.email ? (
           <p className="mt-2 truncate px-2.5 text-[0.7rem] text-[var(--muted)]" style={{ fontFamily: "var(--mono)" }}>
             {user.email}
@@ -236,7 +235,7 @@ export function AppShell({
 
   return (
     <div className="app-root flex h-dvh overflow-hidden">
-      <aside className="app-sidebar hidden w-[220px] shrink-0 flex-col overflow-y-auto px-3 py-4 md:flex">
+      <aside className="app-sidebar hidden w-[240px] shrink-0 flex-col overflow-y-auto px-4 py-5 md:flex">
         {nav}
       </aside>
 
@@ -257,11 +256,11 @@ export function AppShell({
       </aside>
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <header className="app-topbar z-30 flex min-h-12 shrink-0 items-center gap-2 border-b border-[var(--line)] bg-[var(--surface)] px-5 pt-[env(safe-area-inset-top)] pb-0 sm:gap-3 md:px-7 md:pt-0">
-          <div className="flex min-h-12 w-full items-center gap-2 sm:gap-3">
+        <header className="app-topbar z-30 shrink-0 border-b border-[var(--line)] bg-[var(--surface)] pt-[env(safe-area-inset-top)] md:pt-0">
+          <div className="flex h-14 w-full min-w-0 items-center gap-3 px-4 md:px-6 lg:px-8">
           <button
             type="button"
-            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-[var(--radius)] border border-[var(--line)] text-[var(--ink)] md:hidden"
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[var(--radius)] border border-[var(--line)] text-[var(--ink)] md:hidden"
             aria-expanded={open}
             aria-label={open ? "Menu sluiten" : "Menu openen"}
             onClick={() => setOpen((v) => !v)}
@@ -274,29 +273,34 @@ export function AppShell({
               )}
             </svg>
           </button>
-          <div className="min-w-0 flex-1">
+          <div className="min-w-0 flex-1 overflow-hidden">
             {title ? (
-              <p className="truncate text-[1.05rem] leading-tight text-[var(--ink)]" style={{ fontFamily: "var(--display)" }}>
+              <p className="truncate text-[1.05rem] leading-none text-[var(--ink)]" style={{ fontFamily: "var(--display)" }}>
                 {title}
               </p>
             ) : null}
             {subtitle ? (
-              <p className="hidden truncate text-[0.7rem] text-[var(--muted)] sm:block">{subtitle}</p>
+              <p className="mt-0.5 hidden truncate text-[0.68rem] text-[var(--muted)] md:block">{subtitle}</p>
             ) : null}
           </div>
-          {toolbar ? <div className="app-topbar__tools shrink-0">{toolbar}</div> : null}
-          <TodayRail />
-          <button
-            type="button"
-            className="btn-ghost btn-tool hidden !min-h-9 !px-2.5 lg:inline-flex"
-            onClick={() => window.dispatchEvent(new Event("desk:command"))}
-            aria-label="Zoeken"
-            title="Zoeken (⌘K)"
-          >
-            <span className="text-[0.72rem] font-semibold">Zoek</span>
-            <kbd className="ml-1.5 rounded border border-[var(--line)] px-1 text-[0.6rem] text-[var(--muted)]">⌘K</kbd>
-          </button>
-          <div className="shrink-0">
+          <div className="flex shrink-0 items-center gap-2">
+            {toolbar ? <div className="app-topbar__tools hidden min-w-0 lg:block">{toolbar}</div> : null}
+            <TodayRail />
+            <button
+              type="button"
+              className="inline-flex h-9 items-center gap-1.5 rounded-[var(--radius)] border border-[var(--line)] px-2.5 text-[var(--ink)] hover:bg-[var(--surface-2)]"
+              onClick={() => window.dispatchEvent(new Event("desk:command"))}
+              aria-label="Zoeken"
+              title="Zoeken (⌘K)"
+            >
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden>
+                <circle cx="7" cy="7" r="4.2" stroke="currentColor" strokeWidth="1.5" />
+                <path d="M10.4 10.4 13.2 13.2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+              </svg>
+              <kbd className="hidden rounded border border-[var(--line)] px-1 text-[0.58rem] text-[var(--muted)] xl:inline" style={{ fontFamily: "var(--mono)" }}>
+                ⌘K
+              </kbd>
+            </button>
             <AlertsBell />
           </div>
           </div>

@@ -36,7 +36,11 @@ export function HomeOpportunityStage() {
         <p className="hero-radar__role">{find.role}</p>
         <p className="hero-radar__where">{find.where}</p>
         <p className="hero-radar__score">
-          Score <strong>{find.score}</strong>
+          <span className="hero-radar__score-band">Warm</span>
+          <span className="hero-radar__score-value">
+            <strong>{find.score}</strong>
+            <span>/98</span>
+          </span>
         </p>
       </div>
     </div>

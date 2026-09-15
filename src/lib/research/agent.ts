@@ -5,10 +5,12 @@ import { guessEndClient, type ClientGuess, type Evidence } from "@/lib/end-clien
 import { findRelatedJobs, relatedJobsBlock, type RelatedJob } from "@/lib/research/corpus";
 import { candidateQueries, discoveryQueries, falsificationQueries } from "@/lib/research/queries";
 import { scoreCandidates, scoringExplainer } from "@/lib/research/scoring";
+import { createResearchProgress } from "@/lib/research/progress";
 import type {
   JobSignals,
   ResearchCandidate,
   ResearchDepth,
+  ResearchProgress,
   ResearchReport,
   ResearchSource,
   SearchHit,
@@ -502,6 +504,7 @@ export async function researchEndClient(opts: {
   recruiterName?: string;
   signalId?: string;
   depth?: ResearchDepth;
+  onProgress?: (p: ResearchProgress) => void;
 }): Promise<{ guess: ClientGuess | null; model: string; detail: string; report: ResearchReport | null }> {
   if (!hasAiKey()) {
     return { guess: null, model: "", detail: "ANTHROPIC_API_KEY ontbreekt", report: null };
@@ -512,15 +515,21 @@ export async function researchEndClient(opts: {
   const agency = opts.agencyName;
   const recruiter = opts.recruiterName || "";
   const budget = makeBudget(depth);
+  const progress = createResearchProgress(depth, opts.onProgress);
   let rounds = 1;
 
   // ── Round 1: signals + own desk memory (parallel, corpus needs no LLM) ──
+  progress.start("signals");
   const extracted = await extractSignals({ blob, agency, recruiter });
   if (!extracted.signals && !extracted.model) {
     return { guess: null, model: extracted.model, detail: extracted.detail, report: null };
   }
   const signals = extracted.signals;
 
+  progress.start(
+    "search",
+    signals?.job_title || signals?.technology.slice(0, 2).join(", ") || undefined
+  );
   const [related, discovery] = await Promise.all([
     findRelatedJobs({
       currentId: opts.signalId,
@@ -542,7 +551,9 @@ export async function researchEndClient(opts: {
   const hits: SearchHit[] = [...discovery.hits];
 
   // Read the most promising pages instead of trusting SERP snippets
-  await scrapeBest(hits, budget, depth === "deep" ? 5 : depth === "standard" ? 3 : 1);
+  const scrapeN = depth === "deep" ? 5 : depth === "standard" ? 3 : 1;
+  progress.start("read", `${hits.length} hits · ${scrapeN} pagina’s`);
+  await scrapeBest(hits, budget, scrapeN);
 
   const internalText = relatedJobsBlock(related);
   const signalsText = signalsBlock(signals, budget.queries, agency, recruiter);
@@ -551,6 +562,7 @@ export async function researchEndClient(opts: {
 
   // A name leaked in the title/code is the strongest lead we have — chase it.
   if (signals?.client_name_leak && !isAgencyName(signals.client_name_leak)) {
+    progress.start("leak", signals.client_name_leak);
     const leakHits = await multiSearch(
       candidateQueries({ candidate: signals.client_name_leak, signals, agency }).slice(0, 2),
       budget,
@@ -566,6 +578,7 @@ export async function researchEndClient(opts: {
   let shortlistWhy = new Map<string, string>();
   if (depth !== "quick") {
     rounds = 2;
+    progress.start("shortlist");
     const sl = await shortlist({
       agency,
       signalsText,
@@ -586,6 +599,7 @@ export async function researchEndClient(opts: {
     const probeNames = shortlistNames.slice(0, depth === "deep" ? 4 : 3);
     if (probeNames.length) {
       rounds = 3;
+      progress.start("verify", probeNames.slice(0, 3).join(" · "));
       const queries = probeNames.flatMap((name) => [
         ...candidateQueries({ candidate: name, signals, agency }).slice(0, depth === "deep" ? 3 : 2),
         ...(depth === "deep" ? falsificationQueries({ candidate: name, signals }).slice(0, 2) : []),
@@ -599,6 +613,7 @@ export async function researchEndClient(opts: {
   const scrapedCount = hits.filter((h) => h.body).length;
 
   // ── Round 3: evidence-based ranking with mandatory falsification ──
+  progress.start("analyze", scrapedCount ? `${scrapedCount} pagina’s gelezen` : undefined);
   const analyze = await aiJsonCompletion({
     system: `Je doet End-client Intelligence voor NL IT-contracting: welke eindklant zit achter deze bureau-vacature?
 
@@ -681,6 +696,7 @@ ${blob.slice(0, 3500)}
       rounds,
       openQuestions,
     });
+    progress.done();
     return fallback
       ? { ...fallback, model }
       : { guess: null, model, detail: reason, report: null };
@@ -715,6 +731,7 @@ ${blob.slice(0, 3500)}
       rounds,
       openQuestions,
     });
+    progress.done();
     return fallback
       ? { ...fallback, model }
       : { guess: null, model, detail: "Geen bruikbare kandidaten na research", report: null };
@@ -728,6 +745,7 @@ ${blob.slice(0, 3500)}
   });
 
   // ── Round 4: deterministic scoring ──
+  progress.start("score");
   const tierByUrl = new Map<string, SourceTier>(hits.map((h) => [h.url, h.tier]));
   const tierBySource = (source?: string): SourceTier => {
     if (!source) return 4;
@@ -820,6 +838,7 @@ ${blob.slice(0, 3500)}
     source: "deep",
   };
 
+  progress.done();
   return {
     guess,
     model,

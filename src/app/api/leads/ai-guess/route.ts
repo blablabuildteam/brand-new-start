@@ -8,11 +8,39 @@ import { leadSourceForAi, saveAiGuess } from "@/lib/opportunity";
 
 export const maxDuration = 300;
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 const Body = z.object({
   id: z.string().min(1),
   depth: z.enum(["quick", "standard", "deep"]).optional().default("standard"),
 });
+
+function ndjsonResponse(write: (send: (obj: unknown) => void) => Promise<void>) {
+  const encoder = new TextEncoder();
+  const stream = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      const send = (obj: unknown) => {
+        controller.enqueue(encoder.encode(`${JSON.stringify(obj)}\n`));
+      };
+      try {
+        await write(send);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message.slice(0, 220) : "AI-fout";
+        send({ type: "error", error: msg });
+      } finally {
+        controller.close();
+      }
+    },
+  });
+  return new Response(stream, {
+    headers: {
+      "Content-Type": "application/x-ndjson; charset=utf-8",
+      "Cache-Control": "no-cache, no-transform",
+      Connection: "keep-alive",
+      "X-Accel-Buffering": "no",
+    },
+  });
+}
 
 export async function POST(req: Request) {
   const session = await getSession();
@@ -52,7 +80,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "al beoordeeld" }, { status: 400 });
   }
 
-  try {
+  return ndjsonResponse(async (send) => {
     const result = await researchEndClient({
       title: src.title,
       text: src.text,
@@ -60,21 +88,22 @@ export async function POST(req: Request) {
       recruiterName: src.lead.recruiter.name || undefined,
       signalId: src.lead.signalId || undefined,
       depth: parsed.data.depth,
+      onProgress: (p) => send({ type: "progress", ...p }),
     });
 
     if (!result.guess) {
-      return NextResponse.json(
-        {
-          ok: false,
-          detail: result.detail,
-          lead: src.lead,
-        },
-        { status: 200 }
-      );
+      send({
+        type: "done",
+        ok: false,
+        detail: result.detail,
+        lead: src.lead,
+      });
+      return;
     }
 
     const lead = await saveAiGuess(parsed.data.id, result.guess, { model: result.model });
-    return NextResponse.json({
+    send({
+      type: "done",
       ok: true,
       detail: result.detail,
       model: result.model,
@@ -82,8 +111,5 @@ export async function POST(req: Request) {
       hasWeb: hasWeb(),
       lead,
     });
-  } catch (e) {
-    const msg = e instanceof Error ? e.message.slice(0, 220) : "AI-fout";
-    return NextResponse.json({ error: msg }, { status: 502 });
-  }
+  });
 }

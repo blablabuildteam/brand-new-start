@@ -1,7 +1,7 @@
 import SettingsForm from "./settings-form";
 
 export const metadata = {
-  title: "Instellingen — Regie",
+  title: "Instellingen — Recruitment Scout",
   description: "Functies, bureaus en recruiters die je volgt.",
 };
 

@@ -2,15 +2,17 @@ import Link from "next/link";
 import { AppShell } from "@/components/app-shell";
 import { BlablaLogo } from "@/components/blabla-logo";
 import { SourceLogo } from "@/components/source-logo";
+import { getSession, isAdmin } from "@/lib/auth";
 import { buildLinkedInJobSearchUrls } from "@/lib/ingest/market-jobs";
 import { enabledPlatforms } from "@/lib/platforms";
 import { INGEST_POLICY, SYNC_COST_PER_RUN } from "@/lib/costs";
 import { loadHuntSettings } from "@/lib/hunt";
+import { PRODUCT } from "@/lib/product-brand";
 import { SCORE_MAX, SCORE_METHOD } from "@/lib/score";
 
 export const metadata = {
-  title: "Methode & queries — Contracting",
-  description: "Per bron: wat we scrapen, hoe we filteren, en wat een sync kost.",
+  title: `Hoe het werkt — ${PRODUCT.name}`,
+  description: "Desk-flow, bronnen en filters in begrijpelijke taal.",
 };
 
 function SourceHeading({
@@ -38,7 +40,8 @@ function SourceHeading({
 }
 
 export default async function MethodePage() {
-  const hunt = await loadHuntSettings();
+  const [hunt, session] = await Promise.all([loadHuntSettings(), getSession()]);
+  const admin = isAdmin(session);
   const todayLinkedIn = buildLinkedInJobSearchUrls(INGEST_POLICY.syncMarketUrls);
   const platforms = enabledPlatforms();
   const indeedQueries = hunt.roles
@@ -49,12 +52,53 @@ export default async function MethodePage() {
   const roleNames = [...new Set(hunt.roles)].sort((a, b) => a.localeCompare(b, "nl"));
 
   return (
-    <AppShell title="Methode" subtitle="Bronnen, filters en queries">
+    <AppShell title="Hoe het werkt" subtitle="Desk-flow, bronnen en filters">
     <main className="ws-shell ws-shell--page">
       <p className="mb-8 max-w-xl text-sm leading-relaxed text-[var(--muted)]">
-        Geen automatische sync. LinkedIn, Indeed en Freelance.nl alleen handmatig — advies ~1×/
-        {INGEST_POLICY.boardsCadenceDays} dagen.
+        Geen automatische sync. Jij (of admin) haalt LinkedIn, Indeed en Freelance.nl handmatig op —
+        advies ~1×/{INGEST_POLICY.boardsCadenceDays} dagen. Daarna werk je de kansen af in de desk.
       </p>
+
+      <section className="mb-6 overflow-hidden rounded-md border border-[var(--line)] bg-[var(--surface)]">
+        <div className="border-b border-[var(--line)]/80 px-4 py-3 sm:px-5">
+          <h2 className="text-base font-semibold" style={{ fontFamily: "var(--display)" }}>
+            De desk in 4 stappen
+          </h2>
+        </div>
+        <ol className="divide-y divide-[var(--line)]/80 text-sm">
+          {[
+            {
+              t: "Radar",
+              d: "Alle hits uit boards en careers. Score rangschikt; jij klikt wat interessant is.",
+            },
+            {
+              t: "Bureaus",
+              d: "Feeds van recruiters die je volgt. AI research raadt de eindklant; jij bevestigt. Daarna kun je een hiring manager zoeken.",
+            },
+            {
+              t: "Kansen",
+              d: "Bevestigde + warme kansen op één lijst. Per rij zie je stage, bron, HM en volgende actie.",
+            },
+            {
+              t: "Voorstel",
+              d: "Bericht klaarzetten voor hiring manager of ZZP’er. Shortlist komt uit jullie eigen bench (Instellingen) — niets gaat automatisch de deur uit.",
+            },
+          ].map((row, i) => (
+            <li key={row.t} className="flex gap-3 px-4 py-3 sm:px-5">
+              <span
+                className="mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-full bg-[var(--accent-soft)] text-[0.7rem] font-bold text-[var(--accent)]"
+                style={{ fontFamily: "var(--mono)" }}
+              >
+                {i + 1}
+              </span>
+              <span>
+                <strong className="text-[var(--ink)]">{row.t}</strong>
+                <span className="mt-0.5 block text-[var(--muted)]">{row.d}</span>
+              </span>
+            </li>
+          ))}
+        </ol>
+      </section>
 
       <section className="mb-6 overflow-hidden rounded-md border border-[var(--line)] bg-[var(--surface)]">
         <div className="border-b border-[var(--line)]/80 px-4 py-3 sm:px-5">
@@ -64,11 +108,14 @@ export default async function MethodePage() {
         </div>
         <ul className="divide-y divide-[var(--line)]/80 text-sm">
           {[
-            "Elke bron draait apart: LinkedIn, Indeed, Freelance.nl (en optioneel careers).",
+            "Elke bron draait apart: LinkedIn, Indeed, Freelance.nl, recruiter-feeds (en optioneel careers).",
             hunt.requireContract
               ? "Interessant = jouw rollen (Instellingen) én contract/ZZP/interim. Score rangschikt. Dubbele URL = refresh."
               : "Interessant = jouw rollen (Instellingen). Score rangschikt. Dubbele URL = refresh.",
-            "Kosten = Apify/Firecrawl per scrape; filteren in de app is gratis.",
+            "AI research (Bureaus) zoekt de eindklant via web + desk-geheugen. Jij blijft de eindbeslisser.",
+            admin
+              ? "Stack-kosten (Apify/Firecrawl/Claude) staan onder Kosten — alleen zichtbaar voor admin."
+              : "Filteren in de app is gratis; syncs kosten alleen als admin ze start.",
           ].map((t) => (
             <li key={t} className="flex gap-2 px-4 py-2.5 sm:px-5">
               <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-[var(--accent)]" />
@@ -206,8 +253,10 @@ export default async function MethodePage() {
             Volgorde van queries roteert licht per dag.
           </p>
           <p className="text-xs text-[var(--muted)]">
-            Vandaag {todayLinkedIn.length} URL’s · ≈ €{SYNC_COST_PER_RUN.actions.market.eur.low}–
-            {SYNC_COST_PER_RUN.actions.market.eur.high} / sync
+            Vandaag {todayLinkedIn.length} URL’s
+            {admin
+              ? ` · ≈ €${SYNC_COST_PER_RUN.actions.market.eur.low}–${SYNC_COST_PER_RUN.actions.market.eur.high} / sync`
+              : ""}
           </p>
         </div>
         <ul className="max-h-44 divide-y divide-[var(--line)]/70 overflow-y-auto border-t border-[var(--line)]/80 text-sm">
@@ -252,8 +301,11 @@ export default async function MethodePage() {
             {hunt.requireContract ? " + contract" : ""} · score op de radar.
           </p>
           <p className="text-xs text-[var(--muted)]">
-            Handmatig via Sync & meer → Alleen Indeed. ≈ €{SYNC_COST_PER_RUN.actions.indeed.eur.low}–
-            {SYNC_COST_PER_RUN.actions.indeed.eur.high} / run (los van Freelance.nl).
+            Handmatig via Sync & meer → Alleen Indeed
+            {admin
+              ? `. ≈ €${SYNC_COST_PER_RUN.actions.indeed.eur.low}–${SYNC_COST_PER_RUN.actions.indeed.eur.high} / run (los van Freelance.nl)`
+              : ""}
+            .
           </p>
         </div>
         <div className="border-t border-[var(--line)]/80 px-4 py-2.5 sm:px-5">
@@ -300,8 +352,11 @@ export default async function MethodePage() {
             Freelance.nl zelf is geen bedrijf op de radar.
           </p>
           <p className="text-xs text-[var(--muted)]">
-            Freelance.nl alleen ≈ €{SYNC_COST_PER_RUN.actions["freelance-nl"].eur.low}–
-            {SYNC_COST_PER_RUN.actions["freelance-nl"].eur.high} / run (Firecrawl-credits).
+            Freelance.nl alleen
+            {admin
+              ? ` ≈ €${SYNC_COST_PER_RUN.actions["freelance-nl"].eur.low}–${SYNC_COST_PER_RUN.actions["freelance-nl"].eur.high} / run (Firecrawl-credits)`
+              : " (Firecrawl)"}
+            .
           </p>
           <div className="flex flex-wrap gap-1.5">
             {freelanceQueries.map((q) => (
@@ -376,13 +431,14 @@ export default async function MethodePage() {
         </div>
       </section>
 
+      {admin ? (
       <section className="mb-8 overflow-hidden rounded-md border border-[var(--line)] bg-[var(--surface)]">
         <div className="border-b border-[var(--line)]/80 px-4 py-3 sm:px-5">
           <h2 className="text-base font-semibold" style={{ fontFamily: "var(--display)" }}>
             Wat betekenen die kosten?
           </h2>
           <p className="mt-1 text-xs text-[var(--muted)]">
-            Je betaalt Apify/Firecrawl per scrape — niet per “goede hit”.
+            Je betaalt Apify/Firecrawl/Claude per scrape/run — niet per “goede hit”. Alleen admin ziet dit.
           </p>
         </div>
         <div className="grid gap-px bg-[var(--line)]/80 sm:grid-cols-2">
@@ -408,6 +464,7 @@ export default async function MethodePage() {
           .
         </p>
       </section>
+      ) : null}
 
       <a
         href="https://blablabuild.com"

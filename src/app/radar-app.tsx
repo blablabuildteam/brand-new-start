@@ -130,14 +130,6 @@ const STATUS_NL: Record<string, string> = {
   cold: "Zwak",
 };
 
-const STATUS_HELP: Record<string, string> = {
-  hot: "Score ≥ 75 — genoeg bewijs om nu te benaderen.",
-  warm: "Score ≥ 55 — serieuze signalen, nog niet ‘hot’. Geen tijdreeks: de band is een drempel, geen groei-indicator.",
-  watch:
-    "Op de radar houden: nog te weinig bewijs voor actie. Check bij een volgende sync of er een contract/ZZP-label, nieuwe vacature of sterker signaal bij komt.",
-  cold: "Zwak signaal — lage prioriteit, alleen meenemen als er niets beters is.",
-};
-
 function cleanAngle(angle: string | null | undefined) {
   if (!angle) return null;
   if (/Pulse|employment-type/i.test(angle)) {
@@ -559,11 +551,6 @@ const EMPLOYMENT_NL: Record<string, string> = {
 
 function rowChannels(r: RadarRow) {
   return sourceChannelsFromRow(r.signals);
-}
-
-function rowEmployment(r: RadarRow) {
-  const hint = r.signals.find((s) => s.employmentHint && s.employmentHint !== "unknown")?.employmentHint;
-  return hint ? EMPLOYMENT_NL[hint] || hint : null;
 }
 
 function isFresh(r: RadarRow, sinceIso?: string | null) {
@@ -1350,30 +1337,45 @@ export default function RadarApp({
   return (
     <AppShell current="radar" title="Radar" subtitle="Directe opdrachten bij eindklanten" fill toolbar={syncToolbar}>
       <main className="ws-shell radar-shell">
-        <section className={`ws-intro ${mobilePane === "detail" ? "max-lg:hidden" : ""}`}>
-          <p className="ws-intro__title">Wat is de Radar?</p>
-          <p className="ws-intro__text">
-            De Radar verzamelt <strong>directe vacatures bij eindklanten</strong> — dus niet via een
-            detacheerder, maar bij het bedrijf zelf. Admin start een sync; we zoeken LinkedIn Jobs,
-            Indeed en Freelance.nl op jouw functies uit Instellingen (en filteren op contract/ZZP als
-            dat aanstaat). Elke hit krijgt een <strong>kans-score</strong>: hoe vers, hoeveel bronnen,
-            of er contract-taal in zit, enz. Sterk/warm → actie; lager → volgen.
-          </p>
-          <ul className="ws-intro__actions">
-            <li>
-              <strong>Data:</strong> jobboards via sync (handmatig, niet elke seconde)
-            </li>
-            <li>
-              <strong>Score:</strong> som van signalen, max 98 — herschat bij elke sync
-            </li>
-            <li>
-              <strong>Jouw actie:</strong> bedrijf → opening → hiring manager → Voorstel · of open{" "}
-              <a href="/kansen" className="font-semibold text-[var(--accent)]">
-                Kansen → Actie vandaag
-              </a>
-            </li>
-          </ul>
-        </section>
+        <details className={`ws-fold ${mobilePane === "detail" ? "max-lg:hidden" : ""}`}>
+          <summary>
+            <span>Wat is de Radar?</span>
+            <span className="ws-fold__meta">Directe opdrachten · kans-score</span>
+          </summary>
+          <div className="ws-fold__body">
+            <p className="m-0 text-[0.8rem] leading-relaxed text-[var(--muted)]">
+              De Radar toont <strong className="font-semibold text-[var(--ink)]">directe vacatures bij eindklanten</strong>{" "}
+              (niet via een detacheerder). Sync haalt LinkedIn, Indeed en Freelance.nl op voor jouw
+              functies uit Instellingen.
+            </p>
+            <ol className="ws-fold__steps">
+              <li>
+                <span className="ws-fold__n">1</span>
+                <span>
+                  <strong className="font-semibold text-[var(--ink)]">Score</strong> — som van signalen
+                  (versheid, bronnen, contract-taal), max 98. Sterk/warm = actie.
+                </span>
+              </li>
+              <li>
+                <span className="ws-fold__n">2</span>
+                <span>
+                  <strong className="font-semibold text-[var(--ink)]">Pad</strong> — bedrijf → opening →
+                  hiring manager → Voorstel.
+                </span>
+              </li>
+              <li>
+                <span className="ws-fold__n">3</span>
+                <span>
+                  <strong className="font-semibold text-[var(--ink)]">Of</strong> — open{" "}
+                  <a href="/kansen" className="font-semibold text-[var(--ink)] underline underline-offset-2">
+                    Kansen → Actie vandaag
+                  </a>
+                  .
+                </span>
+              </li>
+            </ol>
+          </div>
+        </details>
 
         {showFocusMiss && focusQuery ? (
           <div className={`mb-3 rounded-[var(--radius)] border border-[var(--accent)]/30 bg-[var(--accent-soft)]/40 px-4 py-3 ${mobilePane === "detail" ? "max-lg:hidden" : ""}`}>
@@ -1412,64 +1414,68 @@ export default function RadarApp({
         ) : null}
 
         {!live && sync?.last ? (
-          <section className={`ws-panel mb-0 shrink-0 ${mobilePane === "detail" ? "max-lg:hidden" : ""}`}>
-            <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1.5 border-b border-[var(--line)]/80 px-3.5 py-2">
-              <p className="text-sm text-[var(--ink)]" title="Bedrijven op de radar · warme of sterke kans">
+          <details className={`ws-fold ${mobilePane === "detail" ? "max-lg:hidden" : ""}`}>
+            <summary>
+              <span>
                 {stats ? (
                   <>
-                    <span className="font-medium">{stats.companies}</span>
-                    <span className="text-[var(--muted)]"> bedrijven</span>
-                    <span className="text-[var(--muted)]"> · </span>
-                    <span className="font-medium">{warmPlus}</span>
-                    <span className="text-[var(--muted)]"> warm+</span>
+                    {stats.companies} bedrijven · {warmPlus} warm+
                   </>
                 ) : (
-                  "Laden…"
+                  "Bronnen & sync"
                 )}
-              </p>
-              <p className="text-[0.7rem] text-[var(--muted)]">
+              </span>
+              <span className="ws-fold__meta">
                 Sync {timeAgo(sync.last.at)}
                 {(Date.now() - new Date(sync.last.at).getTime()) / 3600000 < 18
-                  ? " · max 1×/dag (credits)"
-                  : ` · verse sync oké ≈ €${SYNC_COST_PER_RUN.actions.all.eur.low}–${SYNC_COST_PER_RUN.actions.all.eur.high}`}
+                  ? " · max 1×/dag"
+                  : ""}
+              </span>
+            </summary>
+            <div className="ws-fold__body !p-0">
+              <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1.5 border-b border-[var(--line)] px-3.5 py-2">
+                <p className="text-[0.72rem] text-[var(--muted)]">Laatste sync per bron</p>
                 <button
                   type="button"
-                  className="ml-2 font-semibold text-[var(--accent)] hover:underline"
+                  className="text-[0.72rem] font-semibold text-[var(--ink)] underline decoration-[var(--signal)] underline-offset-2"
                   onClick={() =>
                     setLive(openSyncRuns(sync.recent?.length ? sync.recent : [sync.last!]))
                   }
                 >
                   Batch →
                 </button>
-              </p>
+              </div>
+              <ul className="divide-y divide-[var(--line)]">
+                {latestRunsByChannel(sync).map((r) => (
+                  <li key={r.id}>
+                    <button
+                      type="button"
+                      data-tip={`${channelLabelUi(r.channel)} · ${r.kept} gehouden van ${r.fetched} opgehaald`}
+                      className="flex w-full items-center gap-2 px-3.5 py-2 text-left transition hover:bg-[var(--surface-2)] sm:py-1.5"
+                      onClick={() => setLive(openSyncRuns([r]))}
+                    >
+                      <SourceLogo channel={r.channel} size="sm" />
+                      <span className="min-w-0 flex-1 truncate text-sm text-[var(--ink)]">
+                        {channelLabelUi(r.channel) || r.label}
+                      </span>
+                      <span
+                        className="shrink-0 tabular-nums text-[0.7rem] text-[var(--muted)]"
+                        style={{ fontFamily: "var(--mono)" }}
+                      >
+                        {r.kept}/{r.fetched}
+                      </span>
+                      <span className="w-16 shrink-0 text-right text-[0.65rem] text-[var(--muted)]">
+                        {timeAgo(r.at)}
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
             </div>
-            <ul className="divide-y divide-[var(--line)]/70">
-              {latestRunsByChannel(sync).map((r) => (
-                <li key={r.id}>
-                  <button
-                    type="button"
-                    data-tip={`${channelLabelUi(r.channel)} · ${r.kept} gehouden van ${r.fetched} opgehaald`}
-                    className="flex w-full items-center gap-2 px-3.5 py-2 text-left transition hover:bg-[var(--surface-2)]/80 sm:py-1.5"
-                    onClick={() => setLive(openSyncRuns([r]))}
-                  >
-                    <SourceLogo channel={r.channel} size="sm" />
-                    <span className="min-w-0 flex-1 truncate text-sm text-[var(--ink)]">
-                      {channelLabelUi(r.channel) || r.label}
-                    </span>
-                    <span className="shrink-0 tabular-nums text-[0.7rem] text-[var(--muted)]" style={{ fontFamily: "var(--mono)" }}>
-                      {r.kept}/{r.fetched}
-                    </span>
-                    <span className="w-16 shrink-0 text-right text-[0.65rem] text-[var(--muted)]">
-                      {timeAgo(r.at)}
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </section>
+          </details>
         ) : (
           <div
-            className={`mb-0 shrink-0 flex flex-wrap items-center justify-between gap-2 text-sm text-[var(--muted)] ${
+            className={`mb-0 shrink-0 flex flex-wrap items-center justify-between gap-2 rounded-[var(--radius)] border border-[var(--line)] bg-[var(--surface)] px-3.5 py-2.5 text-sm text-[var(--muted)] ${
               mobilePane === "detail" ? "max-lg:hidden" : ""
             }`}
           >
@@ -1747,92 +1753,51 @@ export default function RadarApp({
               ) : filtered.length === 0 ? (
                 <p className="px-2 py-3 text-sm text-[var(--muted)]">Geen resultaten in dit filter.</p>
               ) : (
-                <ul className="space-y-1.5">
+                <ul className="space-y-1">
                   {filtered.map((r, idx) => {
                     const on = active?.id === r.id;
                     const channels = rowChannels(r);
-                    const employment = rowEmployment(r);
                     const fresh = isFresh(r, freshSince);
                     const meta = rowMeta(r);
-                    const org = openingOrg(r.openings?.[0] || { signals: r.signals });
+                    const title =
+                      (r.openingsAtCompany || 0) > 1
+                        ? `${r.openingsAtCompany} openingen`
+                        : r.openingTitle || r.roleLabel;
                     return (
                       <li key={r.id} className="animate-fade-in" style={{ animationDelay: `${Math.min(idx, 12) * 30}ms` }}>
                         <button
                           type="button"
                           onClick={() => selectRow(r.id)}
                           aria-current={on ? "true" : undefined}
-                          className={`flex w-full items-start gap-3 rounded-[var(--radius)] border px-3 py-3 text-left transition ${
+                          className={`flex w-full items-center gap-3 rounded-[var(--radius)] border px-3 py-2.5 text-left transition ${
                             on
-                              ? "border-[var(--accent)] bg-[var(--accent-soft)]/50 shadow-[inset_3px_0_0_0_var(--accent)]"
-                              : "border-transparent hover:border-[var(--line)] hover:bg-[var(--surface-2)]/80"
+                              ? "border-[var(--line)] bg-[var(--surface)] shadow-[inset_3px_0_0_0_var(--ink)]"
+                              : "border-transparent hover:border-[var(--line)] hover:bg-[var(--surface)]/80"
                           }`}
                         >
-                          <span
-                            className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${
-                              r.status === "hot"
-                                ? "bg-[var(--green)]"
-                                : r.status === "warm"
-                                  ? "bg-[var(--accent)]"
-                                  : "bg-[var(--line)]"
-                            }`}
-                            data-tip={STATUS_HELP[r.status] || STATUS_NL[r.status]}
-                          />
                           {meta.logo ? (
                             // eslint-disable-next-line @next/next/no-img-element
                             <img
                               src={meta.logo}
                               alt=""
-                              className="mt-0.5 h-7 w-7 shrink-0 rounded object-contain bg-white"
+                              className="h-8 w-8 shrink-0 rounded object-contain bg-white"
                             />
-                          ) : null}
+                          ) : (
+                            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded bg-[var(--surface-2)] text-[0.7rem] font-semibold text-[var(--muted)]">
+                              {r.company.name.slice(0, 1).toUpperCase()}
+                            </span>
+                          )}
                           <span className="min-w-0 flex-1">
-                            <span className="flex flex-wrap items-center gap-2">
-                              <span className="font-semibold text-[var(--ink)]">{r.company.name}</span>
+                            <span className="flex min-w-0 items-center gap-2">
+                              <span className="truncate font-semibold text-[var(--ink)]">{r.company.name}</span>
                               <SourceLogos channels={channels} />
-                              {(r.openingsAtCompany || 0) > 1 ? (
-                                <span
-                                  className="rounded bg-[var(--accent-soft)] px-1.5 py-0.5 text-[0.62rem] font-semibold text-[var(--accent)]"
-                                  data-tip={`${r.openingsAtCompany} open contracting-kansen — details rechts`}
-                                >
-                                  {r.openingsAtCompany} openingen
-                                </span>
-                              ) : null}
                               {fresh ? (
-                                <span className="text-[0.65rem] font-semibold uppercase tracking-wide text-[var(--green)]">
+                                <span className="shrink-0 text-[0.62rem] font-semibold uppercase tracking-wide text-[var(--green)]">
                                   nieuw
                                 </span>
                               ) : null}
                             </span>
-                            <span className="mt-0.5 block text-sm text-[var(--ink)]/85 line-clamp-2">
-                              {(r.openingsAtCompany || 0) > 1
-                                ? (r.openings || [])
-                                    .map((o) => o.openingTitle || o.roleLabel)
-                                    .join(" · ")
-                                : r.openingTitle || r.roleLabel}
-                            </span>
-                            <span className="mt-0.5 block text-[0.75rem] text-[var(--muted)]">
-                              {r.roleLabel}
-                              {r.company.sector ? ` · ${r.company.sector}` : ""}
-                            </span>
-                            {org.hiringManager ? (
-                              <span className="mt-0.5 block text-[0.75rem] text-[var(--ink)]/80">
-                                Hiring manager · {org.hiringManager}
-                              </span>
-                            ) : (
-                              <span className="mt-0.5 block text-[0.75rem] text-[var(--muted)]">
-                                Hiring manager · zoeken
-                              </span>
-                            )}
-                            <span className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[0.7rem] text-[var(--muted)]">
-                              <span>{STATUS_NL[r.status] || r.status}</span>
-                              {employment ? <span>· {employment}</span> : null}
-                              {(r.openingsAtCompany || 0) <= 1 && meta.postedLabel ? (
-                                <span>· {meta.postedLabel}</span>
-                              ) : null}
-                              {(r.openingsAtCompany || 0) <= 1 && meta.applicants != null ? (
-                                <span>· {meta.applicants} aanmeldingen</span>
-                              ) : null}
-                            </span>
+                            <span className="mt-0.5 block truncate text-[0.8rem] text-[var(--muted)]">{title}</span>
                           </span>
                           <ScoreChip kans={r.kans} />
                         </button>
@@ -1853,13 +1818,15 @@ export default function RadarApp({
           >
             {active ? (
               <div key={active.id} className="animate-fade-in pb-6">
-                <button
-                  type="button"
-                  className="btn-ghost btn-tool mb-3 lg:hidden"
-                  onClick={() => setMobilePane("list")}
-                >
-                  ← Lijst
-                </button>
+                {mobilePane === "detail" ? (
+                  <button
+                    type="button"
+                    className="mb-3 inline-flex items-center gap-1.5 text-[0.78rem] font-semibold text-[var(--muted)] hover:text-[var(--ink)] lg:hidden"
+                    onClick={() => setMobilePane("list")}
+                  >
+                    <span aria-hidden>←</span> Terug naar lijst
+                  </button>
+                ) : null}
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">

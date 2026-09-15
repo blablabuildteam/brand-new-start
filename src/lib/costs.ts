@@ -85,6 +85,17 @@ export const SOURCE_COST_MODEL: SourceCost[] = [
     efficiency: "Eigen input — geen scraperkosten. UI volgt later.",
   },
   {
+    id: "recruiter-feeds",
+    label: "Recruiter LinkedIn-feeds",
+    tier: "paid-hard",
+    tool: "apify",
+    quality: "kritisch",
+    cadence: "handmatig · advies 1×/2 dagen",
+    /** ~10–15 runs/m × €0,50–3,50 */
+    eurPerMonth: { low: 5, high: 40 },
+    efficiency: "Alleen ingestelde bureaus/recruiters (Instellingen). Voedt Bureaus-lane.",
+  },
+  {
     id: "lusha",
     label: "Lusha (mail/tel)",
     tier: "paid-open",
@@ -93,6 +104,18 @@ export const SOURCE_COST_MODEL: SourceCost[] = [
     cadence: "per persoon · na een naam",
     eurPerMonth: { low: 2, high: 25 },
     efficiency: "Alleen op klik, ná Harvest-naam. Geen bulk. Mail + tel per hiring manager.",
+  },
+  {
+    id: "ai-research",
+    label: "AI eindklant-research",
+    tier: "paid-open",
+    tool: "none",
+    quality: "hoog",
+    cadence: "per lead · Snel / Standaard / Deep",
+    /** Claude tokens + Firecrawl searches/scrapes bij Deep */
+    eurPerMonth: { low: 8, high: 60 },
+    efficiency:
+      "Alleen op klik (Bureaus). Snel ≈ goedkoop; Deep = meer webzoeken + langere analyse. Max 3 parallel.",
   },
 ];
 
@@ -111,9 +134,9 @@ export function sumRange(items: { low: number; high: number }[]) {
 export function mvpMonthlyTotal() {
   const sources = sumRange(SOURCE_COST_MODEL.map((s) => s.eurPerMonth));
   const platform = sumRange([PLATFORM_COST.vercel, PLATFORM_COST.database]);
-  /** Actieve scrapers bij advies-cadans (geen auto-cron) */
+  /** Actieve stack bij advies-cadans (geen auto-cron) + matig AI-gebruik */
   const active = SOURCE_COST_MODEL.filter((s) =>
-    ["linkedin-jobs", "indeed", "freelance-nl"].includes(s.id)
+    ["linkedin-jobs", "indeed", "freelance-nl", "ai-research", "recruiter-feeds"].includes(s.id)
   );
   const activeRange = sumRange(active.map((s) => s.eurPerMonth));
   return {
@@ -123,13 +146,13 @@ export function mvpMonthlyTotal() {
     liveNow: {
       low: activeRange.low + PLATFORM_COST.vercel.low + PLATFORM_COST.database.low,
       high: activeRange.high + PLATFORM_COST.vercel.high + PLATFORM_COST.database.high,
-      note: "Handmatig · advies 1×/3d · LinkedIn + Indeed + Freelance.nl + Neon/Vercel. Geen auto-cron.",
+      note: "Handmatig · advies 1×/2–3d · LinkedIn Jobs + Indeed + Freelance.nl + recruiter-feeds + matig AI-research + Neon/Vercel. Geen auto-cron.",
     },
-    /** Inclusief careers-watchlist */
+    /** Inclusief careers-watchlist + Lusha */
     withFirecrawl: {
       low: sources.low + platform.low,
       high: sources.high + platform.high,
-      note: "Zelfde stack + careers-watchlist (+ TenderNed/pulse ≈ €0).",
+      note: "Volledige model-stack inclusief careers, Lusha en AI-research (+ TenderNed/pulse ≈ €0).",
     },
     total: { low: sources.low + platform.low, high: sources.high + platform.high },
   };
@@ -272,6 +295,18 @@ export const SYNC_COST_PER_RUN = {
       tool: "Lusha",
       eur: { low: 0.1, high: 0.35 },
       what: "1 persoon · werkmail + telefoon · alleen na een LinkedIn-naam",
+    },
+    "ai-research": {
+      label: "AI eindklant (standaard)",
+      tool: "Claude + Firecrawl",
+      eur: { low: 0.15, high: 0.8 },
+      what: "1 lead · shortlist + webzoeken · Bureaus → AI research",
+    },
+    "ai-research-deep": {
+      label: "AI eindklant (Deep)",
+      tool: "Claude + Firecrawl",
+      eur: { low: 0.4, high: 2.5 },
+      what: "1 lead · 3 rondes + falsificatie · langzamer, duurder",
     },
   },
 } as const;

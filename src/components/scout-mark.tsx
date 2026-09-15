@@ -1,6 +1,6 @@
 "use client";
 
-/** Recruitment Scout mark + wordmark lockups. */
+/** Recruitment Scout mark — lime spark lockup (Apollo-inspired, own geometry). */
 
 export type ScoutMarkTone = "light" | "sage" | "outline" | "ink";
 
@@ -14,22 +14,21 @@ export type ScoutWordFont =
   | "manrope"
   | "dm";
 
-/** How the text sits next to the mark */
 export type ScoutLockup =
-  | "flat" /* one line: Recruitment Scout */
-  | "stack" /* RECRUITMENT over Scout */
-  | "scout" /* mark + Scout only */
-  | "pair" /* Recruitment / Scout same size stacked */
-  | "slash"; /* Recruitment / Scout with slash */
+  | "flat"
+  | "stack"
+  | "scout"
+  | "pair"
+  | "slash";
 
 const TONES: Record<
   ScoutMarkTone,
-  { bg: string; ring: string; accent: string; stroke?: string }
+  { bg: string; fg: string; stroke?: string }
 > = {
-  light: { bg: "#f4efe6", ring: "#1a5c45", accent: "#1a5c45", stroke: "#d4cdc0" },
-  sage: { bg: "#d8ebe2", ring: "#0f1412", accent: "#0f3d2e" },
-  outline: { bg: "transparent", ring: "#1a5c45", accent: "#1a5c45", stroke: "#1a5c45" },
-  ink: { bg: "#0f1412", ring: "#5a6b63", accent: "#3dcf8e" },
+  light: { bg: "#f9ff2c", fg: "#0a0a0a" },
+  sage: { bg: "#fcff66", fg: "#0a0a0a" },
+  outline: { bg: "transparent", fg: "#0a0a0a", stroke: "#0a0a0a" },
+  ink: { bg: "#0a0a0a", fg: "#f9ff2c" },
 };
 
 const FONTS: Record<ScoutWordFont, string> = {
@@ -43,6 +42,7 @@ const FONTS: Record<ScoutWordFont, string> = {
   dm: '"DM Sans", system-ui, sans-serif',
 };
 
+/** Eight-point spark inside a rounded tile. */
 export function ScoutMark({
   className = "h-8 w-8",
   animated = true,
@@ -67,29 +67,34 @@ export function ScoutMark({
         y="0.75"
         width="30.5"
         height="30.5"
-        rx="8.5"
+        rx="9"
         fill={t.bg}
         stroke={t.stroke || "none"}
-        strokeWidth={t.stroke ? 1.25 : 0}
+        strokeWidth={t.stroke ? 1.5 : 0}
       />
-      <circle cx="16" cy="16" r="9" stroke={t.ring} strokeWidth="1.1" opacity="0.35" />
-      <circle cx="16" cy="16" r="5.5" stroke={t.ring} strokeWidth="1.1" opacity="0.55" />
-
-      <g className="scout-mark__spin">
-        <path d="M16 16 L16 7.2 A8.8 8.8 0 0 1 23.6 12 Z" fill={t.accent} fillOpacity="0.18" />
-        <path d="M16 16 L23.6 12" stroke={t.accent} strokeWidth="1.55" strokeLinecap="round" />
-        <circle cx="24.1" cy="11.7" r="1.45" fill={t.accent} className="scout-mark__blip" />
+      <g transform="translate(16 16)">
+        <g className="scout-mark__spin">
+          {/* Cardinal rays */}
+          <path d="M0 -9.2 L1.15 -2.4 L0 0 L-1.15 -2.4 Z" fill={t.fg} />
+          <path d="M0 9.2 L1.15 2.4 L0 0 L-1.15 2.4 Z" fill={t.fg} />
+          <path d="M9.2 0 L2.4 1.15 L0 0 L2.4 -1.15 Z" fill={t.fg} />
+          <path d="M-9.2 0 L-2.4 1.15 L0 0 L-2.4 -1.15 Z" fill={t.fg} />
+          {/* Diagonal rays (shorter) */}
+          <path d="M6.5 -6.5 L2.1 -1.55 L0 0 L1.55 -2.1 Z" fill={t.fg} opacity="0.85" />
+          <path d="M6.5 6.5 L2.1 1.55 L0 0 L1.55 2.1 Z" fill={t.fg} opacity="0.85" />
+          <path d="M-6.5 6.5 L-2.1 1.55 L0 0 L-1.55 2.1 Z" fill={t.fg} opacity="0.85" />
+          <path d="M-6.5 -6.5 L-2.1 -1.55 L0 0 L-1.55 -2.1 Z" fill={t.fg} opacity="0.85" />
+          <circle cx="0" cy="0" r="1.35" fill={t.fg} className="scout-mark__blip" />
+        </g>
       </g>
-
-      <circle cx="16" cy="16" r="1.7" fill={t.accent} />
     </svg>
   );
 }
 
 export function ScoutWordmark({
   tone = "light",
-  font = "sora",
-  lockup = "stack",
+  font = "dm",
+  lockup = "scout",
 }: {
   name?: string;
   tone?: ScoutMarkTone;
