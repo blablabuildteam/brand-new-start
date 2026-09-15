@@ -455,11 +455,8 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
 
   function deepAllOpen() {
     if (!data) return;
-    const targets = data.live.filter((l) => {
-      if (l.status === "confirmed" || l.status === "rejected") return false;
-      if (!l.aiGuess) return true;
-      return false;
-    });
+    // Force deep on every open hit — rules can be stale/wrong (geo), AI must re-check.
+    const targets = data.live.filter((l) => l.status !== "confirmed" && l.status !== "rejected");
     for (const l of targets) onAiGuess(l.id, "deep");
   }
 

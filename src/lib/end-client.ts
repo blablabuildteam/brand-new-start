@@ -31,6 +31,14 @@ type Client = {
   aliases: string[];
   sector: string;
   tags: string[];
+  /**
+   * Geographic anchors (city/province). Place-bound orgs (gemeente, haven, …)
+   * must hit at least one home token for a tag-based match — otherwise
+   * "gemeente + overheid" wrongly picks Amsterdam for a Zuid-Holland role.
+   */
+  home?: string[];
+  /** If true (or name starts with Gemeente/…), home is required for tag matches. */
+  placeBound?: boolean;
 };
 
 const CLIENTS: Client[] = [
@@ -39,84 +47,115 @@ const CLIENTS: Client[] = [
     aliases: ["abn amro", "abn-amro", "abnamro"],
     sector: "bank",
     tags: ["bank", "amsterdam", "zuidas", "azure", "databricks", "data factory"],
+    home: ["amsterdam", "noord-holland", "zuidas"],
   },
   {
     name: "ING",
     aliases: ["ing bank", "ing groep"],
     sector: "bank",
     tags: ["bank", "amsterdam", "cedar", "azure", "java"],
+    home: ["amsterdam", "noord-holland"],
   },
   {
     name: "Rabobank",
     aliases: ["rabobank", "rabo"],
     sector: "bank",
     tags: ["bank", "utrecht", "food", "agri", "boeren"],
+    home: ["utrecht"],
   },
   {
     name: "NN Group",
     aliases: ["nn group", "nationale nederlanden", "nationale-nederlanden"],
     sector: "verzeker",
     tags: ["verzeker", "den haag", "the hague", "insurance", "hyper automation"],
+    home: ["den haag", "the hague", "zuid-holland"],
   },
   {
     name: "a.s.r.",
     aliases: ["a.s.r", "asr nederland", "asr"],
     sector: "verzeker",
     tags: ["verzeker", "utrecht", "schade", "insurance"],
+    home: ["utrecht"],
   },
   {
     name: "Achmea",
     aliases: ["achmea"],
     sector: "verzeker",
     tags: ["verzeker", "zeist", "apeldoorn", "schade"],
+    home: ["zeist", "apeldoorn", "utrecht"],
   },
   {
     name: "CCV",
     aliases: ["ccv group", "ccv nederland"],
     sector: "payments",
     tags: ["arnhem", "gelderland", "payments", "betalingsverkeer", "pos", ".net", "aws", "fintech"],
+    home: ["arnhem", "gelderland"],
   },
   {
     name: "VGZ",
     aliases: ["coöperatie vgz", "cooperatie vgz"],
     sector: "verzeker",
     tags: ["arnhem", "gelderland", "verzeker", "zorg", "azure", ".net"],
+    home: ["arnhem", "gelderland"],
   },
   {
     name: "Alliander",
     aliases: ["liander", "alliander n.v"],
     sector: "energie",
     tags: ["arnhem", "gelderland", "energie", "netbeheer", "azure"],
+    home: ["arnhem", "gelderland"],
   },
   {
     name: "DELA",
     aliases: ["dela uitvaart"],
     sector: "verzeker",
     tags: ["eindhoven", "brabant", "uitvaart", "verzeker"],
+    home: ["eindhoven", "brabant", "noord-brabant"],
   },
   {
     name: "Adyen",
     aliases: ["adyen"],
     sector: "fintech",
     tags: ["fintech", "amsterdam", "payments", "java", "adyen"],
+    home: ["amsterdam", "noord-holland"],
   },
   {
     name: "Booking.com",
     aliases: ["booking.com", "booking"],
     sector: "ecom",
     tags: ["e-commerce", "ecommerce", "diemen", "genai", "java"],
+    home: ["diemen", "amsterdam", "noord-holland"],
   },
   {
     name: "Gemeente Amsterdam",
     aliases: ["gemeente amsterdam", "city of amsterdam"],
     sector: "overheid",
     tags: ["overheid", "amsterdam", "safe", "gemeente"],
+    home: ["amsterdam", "noord-holland"],
+    placeBound: true,
+  },
+  {
+    name: "Gemeente Rotterdam",
+    aliases: ["gemeente rotterdam", "city of rotterdam"],
+    sector: "overheid",
+    tags: ["overheid", "rotterdam", "gemeente"],
+    home: ["rotterdam", "zuid-holland"],
+    placeBound: true,
+  },
+  {
+    name: "Gemeente Den Haag",
+    aliases: ["gemeente den haag", "gemeente 's-gravenhage", "city of the hague"],
+    sector: "overheid",
+    tags: ["overheid", "den haag", "the hague", "gemeente"],
+    home: ["den haag", "the hague", "zuid-holland"],
+    placeBound: true,
   },
   {
     name: "Belastingdienst",
     aliases: ["belastingdienst"],
     sector: "overheid",
     tags: ["overheid", "apeldoorn", "iv"],
+    home: ["apeldoorn"],
   },
   {
     name: "Politie",
@@ -129,8 +168,41 @@ const CLIENTS: Client[] = [
     aliases: ["port of rotterdam", "havenbedrijf rotterdam", "hb rdam"],
     sector: "haven",
     tags: ["rotterdam", "sap", "s/4hana", "asset life cycle", "alc", "port", "iot", "gis", "servicenow"],
+    home: ["rotterdam", "zuid-holland"],
+    placeBound: true,
   },
 ];
+
+/** Map place tokens → province key for conflict checks. */
+const PLACE_PROVINCE: Record<string, string> = {
+  amsterdam: "noord-holland",
+  zuidas: "noord-holland",
+  diemen: "noord-holland",
+  haarlem: "noord-holland",
+  "noord-holland": "noord-holland",
+  "noord holland": "noord-holland",
+  rotterdam: "zuid-holland",
+  "den haag": "zuid-holland",
+  "the hague": "zuid-holland",
+  delft: "zuid-holland",
+  leiden: "zuid-holland",
+  "zuid-holland": "zuid-holland",
+  "zuid holland": "zuid-holland",
+  utrecht: "utrecht",
+  zeist: "utrecht",
+  amersfoort: "utrecht",
+  arnhem: "gelderland",
+  nijmegen: "gelderland",
+  apeldoorn: "gelderland",
+  gelderland: "gelderland",
+  eindhoven: "brabant",
+  tilburg: "brabant",
+  breda: "brabant",
+  brabant: "brabant",
+  "noord-brabant": "brabant",
+};
+
+const PLACE_TOKENS = Object.keys(PLACE_PROVINCE);
 
 const STACK = [
   "Azure",
@@ -166,6 +238,54 @@ function hasWord(h: string, needle: string) {
   const n = needle.toLowerCase();
   if (n.length <= 3) return new RegExp(`(^|[^a-z0-9])${n}([^a-z0-9]|$)`).test(h);
   return h.includes(n);
+}
+
+function placesInHay(h: string): string[] {
+  return PLACE_TOKENS.filter((p) => hasWord(h, p));
+}
+
+function provincesOf(places: string[]): Set<string> {
+  const out = new Set<string>();
+  for (const p of places) {
+    const prov = PLACE_PROVINCE[p];
+    if (prov) out.add(prov);
+  }
+  return out;
+}
+
+function isPlaceBound(c: Client) {
+  if (c.placeBound) return true;
+  return /^(gemeente|provincie|waterschap|havenbedrijf)\b/i.test(c.name);
+}
+
+/** Vacancy province clashes with all of the client's home provinces. */
+function geoConflict(vacancyHay: string, c: Client): boolean {
+  if (!c.home?.length) return false;
+  const vacPlaces = placesInHay(vacancyHay);
+  if (!vacPlaces.length) return false;
+  const vacProv = provincesOf(vacPlaces);
+  const homeProv = provincesOf(c.home.map((x) => x.toLowerCase()));
+  if (!vacProv.size || !homeProv.size) return false;
+  for (const p of vacProv) {
+    if (homeProv.has(p)) return false;
+  }
+  return true;
+}
+
+function homeHit(vacancyHay: string, c: Client): boolean {
+  return (c.home || []).some((p) => hasWord(vacancyHay, p));
+}
+
+/** City (not province) from home must appear — "Zuid-Holland" ≠ Gemeente Rotterdam. */
+function homeCityHit(vacancyHay: string, c: Client): boolean {
+  for (const p of c.home || []) {
+    const key = p.toLowerCase();
+    const prov = PLACE_PROVINCE[key];
+    // Skip pure province tokens
+    if (prov && (key === prov || key === prov.replace(/-/g, " "))) continue;
+    if (hasWord(vacancyHay, key)) return true;
+  }
+  return false;
 }
 
 export function extractVacancyFacts(text: string): VacancyFacts {
@@ -285,6 +405,7 @@ export function guessEndClient(opts: { title?: string; text: string }): ClientGu
     for (const alias of [c.name, ...c.aliases]) {
       if (alias.length < 3) continue;
       if (hasWord(h, alias) && !named) {
+        // Explicit name in text still wins even across provinces (HQ vs standplaats).
         add(c.name, { label: `Naam ${c.name} in de tekst`, weight: 86 });
       }
     }
@@ -292,12 +413,21 @@ export function guessEndClient(opts: { title?: string; text: string }): ClientGu
     const hits = c.tags.filter((t) => hasWord(h, t));
     if (hits.length < 2) continue;
 
+    // Place-bound orgs (Gemeente X, Havenbedrijf, …): need the *city* in the text.
+    // Province alone ("Zuid-Holland") must not unlock Rotterdam/Den Haag/Amsterdam.
+    if (isPlaceBound(c) && !homeCityHit(h, c)) continue;
+
+    // Soft geo block for everyone with home: Zuid-Holland vacancy ≠ Amsterdam HQ
+    // unless the home city also appears (e.g. remote ABN with "Amsterdam" named).
+    if (geoConflict(h, c) && !homeHit(h, c)) continue;
+
     // Weigh by rarity, not by count: two distinctive tags beat five generic ones.
     const rarity = hits.map((t) => TAG_RARITY.get(t) ?? 0.5);
     const mass = rarity.reduce((a, b) => a + b, 0);
     const distinctive = hits.filter((t) => (TAG_RARITY.get(t) ?? 0.5) >= 0.7);
     // No distinctive signal at all → a tag match is a hint, not a hypothesis.
-    const ceiling = distinctive.length >= 2 ? 74 : distinctive.length === 1 ? 62 : 46;
+    let ceiling = distinctive.length >= 2 ? 74 : distinctive.length === 1 ? 62 : 46;
+    if (geoConflict(h, c)) ceiling = Math.min(ceiling, 38);
     const sorted = [...hits].sort((a, b) => (TAG_RARITY.get(b) ?? 0.5) - (TAG_RARITY.get(a) ?? 0.5));
 
     add(c.name, {
