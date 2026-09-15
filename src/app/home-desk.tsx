@@ -11,13 +11,13 @@ import { PRODUCT } from "@/lib/product-brand";
 
 const FEATURES = [
   {
-    title: "Radar",
-    text: "Directe opdrachten bij eindklanten, gescoord op versheid en signalen.",
+    title: "Direct",
+    text: "Jobboard-radar: vacatures bij eindklanten, gescoord op versheid en signalen.",
     icon: "radar",
   },
   {
-    title: "Bureaus",
-    text: "Recruiter-feeds in. Eindklant bevestigen, daarna hiring manager zoeken.",
+    title: "Via bureau",
+    text: "Bureau-radar: recruiter-feeds in, eindklant bevestigen, daarna hiring manager.",
     icon: "bureaus",
   },
   {
@@ -43,7 +43,7 @@ const FAQ = [
   },
   {
     q: "Vervangt dit ons CRM?",
-    a: "Nee. Scout is de desk vóór plaatsing: boards, bureaus, kansen en voorstel. Bench koppel je aan jullie echte kandidaten.",
+    a: "Nee. Scout is de desk vóór plaatsing: jobboards, bureau-feeds, kansen en voorstel. Bench koppel je aan jullie echte kandidaten.",
   },
 ];
 
@@ -161,7 +161,7 @@ export default function HomeDesk() {
               Alles wat je nodig hebt om kansen af te handelen
             </h2>
             <p className="scout-work__lead">
-              Geen losse tools. Eén desk: Radar, Bureaus, Kansen en Voorstel.
+              Geen losse tools. Eén desk: Direct, Via bureau, Kansen en Voorstel.
             </p>
           </div>
 

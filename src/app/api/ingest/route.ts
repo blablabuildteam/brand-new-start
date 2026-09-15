@@ -50,7 +50,7 @@ async function alertNewHits(opts: {
   await pushAlert({
     kind: "sync",
     title: `${neu.length} ${neu.length === 1 ? "nieuwe hit" : "nieuwe hits"} (${opts.kind})`,
-    body: sample || "Open Radar voor details.",
+    body: sample || "Open Direct voor details.",
     href: "/radar",
   });
 }

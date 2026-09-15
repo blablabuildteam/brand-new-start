@@ -3,13 +3,24 @@ import { z } from "zod";
 import { getSession } from "@/lib/auth";
 import { loadHuntSettings } from "@/lib/hunt";
 import { listAgencyLeads, reviewLead } from "@/lib/opportunity";
+import { listSyncRuns } from "@/lib/sync-log";
 
 export async function GET() {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   await loadHuntSettings();
-  const data = await listAgencyLeads();
-  return NextResponse.json(data);
+  const [data, runs] = await Promise.all([listAgencyLeads(), listSyncRuns(40)]);
+  const feed = runs.find((r) => r.channel === "recruiter-feed") || null;
+  const last = runs[0] || null;
+  return NextResponse.json({
+    ...data,
+    sync: {
+      lastFeed: feed
+        ? { at: feed.at, kept: feed.kept, fetched: feed.fetched, mode: feed.mode }
+        : null,
+      last: last ? { at: last.at, channel: last.channel, label: last.label } : null,
+    },
+  });
 }
 
 const Body = z.object({

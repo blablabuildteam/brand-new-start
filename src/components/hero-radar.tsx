@@ -9,8 +9,8 @@ const ROWS = [
 ] as const;
 
 const NAV: { id: number; label: string; icon: "radar" | "bureaus" | "voorstel" }[] = [
-  { id: 0, label: "Radar", icon: "radar" },
-  { id: 1, label: "Bureaus", icon: "bureaus" },
+  { id: 0, label: "Direct", icon: "radar" },
+  { id: 1, label: "Via bureau", icon: "bureaus" },
   { id: 2, label: "Voorstel", icon: "voorstel" },
 ];
 

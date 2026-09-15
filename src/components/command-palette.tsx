@@ -11,20 +11,22 @@ type Hit = {
   kind: "desk" | "action" | "kans" | "radar" | "lead";
 };
 
+import { DESK } from "@/lib/desk-labels";
+
 const DESKS: Hit[] = [
-  { id: "d-radar", title: "Radar", subtitle: "Directe vacatures bij eindklanten", href: "/radar", kind: "desk" },
-  { id: "d-leads", title: "Bureaus", subtitle: "Eindklant raden & bevestigen", href: "/leads", kind: "desk" },
-  { id: "d-kansen", title: "Kansen", subtitle: "Pipeline · HM · volgende actie", href: "/kansen", kind: "desk" },
-  { id: "d-regie", title: "Voorstel", subtitle: "Bericht + shortlist klaarzetten", href: "/regie", kind: "desk" },
-  { id: "d-set", title: "Instellingen", subtitle: "Rollen, bureaus, sync", href: "/instellingen", kind: "desk" },
+  { id: "d-radar", title: DESK.direct.nav, subtitle: DESK.direct.subtitle, href: DESK.direct.href, kind: "desk" },
+  { id: "d-leads", title: DESK.bureau.nav, subtitle: DESK.bureau.subtitle, href: DESK.bureau.href, kind: "desk" },
+  { id: "d-kansen", title: DESK.kansen.nav, subtitle: "Pipeline · HM · volgende actie", href: DESK.kansen.href, kind: "desk" },
+  { id: "d-regie", title: DESK.voorstel.nav, subtitle: "Bericht + shortlist klaarzetten", href: DESK.voorstel.href, kind: "desk" },
+  { id: "d-set", title: "Instellingen", subtitle: "Rollen, kantoren, sync", href: "/instellingen", kind: "desk" },
 ];
 
 const KIND_NL: Record<Hit["kind"], string> = {
   desk: "Desk",
   action: "Nu",
   kans: "Kans",
-  radar: "Radar",
-  lead: "Bureau",
+  radar: DESK.direct.nav,
+  lead: DESK.bureau.nav,
 };
 
 function score(q: string, hit: Hit) {
@@ -131,7 +133,7 @@ export function CommandPalette() {
           ref={inputRef}
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="Zoek eindklant, kans, bureau of desk…"
+          placeholder="Zoek eindklant, kans, kantoor of desk…"
           className="cmdk__input"
           aria-label="Zoeken"
           onKeyDown={(e) => {

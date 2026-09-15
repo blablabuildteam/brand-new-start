@@ -80,22 +80,23 @@ export default function RegieDesk({
   const [q, setQ] = useState("");
 
   useEffect(() => {
-    fetch("/api/placement")
-      .then(async (res) => {
-        if (res.status === 401) {
-          window.location.href = "/login?next=/regie";
-          return null;
-        }
-        if (!res.ok) throw new Error("niet gevonden");
-        return res.json() as Promise<{ items: DeskItem[] }>;
+    import("@/lib/client-cache").then(({ cachedJson }) =>
+      cachedJson<{ items: DeskItem[] }>("placement", "/api/placement", {
+        ttlMs: 45_000,
+        staleMs: 5 * 60_000,
+        onUpdate: (j) => setItems(j.items),
       })
-      .then((j) => {
-        if (!j) return;
-        setItems(j.items);
-        setError(null);
-      })
-      .catch((e: unknown) => setError(e instanceof Error ? e.message : "fout"))
-      .finally(() => setLoading(false));
+        .then((j) => {
+          setItems(j.items);
+          setError(null);
+        })
+        .catch((e: unknown) => {
+          const status = (e as { status?: number }).status;
+          if (status === 401) window.location.href = "/login?next=/regie";
+          else setError(e instanceof Error ? e.message : "fout");
+        })
+        .finally(() => setLoading(false))
+    );
   }, []);
 
   const item =
@@ -297,26 +298,54 @@ export default function RegieDesk({
       <div className="ws-shell ws-shell--split ws-shell--split-wide">
         <details className={`ws-fold lg:col-span-2 ${mobilePane === "detail" ? "max-lg:hidden" : ""}`}>
           <summary>
-            <span>Wat doe je hier?</span>
-            <span className="ws-fold__meta">Bericht klaarzetten</span>
+            <span>Wat is Voorstel?</span>
+            <span className="ws-fold__meta">Bericht klaarzetten · jij verstuurt</span>
           </summary>
           <div className="ws-fold__body">
             <p className="m-0 text-[0.8rem] leading-relaxed text-[var(--muted)]">
-              Kies een opening, pak de hiring manager of kandidaat, en zet het bericht klaar. Jij
-              verstuurt — niets gaat automatisch.
+              Hier zet je het <strong className="font-semibold text-[var(--ink)]">outreach-bericht</strong> klaar
+              voor de hiring manager of een kandidaat uit je bench. Niets gaat automatisch — jij kopieert en
+              verstuurt.
             </p>
+            <ol className="ws-fold__steps">
+              <li>
+                <span className="ws-fold__n">1</span>
+                <span>
+                  <strong className="font-semibold text-[var(--ink)]">Kies opening</strong> — uit Direct of een
+                  bevestigde kans op{" "}
+                  <Link href="/kansen" className="font-semibold text-[var(--ink)] underline underline-offset-2">
+                    Kansen
+                  </Link>
+                  .
+                </span>
+              </li>
+              <li>
+                <span className="ws-fold__n">2</span>
+                <span>
+                  <strong className="font-semibold text-[var(--ink)]">Kies ontvanger</strong> — hiring manager of
+                  iemand uit je shortlist/bench.
+                </span>
+              </li>
+              <li>
+                <span className="ws-fold__n">3</span>
+                <span>
+                  <strong className="font-semibold text-[var(--ink)]">Kopieer & stuur</strong> — tekst klaarzetten,
+                  jij plakt het in LinkedIn of mail.
+                </span>
+              </li>
+            </ol>
             {items.some((i) => i.sampleBench) ? (
-              <p className="mt-2 mb-0 text-[0.78rem] leading-relaxed text-[var(--muted)]">
+              <p className="mt-3 mb-0 text-[0.78rem] leading-relaxed text-[var(--muted)]">
                 Shortlist = <strong className="font-semibold text-[var(--ink)]">voorbeeld-bench</strong>{" "}
-                (fictieve namen). Vervang later door jullie echte CRM.
+                (fictieve namen). Vervang later onder Instellingen → Bench.
               </p>
             ) : items.some((i) => !i.proposal.shortlist.length) ? (
-              <p className="mt-2 mb-0 text-[0.78rem] leading-relaxed text-[var(--muted)]">
+              <p className="mt-3 mb-0 text-[0.78rem] leading-relaxed text-[var(--muted)]">
                 Nog geen shortlist: voeg ZZP’ers toe onder{" "}
                 <Link href="/instellingen#bench" className="font-semibold text-[var(--ink)] underline underline-offset-2">
                   Instellingen → Bench
                 </Link>
-                . Hiring manager-berichten werken wél zonder bench.
+                . HM-berichten werken zonder bench.
               </p>
             ) : null}
           </div>

@@ -3,7 +3,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { SourceLogo, SourceLogos, sourceChannelsFromRow } from "@/components/source-logo";
-import { ScoreChip } from "@/components/score-chip";
+import { CompanyMark } from "@/components/company-mark";
+import { ScoreChip, scoreTone } from "@/components/score-chip";
+import { resolveCompanyLogo } from "@/lib/company-logo";
 import { AppShell } from "@/components/app-shell";
 import { INGEST_POLICY, SYNC_COST_PER_RUN } from "@/lib/costs";
 import { orgContextFromSignals } from "@/lib/org-context";
@@ -146,7 +148,7 @@ const SYNC_ACTIVITY: Record<string, string> = {
   "freelance-nl": "Freelance.nl scrapen via Firecrawl…",
   platforms: "Careers-pagina’s van watchlist-bedrijven scrapen…",
   "recruiter-feeds":
-    "LinkedIn-feeds van watchlist-recruiters scrapen — vacatureposts → Bureaus.",
+    "LinkedIn-feeds van watchlist-recruiters scrapen — vacatureposts → Via bureau.",
 };
 
 function syncProgressPct(steps: SyncStep[], phase: LiveSync["phase"]): number {
@@ -296,7 +298,13 @@ function latestRunsByChannel(sync: SyncInfo | null): SyncRun[] {
 function rowMeta(r: RadarRow) {
   const sig = r.signals[0];
   const raw = (sig?.raw && typeof sig.raw === "object" ? sig.raw : {}) as Record<string, unknown>;
-  const logo = typeof raw.companyLogo === "string" ? raw.companyLogo : null;
+  const logo =
+    resolveCompanyLogo({
+      raw,
+      signals: r.signals,
+      companyName: r.company.name,
+      allowGuess: true,
+    }) || null;
   const applicants = typeof raw.applicants === "number" ? raw.applicants : null;
   const postedRaw = typeof raw.postedAt === "string" ? raw.postedAt : null;
   let postedLabel: string | null = null;
@@ -618,36 +626,47 @@ export default function RadarApp({
   const menuRef = useRef<HTMLDivElement>(null);
 
   async function load(opts?: { keepActive?: boolean; fresh?: boolean }) {
-    if (!opts?.keepActive) setLoading(true);
     try {
-      const { cachedJson, cacheSet, cacheClear } = await import("@/lib/client-cache");
+      const { cachedJson, cacheSet, cacheClear, cachePeek } = await import("@/lib/client-cache");
       if (opts?.fresh) cacheClear("radar");
-      const data = await cachedJson<{
+      type RadarPayload = {
         radar: RadarRow[];
         stats: typeof stats;
         user?: { email: string; role?: string };
         sync: SyncInfo;
-      }>("radar", "/api/radar", { ttlMs: opts?.fresh ? 0 : 45_000 });
-      setRadar(data.radar);
-      setStats(data.stats);
-      if (data.user?.email) {
-        setUser({
-          email: data.user.email,
-          role: data.user.role === "admin" ? "admin" : "recruiter",
+      };
+      const hadCache = Boolean(cachePeek<RadarPayload>("radar"));
+      if (!opts?.keepActive && !hadCache) setLoading(true);
+
+      const apply = (data: RadarPayload) => {
+        setRadar(data.radar);
+        setStats(data.stats);
+        if (data.user?.email) {
+          setUser({
+            email: data.user.email,
+            role: data.user.role === "admin" ? "admin" : "recruiter",
+          });
+        }
+        setSync(data.sync);
+        setActiveId((prev) => {
+          const fromUrl =
+            (initialId && data.radar.some((r) => r.id === initialId) && initialId) ||
+            matchCompanyByQuery(data.radar, initialQuery)?.id ||
+            null;
+          if (fromUrl) return fromUrl;
+          if (opts?.keepActive && prev && data.radar.some((r) => r.id === prev)) return prev;
+          const still = data.radar.some((r) => r.id === prev);
+          return still ? prev : data.radar[0]?.id || null;
         });
-      }
-      setSync(data.sync);
-      setActiveId((prev) => {
-        const fromUrl =
-          (initialId && data.radar.some((r) => r.id === initialId) && initialId) ||
-          matchCompanyByQuery(data.radar, initialQuery)?.id ||
-          null;
-        if (fromUrl) return fromUrl;
-        if (opts?.keepActive && prev && data.radar.some((r) => r.id === prev)) return prev;
-        const still = data.radar.some((r) => r.id === prev);
-        return still ? prev : data.radar[0]?.id || null;
+        cacheSet("radar", data);
+      };
+
+      const data = await cachedJson<RadarPayload>("radar", "/api/radar", {
+        ttlMs: opts?.fresh ? 0 : 45_000,
+        staleMs: 5 * 60_000,
+        onUpdate: apply,
       });
-      cacheSet("radar", data);
+      apply(data);
       return data;
     } catch (e) {
       const status = (e as { status?: number }).status;
@@ -790,13 +809,13 @@ export default function RadarApp({
 
     const explain =
       action === "market"
-        ? "LinkedIn Jobs: ingestelde rollen met contract/ZZP-filters. Alleen hits in jouw kader komen op de radar."
+        ? "LinkedIn Jobs: ingestelde rollen met contract/ZZP-filters. Alleen hits in jouw kader komen op Direct."
         : action === "indeed"
           ? "Indeed NL via Apify: jouw rollen + ZZP. Filter in-app."
           : action === "freelance-nl"
             ? "Freelance.nl via Firecrawl: zoekpagina’s per ingestelde rol."
             : action === "recruiter-feeds"
-              ? "LinkedIn-posts van recruiters die je volgt. Vacature/kans-posts → Bureaus → eindklant bevestigen."
+              ? "LinkedIn-posts van recruiters die je volgt. Vacature/kans-posts → Via bureau → eindklant bevestigen."
               : "Careers-pagina’s van de watchlist op openstaande rollen in jouw kader.";
 
     const stepId =
@@ -888,7 +907,7 @@ export default function RadarApp({
         statusLine: "Feeds ophalen…",
         activity: SYNC_ACTIVITY["recruiter-feeds"],
         explain:
-          "LinkedIn-posts van recruiters op je watchlist. Vacature/kans-posts landen op Bureaus — daarna eindklant bevestigen.",
+          "LinkedIn-posts van recruiters op je watchlist. Vacature/kans-posts landen op Via bureau — daarna eindklant bevestigen.",
         searched: ["Watchlist-recruiters met LinkedIn-URL"],
         steps: [{ id: "recruiter-feeds", label: "Recruiter-feeds", status: "running" }],
         runs: [],
@@ -899,7 +918,7 @@ export default function RadarApp({
           phase: "done",
           action: "recruiter-feeds",
           title: one.title,
-          statusLine: "Klaar — check Bureaus",
+          statusLine: "Klaar — check Via bureau",
           activity: undefined,
           explain: one.explain,
           searched: one.searched,
@@ -1252,7 +1271,7 @@ export default function RadarApp({
                     ["market", "LinkedIn Jobs", SYNC_COST_PER_RUN.actions.market] as const,
                     [
                       "recruiter-feeds",
-                      "Recruiter-feeds → Bureaus",
+                      "Recruiter-feeds → Via bureau",
                       SYNC_COST_PER_RUN.actions["recruiter-feeds"],
                     ] as const,
                     ["indeed", "Indeed NL", SYNC_COST_PER_RUN.actions.indeed] as const,
@@ -1335,18 +1354,22 @@ export default function RadarApp({
   );
 
   return (
-    <AppShell current="radar" title="Radar" subtitle="Directe opdrachten bij eindklanten" fill toolbar={syncToolbar}>
+    <AppShell current="radar" title="Direct" subtitle="Jobboards · vacatures bij eindklanten" fill toolbar={syncToolbar}>
       <main className="ws-shell radar-shell">
         <details className={`ws-fold ${mobilePane === "detail" ? "max-lg:hidden" : ""}`}>
           <summary>
-            <span>Wat is de Radar?</span>
-            <span className="ws-fold__meta">Directe opdrachten · kans-score</span>
+            <span>Wat is Direct?</span>
+            <span className="ws-fold__meta">Jobboards · kans-score</span>
           </summary>
           <div className="ws-fold__body">
             <p className="m-0 text-[0.8rem] leading-relaxed text-[var(--muted)]">
-              De Radar toont <strong className="font-semibold text-[var(--ink)]">directe vacatures bij eindklanten</strong>{" "}
-              (niet via een detacheerder). Sync haalt LinkedIn, Indeed en Freelance.nl op voor jouw
-              functies uit Instellingen.
+              Dit is de <strong className="font-semibold text-[var(--ink)]">directe radar</strong>: vacatures
+              bij eindklanten van LinkedIn, Indeed en Freelance.nl — niet via een detacheerder. De andere
+              radar is{" "}
+              <a href="/leads" className="font-semibold text-[var(--ink)] underline underline-offset-2">
+                Via bureau
+              </a>{" "}
+              (recruiter-feeds).
             </p>
             <ol className="ws-fold__steps">
               <li>
@@ -1384,7 +1407,7 @@ export default function RadarApp({
               radar
             </p>
             <p className="mt-1 text-[0.78rem] text-[var(--muted)]">
-              Bevestigd via Bureaus. Zoek de hiring manager vanuit Kansen — geen Radar-opening nodig.
+              Bevestigd op Via bureau. Zoek de hiring manager vanuit Kansen — geen opening op Direct nodig.
             </p>
             <div className="mt-2.5 flex flex-wrap gap-2">
               {focusLinkedIn ? (
@@ -1724,7 +1747,7 @@ export default function RadarApp({
           >
             <div className="radar-scroll-pane__head">
               <div className="min-w-0">
-                <p className="ws-label">Radarlijst</p>
+                <p className="ws-label">Lijst</p>
                 <p className="text-sm font-semibold text-[var(--ink)]">
                   {filtered.length}
                   <span className="font-normal text-[var(--muted)]"> bedrijven</span>
@@ -1749,7 +1772,7 @@ export default function RadarApp({
             >
               <h2 className="sr-only">Contracting-ruimte</h2>
               {loading && !radar.length ? (
-                <p className="px-2 py-3 text-sm text-[var(--muted)]">Radar laden…</p>
+                <p className="px-2 py-3 text-sm text-[var(--muted)]">Laden…</p>
               ) : filtered.length === 0 ? (
                 <p className="px-2 py-3 text-sm text-[var(--muted)]">Geen resultaten in dit filter.</p>
               ) : (
@@ -1769,27 +1792,18 @@ export default function RadarApp({
                           type="button"
                           onClick={() => selectRow(r.id)}
                           aria-current={on ? "true" : undefined}
-                          className={`flex w-full items-center gap-3 rounded-[var(--radius)] border px-3 py-2.5 text-left transition ${
+                          className={`radar-opp flex w-full items-center gap-3.5 rounded-[var(--radius)] border px-3.5 py-3.5 text-left transition ${
                             on
                               ? "border-[var(--line)] bg-[var(--surface)] shadow-[inset_3px_0_0_0_var(--ink)]"
                               : "border-transparent hover:border-[var(--line)] hover:bg-[var(--surface)]/80"
-                          }`}
+                          } radar-opp--${scoreTone(r.kans)}`}
                         >
-                          {meta.logo ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              src={meta.logo}
-                              alt=""
-                              className="h-8 w-8 shrink-0 rounded object-contain bg-white"
-                            />
-                          ) : (
-                            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded bg-[var(--surface-2)] text-[0.7rem] font-semibold text-[var(--muted)]">
-                              {r.company.name.slice(0, 1).toUpperCase()}
-                            </span>
-                          )}
+                          <CompanyMark name={r.company.name} logoUrl={meta.logo} size="lg" />
                           <span className="min-w-0 flex-1">
                             <span className="flex min-w-0 items-center gap-2">
-                              <span className="truncate font-semibold text-[var(--ink)]">{r.company.name}</span>
+                              <span className="truncate text-[1.05rem] font-semibold leading-tight text-[var(--ink)]">
+                                {r.company.name}
+                              </span>
                               <SourceLogos channels={channels} />
                               {fresh ? (
                                 <span className="shrink-0 text-[0.62rem] font-semibold uppercase tracking-wide text-[var(--green)]">
@@ -1797,9 +1811,11 @@ export default function RadarApp({
                                 </span>
                               ) : null}
                             </span>
-                            <span className="mt-0.5 block truncate text-[0.8rem] text-[var(--muted)]">{title}</span>
+                            <span className="mt-1 block truncate text-[0.9rem] leading-snug text-[var(--muted)]">
+                              {title}
+                            </span>
                           </span>
-                          <ScoreChip kans={r.kans} />
+                          <ScoreChip kans={r.kans} compact />
                         </button>
                       </li>
                     );
@@ -1838,14 +1854,7 @@ export default function RadarApp({
                       <SourceLogos channels={rowChannels(active)} size="md" />
                     </div>
                     <div className="mt-1 flex items-center gap-2.5">
-                      {rowMeta(active).logo ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={rowMeta(active).logo!}
-                          alt=""
-                          className="h-9 w-9 rounded object-contain bg-white"
-                        />
-                      ) : null}
+                      <CompanyMark name={active.company.name} logoUrl={rowMeta(active).logo} size="lg" />
                       <h3 className="ws-title">
                         {active.company.name}
                       </h3>

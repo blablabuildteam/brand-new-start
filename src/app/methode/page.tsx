@@ -68,12 +68,12 @@ export default async function MethodePage() {
         <ol className="divide-y divide-[var(--line)]/80 text-sm">
           {[
             {
-              t: "Radar",
-              d: "Alle hits uit boards en careers. Score rangschikt; jij klikt wat interessant is.",
+              t: "Direct",
+              d: "Jobboard-radar: hits van LinkedIn, Indeed, Freelance.nl. Score rangschikt; jij klikt wat interessant is.",
             },
             {
-              t: "Bureaus",
-              d: "Feeds van recruiters die je volgt. AI research raadt de eindklant; jij bevestigt. Daarna kun je een hiring manager zoeken.",
+              t: "Via bureau",
+              d: "Bureau-radar: feeds van recruiters die je volgt. AI raadt de eindklant; jij bevestigt. Daarna hiring manager zoeken.",
             },
             {
               t: "Kansen",
@@ -112,7 +112,7 @@ export default async function MethodePage() {
             hunt.requireContract
               ? "Interessant = jouw rollen (Instellingen) én contract/ZZP/interim. Score rangschikt. Dubbele URL = refresh."
               : "Interessant = jouw rollen (Instellingen). Score rangschikt. Dubbele URL = refresh.",
-            "AI research (Bureaus) zoekt de eindklant via web + desk-geheugen. Jij blijft de eindbeslisser.",
+            "AI research (Via bureau) zoekt de eindklant via web + desk-geheugen. Jij blijft de eindbeslisser.",
             admin
               ? "Stack-kosten (Apify/Firecrawl/Claude) staan onder Kosten — alleen zichtbaar voor admin."
               : "Filteren in de app is gratis; syncs kosten alleen als admin ze start.",

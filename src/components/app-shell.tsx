@@ -7,14 +7,14 @@ import { ScoutMark } from "@/components/scout-mark";
 import { AlertsBell } from "@/components/alerts-bell";
 import { CommandPalette } from "@/components/command-palette";
 import { TodayRail } from "@/components/today-rail";
-import { cacheClear, cacheGet, cachedJson } from "@/lib/client-cache";
+import { cacheClear, cacheGet, cachedJson, prefetchJson } from "@/lib/client-cache";
 import { partnerForEmail } from "@/lib/partner-brand";
 
 export type AppNavId = "radar" | "leads" | "kansen" | "voorstel" | "instellingen";
 
 const PRIMARY: { href: string; id: AppNavId; label: string; icon: "radar" | "bureaus" | "kansen" | "voorstel" }[] = [
-  { href: "/radar", id: "radar", label: "Radar", icon: "radar" },
-  { href: "/leads", id: "leads", label: "Bureaus", icon: "bureaus" },
+  { href: "/radar", id: "radar", label: "Direct", icon: "radar" },
+  { href: "/leads", id: "leads", label: "Via bureau", icon: "bureaus" },
   { href: "/kansen", id: "kansen", label: "Kansen", icon: "kansen" },
   { href: "/regie", id: "voorstel", label: "Voorstel", icon: "voorstel" },
 ];
@@ -179,7 +179,18 @@ export function AppShell({
       </p>
       <nav className="mt-2 flex flex-col gap-0.5">
         {PRIMARY.map((l) => (
-          <Link key={l.id} href={l.href} onClick={() => setOpen(false)} className={navClass(current === l.id)}>
+          <Link
+            key={l.id}
+            href={l.href}
+            onClick={() => setOpen(false)}
+            onMouseEnter={() => {
+              if (l.id === "radar") prefetchJson("radar", "/api/radar", 90_000);
+              if (l.id === "leads") prefetchJson("leads", "/api/leads", 90_000);
+              if (l.id === "kansen") prefetchJson("crm", "/api/crm", 90_000);
+              if (l.id === "voorstel") prefetchJson("placement", "/api/placement", 90_000);
+            }}
+            className={navClass(current === l.id)}
+          >
             <SideIcon kind={l.icon} on={current === l.id} />
             {l.label}
           </Link>

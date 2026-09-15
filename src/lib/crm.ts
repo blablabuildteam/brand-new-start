@@ -46,6 +46,10 @@ export type CrmOpportunity = {
   companyId: string | null;
   openingId: string | null;
   extractSummary: string | null;
+  /** Company logo when scraped with the vacancy. */
+  logoUrl: string | null;
+  /** Primary ingest channel for SourceLogo (linkedin-jobs, indeed, …). */
+  sourceChannel: string | null;
 };
 
 function iso(d: Date | string | null | undefined): string | null {
@@ -106,11 +110,23 @@ function inferStage(opts: {
   return "nieuw";
 }
 
+import { resolveCompanyLogo } from "@/lib/company-logo";
+
 function extractSummaryFromRaw(raw: Record<string, unknown> | undefined): string | null {
   const v = raw?.vacancyExtract;
   if (!v || typeof v !== "object") return null;
   const o = v as { summary?: string; role?: string };
   return o.summary || o.role || null;
+}
+
+function sourceChannelOf(labels: string[]): string | null {
+  for (const s of labels) {
+    const k = s.toLowerCase();
+    if (k.includes("linkedin") || k === "linkedin-jobs") return "linkedin-jobs";
+    if (k.includes("indeed") || k === "indeed") return "indeed";
+    if (k.includes("freelance") || k === "freelance-nl") return "freelance-nl";
+  }
+  return null;
 }
 
 /** Bevestigde bureau-kansen + warme/directe radar-kansen. */
@@ -181,6 +197,11 @@ export async function listCrmOpportunities(): Promise<CrmOpportunity[]> {
       ...(anyOpening?.sources || []),
       ...(sig?.source ? [sig.source] : []),
     ]).filter((s) => s !== "Bureau");
+    const allSources = sourceLabels([
+      ...(anyOpening?.sources || []),
+      ...(sig?.source ? [sig.source] : []),
+      "bureau",
+    ]);
 
     out.push({
       id,
@@ -192,11 +213,7 @@ export async function listCrmOpportunities(): Promise<CrmOpportunity[]> {
       roleLabel: lead.roleLabel,
       title: lead.title,
       kans: typeof opening?.kans === "number" ? opening.kans : null,
-      sources: sourceLabels([
-        ...(anyOpening?.sources || []),
-        ...(sig?.source ? [sig.source] : []),
-        "bureau",
-      ]),
+      sources: allSources,
       bronLabel: `Bureau · ${lead.agency.name}`,
       bronDetail: [lead.recruiter.name, boardSources[0]].filter(Boolean).join(" · ") || null,
       foundAt,
@@ -219,6 +236,17 @@ export async function listCrmOpportunities(): Promise<CrmOpportunity[]> {
       companyId: opening ? match?.id || null : null,
       openingId: opening?.id || null,
       extractSummary: extractSummaryFromRaw(raw),
+      logoUrl: resolveCompanyLogo({
+        raw,
+        signals: [
+          ...(opening?.signals || []),
+          ...(anyOpening?.signals || []),
+          ...((match?.openings || []).flatMap((o) => o.signals || [])),
+        ],
+        companyName: endClient,
+        allowGuess: true,
+      }),
+      sourceChannel: sourceChannelOf(boardSources) || sourceChannelOf(allSources),
     });
   }
 
@@ -275,6 +303,13 @@ export async function listCrmOpportunities(): Promise<CrmOpportunity[]> {
         companyId: row.id,
         openingId: o.id,
         extractSummary: extractSummaryFromRaw(raw0),
+        logoUrl: resolveCompanyLogo({
+          raw: raw0,
+          signals: sigs,
+          companyName: row.company.name,
+          allowGuess: true,
+        }),
+        sourceChannel: sourceChannelOf(boards),
       });
     }
   }

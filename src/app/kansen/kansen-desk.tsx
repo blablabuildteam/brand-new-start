@@ -5,9 +5,12 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
 import { ScoreChip } from "@/components/score-chip";
+import { SourceLogo } from "@/components/source-logo";
+import { CompanyMark } from "@/components/company-mark";
 import type { CrmLane, CrmOpportunity, CrmStage } from "@/lib/crm";
 import { CRM_STAGE_NL } from "@/lib/crm";
 import { radarHref } from "@/lib/desk-links";
+import { guessCompanyLogo } from "@/lib/company-logo";
 
 type Filter = "all" | CrmLane | CrmStage;
 
@@ -29,9 +32,16 @@ function sourceLine(row: CrmOpportunity) {
 
 function nextActionOf(row: CrmOpportunity) {
   if (row.stage === "won" || row.stage === "lost") return CRM_STAGE_NL[row.stage];
-  if (!row.hiringManager) return "Zoek hiring manager";
+  if (!row.hiringManager) return "Zoek HM";
   if (row.stage === "outreach") return "Follow-up";
-  return "Open voorstel";
+  return "Voorstel";
+}
+
+function actionLabel(row: CrmOpportunity) {
+  if (row.stage === "won" || row.stage === "lost") return null;
+  if (!row.hiringManager) return "Zoek HM";
+  if (row.href) return "Voorstel";
+  return null;
 }
 
 type ActionItem = CrmOpportunity & { nextAction: string; nextHref: string };
@@ -58,11 +68,13 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
   const [loading, setLoading] = useState(!initial);
   const [filter, setFilter] = useState<Filter>("all");
   const [sel, setSel] = useState<string | null>(params.get("id"));
+  const [picked, setPicked] = useState<Set<string>>(new Set());
   const [stageBusy, setStageBusy] = useState(false);
   const [hmBusy, setHmBusy] = useState(false);
   const [hmError, setHmError] = useState<string | null>(null);
   const [hmAutoRan, setHmAutoRan] = useState(false);
   const [q, setQ] = useState("");
+  const [bulkNote, setBulkNote] = useState<string | null>(null);
 
   function refresh() {
     return import("@/lib/client-cache").then(({ cachedJson, cacheClear }) => {
@@ -105,8 +117,16 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
 
   useEffect(() => {
     if (initial) setLoading(false);
-    import("@/lib/client-cache").then(({ cachedJson }) =>
-      cachedJson<InitialCrm>("crm", "/api/crm", { ttlMs: initial ? 20_000 : 60_000 })
+    import("@/lib/client-cache").then(({ cachedJson, cacheSet }) => {
+      if (initial) cacheSet("crm", initial);
+      return cachedJson<InitialCrm>("crm", "/api/crm", {
+        ttlMs: initial ? 45_000 : 60_000,
+        staleMs: 5 * 60_000,
+        onUpdate: (j) => {
+          setItems(j.items);
+          setCounts(j.counts);
+        },
+      })
         .then((j: InitialCrm) => {
           setItems(j.items);
           setCounts(j.counts);
@@ -116,8 +136,8 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
           if (status === 401) window.location.href = "/login?next=/kansen";
           else if (!initial) setError(e instanceof Error ? e.message : "fout");
         })
-        .finally(() => setLoading(false))
-    );
+        .finally(() => setLoading(false));
+    });
   }, [initial]);
 
   useEffect(() => {
@@ -137,16 +157,27 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
   }, [params, items, loading, hmAutoRan]);
 
   const filtered = useMemo(() => {
-    const n = q.trim().toLowerCase();
-    const rows = items.filter((i) => {
+    const needle = q.trim().toLowerCase();
+    const rows = items.filter((r) => {
       if (filter === "bureau" || filter === "direct") {
-        if (i.lane !== filter) return false;
-      } else if (filter !== "all" && i.stage !== filter) {
-        return false;
+        if (r.lane !== filter) return false;
+      } else if (filter !== "all") {
+        if (r.stage !== filter) return false;
       }
-      if (!n) return true;
-      const blob = `${i.endClient} ${i.roleLabel} ${i.title} ${i.hiringManager || ""} ${i.bronLabel} ${i.bronDetail || ""} ${i.agencyName || ""}`.toLowerCase();
-      return blob.includes(n);
+      if (!needle) return true;
+      const hay = [
+        r.endClient,
+        r.roleLabel,
+        r.title,
+        r.hiringManager,
+        r.agencyName,
+        r.bronLabel,
+        r.bronDetail,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return hay.includes(needle);
     });
     return rows.slice().sort((a, b) => {
       const ah = a.hiringManager ? 1 : 0;
@@ -198,13 +229,63 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
     return () => window.removeEventListener("keydown", onKey);
   }, [filtered, sel]);
 
+  const selectedRows = useMemo(
+    () => filtered.filter((r) => picked.has(r.id)),
+    [filtered, picked]
+  );
+
   function pick(id: string) {
     setSel((cur) => (cur === id ? null : id));
+  }
+
+  function togglePick(id: string) {
+    setPicked((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function togglePickAll() {
+    if (picked.size && filtered.every((r) => picked.has(r.id))) {
+      setPicked(new Set());
+      return;
+    }
+    setPicked(new Set(filtered.map((r) => r.id)));
   }
 
   function setFilterSafe(next: Filter) {
     setFilter(next);
     setSel(null);
+    setPicked(new Set());
+  }
+
+  async function runPrimary(row: CrmOpportunity) {
+    const label = actionLabel(row);
+    if (!label) return;
+    if (label === "Zoek HM") {
+      setSel(row.id);
+      await searchHm(row.id, Boolean(row.hiringManager));
+      return;
+    }
+    if (row.href) window.location.href = row.href;
+  }
+
+  async function bulkSearchHm() {
+    const targets = selectedRows.filter(
+      (r) => !r.hiringManager && r.stage !== "won" && r.stage !== "lost" && !r.demo
+    );
+    if (!targets.length) {
+      setBulkNote("Geen geselecteerde rijen zonder hiring manager.");
+      return;
+    }
+    setBulkNote(`HM zoeken voor ${targets.length}…`);
+    for (const row of targets) {
+      await searchHm(row.id);
+    }
+    setBulkNote(`${targets.length} afgerond`);
+    window.setTimeout(() => setBulkNote(null), 2000);
   }
 
   const filters: { id: Filter; label: string; n: number }[] = [
@@ -217,6 +298,7 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
   ];
 
   const needsHm = filtered.filter((r) => !r.hiringManager && r.stage !== "won" && r.stage !== "lost").length;
+  const allFilteredPicked = filtered.length > 0 && filtered.every((r) => picked.has(r.id));
 
   return (
     <AppShell current="kansen" title="Kansen" subtitle="Eén lijst · volgende actie in de rij" fill>
@@ -229,22 +311,22 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
           <div className="ws-fold__body">
             <p className="m-0 text-[0.8rem] leading-relaxed text-[var(--muted)]">
               Hier staan <strong className="font-semibold text-[var(--ink)]">bevestigde bureau-kansen</strong> en{" "}
-              <strong className="font-semibold text-[var(--ink)]">warme directe hits</strong> uit Radar. Per rij
-              zie je de volgende stap — meestal: hiring manager zoeken of voorstel openen.
+              <strong className="font-semibold text-[var(--ink)]">warme directe hits</strong> uit Direct. Per rij
+              zie je bron, logo en de volgende stap — meestal: hiring manager zoeken of voorstel openen.
             </p>
             <ol className="ws-fold__steps">
               <li>
                 <span className="ws-fold__n">1</span>
                 <span>
-                  <strong className="font-semibold text-[var(--ink)]">Filter</strong> — nieuw, bevestigd, of zonder
-                  manager.
+                  <strong className="font-semibold text-[var(--ink)]">Selecteer</strong> — vink rijen aan voor
+                  bulk HM-zoek, of open één rij voor detail.
                 </span>
               </li>
               <li>
                 <span className="ws-fold__n">2</span>
                 <span>
-                  <strong className="font-semibold text-[var(--ink)]">Actie</strong> — klik een rij voor detail, stage
-                  en HM-zoek.
+                  <strong className="font-semibold text-[var(--ink)]">Actie</strong> — knop rechts: Zoek HM of
+                  open Voorstel.
                 </span>
               </li>
               <li>
@@ -285,9 +367,47 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
           ))}
         </div>
 
+        {picked.size > 0 ? (
+          <div className="kans-bulk shrink-0">
+            <label className="flex items-center gap-2 text-[0.8rem] text-[var(--ink)]">
+              <input
+                type="checkbox"
+                checked={allFilteredPicked}
+                onChange={togglePickAll}
+                className="kans-check"
+              />
+              <span className="font-semibold tabular-nums">{picked.size} geselecteerd</span>
+            </label>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                disabled={hmBusy}
+                onClick={() => void bulkSearchHm()}
+                className="btn-ink btn-tool"
+              >
+                {hmBusy ? "Zoeken…" : "Zoek HM"}
+              </button>
+              <button type="button" className="btn-ghost btn-tool" onClick={() => setPicked(new Set())}>
+                Wissen
+              </button>
+              {bulkNote ? <span className="text-[0.72rem] text-[var(--muted)]">{bulkNote}</span> : null}
+            </div>
+          </div>
+        ) : null}
+
         <section className="radar-scroll-pane min-h-0 flex-1">
           <div className="radar-scroll-pane__head">
-            <p className="ws-label">Lijst</p>
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={allFilteredPicked}
+                disabled={!filtered.length}
+                onChange={togglePickAll}
+                className="kans-check"
+                aria-label="Selecteer alle zichtbare kansen"
+              />
+              <p className="ws-label">Lijst</p>
+            </div>
             <p className="tabular-nums text-[0.68rem] text-[var(--muted)]" style={{ fontFamily: "var(--mono)" }}>
               {filtered.length}
               {needsHm ? ` · ${needsHm} zonder HM` : ""}
@@ -298,7 +418,7 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
             {loading ? <p className="px-5 py-3 text-sm text-[var(--muted)]">Laden…</p> : null}
             {!loading && !filtered.length ? (
               <p className="ws-empty m-4">
-                Nog geen kansen hier. Bevestig een eindklant op Bureaus, of wacht op warme radar-hits.
+                Nog geen kansen hier. Bevestig een eindklant op Via bureau, of wacht op warme Direct-hits.
               </p>
             ) : null}
 
@@ -307,59 +427,112 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
                 {filtered.map((row) => {
                   const on = active?.id === row.id;
                   const next = nextActionOf(row);
+                  const cta = actionLabel(row);
+                  const checked = picked.has(row.id);
                   return (
                     <li key={row.id} className={on ? "bg-[var(--surface-2)]" : ""}>
-                      <button
-                        type="button"
-                        onClick={() => pick(row.id)}
-                        aria-expanded={on}
-                        aria-current={on ? "true" : undefined}
-                        className={`kans-row ${on ? "kans-row--on" : ""}`}
-                      >
-                        <span className="kans-row__main">
-                          <span className="kans-row__title">
-                            <span className="truncate text-[0.95rem] font-semibold text-[var(--ink)]">
-                              {row.endClient}
-                            </span>
-                            <span className="truncate text-[0.8rem] text-[var(--muted)]">
-                              {row.roleLabel}
-                              <span className="opacity-80">
-                                {" · "}
-                                {row.lane === "bureau" ? "Bureau" : "Direct"}
-                                {row.freshnessLabel ? ` · ${row.freshnessLabel}` : ""}
+                      <div className={`kans-row ${on ? "kans-row--on" : ""}`}>
+                        <label
+                          className="kans-row__check"
+                          onClick={(e) => e.stopPropagation()}
+                          onKeyDown={(e) => e.stopPropagation()}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => togglePick(row.id)}
+                            className="kans-check"
+                            aria-label={`Selecteer ${row.endClient}`}
+                          />
+                        </label>
+
+                        <button
+                          type="button"
+                          onClick={() => pick(row.id)}
+                          aria-expanded={on}
+                          aria-current={on ? "true" : undefined}
+                          className="kans-row__hit"
+                        >
+                          <CompanyMark
+                            name={row.endClient}
+                            logoUrl={row.logoUrl || guessCompanyLogo(row.endClient)}
+                            size="md"
+                          />
+
+                          <span className="kans-row__main">
+                            <span className="kans-row__title">
+                              <span className="truncate text-[0.95rem] font-semibold text-[var(--ink)]">
+                                {row.endClient}
+                              </span>
+                              <span className="truncate text-[0.8rem] text-[var(--muted)]">
+                                {row.roleLabel}
+                                {row.freshnessLabel ? (
+                                  <span className="opacity-80">{` · ${row.freshnessLabel}`}</span>
+                                ) : null}
                               </span>
                             </span>
+
+                            <span className="kans-row__bron">
+                              {row.sourceChannel ? <SourceLogo channel={row.sourceChannel} /> : null}
+                              <span className="kans-row__bron-text">
+                                <span className="font-medium text-[var(--ink)]">{sourceLine(row)}</span>
+                                {row.bronDetail ? (
+                                  <span className="text-[var(--muted)]">{` · ${row.bronDetail}`}</span>
+                                ) : null}
+                              </span>
+                            </span>
+
+                            <span className="kans-row__hm">
+                              {row.hiringManager ? (
+                                <span className="font-medium text-[var(--ink)]">{row.hiringManager}</span>
+                              ) : (
+                                <span className="text-[var(--muted)]">Geen hiring manager</span>
+                              )}
+                            </span>
                           </span>
-                          <span className="kans-row__hm">
-                            {row.hiringManager ? (
-                              <span className="font-medium text-[var(--ink)]">{row.hiringManager}</span>
-                            ) : (
-                              <span className="text-[var(--muted)]">Geen hiring manager</span>
-                            )}
-                          </span>
-                        </span>
+                        </button>
+
                         <span className="kans-row__side">
-                          <span className="kans-row__next">{next}</span>
-                          {row.kans != null ? (
-                            <ScoreChip kans={row.kans} />
+                          {row.kans != null ? <ScoreChip kans={row.kans} /> : null}
+                          {cta ? (
+                            <button
+                              type="button"
+                              disabled={hmBusy && cta === "Zoek HM"}
+                              className="btn-ink btn-tool"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                void runPrimary(row);
+                              }}
+                            >
+                              {hmBusy && on && cta === "Zoek HM" ? "Zoeken…" : cta}
+                            </button>
                           ) : (
-                            <span className="text-[0.7rem] text-[var(--muted)]">—</span>
+                            <span className="kans-row__next">{next}</span>
                           )}
                         </span>
-                      </button>
+                      </div>
 
                       {on ? (
                         <div className="kans-row__detail">
                           <p className="text-sm text-[var(--muted)]">{row.title}</p>
                           <dl className="mt-3 grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-3">
                             <div>
-                              <dt className="ws-label">Bron</dt>
-                              <dd className="mt-1 font-medium text-[var(--ink)]">{sourceLine(row)}</dd>
+                              <dt className="ws-label">Hoe binnengekomen</dt>
+                              <dd className="mt-1 flex flex-wrap items-center gap-2 font-medium text-[var(--ink)]">
+                                {row.sourceChannel ? <SourceLogo channel={row.sourceChannel} size="md" /> : null}
+                                {sourceLine(row)}
+                              </dd>
                               {row.bronDetail ? (
                                 <dd className="mt-0.5 text-[0.78rem] text-[var(--muted)]">{row.bronDetail}</dd>
                               ) : null}
                               {row.agencyName ? (
-                                <dd className="mt-0.5 text-[0.78rem] text-[var(--muted)]">{row.agencyName}</dd>
+                                <dd className="mt-0.5 text-[0.78rem] text-[var(--muted)]">
+                                  Bureau · {row.agencyName}
+                                  {row.recruiterName ? ` · ${row.recruiterName}` : ""}
+                                </dd>
+                              ) : null}
+                              {row.lane === "direct" ? (
+                                <dd className="mt-0.5 text-[0.78rem] text-[var(--muted)]">Directe vacature via Direct</dd>
                               ) : null}
                             </div>
                             <div>
@@ -489,7 +662,7 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
                                   })}
                                   className="text-[0.8rem] font-medium text-[var(--muted)] no-underline hover:text-[var(--ink)] hover:underline"
                                 >
-                                  Op Radar
+                                  Op Direct
                                 </Link>
                               ) : null}
                             </div>

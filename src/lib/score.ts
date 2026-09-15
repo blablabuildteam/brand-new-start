@@ -212,7 +212,7 @@ export function scoreSignals(
     })
   );
   const days = (Date.now() - discovered) / (1000 * 60 * 60 * 24);
-  if (days <= 1) factors.push({ label: "Net op de radar (≤24u)", points: 14 });
+  if (days <= 1) factors.push({ label: "Net gezien (≤24u)", points: 14 });
   else if (days <= 3) factors.push({ label: "Vers signaal (≤3 dagen)", points: 10 });
   else if (days <= 10) factors.push({ label: "Recent (≤10 dagen)", points: 5 });
   else if (days >= 60) factors.push({ label: "Al >60 dagen open — waarschijnlijk moeizaam", points: -6 });
@@ -310,7 +310,7 @@ export const SCORE_METHOD = {
       id: "watch",
       label: "Volgen",
       min: SCORE_THRESHOLDS.watch,
-      meaning: "Op de radar, nog te weinig bewijs voor actie.",
+      meaning: "Gesignaleerd, nog te weinig bewijs voor actie.",
     },
     {
       id: "cold",
@@ -328,7 +328,7 @@ export const SCORE_METHOD = {
     { when: "Meerdere bureaus op dezelfde rol", points: "+10" },
     { when: "Zelfde kans op ≥2 bronnen", points: "+14" },
     { when: "Andere openingen bij hetzelfde bedrijf", points: "+6–12" },
-    { when: "Net op de radar (≤24u / ≤3d / ≤10d)", points: "+14 / +10 / +5" },
+    { when: "Net gezien (≤24u / ≤3d / ≤10d)", points: "+14 / +10 / +5" },
     { when: "Net gepost op de board (≤2 dagen)", points: "+12" },
     { when: "AI-extract: contracting + stack/start", points: "+5–12" },
   ],
