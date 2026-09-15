@@ -362,7 +362,7 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
   }, [data, q, bucket, watchAgency]);
 
   const deepOpenCount = data?.live.filter(
-    (l) => l.status !== "confirmed" && l.status !== "rejected" && !l.aiGuess && !aiJobs[l.id]
+    (l) => l.status !== "confirmed" && l.status !== "rejected"
   ).length ?? 0;
 
   const researchStrip = useMemo(() => {
