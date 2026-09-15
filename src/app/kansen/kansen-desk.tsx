@@ -27,7 +27,7 @@ function formatDay(isoStr: string | null) {
 }
 
 function sourceLine(row: CrmOpportunity) {
-  return row.bronLabel || (row.lane === "bureau" ? "Bureau" : "Direct");
+  return row.bronLabel || (row.lane === "bureau" ? "Recruiter feed" : "Jobboards");
 }
 
 function nextActionOf(row: CrmOpportunity) {
@@ -294,7 +294,7 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
     { id: "bevestigd", label: "Bevestigd", n: counts.byStage?.bevestigd ?? counts.bureau },
     { id: "hm", label: "Manager", n: counts.byStage?.hm ?? 0 },
     { id: "outreach", label: "Outreach", n: counts.byStage?.outreach ?? 0 },
-    { id: "direct", label: "Direct", n: counts.direct },
+    { id: "direct", label: "Jobboards", n: counts.direct },
   ];
 
   const needsHm = filtered.filter((r) => !r.hiringManager && r.stage !== "won" && r.stage !== "lost").length;
@@ -311,7 +311,7 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
           <div className="ws-fold__body">
             <p className="m-0 text-[0.8rem] leading-relaxed text-[var(--muted)]">
               Hier staan <strong className="font-semibold text-[var(--ink)]">bevestigde bureau-kansen</strong> en{" "}
-              <strong className="font-semibold text-[var(--ink)]">warme directe hits</strong> uit Direct. Per rij
+              <strong className="font-semibold text-[var(--ink)]">warme directe hits</strong> uit Jobboards. Per rij
               zie je bron, logo en de volgende stap — meestal: hiring manager zoeken of voorstel openen.
             </p>
             <ol className="ws-fold__steps">
@@ -418,7 +418,7 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
             {loading ? <p className="px-5 py-3 text-sm text-[var(--muted)]">Laden…</p> : null}
             {!loading && !filtered.length ? (
               <p className="ws-empty m-4">
-                Nog geen kansen hier. Bevestig een eindklant op Via bureau, of wacht op warme Direct-hits.
+                Nog geen kansen hier. Bevestig een eindklant op Recruiter feed, of wacht op warme Direct-hits.
               </p>
             ) : null}
 
@@ -532,7 +532,7 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
                                 </dd>
                               ) : null}
                               {row.lane === "direct" ? (
-                                <dd className="mt-0.5 text-[0.78rem] text-[var(--muted)]">Directe vacature via Direct</dd>
+                                <dd className="mt-0.5 text-[0.78rem] text-[var(--muted)]">Directe vacature via Jobboards</dd>
                               ) : null}
                             </div>
                             <div>
@@ -662,7 +662,7 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
                                   })}
                                   className="text-[0.8rem] font-medium text-[var(--muted)] no-underline hover:text-[var(--ink)] hover:underline"
                                 >
-                                  Op Direct
+                                  Op Jobboards
                                 </Link>
                               ) : null}
                             </div>

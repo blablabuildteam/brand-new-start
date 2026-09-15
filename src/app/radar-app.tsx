@@ -8,6 +8,7 @@ import { ScoreChip, scoreTone } from "@/components/score-chip";
 import { resolveCompanyLogo } from "@/lib/company-logo";
 import { AppShell } from "@/components/app-shell";
 import { INGEST_POLICY, SYNC_COST_PER_RUN } from "@/lib/costs";
+import { DESK } from "@/lib/desk-labels";
 import { orgContextFromSignals } from "@/lib/org-context";
 import {
   buildApproach,
@@ -148,7 +149,7 @@ const SYNC_ACTIVITY: Record<string, string> = {
   "freelance-nl": "Freelance.nl scrapen via Firecrawl…",
   platforms: "Careers-pagina’s van watchlist-bedrijven scrapen…",
   "recruiter-feeds":
-    "LinkedIn-feeds van watchlist-recruiters scrapen — vacatureposts → Via bureau.",
+    "LinkedIn-feeds van watchlist-recruiters scrapen — vacatureposts → Recruiter feed.",
 };
 
 function syncProgressPct(steps: SyncStep[], phase: LiveSync["phase"]): number {
@@ -809,13 +810,13 @@ export default function RadarApp({
 
     const explain =
       action === "market"
-        ? "LinkedIn Jobs: ingestelde rollen met contract/ZZP-filters. Alleen hits in jouw kader komen op Direct."
+        ? "LinkedIn Jobs: ingestelde rollen met contract/ZZP-filters. Alleen hits in jouw kader komen op Jobboards."
         : action === "indeed"
           ? "Indeed NL via Apify: jouw rollen + ZZP. Filter in-app."
           : action === "freelance-nl"
             ? "Freelance.nl via Firecrawl: zoekpagina’s per ingestelde rol."
             : action === "recruiter-feeds"
-              ? "LinkedIn-posts van recruiters die je volgt. Vacature/kans-posts → Via bureau → eindklant bevestigen."
+              ? "LinkedIn-posts van recruiters die je volgt. Vacature/kans-posts → Recruiter feed → eindklant bevestigen."
               : "Careers-pagina’s van de watchlist op openstaande rollen in jouw kader.";
 
     const stepId =
@@ -907,7 +908,7 @@ export default function RadarApp({
         statusLine: "Feeds ophalen…",
         activity: SYNC_ACTIVITY["recruiter-feeds"],
         explain:
-          "LinkedIn-posts van recruiters op je watchlist. Vacature/kans-posts landen op Via bureau — daarna eindklant bevestigen.",
+          "LinkedIn-posts van recruiters op je watchlist. Vacature/kans-posts landen in Recruiter feed — daarna eindklant bevestigen.",
         searched: ["Watchlist-recruiters met LinkedIn-URL"],
         steps: [{ id: "recruiter-feeds", label: "Recruiter-feeds", status: "running" }],
         runs: [],
@@ -918,7 +919,7 @@ export default function RadarApp({
           phase: "done",
           action: "recruiter-feeds",
           title: one.title,
-          statusLine: "Klaar — check Via bureau",
+          statusLine: "Klaar — check Recruiter feed",
           activity: undefined,
           explain: one.explain,
           searched: one.searched,
@@ -1271,7 +1272,7 @@ export default function RadarApp({
                     ["market", "LinkedIn Jobs", SYNC_COST_PER_RUN.actions.market] as const,
                     [
                       "recruiter-feeds",
-                      "Recruiter-feeds → Via bureau",
+                      "Recruiter-feeds → Recruiter feed",
                       SYNC_COST_PER_RUN.actions["recruiter-feeds"],
                     ] as const,
                     ["indeed", "Indeed NL", SYNC_COST_PER_RUN.actions.indeed] as const,
@@ -1354,22 +1355,21 @@ export default function RadarApp({
   );
 
   return (
-    <AppShell current="radar" title="Direct" subtitle="Jobboards · vacatures bij eindklanten" fill toolbar={syncToolbar}>
+    <AppShell current="radar" title={DESK.direct.title} subtitle={DESK.direct.subtitle} fill toolbar={syncToolbar}>
       <main className="ws-shell radar-shell">
         <details className={`ws-fold ${mobilePane === "detail" ? "max-lg:hidden" : ""}`}>
           <summary>
-            <span>Wat is Direct?</span>
-            <span className="ws-fold__meta">Jobboards · kans-score</span>
+            <span>{DESK.direct.foldTitle}</span>
+            <span className="ws-fold__meta">{DESK.direct.foldMeta}</span>
           </summary>
           <div className="ws-fold__body">
             <p className="m-0 text-[0.8rem] leading-relaxed text-[var(--muted)]">
-              Dit is de <strong className="font-semibold text-[var(--ink)]">directe radar</strong>: vacatures
-              bij eindklanten van LinkedIn, Indeed en Freelance.nl — niet via een detacheerder. De andere
-              radar is{" "}
-              <a href="/leads" className="font-semibold text-[var(--ink)] underline underline-offset-2">
-                Via bureau
-              </a>{" "}
-              (recruiter-feeds).
+              Vacatures bij eindklanten van LinkedIn, Indeed en Freelance.nl — niet via een detacheerder.
+              De andere bron is{" "}
+              <a href={DESK.bureau.href} className="font-semibold text-[var(--ink)] underline underline-offset-2">
+                {DESK.bureau.nav}
+              </a>
+              .
             </p>
             <ol className="ws-fold__steps">
               <li>
@@ -1407,7 +1407,7 @@ export default function RadarApp({
               radar
             </p>
             <p className="mt-1 text-[0.78rem] text-[var(--muted)]">
-              Bevestigd op Via bureau. Zoek de hiring manager vanuit Kansen — geen opening op Direct nodig.
+              Bevestigd in Recruiter feed. Zoek de hiring manager vanuit Kansen — geen Jobboards-opening nodig.
             </p>
             <div className="mt-2.5 flex flex-wrap gap-2">
               {focusLinkedIn ? (

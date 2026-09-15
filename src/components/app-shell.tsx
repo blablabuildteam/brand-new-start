@@ -13,8 +13,8 @@ import { partnerForEmail } from "@/lib/partner-brand";
 export type AppNavId = "radar" | "leads" | "kansen" | "voorstel" | "instellingen";
 
 const PRIMARY: { href: string; id: AppNavId; label: string; icon: "radar" | "bureaus" | "kansen" | "voorstel" }[] = [
-  { href: "/radar", id: "radar", label: "Direct", icon: "radar" },
-  { href: "/leads", id: "leads", label: "Via bureau", icon: "bureaus" },
+  { href: "/radar", id: "radar", label: "Jobboards", icon: "radar" },
+  { href: "/leads", id: "leads", label: "Recruiter feed", icon: "bureaus" },
   { href: "/kansen", id: "kansen", label: "Kansen", icon: "kansen" },
   { href: "/regie", id: "voorstel", label: "Voorstel", icon: "voorstel" },
 ];

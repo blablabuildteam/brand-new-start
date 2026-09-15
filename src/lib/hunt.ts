@@ -11,7 +11,7 @@ export const EMPLOYMENT_KINDS: { id: EmploymentKind; label: string; hint: string
   { id: "zzp", label: "ZZP", hint: "Zelfstandige / freelance" },
   { id: "interim", label: "Interim", hint: "Tijdelijke inhuur" },
   { id: "contract", label: "Contract", hint: "Contractrollen op boards" },
-  { id: "detachering", label: "Detachering", hint: "Via bureau gedetacheerd" },
+  { id: "detachering", label: "Detachering", hint: "Recruiter feed gedetacheerd" },
 ];
 
 export type ManagedRecruiter = {

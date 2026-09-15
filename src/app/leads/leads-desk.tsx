@@ -5,10 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
 import { ResearchMeter } from "@/components/research-meter";
-import { CompanyMark } from "@/components/company-mark";
 import { kansenHref, regieHref } from "@/lib/desk-links";
 import { DESK } from "@/lib/desk-labels";
-import { guessCompanyLogo } from "@/lib/company-logo";
 import type { AgencyLead, LeadStatus } from "@/lib/opportunity";
 import { streamResearch } from "@/lib/research/client";
 import { startingProgress } from "@/lib/research/progress";
@@ -77,6 +75,29 @@ function statusClass(status: LeadStatus) {
   return "border-[var(--warn)]/30 bg-[var(--warn-soft)] text-[var(--warn)]";
 }
 
+function whyLine(lead: AgencyLead): string | null {
+  const g = lead.guess;
+  if (!g) return null;
+  const top = g.evidence?.[0];
+  if (top?.label && top?.quote) {
+    const q = top.quote.replace(/\s+/g, " ").trim();
+    const short = q.length > 72 ? `${q.slice(0, 70)}…` : q;
+    return `${top.label} · “${short}”`;
+  }
+  if (top?.label) return top.label;
+  if (g.report?.hypothesis) return g.report.hypothesis;
+  if (g.source === "deep" || g.source === "ai") return "Via AI-research";
+  return "Lokale regels / catalogus";
+}
+
+function statusShort(status: LeadStatus) {
+  if (status === "suggest") return "Sterk";
+  if (status === "review") return "Review";
+  if (status === "weak") return "Te dun";
+  if (status === "confirmed") return "Bevestigd";
+  return "Weg";
+}
+
 function LeadCard({
   lead,
   busy,
@@ -107,98 +128,80 @@ function LeadCard({
   onHmSearch?: (id: string) => void;
 }) {
   const [openRow, setOpenRow] = useState(false);
-  const [showText, setShowText] = useState(false);
-  const [showScore, setShowScore] = useState(false);
   const guessed = lead.confirmedClient || lead.guess?.name || "";
   const client = (clientDraft || guessed).trim();
   const actionable = lead.status !== "confirmed" && lead.status !== "rejected";
-  const report = lead.guess?.report;
   const researchLock = busy || aiBusy || Boolean(aiQueued);
-  const endClientLabel = client || (actionable ? "Eindklant?" : "—");
+  const why = whyLine(lead);
+  const conf = lead.guess && actionable ? lead.guess.confidence : null;
 
   return (
     <article className={`lead-row ${openRow ? "lead-row--open" : ""}`}>
       <button type="button" className="lead-row__hit" onClick={() => setOpenRow((v) => !v)} aria-expanded={openRow}>
-        <CompanyMark name={lead.agency.name} logoUrl={guessCompanyLogo(lead.agency.name)} size="md" />
         <span className="lead-row__main">
-          <span className="lead-row__title truncate font-semibold text-[var(--ink)]">{lead.title}</span>
-          <span className="lead-row__meta truncate text-[var(--muted)]">
+          <span className="lead-row__top">
+            <span className="lead-row__title truncate">{lead.title}</span>
+            <span className={`ws-status shrink-0 ${statusClass(lead.status)}`} title={STATUS_HINT[lead.status]}>
+              {statusShort(lead.status)}
+              {conf != null ? ` · ${conf}%` : ""}
+            </span>
+          </span>
+          <span className="lead-row__meta truncate">
             {lead.agency.name}
-            {lead.roleLabel ? ` · ${lead.roleLabel}` : ""}
             {lead.recruiter.name ? ` · ${lead.recruiter.name}` : ""}
-            {lead.demo ? " · voorbeeld" : ""}
+            {factsLine(lead) ? ` · ${factsLine(lead)}` : ""}
           </span>
-        </span>
-        <span className="lead-row__client truncate">
-          <span className="lead-row__client-label">Eindklant</span>
-          <span className={`truncate font-medium ${client ? "text-[var(--ink)]" : "text-[var(--muted)]"}`}>
-            {endClientLabel}
-            {lead.guess && actionable && lead.guess.confidence ? (
-              <span className="text-[var(--muted)]">{` · ${lead.guess.confidence}%`}</span>
-            ) : null}
+          <span className="lead-row__clientline">
+            <span className="lead-row__arrow" aria-hidden>
+              →
+            </span>
+            <span className={`truncate ${client ? "font-semibold text-[var(--ink)]" : "text-[var(--muted)]"}`}>
+              {client || "Eindklant onbekend"}
+            </span>
+            {why ? <span className="lead-row__why truncate">{why}</span> : null}
           </span>
-        </span>
-        <span className={`ws-status shrink-0 ${statusClass(lead.status)}`} title={STATUS_HINT[lead.status]}>
-          {STATUS_NL[lead.status]}
         </span>
       </button>
 
       {openRow ? (
-        <div className="lead-row__detail">
-          {factsLine(lead) ? <p className="text-[0.72rem] text-[var(--muted)]">{factsLine(lead)}</p> : null}
+        <div className="lead-row__detail" onClick={(e) => e.stopPropagation()}>
+          {lead.guess?.evidence?.length ? (
+            <div className="lead-why">
+              <p className="lead-why__label">Waarom {lead.guess.name || "deze eindklant"}?</p>
+              <ul className="lead-why__list">
+                {lead.guess.evidence.slice(0, 3).map((e, i) => (
+                  <li key={i}>
+                    <span className="font-medium text-[var(--ink)]">{e.label}</span>
+                    {e.quote ? <span className="lead-why__quote">“{e.quote.replace(/\s+/g, " ").trim()}”</span> : null}
+                  </li>
+                ))}
+              </ul>
+              {lead.guess.alternatives.length ? (
+                <p className="lead-why__alts">
+                  Ook mogelijk:{" "}
+                  {lead.guess.alternatives
+                    .slice(0, 3)
+                    .map((a) => `${a.name} (${a.confidence}%)`)
+                    .join(" · ")}
+                </p>
+              ) : null}
+            </div>
+          ) : actionable ? (
+            <p className="text-[0.75rem] text-[var(--muted)]">
+              Nog geen eindklant-signalen — vul zelf in of start AI.
+            </p>
+          ) : null}
 
           {actionable ? (
-            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+            <div className="lead-row__actions">
               <input
                 type="text"
                 value={clientDraft || guessed}
                 onChange={(e) => onClientDraft(e.target.value)}
                 placeholder="Eindklant"
-                className="min-w-[9rem] flex-1 rounded-[calc(var(--radius)-2px)] border border-[var(--line)] bg-[var(--surface)] px-2 py-1 text-[0.8rem] font-semibold text-[var(--ink)] outline-none focus:border-[var(--accent)]"
+                className="lead-row__input"
                 aria-label="Eindklant"
-                onClick={(e) => e.stopPropagation()}
               />
-              {lead.guess?.name ? (
-                <button
-                  type="button"
-                  onClick={() => onClientDraft(lead.guess!.name)}
-                  className={`rounded border px-1.5 py-0.5 text-[0.68rem] font-medium ${
-                    client === lead.guess.name
-                      ? "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]"
-                      : "border-[var(--line)] text-[var(--ink)] hover:border-[var(--accent)]"
-                  }`}
-                >
-                  {lead.guess.name}
-                </button>
-              ) : null}
-              {lead.guess?.alternatives.slice(0, 2).map((a) => (
-                <button
-                  key={a.name}
-                  type="button"
-                  onClick={() => onClientDraft(a.name)}
-                  className={`rounded border px-1.5 py-0.5 text-[0.68rem] font-medium ${
-                    client === a.name
-                      ? "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]"
-                      : "border-[var(--line)] text-[var(--ink)] hover:border-[var(--accent)]"
-                  }`}
-                >
-                  {a.name}
-                </button>
-              ))}
-            </div>
-          ) : lead.status === "confirmed" ? (
-            <p className="mt-1.5 text-[0.74rem] text-[var(--muted)]">
-              <strong className="text-[var(--ink)]">{client}</strong>
-              {lead.hiringManager ? ` · HM ${lead.hiringManager}` : " · nog geen HM"}
-            </p>
-          ) : null}
-
-          {aiQueued ? <p className="mt-2 text-[0.72rem] text-[var(--muted)]">In wachtrij…</p> : null}
-          {aiBusy && aiProgress && aiDepth ? <ResearchMeter depth={aiDepth} progress={aiProgress} /> : null}
-          {aiError ? <p className="mt-1.5 text-[0.72rem] text-[var(--warn)]">{aiError}</p> : null}
-
-          {actionable ? (
-            <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
               <button
                 type="button"
                 disabled={busy || aiBusy || client.length < 2}
@@ -213,15 +216,7 @@ function LeadCard({
                 onClick={() => onAiGuess(lead.id, "standard")}
                 className="btn-ghost btn-tool"
               >
-                {aiBusy ? "…" : lead.aiGuess ? "Opnieuw AI" : "AI"}
-              </button>
-              <button
-                type="button"
-                disabled={researchLock}
-                onClick={() => onAiGuess(lead.id, "deep")}
-                className="btn-ghost btn-tool"
-              >
-                Deep
+                {aiBusy ? "…" : "AI"}
               </button>
               <button
                 type="button"
@@ -236,80 +231,30 @@ function LeadCard({
                   href={lead.evidenceUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="ml-auto text-[0.7rem] font-semibold text-[var(--muted)] no-underline hover:text-[var(--ink)] hover:underline"
+                  className="lead-row__vac"
                 >
                   Vacature
                 </a>
               ) : null}
             </div>
           ) : lead.status === "confirmed" ? (
-            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+            <div className="lead-row__actions">
+              <p className="mr-auto text-[0.78rem] text-[var(--muted)]">
+                <strong className="text-[var(--ink)]">{client}</strong>
+                {lead.hiringManager ? ` · HM ${lead.hiringManager}` : " · nog geen HM"}
+              </p>
               <Link href={kansenHref(`crm_bureau_${lead.id}`)} className="btn-ink btn-tool no-underline">
                 Kansen
               </Link>
               <button type="button" disabled={hmBusy} onClick={() => onHmSearch?.(lead.id)} className="btn-ghost btn-tool">
                 {hmBusy ? "HM…" : "Zoek HM"}
               </button>
-              <Link href={regieHref({})} className="btn-ghost btn-tool no-underline">
-                Voorstel
-              </Link>
             </div>
           ) : null}
 
-          {(lead.guess || lead.summary) && (
-            <details className="lead-card__more mt-2">
-              <summary className="cursor-pointer text-[0.7rem] font-semibold text-[var(--muted)] hover:text-[var(--ink)]">
-                Score &amp; tekst
-              </summary>
-              <div className="mt-2 space-y-2 rounded-[var(--radius)] border border-[var(--line)]/80 bg-[var(--surface-2)] px-2.5 py-2 text-[0.72rem] leading-relaxed text-[var(--muted)]">
-                {lead.guess ? (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => setShowScore((v) => !v)}
-                      className="font-semibold text-[var(--accent)] hover:underline"
-                    >
-                      {showScore ? "Scoring verbergen" : "Waarop gebaseerd?"}
-                    </button>
-                    {showScore ? (
-                      report ? (
-                        <>
-                          <p className="font-medium text-[var(--ink)]">{report.hypothesis}</p>
-                          <p>{report.why}</p>
-                        </>
-                      ) : (
-                        <ul className="space-y-1">
-                          {lead.guess.evidence.slice(0, 3).map((e, i) => (
-                            <li key={i}>
-                              <span className="font-medium text-[var(--ink)]/80">{e.label}</span>
-                              {e.quote ? <span className="block italic">“{e.quote}”</span> : null}
-                            </li>
-                          ))}
-                        </ul>
-                      )
-                    ) : null}
-                  </>
-                ) : null}
-                {lead.summary ? (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => setShowText((v) => !v)}
-                      className="font-semibold text-[var(--accent)] hover:underline"
-                    >
-                      {showText ? "Tekst verbergen" : "Vacaturetekst"}
-                    </button>
-                    {showText ? (
-                      <p className="whitespace-pre-wrap text-[var(--ink)]/85">
-                        {lead.summary.slice(0, 800)}
-                        {lead.summary.length > 800 ? "…" : ""}
-                      </p>
-                    ) : null}
-                  </>
-                ) : null}
-              </div>
-            </details>
-          )}
+          {aiQueued ? <p className="mt-2 text-[0.72rem] text-[var(--muted)]">In wachtrij…</p> : null}
+          {aiBusy && aiProgress && aiDepth ? <ResearchMeter depth={aiDepth} progress={aiProgress} /> : null}
+          {aiError ? <p className="mt-1.5 text-[0.72rem] text-[var(--warn)]">{aiError}</p> : null}
         </div>
       ) : null}
     </article>
@@ -581,7 +526,7 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
           </summary>
           <div className="ws-fold__body">
             <p className="m-0 text-[0.8rem] leading-relaxed text-[var(--muted)]">
-              Dit is de <strong className="font-semibold text-[var(--ink)]">bureau-radar</strong>: vacatures uit
+              Dit is de <strong className="font-semibold text-[var(--ink)]">recruiter-feed</strong>: vacatures uit
               LinkedIn-feeds van kantoren die je volgt. Jij bevestigt de eindklant — daarna zoek je de hiring
               manager. De andere radar is{" "}
               <a href={DESK.direct.href} className="font-semibold text-[var(--ink)] underline underline-offset-2">
@@ -838,7 +783,7 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
                   </span>
                 </div>
                 {filteredLive.length ? (
-                  <div className="space-y-1.5">
+                  <div className="ws-panel overflow-hidden !p-0">
                     {filteredLive.map((l) => (
                       <LeadCard
                         key={l.id}
@@ -873,7 +818,7 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
                     {filteredDemo.length}
                   </span>
                 </div>
-                <div className="space-y-1.5">
+                <div className="ws-panel overflow-hidden !p-0">
                   {filteredDemo.map((l) => (
                     <LeadCard
                       key={l.id}

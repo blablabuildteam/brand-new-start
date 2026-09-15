@@ -311,7 +311,7 @@ export default function RegieDesk({
               <li>
                 <span className="ws-fold__n">1</span>
                 <span>
-                  <strong className="font-semibold text-[var(--ink)]">Kies opening</strong> — uit Direct of een
+                  <strong className="font-semibold text-[var(--ink)]">Kies opening</strong> — uit Jobboards of een
                   bevestigde kans op{" "}
                   <Link href="/kansen" className="font-semibold text-[var(--ink)] underline underline-offset-2">
                     Kansen

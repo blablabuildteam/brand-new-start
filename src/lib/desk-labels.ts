@@ -1,27 +1,27 @@
 /**
- * Desk labels — both desks are radars; source differs.
+ * Desk labels — two radars, different sources.
  * Routes stay /radar and /leads; only user-facing names live here.
  */
 export const DESK = {
   direct: {
     id: "radar" as const,
-    nav: "Direct",
-    title: "Direct",
-    subtitle: "Jobboards · vacatures bij eindklanten",
-    foldTitle: "Wat is Direct?",
-    foldMeta: "LinkedIn · Indeed · Freelance.nl",
+    nav: "Jobboards",
+    title: "Jobboards",
+    subtitle: "LinkedIn · Indeed · Freelance.nl",
+    foldTitle: "Wat is Jobboards?",
+    foldMeta: "Directe vacatures · kans-score",
     href: "/radar",
-    short: "direct",
+    short: "jobboards",
   },
   bureau: {
     id: "leads" as const,
-    nav: "Via bureau",
-    title: "Via bureau",
-    subtitle: "Recruiter-feeds · eindklant bevestigen",
-    foldTitle: "Wat is Via bureau?",
-    foldMeta: "Feeds · eindklant · HM",
+    nav: "Recruiter feed",
+    title: "Recruiter feed",
+    subtitle: "Posts van kantoren die je volgt",
+    foldTitle: "Wat is Recruiter feed?",
+    foldMeta: "Eindklant bevestigen · HM",
     href: "/leads",
-    short: "via bureau",
+    short: "recruiter feed",
   },
   kansen: {
     id: "kansen" as const,

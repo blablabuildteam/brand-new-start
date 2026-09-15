@@ -29,7 +29,7 @@ export async function GET() {
     kansen: crm.slice(0, 24).map((c) => ({
       id: c.id,
       title: c.endClient,
-      subtitle: [c.roleLabel, c.hiringManager || "geen HM", c.lane === "bureau" ? "Bureau" : "Direct"]
+      subtitle: [c.roleLabel, c.hiringManager || "geen HM", c.lane === "bureau" ? "Recruiter feed" : "Jobboards"]
         .filter(Boolean)
         .join(" · "),
       href: `/kansen?id=${encodeURIComponent(c.id)}`,

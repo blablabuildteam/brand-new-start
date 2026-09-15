@@ -18,11 +18,17 @@ export type {
 
 /** Wrap a rule/catalog match in the same report shape as a deep research run. */
 export function rulesReport(guess: ClientGuess): ResearchReport {
+  const top = guess.evidence[0];
+  const tip = top
+    ? top.quote
+      ? `${guess.name} — ${top.label}: “${top.quote.replace(/\s+/g, " ").trim().slice(0, 120)}”`
+      : `${guess.name} — ${top.label}`
+    : `${guess.name} komt uit lokale regels/catalogus`;
   return {
     method: "rules",
     confidenceBand: band(guess.confidence),
-    hypothesis: `${guess.name} komt uit lokale regels/catalogus — nog geen webresearch.`,
-    why: "Eerste hypothese: een expliciete naam in de tekst, of overlappende tags (locatie, sector, stack) uit de interne catalogus.",
+    hypothesis: tip,
+    why: "Eerste hypothese uit de vacaturetekst of catalogus-tags (locatie, sector, stack). Geen webresearch — gebruik AI voor diepere check.",
     ranking: [
       {
         name: guess.name,

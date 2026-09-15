@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
+import { DESK } from "@/lib/desk-labels";
+
 type Hit = {
   id: string;
   title: string;
@@ -10,8 +12,6 @@ type Hit = {
   href: string;
   kind: "desk" | "action" | "kans" | "radar" | "lead";
 };
-
-import { DESK } from "@/lib/desk-labels";
 
 const DESKS: Hit[] = [
   { id: "d-radar", title: DESK.direct.nav, subtitle: DESK.direct.subtitle, href: DESK.direct.href, kind: "desk" },

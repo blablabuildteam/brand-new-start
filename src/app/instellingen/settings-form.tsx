@@ -342,7 +342,7 @@ export default function SettingsForm() {
           <div className="ws-fold__body">
             <p className="m-0 text-[0.8rem] leading-relaxed text-[var(--muted)]">
               Toolnaam, functies, soort opdracht, de bureaus/recruiters die je volgt, en jullie
-              ZZP-bench voor Voorstel. Recruiter LinkedIn-feeds voeden Via bureau; eindklanten bevestig
+              ZZP-bench voor Voorstel. Recruiter LinkedIn-feeds voeden Recruiter feed; eindklanten bevestig
               je daarna zelf.
             </p>
           </div>
@@ -429,7 +429,7 @@ export default function SettingsForm() {
               <div>
                 <p className="text-sm font-medium">Soort opdracht</p>
                 <p className="mt-0.5 text-[0.75rem] text-[var(--muted)]">
-                  Wat mag in Sync/Direct? Zet uit wat je niet wilt zien.
+                  Wat mag in Sync/Jobboards? Zet uit wat je niet wilt zien.
                 </p>
                 <div className="mt-2 grid gap-2 sm:grid-cols-2">
                   {hunt.catalog.employmentKinds.map((k) => (
@@ -495,7 +495,7 @@ export default function SettingsForm() {
             <Section
               id="volgen"
               title="Kantoren & recruiters"
-              hint="Recruiters met LinkedIn-URL worden gescand op vacature-/kans-posts (Recruiter-feeds → Via bureau). Zonder URL geen feed-sync."
+              hint="Recruiters met LinkedIn-URL worden gescand op vacature-/kans-posts (Recruiter-feeds → Recruiter feed). Zonder URL geen feed-sync."
             >
               <div className="rounded-[var(--radius)] border border-[var(--accent)]/20 bg-[var(--accent-soft)]/40 px-3.5 py-3 text-[0.8rem] leading-relaxed text-[var(--muted)]">
                 <p>
@@ -967,7 +967,7 @@ export default function SettingsForm() {
             {error ? <p className="text-sm text-[var(--warn)]">{error}</p> : null}
             {saved ? (
               <p className="text-sm text-[var(--green)]">
-                Opgeslagen. Via bureau volgt wie je hier aanzet.
+                Opgeslagen. Recruiter feed volgt wie je hier aanzet.
               </p>
             ) : null}
 

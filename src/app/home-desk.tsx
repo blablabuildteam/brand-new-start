@@ -11,13 +11,13 @@ import { PRODUCT } from "@/lib/product-brand";
 
 const FEATURES = [
   {
-    title: "Direct",
-    text: "Jobboard-radar: vacatures bij eindklanten, gescoord op versheid en signalen.",
+    title: "Jobboards",
+    text: "Vacatures bij eindklanten van LinkedIn, Indeed en Freelance.nl — gescoord op versheid.",
     icon: "radar",
   },
   {
-    title: "Via bureau",
-    text: "Bureau-radar: recruiter-feeds in, eindklant bevestigen, daarna hiring manager.",
+    title: "Recruiter feed",
+    text: "Posts van kantoren die je volgt. Eindklant bevestigen, daarna hiring manager.",
     icon: "bureaus",
   },
   {
@@ -161,7 +161,7 @@ export default function HomeDesk() {
               Alles wat je nodig hebt om kansen af te handelen
             </h2>
             <p className="scout-work__lead">
-              Geen losse tools. Eén desk: Direct, Via bureau, Kansen en Voorstel.
+              Geen losse tools. Eén desk: Jobboards, Recruiter feed, Kansen en Voorstel.
             </p>
           </div>
 

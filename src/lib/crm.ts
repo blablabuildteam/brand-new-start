@@ -129,7 +129,7 @@ function sourceChannelOf(labels: string[]): string | null {
   return null;
 }
 
-/** Bevestigde bureau-kansen + warme/directe radar-kansen. */
+/** Bevestigde bureau-kansen + warme/jobboard-radar-kansen. */
 export async function listCrmOpportunities(): Promise<CrmOpportunity[]> {
   const [leads, radar, signals, meta] = await Promise.all([
     listAgencyLeads(),
