@@ -31,12 +31,23 @@ export async function runApifyActor<T = Record<string, unknown>>(
   }
 
   const run = (await runRes.json()) as {
-    data?: { defaultDatasetId?: string; id?: string; status?: string };
+    data?: {
+      defaultDatasetId?: string;
+      id?: string;
+      status?: string;
+      statusMessage?: string;
+    };
   };
   const datasetId = run.data?.defaultDatasetId;
   const status = run.data?.status;
+  const statusMessage = run.data?.statusMessage || "";
+  if (/free user run limit|upgrade to a paid plan/i.test(statusMessage)) {
+    throw new Error(
+      `Apify ${actorId}: free-run limiet bereikt (HarvestAPI) — upgrade het actor-abonnement of wacht tot de limiet reset`
+    );
+  }
   if (!datasetId) {
-    throw new Error(`Apify ${actorId}: no dataset (status=${status})`);
+    throw new Error(`Apify ${actorId}: no dataset (status=${status}${statusMessage ? ` · ${statusMessage}` : ""})`);
   }
   if (status === "FAILED" || status === "ABORTED") {
     throw new Error(`Apify ${actorId}: run ${status.toLowerCase()}`);
