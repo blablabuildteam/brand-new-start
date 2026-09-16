@@ -46,7 +46,11 @@ export async function POST(req: Request) {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
-  if (!hasAiKey()) {
+  const parsed = Body.safeParse(await req.json().catch(() => ({})));
+  if (!parsed.success) return NextResponse.json({ error: "ongeldig" }, { status: 400 });
+
+  // Standaard mag gratis/SERP-paden zonder Anthropic. Deep heeft Claude nodig.
+  if (!hasAiKey() && parsed.data.depth === "deep") {
     return NextResponse.json(
       {
         error: "ANTHROPIC_API_KEY ontbreekt",
@@ -55,9 +59,6 @@ export async function POST(req: Request) {
       { status: 503 }
     );
   }
-
-  const parsed = Body.safeParse(await req.json().catch(() => ({})));
-  if (!parsed.success) return NextResponse.json({ error: "ongeldig" }, { status: 400 });
 
   // Without Firecrawl the agent has no web access and can only reason over the
   // vacancy text plus our own history. That is a different (and weaker) product

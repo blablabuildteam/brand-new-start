@@ -136,15 +136,8 @@ export async function pushAlert(
   const alerts = [row, ...meta.alerts.filter((a) => a.id !== row.id)].slice(0, 40);
   const saved = await saveDeskMeta({ alerts });
 
-  const hook = process.env.ALERT_WEBHOOK_URL?.trim();
-  if (hook) {
-    // Awaited: a serverless runtime may freeze before a detached fetch flushes.
-    await fetch(hook, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text: `*${row.title}*\n${row.body}${row.href ? `\n${row.href}` : ""}` }),
-    }).catch(() => null);
-  }
+  const { postAlertWebhook } = await import("@/lib/alert-webhook");
+  await postAlertWebhook({ title: row.title, body: row.body, href: row.href });
   return saved;
 }
 

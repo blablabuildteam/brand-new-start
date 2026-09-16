@@ -1,8 +1,16 @@
 import { z } from "zod";
 import { aiJsonCompletion, hasAiKey } from "@/lib/ai-client";
 import { isAgencyName } from "@/lib/agency";
-import { guessEndClient, type ClientGuess, type Evidence } from "@/lib/end-client";
+import { guessEndClient, huntSignals, isHuntWorthy, type ClientGuess, type Evidence } from "@/lib/end-client";
 import { findRelatedJobs, relatedJobsBlock, type RelatedJob } from "@/lib/research/corpus";
+import {
+  buildRulesOnlyResult,
+  buildSerpConfirmResult,
+  cheapSignalsToJobSignals,
+  needsClaudeAnalyze,
+  serpConfirmsPrior,
+  shouldSkipPaidResearch,
+} from "@/lib/research/first-pass";
 import { candidateQueries, discoveryQueries } from "@/lib/research/queries";
 import { scoreCandidates, scoringExplainer } from "@/lib/research/scoring";
 import { createResearchProgress } from "@/lib/research/progress";
@@ -21,8 +29,8 @@ import { hasWeb, makeBudget, multiSearch, scrapeBest, tierFor } from "@/lib/rese
 /**
  * End-client Intelligence agent.
  *
- * Lean pad (ChatGPT-achtig): signalen + een paar webzoeken + één analyse.
- * Geen scrape-festijn, geen extra LLM-shortlist. Deep = iets meer zoek + 1 pagina.
+ * Eerste hit (standard): regels → Firecrawl → Claude alleen als SERP niet genoeg is.
+ * Deep: LLM-signalen + meer zoek + 1 scrape (later, wanneer eerste hit te dun is).
  */
 
 /**
@@ -150,6 +158,24 @@ const ReportSchema = z
 
 function cleanName(name: string) {
   return name.replace(/\s+/g, " ").trim().slice(0, 80);
+}
+
+/** Filter AI-fantasieën: "Grote corporate met SAP-landschap" is geen eindklant. */
+function isPlausibleOrgName(name: string): boolean {
+  const n = name.trim();
+  if (n.length < 2 || n.length > 70) return false;
+  if (isAgencyName(n)) return false;
+  if (
+    /^(een|de|het|onze|hun|grote|kleine|internationale?|nederlandse?|lokale?)\b/i.test(n) &&
+    /\b(organisatie|bedrijf|corporate|opdrachtgever|eindklant|klant|partij|relatie|instelling)\b/i.test(n)
+  ) {
+    return false;
+  }
+  if (/\b(met|zonder|voor een|bij een)\b/i.test(n) && /\b(landschap|omgeving|sector|stack)\b/i.test(n)) {
+    return false;
+  }
+  if (/^(onbekend|unknown|niet te zeggen|te dun|n\.?v\.?t\.?)$/i.test(n)) return false;
+  return true;
 }
 
 export function band(confidence: number): ResearchReport["confidenceBand"] {
@@ -383,7 +409,7 @@ function shortlistFallback(opts: {
 
   const top = ranking[0]!;
   const report: ResearchReport = {
-    method: "deep",
+    method: opts.depth === "deep" ? "deep" : "ai",
     depth: opts.depth,
     confidenceBand: band(top.confidence),
     hypothesis: `${top.name} is een onverifieerde shortlist-kandidaat — behandel dit als richting, niet als conclusie.`,
@@ -418,7 +444,7 @@ function shortlistFallback(opts: {
       evidence: [{ label: top.why.slice(0, 180), weight: top.confidence }],
       alternatives: ranking.slice(1).map((r) => ({ name: r.name, confidence: r.confidence })),
       report,
-      source: "deep",
+      source: opts.depth === "deep" ? "deep" : "ai",
     },
     detail: `Shortlist zonder eindanalyse · ${opts.reason}`,
     report,
@@ -434,10 +460,6 @@ export async function researchEndClient(opts: {
   depth?: ResearchDepth;
   onProgress?: (p: ResearchProgress) => void;
 }): Promise<{ guess: ClientGuess | null; model: string; detail: string; report: ResearchReport | null }> {
-  if (!hasAiKey()) {
-    return { guess: null, model: "", detail: "ANTHROPIC_API_KEY ontbreekt", report: null };
-  }
-
   const depth: ResearchDepth = opts.depth || "standard";
   const blob = `${opts.title}\n\n${opts.text}`.slice(0, 8000);
   const agency = opts.agencyName;
@@ -446,18 +468,62 @@ export async function researchEndClient(opts: {
   const progress = createResearchProgress(depth, opts.onProgress);
   let rounds = 1;
 
-  // ── Round 1: signals + own desk memory (parallel, corpus needs no LLM) ──
-  progress.start("signals");
-  const extracted = await extractSignals({ blob, agency, recruiter });
-  if (!extracted.signals && !extracted.model) {
-    return { guess: null, model: extracted.model, detail: extracted.detail, report: null };
+  // ── Stap 0: gratis lokale hypothese ──
+  const prior = guessEndClient({ title: opts.title, text: opts.text });
+  if (depth !== "deep" && shouldSkipPaidResearch(prior)) {
+    progress.done();
+    return buildRulesOnlyResult(
+      prior!,
+      "Naamlek/regels al ≥85% — eerste hit gratis, geen Firecrawl/Claude"
+    );
   }
-  const signals = extracted.signals;
+
+  // Te dun om te jagen op standaard: geen onderscheidend spoor → geen geld verbranden.
+  if (
+    depth !== "deep" &&
+    !isHuntWorthy({ title: opts.title, text: opts.text, prior }) &&
+    (!prior || prior.confidence < 55)
+  ) {
+    progress.done();
+    if (prior) {
+      return buildRulesOnlyResult(
+        prior,
+        "Te weinig onderscheidend spoor voor betaalde search — Deep later of handmatig"
+      );
+    }
+    return {
+      guess: null,
+      model: "",
+      detail: "Te dun voor eerste hit — geen onderscheidende signalen",
+      report: null,
+    };
+  }
+
+  // ── Signalen: standaard gratis heuristiek; deep = LLM-extract ──
+  progress.start("signals");
+  let signals: JobSignals | null = null;
+    let extractedModel = "";
+
+  if (depth === "deep") {
+    if (!hasAiKey()) {
+      return { guess: null, model: "", detail: "ANTHROPIC_API_KEY ontbreekt", report: null };
+    }
+    const extracted = await extractSignals({ blob, agency, recruiter });
+    if (!extracted.signals && !extracted.model) {
+      return { guess: null, model: extracted.model, detail: extracted.detail, report: null };
+    }
+    signals = extracted.signals;
+    extractedModel = extracted.model;
+  } else {
+    signals = cheapSignalsToJobSignals(huntSignals({ title: opts.title, text: opts.text }), agency, recruiter);
+  }
 
   progress.start(
     "search",
-    signals?.job_title || signals?.technology.slice(0, 2).join(", ") || undefined
+    signals?.job_title || signals?.technology.slice(0, 2).join(", ") || prior?.name || undefined
   );
+  const chaseLeak =
+    Boolean(signals?.client_name_leak) && !isAgencyName(signals!.client_name_leak!);
   const [related, discovery] = await Promise.all([
     findRelatedJobs({
       currentId: opts.signalId,
@@ -468,7 +534,11 @@ export async function researchEndClient(opts: {
       limit: depth === "deep" ? 8 : 5,
     }),
     (async () => {
-      const queries = discoveryQueries({ agency, recruiter, signals, depth });
+      // Reserve 1 search for naamlek-chase when present (standard uses only 3).
+      const queries = discoveryQueries({ agency, recruiter, signals, depth }).slice(
+        0,
+        chaseLeak ? Math.max(1, budget.maxSearches - 1) : budget.maxSearches
+      );
       const seen = new Set<string>();
       const hits = await multiSearch(queries, budget, { perQuery: depth === "quick" ? 4 : 5, seen });
       return { hits, seen };
@@ -485,13 +555,10 @@ export async function researchEndClient(opts: {
     await scrapeBest(hits, budget, scrapeN);
   }
 
-  const internalText = relatedJobsBlock(related);
-  const signalsText = signalsBlock(signals, budget.queries, agency, recruiter);
-  const prior = guessEndClient({ title: opts.title, text: opts.text });
   const priorText = priorBlock(prior, signals?.client_name_leak);
 
-  // Naamlek: één extra zoek, geen scrape-ronde.
-  if (depth === "deep" && signals?.client_name_leak && !isAgencyName(signals.client_name_leak)) {
+  // Naamlek: één extra zoek (ook standaard — goedkoop en triviaal bewijs).
+  if (chaseLeak && signals?.client_name_leak && budget.searches < budget.maxSearches) {
     progress.start("leak", signals.client_name_leak);
     const leakHits = await multiSearch(
       candidateQueries({ candidate: signals.client_name_leak, signals, agency }).slice(0, 1),
@@ -500,6 +567,46 @@ export async function researchEndClient(opts: {
     );
     hits.push(...leakHits);
   }
+
+  // ── Stap 3: SERP bevestigt hypothese → klaar zonder Claude ──
+  if (depth !== "deep" && prior && serpConfirmsPrior(prior, hits)) {
+    progress.done();
+    return buildSerpConfirmResult({
+      prior,
+      hits,
+      depth,
+      searches: budget.searches,
+      queries: budget.queries,
+    });
+  }
+
+  if (!needsClaudeAnalyze({ prior, hits, depth })) {
+    progress.done();
+    if (prior) {
+      return buildRulesOnlyResult(
+        prior,
+        hits.length
+          ? "Websearch zonder harde bevestiging — houd regel-score, of start Deep"
+          : "Geen webhits — regel-hypothese behouden"
+      );
+    }
+    return {
+      guess: null,
+      model: "",
+      detail: "Geen bruikbare webhits en geen regel-hypothese",
+      report: null,
+    };
+  }
+
+  if (!hasAiKey()) {
+    progress.done();
+    return prior
+      ? buildRulesOnlyResult(prior, "ANTHROPIC_API_KEY ontbreekt — alleen regels/web")
+      : { guess: null, model: "", detail: "ANTHROPIC_API_KEY ontbreekt", report: null };
+  }
+
+  const internalText = relatedJobsBlock(related);
+  const signalsText = signalsBlock(signals, budget.queries, agency, recruiter);
 
   // Geen extra LLM-shortlist / falsificatie-rondes — dat was traag en duur.
   const openQuestions: string[] = [];
@@ -525,6 +632,7 @@ Werkwijze:
 
 Bewijsregels:
 - Het bureau (${agency}) is NOOIT de eindklant. Andere detacheerders ook niet.
+- Geen vage placeholders als "grote corporate", "Nederlandse organisatie", "opdrachtgever in de zorg" — alleen echte organisatienamen.
 - Naamlek in titel/code/URL → factor explicit_name (hoog). Klaar — geen theater nodig.
 - Zonder naamlek: weeg zwaar op project_signals / hard_signals (programmanamen, domeinjargon,
   zeldzame combinaties). Tag die als project_match of modernization met strength high als de
@@ -573,7 +681,7 @@ ${blob.slice(0, 3500)}
     maxTokens: 2800,
   });
 
-  const model = analyze.model || extracted.model;
+  const model = analyze.model || extractedModel;
   const parsed = analyze.json ? ReportSchema.safeParse(analyze.json) : null;
 
   if (!parsed?.success) {
@@ -614,7 +722,7 @@ ${blob.slice(0, 3500)}
       })),
       counterEvidence: (r.counterEvidence || []).slice(0, 5),
     }))
-    .filter((r) => r.name.length >= 2 && !isAgencyName(r.name));
+    .filter((r) => r.name.length >= 2 && !isAgencyName(r.name) && isPlausibleOrgName(r.name));
 
   if (!rawRanking.length) {
     const fallback = shortlistFallback({
@@ -690,7 +798,7 @@ ${blob.slice(0, 3500)}
   ];
 
   const report: ResearchReport = {
-    method: "deep",
+    method: depth === "deep" ? "deep" : "ai",
     depth,
     confidenceBand: b,
     hypothesis: `${top.name} is op basis van de openbare aanwijzingen de waarschijnlijkste eindklant (${bandLabel(b)} · ±${conf}%).`,
@@ -732,7 +840,7 @@ ${blob.slice(0, 3500)}
     evidence,
     alternatives: ranking.slice(1, 5).map((r) => ({ name: r.name, confidence: r.confidence })),
     report,
-    source: "deep",
+    source: depth === "deep" ? "deep" : "ai",
   };
 
   progress.done();

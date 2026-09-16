@@ -115,7 +115,7 @@ export const SOURCE_COST_MODEL: SourceCost[] = [
     /** Claude tokens + een paar Firecrawl-zoeken — geen scrape-festijn */
     eurPerMonth: { low: 3, high: 18 },
     efficiency:
-      "Alleen op klik. Standaard ≈ 3 webzoeken, geen scrape (~€0,05–0,20). Deep ≈ 6 zoek + 1 pagina. Max 3 parallel.",
+      "Eerste hit: naamlek gratis; jacht = ~3 Firecrawl-zoeken; Claude alleen als SERP niet bevestigt (~€0–0,15). Deep later. Batch skippt al-sterke leads. Max 3 parallel.",
   },
 ];
 
@@ -297,16 +297,16 @@ export const SYNC_COST_PER_RUN = {
       what: "1 persoon · werkmail + telefoon · alleen na een LinkedIn-naam",
     },
     "ai-research": {
-      label: "AI eindklant (standaard)",
-      tool: "Claude + Firecrawl",
-      eur: { low: 0.04, high: 0.2 },
-      what: "1 hit · 3 zoekopdrachten, geen scrape — ChatGPT-achtig",
+      label: "AI eindklant (eerste hit)",
+      tool: "Firecrawl · Claude alleen bij twijfel",
+      eur: { low: 0.0, high: 0.15 },
+      what: "Naamlek €0 · SERP-bevestiging ~€0,02–0,08 · Claude alleen als snippets niet genoeg zijn",
     },
     "ai-research-deep": {
       label: "AI eindklant (Deep)",
       tool: "Claude + Firecrawl",
       eur: { low: 0.08, high: 0.45 },
-      what: "1 hit · 6 zoek + 1 pagina · alleen als standaard te dun is",
+      what: "1 hit · 6 zoek + 1 pagina · alleen als eerste hit te dun is",
     },
   },
 } as const;

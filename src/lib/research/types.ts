@@ -79,7 +79,7 @@ export type ResearchCandidate = {
 };
 
 export type ResearchReport = {
-  method: "rules" | "ai" | "deep";
+  method: "rules" | "serp" | "ai" | "deep";
   depth?: ResearchDepth;
   confidenceBand: "very_high" | "high" | "medium" | "low" | "very_low";
   hypothesis: string;

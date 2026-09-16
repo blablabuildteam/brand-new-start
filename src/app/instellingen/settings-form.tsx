@@ -388,7 +388,7 @@ export default function SettingsForm() {
             Nieuwe hits, bevestigde kansen en gevonden hiring managers landen in de{" "}
             <strong className="font-semibold text-[var(--ink)]">bel rechtsboven</strong> (in-app).
             Optioneel ook naar Slack/Discord via <code className="text-[0.7rem]">ALERT_WEBHOOK_URL</code>.
-            Mail-alerts (Brevo e.d.) staan nog niet aan — zeg het als je dat wilt.
+            Mail-alerts (Resend) staan nog niet aan — zeg het als je dat wilt.
           </p>
         </section>
 

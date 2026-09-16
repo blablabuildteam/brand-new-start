@@ -13,7 +13,7 @@ export type ClientGuess = {
   evidence: Evidence[];
   alternatives: { name: string; confidence: number }[];
   /** How this guess was produced */
-  source?: "rules" | "ai" | "deep";
+  source?: "rules" | "serp" | "ai" | "deep";
   /** Transparent research / scoring explanation */
   report?: ResearchReport;
 };
@@ -463,4 +463,66 @@ export function leadStatusFromGuess(guess: ClientGuess | null): "review" | "weak
   if (guess.confidence >= 80) return "suggest";
   if (guess.confidence >= 45) return "review";
   return "weak";
+}
+
+/**
+ * Gratis signaalextractie voor de eerste research-hit — geen LLM.
+ * Genoeg om discovery-queries te sturen; deep mag later een LLM-extract doen.
+ */
+export function huntSignals(opts: { title?: string; text: string }): {
+  project_signals: string[];
+  hard_signals: string[];
+  client_name_leak: string | null;
+  technology: string[];
+  cloud: string[];
+  location: { city: string | null; region: string | null };
+} {
+  const blob = `${opts.title || ""}\n${opts.text}`;
+  const h = hay(blob);
+  const facts = extractVacancyFacts(blob);
+
+  const project_signals: string[] = [];
+  const hard_signals: string[] = [];
+  for (const [tag, rarity] of TAG_RARITY) {
+    if (rarity < 0.7 || !hasWord(h, tag)) continue;
+    // Programme-achtige / multi-word tags eerst als project, rest als hard.
+    if (/\s/.test(tag) || /^(alc|eam|cedar)$/i.test(tag)) project_signals.push(tag);
+    else hard_signals.push(tag);
+  }
+
+  const named = explicitClient(blob);
+  const referenced = referencedClient(opts.title || "");
+  const leak = named?.name || referenced?.client.name || null;
+
+  const cloud = facts.stack.filter((s) => /^(azure|aws|gcp)$/i.test(s));
+  const technology = facts.stack.filter((s) => !/^(azure|aws|gcp)$/i.test(s));
+
+  const cityRaw = facts.location;
+  const city =
+    cityRaw && !/holland|brabant|gelderland|limburg|utrecht|friesland|zeeland|drenthe|overijssel|flevoland|groningen/i.test(cityRaw)
+      ? cityRaw
+      : null;
+  const region =
+    cityRaw && /holland|brabant|gelderland|limburg|utrecht/i.test(cityRaw) ? cityRaw : null;
+
+  return {
+    project_signals: [...new Set(project_signals)].slice(0, 5),
+    hard_signals: [...new Set(hard_signals)].slice(0, 5),
+    client_name_leak: leak,
+    technology: technology.slice(0, 6),
+    cloud: cloud.slice(0, 3),
+    location: { city, region },
+  };
+}
+
+/** True wanneer er iets te jagen valt (anonieme kans met onderscheidend spoor). */
+export function isHuntWorthy(opts: { title?: string; text: string; prior?: ClientGuess | null }): boolean {
+  const prior = opts.prior ?? guessEndClient(opts);
+  if (prior && prior.confidence >= 85) return false; // al binnen — geen betaalde jacht nodig
+  const s = huntSignals(opts);
+  if (s.client_name_leak) return false; // naamlek: gratis regels volstaan
+  if (s.project_signals.length >= 1) return true;
+  if (s.hard_signals.length >= 2 && (s.location.city || s.location.region)) return true;
+  if (prior && prior.confidence >= 55 && prior.confidence < 85) return true;
+  return false;
 }

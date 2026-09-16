@@ -8,7 +8,9 @@ import { ResearchMeter } from "@/components/research-meter";
 import { kansenHref, regieHref } from "@/lib/desk-links";
 import { DESK } from "@/lib/desk-labels";
 import type { AgencyLead, LeadStatus } from "@/lib/opportunity";
+import { isHuntWorthy } from "@/lib/end-client";
 import { streamResearch } from "@/lib/research/client";
+import { skipBatchResearch } from "@/lib/research/first-pass";
 import { startingProgress } from "@/lib/research/progress";
 import type { ResearchDepth, ResearchProgress } from "@/lib/research/types";
 
@@ -78,6 +80,10 @@ function statusClass(status: LeadStatus) {
 function whyLine(lead: AgencyLead): string | null {
   const g = lead.guess;
   if (!g) return null;
+  if (g.source === "serp") return "Via zoekbevestiging (geen Claude)";
+  if (g.source === "deep") return "Via deep research";
+  if (g.source === "ai") return "Via AI-analyse";
+  if (g.source === "rules") return "Via regels / naamlek";
   const top = g.evidence?.[0];
   if (top?.label && top?.quote) {
     const q = top.quote.replace(/\s+/g, " ").trim();
@@ -86,7 +92,6 @@ function whyLine(lead: AgencyLead): string | null {
   }
   if (top?.label) return top.label;
   if (g.report?.hypothesis) return g.report.hypothesis;
-  if (g.source === "deep" || g.source === "ai") return "Via AI-research";
   return "Lokale regels / catalogus";
 }
 
@@ -361,9 +366,12 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
     });
   }, [data, q, bucket, watchAgency]);
 
-  const deepOpenCount = data?.live.filter(
-    (l) => l.status !== "confirmed" && l.status !== "rejected"
-  ).length ?? 0;
+  const deepOpenCount =
+    data?.live.filter((l) => {
+      if (l.status === "confirmed" || l.status === "rejected") return false;
+      if (skipBatchResearch(l)) return false;
+      return isHuntWorthy({ title: l.title, text: l.summary || "", prior: l.guess });
+    }).length ?? 0;
 
   const researchStrip = useMemo(() => {
     const jobs = Object.values(aiJobs);
@@ -455,8 +463,16 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
 
   function deepAllOpen() {
     if (!data) return;
-    // Force deep on every open hit — rules can be stale/wrong (geo), AI must re-check.
-    const targets = data.live.filter((l) => l.status !== "confirmed" && l.status !== "rejected");
+    // Eerste hit: alleen jachtwaardige leads — skip naamlek/al-sterk (gratis op desk).
+    const targets = data.live.filter((l) => {
+      if (l.status === "confirmed" || l.status === "rejected") return false;
+      if (skipBatchResearch(l)) return false;
+      return isHuntWorthy({
+        title: l.title,
+        text: l.summary || "",
+        prior: l.guess,
+      });
+    });
     for (const l of targets) onAiGuess(l.id, "standard");
   }
 
@@ -586,7 +602,9 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
                   <>
                     {timeAgoShort(data.sync.lastFeed.at)} · {data.sync.lastFeed.kept}/
                     {data.sync.lastFeed.fetched} gehouden
-                    {data.sync.lastFeed.mode === "error" ? " · fout" : ""}
+                    {data.sync.lastFeed.mode === "error"
+                      ? " · mislukt — sync opnieuw via Jobboards"
+                      : ""}
                   </>
                 ) : (
                   <span className="text-[var(--muted)]">nog niet gedraaid</span>
@@ -600,8 +618,9 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
               ) : null}
             </ul>
             <p className="mt-2 mb-0 text-[0.72rem] text-[var(--muted)]">
-              Nieuwe hits zie je ook in de bel rechtsboven. Mail-alerts staan nog niet aan — wel
-              in-app + optioneel Slack via <code className="text-[0.68rem]">ALERT_WEBHOOK_URL</code>.
+              Nieuwe hits zie je ook in de bel rechtsboven. Mail (Resend) staat nog niet aan — wel
+              in-app + optioneel Slack/Discord via{" "}
+              <code className="text-[0.68rem]">ALERT_WEBHOOK_URL</code>.
             </p>
           </div>
         </details>
@@ -759,7 +778,7 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
 
           {researchStrip ? (
             <p className="mb-3 text-[0.78rem] text-[var(--ink)]">
-              <span className="font-semibold">{researchStrip.running} deep/AI bezig</span>
+              <span className="font-semibold">{researchStrip.running} research bezig</span>
               {researchStrip.queued ? ` · ${researchStrip.queued} in wachtrij` : ""}
               <span className="text-[var(--muted)]"> — meters per kaart</span>
             </p>

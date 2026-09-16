@@ -66,16 +66,11 @@ export async function POST(req: Request) {
       createdAt: new Date(),
     });
 
-    const webhook = process.env.ALERT_WEBHOOK_URL?.trim();
-    if (webhook) {
-      void fetch(webhook, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          text: `Wachtlijst: ${name} <${email}>${company ? ` · ${company}` : ""}${note ? `\n${note}` : ""}`,
-        }),
-      }).catch(() => null);
-    }
+    const { postAlertWebhook } = await import("@/lib/alert-webhook");
+    await postAlertWebhook({
+      title: "Wachtlijst",
+      body: `${name} <${email}>${company ? ` · ${company}` : ""}${note ? `\n${note}` : ""}`,
+    });
 
     return NextResponse.json({ ok: true });
   } catch (err) {
