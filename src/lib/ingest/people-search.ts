@@ -114,18 +114,39 @@ export async function searchHiringManagers(input: PeopleSearchInput): Promise<{
     return { people: [], plan, fetched: 0, detail: "no-company-linkedin" };
   }
 
-  const actorInput: Record<string, unknown> = {
-    profileScraperMode: "Short",
-    searchQuery: plan.keywords,
-    maxItems: INGEST_POLICY.hmSearchMax,
-    takePages: 1,
-    locations: ["Netherlands"],
-    currentCompanies: companyUrls,
-  };
+  async function runQuery(keywords: string) {
+    const actorInput: Record<string, unknown> = {
+      profileScraperMode: "Short",
+      searchQuery: keywords,
+      maxItems: INGEST_POLICY.hmSearchMax,
+      takePages: 1,
+      locations: ["Netherlands"],
+      currentCompanies: companyUrls,
+    };
+    return runApifyActor<Record<string, unknown>>(PEOPLE_ACTOR, actorInput, {
+      waitSecs: 90,
+    });
+  }
 
-  const { items } = await runApifyActor<Record<string, unknown>>(PEOPLE_ACTOR, actorInput, {
-    waitSecs: 90,
-  });
+  let usedPlan = plan;
+  let { items } = await runQuery(plan.keywords);
+
+  // Fallback: team-query te smal → zoek op beslisser-titel (engineering manager e.d.)
+  if (!items.length && plan.mode === "department") {
+    const fallbackPlan = hmSearchPlan({
+      company: input.company,
+      roleLabel: input.roleLabel,
+      openingTitle: undefined,
+      sector: input.sector,
+    });
+    if (fallbackPlan.keywords !== plan.keywords) {
+      const fb = await runQuery(fallbackPlan.keywords);
+      if (fb.items.length) {
+        items = fb.items;
+        usedPlan = fallbackPlan;
+      }
+    }
+  }
 
   const parsed = items
     .map((item) => {
@@ -147,10 +168,10 @@ export async function searchHiringManagers(input: PeopleSearchInput): Promise<{
     .filter((p) => p.name);
 
   return {
-    people: rankHmCandidates(parsed, plan, input.company),
-    plan,
+    people: rankHmCandidates(parsed, usedPlan, input.company),
+    plan: usedPlan,
     fetched: items.length,
-    detail: `actor=${PEOPLE_ACTOR} q=${plan.keywords} companies=${companyUrls.join(",")}`,
+    detail: `actor=${PEOPLE_ACTOR} q=${usedPlan.keywords} companies=${companyUrls.join(",")}`,
   };
 }
 
