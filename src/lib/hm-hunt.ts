@@ -44,17 +44,32 @@ function searchableDept(dept: string): string | null {
   return s;
 }
 
-/** “Hyper Automation” uit de vacaturetitel, niet “Business Analyst (Freelancer)”. */
+/** “Hyper Automation” / “(Core Platform Engineering)” uit de vacaturetitel. */
 export function distinctiveTeam(openingTitle?: string, department?: string | null): string | null {
   const dept = searchableDept(department || "");
   if (dept) return dept;
-  const kept = (openingTitle || "")
+
+  const title = (openingTitle || "").trim();
+  // Haakjes eerst: "Sr. Platform Engineer (Core Platform Engineering)" → teamnaam
+  const paren = title.match(/\(([^)]{3,60})\)/);
+  if (paren?.[1]) {
+    const inner = searchableDept(paren[1].trim()) || paren[1].trim();
+    if (inner.length >= 3 && !GENERIC_DEPT.test(inner)) return inner.slice(0, 60);
+  }
+
+  const kept = title
     .replace(/[()]/g, " ")
     .split(/\s+/)
     .map((w) => w.trim())
-    .filter((w) => w.length >= 3 && !ROLE_STOP.test(w));
+    .filter((w) => w.length >= 3 && !ROLE_STOP.test(w) && !/^sr\.?$/i.test(w));
   if (!kept.length) return null;
-  return kept.join(" ").slice(0, 80);
+  // Te lang = ruis (hele titel) → laat family-titel zoeken
+  if (kept.length > 4) return null;
+  // Één generiek woord ("Platform") is te breed voor LinkedIn
+  if (kept.length === 1 && /^(platform|cloud|data|security|devops|software|digital|engineering)$/i.test(kept[0]!)) {
+    return null;
+  }
+  return kept.join(" ").slice(0, 60);
 }
 
 /**
