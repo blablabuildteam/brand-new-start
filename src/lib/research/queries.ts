@@ -60,7 +60,7 @@ export function discoveryQueries(opts: {
     ...(s?.search_queries || []),
   ];
 
-  return dedupe(list, opts.depth === "deep" ? 12 : opts.depth === "standard" ? 9 : 5);
+  return dedupe(list, opts.depth === "deep" ? 5 : opts.depth === "standard" ? 3 : 2);
 }
 
 /** Round 2: probe the companies that could plausibly own this programme. */

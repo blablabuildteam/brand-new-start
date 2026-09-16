@@ -457,7 +457,7 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
     if (!data) return;
     // Force deep on every open hit — rules can be stale/wrong (geo), AI must re-check.
     const targets = data.live.filter((l) => l.status !== "confirmed" && l.status !== "rejected");
-    for (const l of targets) onAiGuess(l.id, "deep");
+    for (const l of targets) onAiGuess(l.id, "standard");
   }
 
   async function onHmSearch(id: string) {
@@ -751,9 +751,9 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
               disabled={!deepOpenCount}
               onClick={deepAllOpen}
               className="btn-ghost btn-tool"
-              title="Start Deep research op alle open hits zonder AI-gok. Max 3 tegelijk, de rest wacht."
+              title="AI-research op alle open hits. ~3 webzoeken per hit, max 3 tegelijk."
             >
-              Deep alle open{deepOpenCount ? ` · ${deepOpenCount}` : ""}
+              AI alle open{deepOpenCount ? ` · ${deepOpenCount}` : ""}
             </button>
           </div>
 

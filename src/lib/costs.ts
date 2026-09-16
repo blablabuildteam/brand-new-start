@@ -111,11 +111,11 @@ export const SOURCE_COST_MODEL: SourceCost[] = [
     tier: "paid-open",
     tool: "none",
     quality: "hoog",
-    cadence: "per lead · Snel / Standaard / Deep",
-    /** Claude tokens + Firecrawl searches/scrapes bij Deep */
-    eurPerMonth: { low: 8, high: 60 },
+    cadence: "per lead · AI (standaard) / Deep",
+    /** Claude tokens + een paar Firecrawl-zoeken — geen scrape-festijn */
+    eurPerMonth: { low: 3, high: 18 },
     efficiency:
-      "Alleen op klik (Bureaus). Snel ≈ goedkoop; Deep = meer webzoeken + langere analyse. Max 3 parallel.",
+      "Alleen op klik. Standaard ≈ 3 webzoeken, geen scrape (~€0,05–0,20). Deep ≈ 6 zoek + 1 pagina. Max 3 parallel.",
   },
 ];
 
@@ -299,14 +299,14 @@ export const SYNC_COST_PER_RUN = {
     "ai-research": {
       label: "AI eindklant (standaard)",
       tool: "Claude + Firecrawl",
-      eur: { low: 0.15, high: 0.8 },
-      what: "1 lead · shortlist + webzoeken · Bureaus → AI research",
+      eur: { low: 0.04, high: 0.2 },
+      what: "1 hit · 3 zoekopdrachten, geen scrape — ChatGPT-achtig",
     },
     "ai-research-deep": {
       label: "AI eindklant (Deep)",
       tool: "Claude + Firecrawl",
-      eur: { low: 0.4, high: 2.5 },
-      what: "1 lead · 3 rondes + falsificatie · langzamer, duurder",
+      eur: { low: 0.08, high: 0.45 },
+      what: "1 hit · 6 zoek + 1 pagina · alleen als standaard te dun is",
     },
   },
 } as const;

@@ -3,7 +3,7 @@ import { aiJsonCompletion, hasAiKey } from "@/lib/ai-client";
 import { isAgencyName } from "@/lib/agency";
 import { guessEndClient, type ClientGuess, type Evidence } from "@/lib/end-client";
 import { findRelatedJobs, relatedJobsBlock, type RelatedJob } from "@/lib/research/corpus";
-import { candidateQueries, discoveryQueries, falsificationQueries } from "@/lib/research/queries";
+import { candidateQueries, discoveryQueries } from "@/lib/research/queries";
 import { scoreCandidates, scoringExplainer } from "@/lib/research/scoring";
 import { createResearchProgress } from "@/lib/research/progress";
 import type {
@@ -21,9 +21,8 @@ import { hasWeb, makeBudget, multiSearch, scrapeBest, tierFor } from "@/lib/rese
 /**
  * End-client Intelligence agent.
  *
- * Rounds: extract signals → discovery search + own-desk memory → shortlist →
- * per-candidate verification + falsification → deterministic scoring.
- * The LLM supplies evidence; scoring.ts owns the numbers.
+ * Lean pad (ChatGPT-achtig): signalen + een paar webzoeken + één analyse.
+ * Geen scrape-festijn, geen extra LLM-shortlist. Deep = iets meer zoek + 1 pagina.
  */
 
 /**
@@ -89,24 +88,6 @@ const SignalsSchema = z
     reference_code: flexString(60).optional(),
     client_name_leak: flexString(80).optional(),
     search_queries: flexStringArray(160).optional().default([]),
-  })
-  .passthrough();
-
-const ShortlistSchema = z
-  .object({
-    candidates: z
-      .preprocess(
-        (v) => (Array.isArray(v) ? v : v == null ? [] : [v]),
-        z.array(
-          z.object({
-            name: flexString(100),
-            rationale: flexString(400).optional().default(""),
-          })
-        )
-      )
-      .optional()
-      .default([]),
-    open_questions: flexStringArray(200).optional().default([]),
   })
   .passthrough();
 
@@ -278,59 +259,6 @@ ${opts.blob}
   const parsed = SignalsSchema.safeParse(res.json);
   if (!parsed.success) return { signals: null, model: res.model, detail: "signal-schema ongeldig" };
   return { signals: parsed.data as JobSignals, model: res.model, detail: res.detail };
-}
-
-async function shortlist(opts: {
-  agency: string;
-  signalsText: string;
-  serp: string;
-  internal: string;
-  prior: string;
-}): Promise<{ names: string[]; openQuestions: string[]; rationales: Map<string, string> }> {
-  const res = await aiJsonCompletion({
-    system: `Je maakt een SHORTLIST van mogelijke eindklanten (NL) op basis van eerste zoekresultaten.
-Nog niet scoren, nog niet kiezen. Doel: 3–5 bedrijven die het waard zijn om te verifiëren.
-
-Regels:
-- Het bureau (${opts.agency}) en andere detacheerders/bureaus zijn NOOIT kandidaat.
-- Alleen echte, bestaande Nederlandse organisaties die bij de signalen passen.
-- Liever een plausibele kandidaat met een verifieerbaar spoor dan een wilde gok.
-- Staat er een naamlek of regel-hypothese? Neem die ALTIJD als kandidaat mee, ook om hem te kunnen uitsluiten.
-- open_questions[]: wat moet er nog gecheckt worden om te kunnen kiezen.
-
-JSON: { candidates: [{name, rationale}], open_questions: [] }`,
-    user: `Lokale hypothese:
-${opts.prior}
-
-Signalen:
-${opts.signalsText}
-
-Eerste webresultaten:
-${opts.serp || "(geen)"}
-
-Eigen eerdere vacatures (desk-geheugen):
-${opts.internal}`,
-    temperature: 0.25,
-    maxTokens: 900,
-  });
-
-  const empty = { names: [] as string[], openQuestions: [] as string[], rationales: new Map<string, string>() };
-  if (!res.json) return empty;
-  const parsed = ShortlistSchema.safeParse(res.json);
-  if (!parsed.success) return empty;
-
-  const names: string[] = [];
-  for (const c of parsed.data.candidates) {
-    const name = cleanName(c.name);
-    if (name.length < 2 || isAgencyName(name)) continue;
-    if (names.some((n) => n.toLowerCase() === name.toLowerCase())) continue;
-    names.push(name);
-  }
-  const rationales = new Map<string, string>();
-  for (const c of parsed.data.candidates) {
-    rationales.set(cleanName(c.name), (c.rationale || "").trim());
-  }
-  return { names: names.slice(0, 5), openQuestions: parsed.data.open_questions, rationales };
 }
 
 function nameLooksLike(a: string, b: string) {
@@ -550,65 +478,34 @@ export async function researchEndClient(opts: {
   const seenUrls = discovery.seen;
   const hits: SearchHit[] = [...discovery.hits];
 
-  // Read the most promising pages instead of trusting SERP snippets
-  const scrapeN = depth === "deep" ? 5 : depth === "standard" ? 3 : 1;
-  progress.start("read", `${hits.length} hits · ${scrapeN} pagina’s`);
-  await scrapeBest(hits, budget, scrapeN);
+  // Standaard: snippets zijn genoeg (ChatGPT-achtig). Deep: 1 pagina extra.
+  const scrapeN = depth === "deep" ? 1 : 0;
+  if (scrapeN) {
+    progress.start("read", `${hits.length} hits · 1 pagina`);
+    await scrapeBest(hits, budget, scrapeN);
+  }
 
   const internalText = relatedJobsBlock(related);
   const signalsText = signalsBlock(signals, budget.queries, agency, recruiter);
   const prior = guessEndClient({ title: opts.title, text: opts.text });
   const priorText = priorBlock(prior, signals?.client_name_leak);
 
-  // A name leaked in the title/code is the strongest lead we have — chase it.
-  if (signals?.client_name_leak && !isAgencyName(signals.client_name_leak)) {
+  // Naamlek: één extra zoek, geen scrape-ronde.
+  if (depth === "deep" && signals?.client_name_leak && !isAgencyName(signals.client_name_leak)) {
     progress.start("leak", signals.client_name_leak);
     const leakHits = await multiSearch(
-      candidateQueries({ candidate: signals.client_name_leak, signals, agency }).slice(0, 2),
+      candidateQueries({ candidate: signals.client_name_leak, signals, agency }).slice(0, 1),
       budget,
       { perQuery: 4, seen: seenUrls }
     );
     hits.push(...leakHits);
-    await scrapeBest(leakHits, budget, 1);
   }
 
-  // ── Round 2: shortlist → targeted verification + falsification ──
-  let openQuestions: string[] = [];
-  let shortlistNames: string[] = [];
-  let shortlistWhy = new Map<string, string>();
-  if (depth !== "quick") {
-    rounds = 2;
-    progress.start("shortlist");
-    const sl = await shortlist({
-      agency,
-      signalsText,
-      serp: serpBlock(hits, 14),
-      internal: internalText,
-      prior: priorText,
-    });
-    openQuestions = sl.openQuestions;
-    shortlistNames = sl.names;
-    shortlistWhy = sl.rationales;
-
-    // Always verify the rule-engine prior — that's often the anonymous product hit.
-    if (prior && prior.confidence >= 55 && !shortlistNames.some((n) => nameLooksLike(n, prior.name))) {
-      shortlistNames = [prior.name, ...shortlistNames].slice(0, 5);
-      shortlistWhy.set(prior.name, `Regel-hypothese ${prior.confidence}%`);
-    }
-
-    const probeNames = shortlistNames.slice(0, depth === "deep" ? 4 : 3);
-    if (probeNames.length) {
-      rounds = 3;
-      progress.start("verify", probeNames.slice(0, 3).join(" · "));
-      const queries = probeNames.flatMap((name) => [
-        ...candidateQueries({ candidate: name, signals, agency }).slice(0, depth === "deep" ? 3 : 2),
-        ...(depth === "deep" ? falsificationQueries({ candidate: name, signals }).slice(0, 2) : []),
-      ]);
-      const more = await multiSearch(queries, budget, { perQuery: 4, seen: seenUrls });
-      hits.push(...more);
-      await scrapeBest(more, budget, depth === "deep" ? 4 : 2);
-    }
-  }
+  // Geen extra LLM-shortlist / falsificatie-rondes — dat was traag en duur.
+  const openQuestions: string[] = [];
+  const shortlistNames: string[] = prior?.name ? [prior.name] : [];
+  const shortlistWhy = new Map<string, string>();
+  if (prior?.name) shortlistWhy.set(prior.name, `Regel-hypothese ${prior.confidence}%`);
 
   const scrapedCount = hits.filter((h) => h.body).length;
 
@@ -673,7 +570,7 @@ ${openQuestions.length ? `=== OPENSTAANDE VRAGEN UIT SHORTLIST ===\n${openQuesti
 ${blob.slice(0, 3500)}
 """`,
     temperature: 0.12,
-    maxTokens: 8000,
+    maxTokens: 2800,
   });
 
   const model = analyze.model || extracted.model;

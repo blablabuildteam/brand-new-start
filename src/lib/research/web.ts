@@ -44,12 +44,14 @@ export type WebBudget = {
 };
 
 export function makeBudget(depth: ResearchDepth): WebBudget {
+  // ChatGPT-achtig: een paar zoekjes, bijna niet scrapen.
+  // Oude deep (26 zoek + 10 scrape) was traag én duur — Firecrawl is de meter.
   const caps =
     depth === "deep"
-      ? { maxSearches: 26, maxScrapes: 10 }
+      ? { maxSearches: 6, maxScrapes: 1 }
       : depth === "standard"
-        ? { maxSearches: 14, maxScrapes: 5 }
-        : { maxSearches: 7, maxScrapes: 2 };
+        ? { maxSearches: 3, maxScrapes: 0 }
+        : { maxSearches: 2, maxScrapes: 0 };
   return { ...caps, searches: 0, scrapes: 0, queries: [] };
 }
 
