@@ -294,6 +294,38 @@ function ensureCompanyMem(store: MemoryDb, name: string, sector?: string): Compa
   return row;
 }
 
+/**
+ * Eén rotte scrape-waarde liet de hele run klappen. Een post afkappen op 1200
+ * tekens knipt een emoji doormidden; die losse surrogate sloopt de JSON naar
+ * Postgres. Idem voor \u0000 en een onparsebare postdatum.
+ */
+function sanitizeInput(input: IngestInput): IngestInput {
+  const clean = (v: string | null | undefined) =>
+    typeof v === "string" ? v.replace(/\p{Surrogate}/gu, "").replace(/\0/g, "") : v;
+  const deepClean = (value: unknown): unknown => {
+    if (typeof value === "string") return clean(value);
+    if (Array.isArray(value)) return value.map(deepClean);
+    if (value && typeof value === "object") {
+      return Object.fromEntries(
+        Object.entries(value as Record<string, unknown>).map(([k, v]) => [k, deepClean(v)])
+      );
+    }
+    return value;
+  };
+  const raw = input.raw ? (deepClean(input.raw) as typeof input.raw) : input.raw;
+  const seenAt =
+    input.seenAt && !Number.isNaN(input.seenAt.getTime()) ? input.seenAt : undefined;
+  return {
+    ...input,
+    company: clean(input.company) as string,
+    title: clean(input.title) as string,
+    summary: clean(input.summary) as string,
+    evidenceUrl: clean(input.evidenceUrl),
+    seenAt,
+    raw,
+  };
+}
+
 // NOTE: there used to be a radar_entries cache rebuilt on every ingested
 // signal (one DELETE + N INSERTs per signal). `listRadar` always recomputes
 // from signals + companies and never read it back, so the writes were pure
@@ -301,12 +333,13 @@ function ensureCompanyMem(store: MemoryDb, name: string, sector?: string): Compa
 // collide on the primary key and abort the run. The table is kept for
 // migration compatibility but is no longer written per signal.
 
-export async function ingestSignal(input: IngestInput): Promise<{
+export async function ingestSignal(rawInput: IngestInput): Promise<{
   ok: boolean;
   reason?: string;
   signal?: Signal;
   created?: boolean;
 }> {
+  const input = sanitizeInput(rawInput);
   const gate = nicheOk(input);
   if (!gate.ok) return { ok: false, reason: gate.reason };
   const blob = gate.blob;

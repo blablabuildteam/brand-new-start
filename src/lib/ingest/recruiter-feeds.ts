@@ -344,7 +344,12 @@ export async function syncRecruiterFeeds(opts?: {
       run,
     };
   } catch (e) {
-    const msg = e instanceof Error ? e.message.slice(0, 200) : "apify-error";
+    // Drizzle zet de echte reden (constraint, encoding, type) in `cause`. Die
+    // moet vooraan staan, anders verdwijnt hij achter de querytekst.
+    const cause = (e as { cause?: { message?: string; detail?: string } })?.cause;
+    const causeMsg = [cause?.message, cause?.detail].filter(Boolean).join(" · ");
+    const base = e instanceof Error ? e.message : "apify-error";
+    const msg = (causeMsg ? `${causeMsg} — ${base}` : base).slice(0, 300);
     const run = await recordSync({
       channel: "recruiter-feed",
       label: "Recruiter-feeds",
