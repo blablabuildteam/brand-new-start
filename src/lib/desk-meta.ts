@@ -17,15 +17,66 @@ export type DeskAlert = {
   read: boolean;
 };
 
+export type HmHitStored = {
+  name: string;
+  title: string | null;
+  url: string | null;
+  score?: number;
+  email?: string | null;
+  phone?: string | null;
+  lushaAt?: string | null;
+  lushaStatus?: "ok" | "empty" | "restricted" | null;
+};
+
 export type HmGuessRow = {
   hiringManager: string | null;
   hiringManagerTitle: string | null;
   hiringManagerUrl: string | null;
-  hits: { name: string; title: string | null; url: string | null; score?: number }[];
+  hiringManagerEmail?: string | null;
+  hiringManagerPhone?: string | null;
+  lushaAt?: string | null;
+  lushaStatus?: "ok" | "empty" | "restricted" | null;
+  hits: HmHitStored[];
   planKeywords?: string;
   detail?: string;
   at: string;
 };
+
+function profileKey(url: string | null | undefined) {
+  if (!url) return "";
+  return url.split("?")[0].replace(/\/+$/, "").toLowerCase();
+}
+
+/** A fresh LinkedIn search must not wipe mail/tel already paid for. */
+export function withPreservedContacts(prev: HmGuessRow | undefined, next: HmGuessRow): HmGuessRow {
+  if (!prev) return next;
+  const oldByUrl = new Map<string, HmHitStored>();
+  for (const hit of prev.hits || []) {
+    const key = profileKey(hit.url);
+    if (key) oldByUrl.set(key, hit);
+  }
+  const hits = next.hits.map((hit) => {
+    const old = oldByUrl.get(profileKey(hit.url));
+    if (!old?.lushaAt && !old?.email && !old?.phone) return hit;
+    return {
+      ...hit,
+      email: old.email ?? null,
+      phone: old.phone ?? null,
+      lushaAt: old.lushaAt ?? null,
+      lushaStatus: old.lushaStatus ?? null,
+    };
+  });
+  const top = hits.find((h) => profileKey(h.url) === profileKey(next.hiringManagerUrl));
+  const samePerson = profileKey(prev.hiringManagerUrl) === profileKey(next.hiringManagerUrl);
+  return {
+    ...next,
+    hits,
+    hiringManagerEmail: top?.email ?? (samePerson ? prev.hiringManagerEmail ?? null : null),
+    hiringManagerPhone: top?.phone ?? (samePerson ? prev.hiringManagerPhone ?? null : null),
+    lushaAt: top?.lushaAt ?? (samePerson ? prev.lushaAt ?? null : null),
+    lushaStatus: top?.lushaStatus ?? (samePerson ? prev.lushaStatus ?? null : null),
+  };
+}
 
 type ReviewRow = {
   status: "confirmed" | "rejected";

@@ -5,7 +5,7 @@ import { hasApifyToken } from "@/lib/apify";
 import { searchHiringManagers } from "@/lib/ingest/people-search";
 import { listAgencyLeads } from "@/lib/opportunity";
 import { listCrmOpportunities } from "@/lib/crm";
-import { loadDeskMeta, pushAlert, saveDeskMeta } from "@/lib/desk-meta";
+import { loadDeskMeta, pushAlert, saveDeskMeta, withPreservedContacts } from "@/lib/desk-meta";
 import { patchSignalRaw } from "@/lib/store";
 import { recordSync } from "@/lib/sync-log";
 import { kansenHref } from "@/lib/desk-links";
@@ -136,7 +136,7 @@ export async function POST(req: Request) {
     });
 
     const top = result.people[0] || null;
-    const row = {
+    const row = withPreservedContacts(cached, {
       hiringManager: top?.name || null,
       hiringManagerTitle: top?.title || null,
       hiringManagerUrl: top?.url || null,
@@ -149,7 +149,7 @@ export async function POST(req: Request) {
       planKeywords: result.plan.keywords,
       detail: result.detail,
       at: new Date().toISOString(),
-    };
+    });
 
     await saveDeskMeta({
       hmGuesses: { [crmId]: row },

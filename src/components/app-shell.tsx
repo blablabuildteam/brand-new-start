@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 import { ScoutMark } from "@/components/scout-mark";
 import { AlertsBell } from "@/components/alerts-bell";
 import { CommandPalette } from "@/components/command-palette";
-import { TodayRail } from "@/components/today-rail";
 import { cacheClear, cacheGet, cachedJson, prefetchJson } from "@/lib/client-cache";
 import { partnerForEmail } from "@/lib/partner-brand";
 
@@ -110,6 +109,20 @@ export function AppShell({
       })
       .catch(() => null);
   }, []);
+
+  useEffect(() => {
+    const id = window.setTimeout(() => {
+      prefetchJson("radar", "/api/radar", 90_000);
+      prefetchJson("leads", "/api/leads", 90_000);
+      prefetchJson("crm", "/api/crm", 90_000);
+      prefetchJson("placement", "/api/placement", 90_000);
+      router.prefetch("/radar");
+      router.prefetch("/leads");
+      router.prefetch("/kansen");
+      router.prefetch("/regie");
+    }, 250);
+    return () => window.clearTimeout(id);
+  }, [router]);
 
   useEffect(() => {
     if (!open) return;
@@ -296,7 +309,6 @@ export function AppShell({
           </div>
           <div className="flex shrink-0 items-center gap-2">
             {toolbar ? <div className="app-topbar__tools hidden min-w-0 lg:block">{toolbar}</div> : null}
-            <TodayRail />
             <button
               type="button"
               className="inline-flex h-9 items-center gap-1.5 rounded-[var(--radius)] border border-[var(--line)] px-2.5 text-[var(--ink)] hover:bg-[var(--surface-2)]"

@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
 import { ScoreChip } from "@/components/score-chip";
-import { SourceLogo } from "@/components/source-logo";
 import { CompanyMark } from "@/components/company-mark";
 import type { CrmLane, CrmOpportunity, CrmStage } from "@/lib/crm";
 import { CRM_STAGE_NL } from "@/lib/crm";
@@ -26,21 +25,50 @@ function formatDay(isoStr: string | null) {
   }
 }
 
-function sourceLine(row: CrmOpportunity) {
-  return row.bronLabel || (row.lane === "bureau" ? "Recruiter feed" : "Jobboards");
+function needsContact(row: CrmOpportunity) {
+  if (!row.hiringManager || !row.hiringManagerUrl) return false;
+  if (row.hiringManagerEmail || row.hiringManagerPhone) return false;
+  if (row.lushaStatus === "empty" || row.lushaStatus === "restricted") return false;
+  return true;
+}
+
+function contactLine(row: CrmOpportunity) {
+  if (!row.hiringManager) return "Geen hiring manager";
+  if (row.hiringManagerEmail && row.hiringManagerPhone) {
+    return `${row.hiringManager} · ${row.hiringManagerEmail} · ${row.hiringManagerPhone}`;
+  }
+  if (row.hiringManagerEmail) return `${row.hiringManager} · ${row.hiringManagerEmail}`;
+  if (row.hiringManagerPhone) return `${row.hiringManager} · ${row.hiringManagerPhone}`;
+  if (row.lushaStatus === "empty" || row.lushaStatus === "restricted") {
+    return `${row.hiringManager} · geen mail/tel`;
+  }
+  return `${row.hiringManager} · mail/tel nog ophalen`;
+}
+
+function originOf(row: CrmOpportunity) {
+  if (row.lane === "bureau") {
+    return {
+      label: "Recruiter feed",
+      detail: [row.agencyName, row.recruiterName].filter(Boolean).join(" · ") || null,
+    };
+  }
+  const detail = row.bronDetail && !/job-type|direct bij eindklant/i.test(row.bronDetail) ? row.bronDetail : null;
+  return { label: "Jobboards", detail };
 }
 
 function nextActionOf(row: CrmOpportunity) {
   if (row.stage === "won" || row.stage === "lost") return CRM_STAGE_NL[row.stage];
   if (!row.hiringManager) return "Zoek HM";
+  if (needsContact(row)) return "Haal contact";
   if (row.stage === "outreach") return "Follow-up";
-  return "Voorstel";
+  return "Bericht";
 }
 
 function actionLabel(row: CrmOpportunity) {
   if (row.stage === "won" || row.stage === "lost") return null;
   if (!row.hiringManager) return "Zoek HM";
-  if (row.href) return "Voorstel";
+  if (needsContact(row)) return "Haal contact";
+  if (row.href) return "Bericht";
   return null;
 }
 
@@ -56,6 +84,7 @@ type InitialCrm = {
     withHm: number;
     byStage?: Record<string, number>;
   };
+  lusha?: boolean;
 };
 
 export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
@@ -72,6 +101,8 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
   const [stageBusy, setStageBusy] = useState(false);
   const [hmBusy, setHmBusy] = useState(false);
   const [hmError, setHmError] = useState<string | null>(null);
+  const [contactBusy, setContactBusy] = useState(false);
+  const [lushaReady, setLushaReady] = useState(Boolean(initial?.lusha));
   const [hmAutoRan, setHmAutoRan] = useState(false);
   const [q, setQ] = useState("");
   const [bulkNote, setBulkNote] = useState<string | null>(null);
@@ -82,8 +113,34 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
       return cachedJson<InitialCrm>("crm", "/api/crm", { ttlMs: 5_000 }).then((j: InitialCrm) => {
         setItems(j.items);
         setCounts(j.counts);
+        if (typeof j.lusha === "boolean") setLushaReady(j.lusha);
       });
     });
+  }
+
+  async function fetchContact(crmId: string, linkedinUrl?: string | null, pickOnly = false) {
+    setContactBusy(true);
+    setHmError(null);
+    setSel(crmId);
+    try {
+      const res = await fetch("/api/leads/hm-contact", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ crmId, linkedinUrl: linkedinUrl || undefined, pickOnly }),
+      });
+      const j = (await res.json().catch(() => ({}))) as { error?: string; detail?: string };
+      if (!res.ok) {
+        setHmError(
+          j.detail === "no-lusha-key"
+            ? "Lusha-key ontbreekt nog. Naam en LinkedIn staan er wel — mail en tel komen zodra de key op Vercel staat."
+            : j.error || "Contact ophalen mislukt"
+        );
+        return;
+      }
+      await refresh().catch(() => null);
+    } finally {
+      setContactBusy(false);
+    }
   }
 
   async function searchHm(crmId: string, force = false) {
@@ -125,11 +182,13 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
         onUpdate: (j) => {
           setItems(j.items);
           setCounts(j.counts);
+          if (typeof j.lusha === "boolean") setLushaReady(j.lusha);
         },
       })
         .then((j: InitialCrm) => {
           setItems(j.items);
           setCounts(j.counts);
+          if (typeof j.lusha === "boolean") setLushaReady(j.lusha);
         })
         .catch((e: unknown) => {
           const status = (e as { status?: number }).status;
@@ -269,7 +328,11 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
       await searchHm(row.id, Boolean(row.hiringManager));
       return;
     }
-    if (row.href) window.location.href = row.href;
+    if (label === "Haal contact") {
+      await fetchContact(row.id, row.hiringManagerUrl);
+      return;
+    }
+    if (label === "Bericht" && row.href) window.location.href = row.href;
   }
 
   async function bulkSearchHm() {
@@ -325,18 +388,15 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
               <li>
                 <span className="ws-fold__n">2</span>
                 <span>
-                  <strong className="font-semibold text-[var(--ink)]">Actie</strong> — knop rechts: Zoek HM of
-                  open Voorstel.
+                  <strong className="font-semibold text-[var(--ink)]">Actie</strong> — knop rechts: Zoek HM,
+                  haal mail/tel, of open het bericht aan de manager.
                 </span>
               </li>
               <li>
                 <span className="ws-fold__n">3</span>
                 <span>
-                  <strong className="font-semibold text-[var(--ink)]">Door</strong> — met manager klaar voor{" "}
-                  <a href="/regie" className="font-semibold text-[var(--ink)] underline underline-offset-2">
-                    Voorstel
-                  </a>
-                  .
+                  <strong className="font-semibold text-[var(--ink)]">Bericht</strong> — daarna het bericht aan die
+                  manager. Kandidaten uitsturen komt later.
                 </span>
               </li>
             </ol>
@@ -451,60 +511,67 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
                           onClick={() => pick(row.id)}
                           aria-expanded={on}
                           aria-current={on ? "true" : undefined}
-                          className="kans-row__hit"
+                          className="kans-row__who"
                         >
                           <CompanyMark
                             name={row.endClient}
                             logoUrl={row.logoUrl || guessCompanyLogo(row.endClient)}
                             size="md"
                           />
-
-                          <span className="kans-row__main">
-                            <span className="kans-row__title">
-                              <span className="truncate text-[0.95rem] font-semibold text-[var(--ink)]">
-                                {row.endClient}
-                              </span>
-                              <span className="truncate text-[0.8rem] text-[var(--muted)]">
-                                {row.roleLabel}
-                                {row.freshnessLabel ? (
-                                  <span className="opacity-80">{` · ${row.freshnessLabel}`}</span>
-                                ) : null}
-                              </span>
+                          <span className="kans-row__title">
+                            <span className="truncate text-[0.95rem] font-semibold text-[var(--ink)]">
+                              {row.endClient}
                             </span>
-
-                            <span className="kans-row__bron">
-                              {row.sourceChannel ? <SourceLogo channel={row.sourceChannel} /> : null}
-                              <span className="kans-row__bron-text">
-                                <span className="font-medium text-[var(--ink)]">{sourceLine(row)}</span>
-                                {row.bronDetail ? (
-                                  <span className="text-[var(--muted)]">{` · ${row.bronDetail}`}</span>
-                                ) : null}
-                              </span>
-                            </span>
-
-                            <span className="kans-row__hm">
-                              {row.hiringManager ? (
-                                <span className="font-medium text-[var(--ink)]">{row.hiringManager}</span>
-                              ) : (
-                                <span className="text-[var(--muted)]">Geen hiring manager</span>
-                              )}
+                            <span className="truncate text-[0.78rem] text-[var(--muted)]">
+                              {row.roleLabel}
+                              {row.freshnessLabel ? ` · ${row.freshnessLabel}` : ""}
                             </span>
                           </span>
                         </button>
 
+                        <span className="kans-row__src">
+                          <span className={`kans-origin ${row.lane === "bureau" ? "kans-origin--feed" : "kans-origin--board"}`}>
+                            {originOf(row).label}
+                          </span>
+                          {originOf(row).detail ? (
+                            <span className="kans-row__src-detail">{originOf(row).detail}</span>
+                          ) : (
+                            <span className="kans-row__src-detail">&nbsp;</span>
+                          )}
+                        </span>
+
+                        <span className="kans-row__hm">
+                          <span className={`block truncate ${row.hiringManager ? "font-medium text-[var(--ink)]" : "text-[var(--muted)]"}`}>
+                            {row.hiringManager || "Geen hiring manager"}
+                          </span>
+                          {row.hiringManager ? (
+                            <span className="block truncate text-[0.72rem] text-[var(--muted)]">
+                              {row.hiringManagerEmail ||
+                                row.hiringManagerPhone ||
+                                (row.lushaStatus ? "Geen mail/tel" : "Mail/tel nog ophalen")}
+                            </span>
+                          ) : (
+                            <span className="block text-[0.72rem]">&nbsp;</span>
+                          )}
+                        </span>
+
                         <span className="kans-row__side">
-                          {row.kans != null ? <ScoreChip kans={row.kans} /> : null}
+                          {row.kans != null ? <ScoreChip kans={row.kans} /> : <span className="kans-row__score-gap" />}
                           {cta ? (
                             <button
                               type="button"
-                              disabled={hmBusy && cta === "Zoek HM"}
+                              disabled={(hmBusy && cta === "Zoek HM") || (contactBusy && cta === "Haal contact")}
                               className="btn-ink btn-tool"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 void runPrimary(row);
                               }}
                             >
-                              {hmBusy && on && cta === "Zoek HM" ? "Zoeken…" : cta}
+                              {hmBusy && on && cta === "Zoek HM"
+                                ? "Zoeken…"
+                                : contactBusy && on && cta === "Haal contact"
+                                  ? "Contact…"
+                                  : cta}
                             </button>
                           ) : (
                             <span className="kans-row__next">{next}</span>
@@ -518,12 +585,9 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
                           <dl className="mt-3 grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-3">
                             <div>
                               <dt className="ws-label">Hoe binnengekomen</dt>
-                              <dd className="mt-1 flex flex-wrap items-center gap-2 font-medium text-[var(--ink)]">
-                                {row.sourceChannel ? <SourceLogo channel={row.sourceChannel} size="md" /> : null}
-                                {sourceLine(row)}
-                              </dd>
-                              {row.bronDetail ? (
-                                <dd className="mt-0.5 text-[0.78rem] text-[var(--muted)]">{row.bronDetail}</dd>
+                              <dd className="mt-1 font-medium text-[var(--ink)]">{originOf(row).label}</dd>
+                              {originOf(row).detail ? (
+                                <dd className="mt-0.5 text-[0.78rem] text-[var(--muted)]">{originOf(row).detail}</dd>
                               ) : null}
                               {row.agencyName ? (
                                 <dd className="mt-0.5 text-[0.78rem] text-[var(--muted)]">
@@ -539,50 +603,11 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
                               <dt className="ws-label">Hiring manager</dt>
                               <dd className="mt-1 text-[var(--ink)]">
                                 {row.hiringManager ? (
-                                  <>
-                                    {row.hiringManagerUrl ? (
-                                      <a
-                                        href={row.hiringManagerUrl}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="font-semibold text-[var(--ink)] no-underline hover:underline"
-                                      >
-                                        {row.hiringManager}
-                                      </a>
-                                    ) : (
-                                      <span className="font-semibold">{row.hiringManager}</span>
-                                    )}
-                                    {row.hiringManagerTitle ? (
-                                      <span className="block text-[0.8rem] text-[var(--muted)]">
-                                        {row.hiringManagerTitle}
-                                      </span>
-                                    ) : null}
-                                  </>
+                                  <span className="font-semibold">{contactLine(row)}</span>
                                 ) : (
                                   <span className="text-[var(--muted)]">Nog niet gevonden</span>
                                 )}
                               </dd>
-                              {row.hmHits?.length > 1 ? (
-                                <ul className="mt-1.5 space-y-0.5">
-                                  {row.hmHits.slice(0, 4).map((h) => (
-                                    <li key={h.name} className="text-[0.75rem] text-[var(--muted)]">
-                                      {h.url ? (
-                                        <a
-                                          href={h.url}
-                                          target="_blank"
-                                          rel="noopener noreferrer"
-                                          className="font-medium text-[var(--ink)] no-underline hover:underline"
-                                        >
-                                          {h.name}
-                                        </a>
-                                      ) : (
-                                        <span className="font-medium text-[var(--ink)]">{h.name}</span>
-                                      )}
-                                      {h.title ? ` · ${h.title}` : ""}
-                                    </li>
-                                  ))}
-                                </ul>
-                              ) : null}
                             </div>
                             <div>
                               <dt className="ws-label">Tijdlijn</dt>
@@ -598,6 +623,95 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
                               ) : null}
                             </div>
                           </dl>
+
+                          {row.hiringManager ? (
+                            <div className="kans-contact">
+                              <div className="flex flex-wrap items-start justify-between gap-3">
+                                <div className="min-w-0">
+                                  <p className="ws-label">Benaderen</p>
+                                  <p className="mt-1 text-[0.95rem] font-semibold text-[var(--ink)]">
+                                    {row.hiringManager}
+                                  </p>
+                                  {row.hiringManagerTitle ? (
+                                    <p className="text-[0.8rem] text-[var(--muted)]">{row.hiringManagerTitle}</p>
+                                  ) : null}
+                                </div>
+                                <div className="flex flex-wrap gap-2">
+                                  {row.hiringManagerEmail ? (
+                                    <a href={`mailto:${row.hiringManagerEmail}`} className="btn-ink btn-tool no-underline">
+                                      Mail
+                                    </a>
+                                  ) : null}
+                                  {row.hiringManagerPhone ? (
+                                    <a href={`tel:${row.hiringManagerPhone}`} className="btn-ink btn-tool no-underline">
+                                      Bel
+                                    </a>
+                                  ) : null}
+                                  {row.hiringManagerUrl ? (
+                                    <a
+                                      href={row.hiringManagerUrl}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="btn-ghost btn-tool no-underline"
+                                    >
+                                      LinkedIn
+                                    </a>
+                                  ) : null}
+                                  {needsContact(row) ? (
+                                    <button
+                                      type="button"
+                                      disabled={contactBusy}
+                                      onClick={() => void fetchContact(row.id, row.hiringManagerUrl)}
+                                      className="btn-ink btn-tool disabled:opacity-50"
+                                    >
+                                      {contactBusy ? "Contact…" : "Haal mail en tel"}
+                                    </button>
+                                  ) : null}
+                                </div>
+                              </div>
+                              <dl className="mt-3 grid gap-2 text-[0.8rem] sm:grid-cols-2">
+                                <div>
+                                  <dt className="ws-label">Mail</dt>
+                                  <dd className="mt-0.5 break-all text-[var(--ink)]">
+                                    {row.hiringManagerEmail || (row.lushaStatus ? "Niet gevonden" : "Nog niet opgehaald")}
+                                  </dd>
+                                </div>
+                                <div>
+                                  <dt className="ws-label">Telefoon</dt>
+                                  <dd className="mt-0.5 text-[var(--ink)]">
+                                    {row.hiringManagerPhone || (row.lushaStatus ? "Niet gevonden" : "Nog niet opgehaald")}
+                                  </dd>
+                                </div>
+                              </dl>
+                              {!lushaReady && needsContact(row) ? (
+                                <p className="mt-2 text-[0.72rem] text-[var(--muted)]">
+                                  Lusha-key ontbreekt nog. Naam en LinkedIn kun je al gebruiken.
+                                </p>
+                              ) : null}
+                              {row.hmHits.filter((h) => h.name !== row.hiringManager).length ? (
+                                <ul className="mt-3 space-y-1 border-t border-[var(--line)] pt-2">
+                                  {row.hmHits
+                                    .filter((h) => h.name !== row.hiringManager)
+                                    .slice(0, 4)
+                                    .map((h) => (
+                                      <li key={`${h.name}-${h.url || ""}`} className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[0.75rem]">
+                                        <span className="font-medium text-[var(--ink)]">{h.name}</span>
+                                        {h.title ? <span className="text-[var(--muted)]">{h.title}</span> : null}
+                                        {h.email ? <span className="text-[var(--muted)]">{h.email}</span> : null}
+                                        <button
+                                          type="button"
+                                          disabled={contactBusy}
+                                          onClick={() => void fetchContact(row.id, h.url, true)}
+                                          className="font-semibold text-[var(--ink)] underline underline-offset-2 disabled:opacity-50"
+                                        >
+                                          Gebruik deze
+                                        </button>
+                                      </li>
+                                    ))}
+                                </ul>
+                              ) : null}
+                            </div>
+                          ) : null}
 
                           {hmError && active?.id === row.id ? (
                             <p className="mt-3 text-[0.75rem] text-[var(--warn)]">{hmError}</p>
@@ -641,7 +755,7 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
                                   href={row.href}
                                   className="text-[0.8rem] font-semibold text-[var(--ink)] no-underline hover:underline"
                                 >
-                                  Open voorstel
+                                Open bericht
                                 </Link>
                               ) : null}
                               {row.evidenceUrl ? (

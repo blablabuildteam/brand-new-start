@@ -39,9 +39,8 @@ function hmKnown(proposal: PlacementProposal | null) {
   return t?.kind === "person" && t.cta === "bericht";
 }
 
-function defaultTab(proposal: PlacementProposal | null): "hm" | string {
-  if (hmKnown(proposal)) return "hm";
-  return proposal?.shortlist[0]?.person.id || "hm";
+function defaultTab(): "hm" {
+  return "hm";
 }
 
 function groupRail(items: DeskItem[]) {
@@ -123,7 +122,7 @@ export default function RegieDesk({
   const groups = useMemo(() => groupRail(visible), [visible]);
 
   useEffect(() => {
-    setTab(defaultTab(proposal));
+    setTab(defaultTab());
     setHuntErr("");
   }, [item?.openingId]);
 
@@ -294,18 +293,18 @@ export default function RegieDesk({
     tab === "hm" ? hm?.url : proposal?.shortlist.find((s) => s.person.id === tab)?.linkedinUrl;
 
   return (
-    <AppShell current="voorstel" title="Voorstel" subtitle="Bericht klaarzetten voor manager of kandidaat" fill>
+    <AppShell current="voorstel" title="Bericht" subtitle="Alleen naar de hiring manager. Jij verstuurt." fill>
       <div className="ws-shell ws-shell--split ws-shell--split-wide">
         <details className={`ws-fold lg:col-span-2 ${mobilePane === "detail" ? "max-lg:hidden" : ""}`}>
           <summary>
-            <span>Wat is Voorstel?</span>
-            <span className="ws-fold__meta">Bericht klaarzetten · jij verstuurt</span>
+            <span>Wat is dit?</span>
+            <span className="ws-fold__meta">Bericht naar de hiring manager</span>
           </summary>
           <div className="ws-fold__body">
             <p className="m-0 text-[0.8rem] leading-relaxed text-[var(--muted)]">
-              Hier zet je het <strong className="font-semibold text-[var(--ink)]">outreach-bericht</strong> klaar
-              voor de hiring manager of een kandidaat uit je bench. Niets gaat automatisch — jij kopieert en
-              verstuurt.
+              Hier staat het <strong className="font-semibold text-[var(--ink)]">bericht aan de hiring manager</strong>.
+              Niets gaat automatisch — jij kopieert en stuurt via LinkedIn of mail. Berichten naar kandidaten komen
+              later, niet in dit scherm.
             </p>
             <ol className="ws-fold__steps">
               <li>
@@ -322,8 +321,8 @@ export default function RegieDesk({
               <li>
                 <span className="ws-fold__n">2</span>
                 <span>
-                  <strong className="font-semibold text-[var(--ink)]">Kies ontvanger</strong> — hiring manager of
-                  iemand uit je shortlist/bench.
+                  <strong className="font-semibold text-[var(--ink)]">Kies de manager</strong> — naam, mail en
+                  LinkedIn staan hier. Zoek ze als ze er nog niet zijn.
                 </span>
               </li>
               <li>
@@ -334,20 +333,6 @@ export default function RegieDesk({
                 </span>
               </li>
             </ol>
-            {items.some((i) => i.sampleBench) ? (
-              <p className="mt-3 mb-0 text-[0.78rem] leading-relaxed text-[var(--muted)]">
-                Shortlist = <strong className="font-semibold text-[var(--ink)]">voorbeeld-bench</strong>{" "}
-                (fictieve namen). Vervang later onder Instellingen → Bench.
-              </p>
-            ) : items.some((i) => !i.proposal.shortlist.length) ? (
-              <p className="mt-3 mb-0 text-[0.78rem] leading-relaxed text-[var(--muted)]">
-                Nog geen shortlist: voeg ZZP’ers toe onder{" "}
-                <Link href="/instellingen#bench" className="font-semibold text-[var(--ink)] underline underline-offset-2">
-                  Instellingen → Bench
-                </Link>
-                . HM-berichten werken zonder bench.
-              </p>
-            ) : null}
           </div>
         </details>
         <aside
@@ -561,97 +546,9 @@ export default function RegieDesk({
                 ) : null}
               </section>
 
-              <section>
-                <div className="mb-2 flex flex-wrap items-center gap-2">
-                  <p className="ws-label mb-0">Voorstel</p>
-                  {item.sampleBench ? <span className="ws-badge">Voorbeeld-bench</span> : null}
-                  {item.demoOpening ? <span className="ws-badge">Demo-opening</span> : null}
-                </div>
-                <ol className="grid gap-3 md:grid-cols-3">
-                  {proposal.shortlist.map((s, i) => {
-                    const on = tab === s.person.id;
-                    return (
-                      <li key={s.person.id}>
-                        <button
-                          type="button"
-                          onClick={() => setTab(s.person.id)}
-                          className={`flex h-full w-full flex-col rounded-[var(--radius)] border bg-[var(--surface)] p-4 text-left shadow-[var(--shadow)] transition ${
-                            on
-                              ? "border-[var(--accent)] shadow-[inset_3px_0_0_0_var(--accent)]"
-                              : "border-[var(--line)] hover:border-[var(--accent)]/40"
-                          }`}
-                        >
-                          <span className="flex items-start justify-between gap-2">
-                            <span
-                              className={`grid h-9 w-9 place-items-center rounded-[var(--radius)] text-[0.7rem] font-semibold ${
-                                on ? "bg-[var(--accent)] text-white" : "bg-[var(--surface-2)] text-[var(--ink)]"
-                              }`}
-                            >
-                              {initials(s.person.name)}
-                            </span>
-                            <span className="flex flex-col items-end gap-1">
-                              {item.sampleBench ? (
-                                <span className="ws-badge">Voorbeeld</span>
-                              ) : null}
-                              <span
-                                className="tabular-nums text-[0.7rem] text-[var(--muted)]"
-                                style={{ fontFamily: "var(--mono)" }}
-                              >
-                                {s.score}
-                              </span>
-                            </span>
-                          </span>
-                          <span className="mt-3 text-[0.95rem] font-semibold text-[var(--ink)]">{s.person.name}</span>
-                          <span className="mt-0.5 text-[0.75rem] text-[var(--muted)]">
-                            {s.person.title} · {s.person.city}
-                          </span>
-                          <ul className="mt-2 space-y-1">
-                            {s.why.slice(0, 2).map((w) => (
-                              <li key={w} className="text-[0.72rem] leading-snug text-[var(--muted)]">
-                                {w}
-                              </li>
-                            ))}
-                          </ul>
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ol>
-                {!proposal.shortlist.length ? (
-                  <p className="mt-2 rounded-[var(--radius)] border border-dashed border-[var(--line)] bg-[var(--surface-2)] px-3 py-3 text-[0.8rem] text-[var(--muted)]">
-                    Geen match — voeg mensen toe in{" "}
-                    <Link href="/instellingen#bench" className="font-semibold text-[var(--accent)] no-underline hover:underline">
-                      Instellingen → Bench
-                    </Link>
-                    .
-                  </p>
-                ) : null}
-              </section>
-
               <section className="ws-panel">
                 <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--line)]/80 px-4 py-2.5">
-                  <p className="ws-label">Bericht</p>
-                  <div className="flex flex-wrap gap-1">
-                    {known ? (
-                      <button
-                        type="button"
-                        onClick={() => setTab("hm")}
-                        className={`ws-chip !py-1.5 ${tab === "hm" ? "ws-chip--on" : ""}`}
-                      >
-                        Manager
-                      </button>
-                    ) : null}
-                    {proposal.candidateMessages.map((m) => (
-                      <button
-                        key={m.id}
-                        type="button"
-                        onClick={() => setTab(m.id)}
-                        className={`ws-chip !py-1.5 ${tab === m.id ? "ws-chip--on" : ""}`}
-                      >
-                        {m.name.split(" ")[0]}
-                      </button>
-                    ))}
-                  </div>
+                  <p className="ws-label">Bericht aan de hiring manager</p>
                 </div>
                 <div className="px-4 py-4">
                   <textarea

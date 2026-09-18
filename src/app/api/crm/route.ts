@@ -3,6 +3,7 @@ import { z } from "zod";
 import { getSession } from "@/lib/auth";
 import { listActionQueue, listCrmOpportunities, setCrmStage } from "@/lib/crm";
 import { loadHuntSettings } from "@/lib/hunt";
+import { hasLushaKey } from "@/lib/lusha";
 import type { CrmStage } from "@/lib/desk-meta";
 
 export async function GET() {
@@ -28,6 +29,7 @@ export async function GET() {
         lost: items.filter((i) => i.stage === "lost").length,
       },
     },
+    lusha: hasLushaKey(),
   });
 }
 

@@ -8,7 +8,7 @@ import { ResearchMeter } from "@/components/research-meter";
 import { kansenHref, regieHref } from "@/lib/desk-links";
 import { DESK } from "@/lib/desk-labels";
 import type { AgencyLead, LeadStatus } from "@/lib/opportunity";
-import { isHuntWorthy } from "@/lib/end-client";
+import { isHuntWorthy, huntSignals } from "@/lib/end-client";
 import { streamResearch } from "@/lib/research/client";
 import { skipBatchResearch } from "@/lib/research/first-pass";
 import { startingProgress } from "@/lib/research/progress";
@@ -80,19 +80,46 @@ function statusClass(status: LeadStatus) {
 function whyLine(lead: AgencyLead): string | null {
   const g = lead.guess;
   if (!g) return null;
-  if (g.source === "serp") return "Via zoekbevestiging (geen Claude)";
-  if (g.source === "deep") return "Via deep research";
-  if (g.source === "ai") return "Via AI-analyse";
-  if (g.source === "rules") return "Via regels / naamlek";
+  if (g.source === "serp") return "Bevestigd in zoekresultaten, zonder Claude.";
+  if (g.source === "deep") return "Via deep research.";
+  if (g.source === "ai") return "Via AI-analyse van de post.";
+  if (g.source === "rules") return "Naam of signaal staat in de post zelf.";
   const top = g.evidence?.[0];
   if (top?.label && top?.quote) {
     const q = top.quote.replace(/\s+/g, " ").trim();
-    const short = q.length > 72 ? `${q.slice(0, 70)}…` : q;
-    return `${top.label} · “${short}”`;
+    const short = q.length > 110 ? `${q.slice(0, 108)}…` : q;
+    return `${top.label}: “${short}”`;
   }
   if (top?.label) return top.label;
   if (g.report?.hypothesis) return g.report.hypothesis;
-  return "Lokale regels / catalogus";
+  return "Lokale regels.";
+}
+
+function clientExplain(lead: AgencyLead): { kind: "ok" | "thin" | "hunt"; why: string } {
+  if (lead.status === "confirmed") return { kind: "ok", why: "Door jou bevestigd." };
+  if (lead.status === "rejected") return { kind: "ok", why: "Afgewezen." };
+  const text = `${lead.title}\n${lead.summary || ""}`;
+  const signals = huntSignals({ title: lead.title, text });
+  const sporen = [...signals.project_signals, ...signals.hard_signals, signals.location.city || ""]
+    .filter(Boolean)
+    .slice(0, 3);
+  const g = lead.guess;
+  if (g && g.confidence >= 45) {
+    const why = whyLine(lead);
+    return { kind: "ok", why: `${g.confidence}% · ${why || "match op de post"}` };
+  }
+  if (!isHuntWorthy({ title: lead.title, text, prior: g })) {
+    return {
+      kind: "thin",
+      why: sporen.length
+        ? `Niet te vinden: de post noemt geen opdrachtgever. Alleen ${sporen.join(", ")} — te algemeen om te zoeken.`
+        : "Niet te vinden: de post noemt geen opdrachtgever en geen uniek project, techniek of stad.",
+    };
+  }
+  return {
+    kind: "hunt",
+    why: `Nog niet gezocht. Wel een spoor${sporen.length ? `: ${sporen.join(", ")}` : ""}. Start AI om de opdrachtgever te jagen.`,
+  };
 }
 
 function statusShort(status: LeadStatus) {
@@ -137,7 +164,7 @@ function LeadCard({
   const client = (clientDraft || guessed).trim();
   const actionable = lead.status !== "confirmed" && lead.status !== "rejected";
   const researchLock = busy || aiBusy || Boolean(aiQueued);
-  const why = whyLine(lead);
+  const why = clientExplain(lead);
   const conf = lead.guess && actionable ? lead.guess.confidence : null;
 
   return (
@@ -161,10 +188,10 @@ function LeadCard({
               →
             </span>
             <span className={`truncate ${client ? "font-semibold text-[var(--ink)]" : "text-[var(--muted)]"}`}>
-              {client || "Eindklant onbekend"}
+              {client || "Opdrachtgever onbekend"}
             </span>
-            {why ? <span className="lead-row__why truncate">{why}</span> : null}
           </span>
+          <span className={`lead-row__why ${why.kind === "thin" ? "lead-row__why--thin" : ""}`}>{why.why}</span>
         </span>
       </button>
 
@@ -172,7 +199,7 @@ function LeadCard({
         <div className="lead-row__detail" onClick={(e) => e.stopPropagation()}>
           {lead.guess?.evidence?.length ? (
             <div className="lead-why">
-              <p className="lead-why__label">Waarom {lead.guess.name || "deze eindklant"}?</p>
+              <p className="lead-why__label">Waarom {lead.guess.name || "deze opdrachtgever"}?</p>
               <ul className="lead-why__list">
                 {lead.guess.evidence.slice(0, 3).map((e, i) => (
                   <li key={i}>
@@ -191,11 +218,9 @@ function LeadCard({
                 </p>
               ) : null}
             </div>
-          ) : actionable ? (
-            <p className="text-[0.75rem] text-[var(--muted)]">
-              Nog geen eindklant-signalen — vul zelf in of start AI.
-            </p>
-          ) : null}
+          ) : (
+            <p className="text-[0.78rem] leading-relaxed text-[var(--muted)]">{why.why}</p>
+          )}
 
           {actionable ? (
             <div className="lead-row__actions">
@@ -791,6 +816,18 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
             <p className="text-sm text-[var(--muted)]">Laden…</p>
           ) : (
             <div className="space-y-3">
+              {(() => {
+                const thin = data.live.filter((l) => l.status !== "confirmed" && l.status !== "rejected" && clientExplain(l).kind === "thin").length;
+                const open = data.live.filter((l) => l.status !== "confirmed" && l.status !== "rejected").length;
+                if (!open) return null;
+                return (
+                  <p className="text-[0.8rem] leading-relaxed text-[var(--muted)]">
+                    <strong className="font-semibold text-[var(--ink)]">{thin} van {open}</strong> open posts
+                    noemen geen opdrachtgever. Die slaan we over: zonder naam of uniek project (programma, techniek,
+                    stad) is zoeken gokken. Vul de naam zelf in, of start AI als er wél een spoor staat.
+                  </p>
+                );
+              })()}
               <section>
                 <div className="mb-2 flex items-center justify-between gap-2">
                   <p className="ws-label">Te reviewen</p>

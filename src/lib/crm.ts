@@ -7,6 +7,8 @@ import {
   loadDeskMeta,
   saveDeskMeta,
   type CrmStage,
+  type HmGuessRow,
+  type HmHitStored,
 } from "@/lib/desk-meta";
 
 export type CrmLane = "bureau" | "direct";
@@ -37,7 +39,10 @@ export type CrmOpportunity = {
   hiringManager: string | null;
   hiringManagerTitle: string | null;
   hiringManagerUrl: string | null;
-  hmHits: { name: string; title: string | null; url: string | null; score?: number }[];
+  hiringManagerEmail: string | null;
+  hiringManagerPhone: string | null;
+  lushaStatus: "ok" | "empty" | "restricted" | null;
+  hmHits: HmHitStored[];
   agencyName: string | null;
   recruiterName: string | null;
   confirmedAt: string | null;
@@ -97,6 +102,32 @@ function normName(s: string) {
 
 function sourceLabels(raw: string[]) {
   return [...new Set(raw.map((s) => channelLabel(s) || s).filter(Boolean))];
+}
+
+function profileKey(url: string | null | undefined) {
+  if (!url) return "";
+  return url.split("?")[0].replace(/\/+$/, "").toLowerCase();
+}
+
+function contactFrom(row: HmGuessRow | null | undefined, extraHits?: HmHitStored[]) {
+  const hits = [...(row?.hits || []), ...(extraHits || [])];
+  const key = profileKey(row?.hiringManagerUrl);
+  const hit = key
+    ? hits.find((h) => profileKey(h.url) === key)
+    : hits.find((h) => row?.hiringManager && h.name === row.hiringManager && (h.email || h.phone));
+  return {
+    hiringManagerEmail: row?.hiringManagerEmail || hit?.email || null,
+    hiringManagerPhone: row?.hiringManagerPhone || hit?.phone || null,
+    lushaStatus: row?.lushaStatus || hit?.lushaStatus || null,
+    hits: (row?.hits?.length ? row.hits : extraHits || []).slice(0, 5),
+  };
+}
+
+function needsContact(item: Pick<CrmOpportunity, "hiringManager" | "hiringManagerUrl" | "hiringManagerEmail" | "hiringManagerPhone" | "lushaStatus">) {
+  if (!item.hiringManager || !item.hiringManagerUrl) return false;
+  if (item.hiringManagerEmail || item.hiringManagerPhone) return false;
+  if (item.lushaStatus === "empty" || item.lushaStatus === "restricted") return false;
+  return true;
 }
 
 function inferStage(opts: {
@@ -168,14 +199,7 @@ export async function listCrmOpportunities(): Promise<CrmOpportunity[]> {
 
     const id = `crm_bureau_${lead.id}`;
     const hmStored = meta.hmGuesses[id];
-    const rawHm = raw.bureauHm as
-      | {
-          hiringManager?: string | null;
-          hiringManagerTitle?: string | null;
-          hiringManagerUrl?: string | null;
-          hits?: { name: string; title: string | null; url: string | null; score?: number }[];
-        }
-      | undefined;
+    const rawHm = raw.bureauHm as HmGuessRow | undefined;
     const hiringManager =
       hmStored?.hiringManager ||
       rawHm?.hiringManager ||
@@ -188,7 +212,10 @@ export async function listCrmOpportunities(): Promise<CrmOpportunity[]> {
       opening?.org?.hiringManagerTitle ||
       null;
     const hiringManagerUrl = hmStored?.hiringManagerUrl || rawHm?.hiringManagerUrl || null;
-    const hmHits = hmStored?.hits || rawHm?.hits || opening?.org?.hmHits || [];
+    const contact = contactFrom(
+      hmStored ? { ...hmStored, hiringManagerUrl } : rawHm ? { ...rawHm, hiringManagerUrl } : null,
+      opening?.org?.hmHits
+    );
     const storedStage =
       (typeof raw.crmStage === "string" ? (raw.crmStage as CrmStage) : null) ||
       meta.crmStages[id] ||
@@ -222,7 +249,10 @@ export async function listCrmOpportunities(): Promise<CrmOpportunity[]> {
       hiringManager,
       hiringManagerTitle,
       hiringManagerUrl,
-      hmHits: Array.isArray(hmHits) ? hmHits.slice(0, 5) : [],
+      hiringManagerEmail: contact.hiringManagerEmail,
+      hiringManagerPhone: contact.hiringManagerPhone,
+      lushaStatus: contact.lushaStatus,
+      hmHits: contact.hits,
       agencyName: lead.agency.name,
       recruiterName: lead.recruiter.name,
       confirmedAt: review?.at || meta.leadReviews[lead.id]?.at || null,
@@ -275,6 +305,7 @@ export async function listCrmOpportunities(): Promise<CrmOpportunity[]> {
         (typeof raw0.crmStage === "string" ? (raw0.crmStage as CrmStage) : null) ||
         meta.crmStages[id] ||
         null;
+      const contact = contactFrom(idHm, o.org?.hmHits);
 
       out.push({
         id,
@@ -294,7 +325,10 @@ export async function listCrmOpportunities(): Promise<CrmOpportunity[]> {
         hiringManager: hmName,
         hiringManagerTitle: idHm?.hiringManagerTitle || o.org?.hiringManagerTitle || null,
         hiringManagerUrl: idHm?.hiringManagerUrl || null,
-        hmHits: idHm?.hits || o.org?.hmHits || [],
+        hiringManagerEmail: contact.hiringManagerEmail,
+        hiringManagerPhone: contact.hiringManagerPhone,
+        lushaStatus: contact.lushaStatus,
+        hmHits: contact.hits.length ? contact.hits : (o.org?.hmHits || []).slice(0, 5),
         agencyName: null,
         recruiterName: null,
         confirmedAt: null,
@@ -332,10 +366,12 @@ export function listActionQueue(items: CrmOpportunity[]) {
       let href = `/kansen?id=${encodeURIComponent(i.id)}`;
       if (!i.hiringManager) {
         next = "Zoek hiring manager";
-        // Stay in Kansen — bureau HM search runs there, no Radar opening required.
         href = `/kansen?id=${encodeURIComponent(i.id)}&hm=1`;
+      } else if (needsContact(i)) {
+        next = "Haal mail en tel";
+        href = `/kansen?id=${encodeURIComponent(i.id)}`;
       } else if (i.stage === "hm" || i.stage === "bevestigd" || i.stage === "nieuw") {
-        next = "Open voorstel";
+        next = "Bericht aan manager";
         href = i.href || href;
       } else if (i.stage === "outreach") {
         next = "Follow-up";
