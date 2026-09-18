@@ -209,6 +209,7 @@ export async function POST(req: Request) {
       maxPostsPerProfile:
         Number((body as { maxPostsPerProfile?: number }).maxPostsPerProfile) ||
         INGEST_POLICY.recruiterFeedMaxPosts,
+      offset: Number((body as { offset?: number }).offset) || 0,
     });
     await alertNewHits({ kind: "Recruiter-feeds", kept: result.kept, hits: result.hits });
     return NextResponse.json({

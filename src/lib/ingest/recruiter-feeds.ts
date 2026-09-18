@@ -170,6 +170,8 @@ function matchRecruiter(
 export async function syncRecruiterFeeds(opts?: {
   maxRecruiters?: number;
   maxPostsPerProfile?: number;
+  /** Sla de eerste N recruiters over — zo haal je een watchlist in meerdere runs binnen de tijdslimiet. */
+  offset?: number;
 }): Promise<{
   mode: string;
   detail: string;
@@ -187,7 +189,8 @@ export async function syncRecruiterFeeds(opts?: {
   const maxPosts = opts?.maxPostsPerProfile ?? INGEST_POLICY.recruiterFeedMaxPosts;
   const all = listFeedRecruiters();
   const withUrl = all.length;
-  const batch = all.slice(0, maxRecruiters);
+  const offset = Math.max(0, opts?.offset ?? 0);
+  const batch = all.slice(offset, offset + maxRecruiters);
   const searched = batch.map((r) => `${r.name} · ${r.agency.name}`);
 
   if (!batch.length) {
