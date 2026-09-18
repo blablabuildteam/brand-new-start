@@ -1,6 +1,7 @@
 import { listAgencyLeads } from "@/lib/opportunity";
 import { listAgencySignals, listRadar, patchSignalRaw } from "@/lib/store";
 import { channelLabel } from "@/lib/sync-log";
+import { scoreSignals } from "@/lib/score";
 import { regieHref } from "@/lib/desk-links";
 import {
   CRM_STAGE_NL,
@@ -29,6 +30,8 @@ export type CrmOpportunity = {
   roleLabel: string;
   title: string;
   kans: number | null;
+  /** Bewijs achter de score, zodat "55" navraagbaar is. */
+  kansFactors: { label: string; points: number }[];
   sources: string[];
   bronLabel: string;
   bronDetail: string | null;
@@ -211,6 +214,20 @@ export async function listCrmOpportunities(): Promise<CrmOpportunity[]> {
   return buildCrm(await loadCrmInputs());
 }
 
+type ScoredOpening = { kans?: number | null; factors?: { label: string; points: number }[] };
+
+function scoreOf(
+  opening: ScoredOpening | undefined,
+  sig: Parameters<typeof scoreSignals>[0][number] | undefined
+): { kans: number | null; kansFactors: { label: string; points: number }[] } {
+  if (typeof opening?.kans === "number") {
+    return { kans: opening.kans, kansFactors: opening.factors || [] };
+  }
+  if (!sig) return { kans: null, kansFactors: [] };
+  const scored = scoreSignals([sig]);
+  return { kans: scored.kans, kansFactors: scored.factors };
+}
+
 function buildCrm({ leads, radar, signals, meta }: CrmInputs): CrmOpportunity[] {
 
   const signalById = new Map(signals.map((s) => [s.id, s]));
@@ -281,7 +298,9 @@ function buildCrm({ leads, radar, signals, meta }: CrmInputs): CrmOpportunity[] 
       sector: match?.company.sector || null,
       roleLabel: lead.roleLabel,
       title: lead.title,
-      kans: typeof opening?.kans === "number" ? opening.kans : null,
+      // Een feed-kans heeft geen jobboard-vacature om op te scoren; dan scoren we
+      // de recruiter-post zelf, zodat de kolom nooit leeg blijft.
+      ...scoreOf(opening, sig),
       sources: allSources,
       bronLabel: `Bureau · ${lead.agency.name}`,
       bronDetail: [lead.recruiter.name, boardSources[0]].filter(Boolean).join(" · ") || null,
@@ -358,6 +377,7 @@ function buildCrm({ leads, radar, signals, meta }: CrmInputs): CrmOpportunity[] 
         roleLabel: o.roleLabel,
         title: o.openingTitle || o.roleLabel,
         kans: o.kans,
+        kansFactors: o.factors || [],
         sources: boards,
         bronLabel: primary,
         bronDetail: boards.length > 1 ? boards.slice(1).join(" · ") : "Direct bij eindklant",
@@ -404,16 +424,17 @@ export function listActionQueue(items: CrmOpportunity[]) {
   return items
     .filter((i) => i.stage !== "won" && i.stage !== "lost")
     .map((i) => {
+      // Zelfde woorden als de knop op Kansen — anders lijkt het een andere actie.
       let next = "Open detail";
       let href = `/kansen?id=${encodeURIComponent(i.id)}`;
       if (!i.hiringManager) {
-        next = "Zoek hiring manager";
+        next = "Zoek manager";
         href = `/kansen?id=${encodeURIComponent(i.id)}&hm=1`;
       } else if (needsContact(i)) {
-        next = "Haal mail en tel";
+        next = "Haal contact";
         href = `/kansen?id=${encodeURIComponent(i.id)}`;
       } else if (i.stage === "hm" || i.stage === "bevestigd" || i.stage === "nieuw") {
-        next = "Bericht aan manager";
+        next = "Bericht";
         href = i.href || href;
       } else if (i.stage === "outreach") {
         next = "Follow-up";

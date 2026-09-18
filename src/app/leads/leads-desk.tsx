@@ -274,10 +274,10 @@ function LeadCard({
                 {lead.hiringManager ? ` · HM ${lead.hiringManager}` : " · nog geen HM"}
               </p>
               <Link href={kansenHref(`crm_bureau_${lead.id}`)} className="btn-ink btn-tool no-underline">
-                Kansen
+                Open op Kansen
               </Link>
               <button type="button" disabled={hmBusy} onClick={() => onHmSearch?.(lead.id)} className="btn-ghost btn-tool">
-                {hmBusy ? "HM…" : "Zoek HM"}
+                {hmBusy ? "Zoeken…" : "Zoek manager"}
               </button>
             </div>
           ) : null}
@@ -583,18 +583,19 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
               <li>
                 <span className="ws-fold__n">2</span>
                 <span>
-                  <strong className="font-semibold text-[var(--ink)]">Hiring manager</strong> — zoek op de
-                  bevestigde eindklant.
+                  <strong className="font-semibold text-[var(--ink)]">Bevestigd</strong> — de kans verschijnt
+                  meteen op{" "}
+                  <a href="/kansen" className="font-semibold text-[var(--ink)] underline underline-offset-2">
+                    Kansen
+                  </a>
+                  , bij stap 2: manager zoeken.
                 </span>
               </li>
               <li>
                 <span className="ws-fold__n">3</span>
                 <span>
-                  <strong className="font-semibold text-[var(--ink)]">Vervolg</strong> — resultaat in{" "}
-                  <a href="/kansen" className="font-semibold text-[var(--ink)] underline underline-offset-2">
-                    Kansen
-                  </a>
-                  .
+                  <strong className="font-semibold text-[var(--ink)]">Daar verder</strong> — manager, contact en
+                  bericht doe je op Kansen. Hier gaat het alleen om de vraag: wie is de opdrachtgever?
                 </span>
               </li>
             </ol>

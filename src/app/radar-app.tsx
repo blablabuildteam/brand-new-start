@@ -1375,25 +1375,26 @@ export default function RadarApp({
               <li>
                 <span className="ws-fold__n">1</span>
                 <span>
-                  <strong className="font-semibold text-[var(--ink)]">Score</strong> — som van signalen
-                  (versheid, bronnen, contract-taal), max 98. Sterk/warm = actie.
+                  <strong className="font-semibold text-[var(--ink)]">Kans-score</strong> — som van het bewijs
+                  (contract-taal, meerdere bronnen, versheid), max 98.
                 </span>
               </li>
               <li>
                 <span className="ws-fold__n">2</span>
                 <span>
-                  <strong className="font-semibold text-[var(--ink)]">Pad</strong> — bedrijf → opening →
-                  hiring manager → Voorstel.
+                  <strong className="font-semibold text-[var(--ink)]">Vanaf 55</strong> — dan gaat de vacature
+                  automatisch naar{" "}
+                  <a href="/kansen" className="font-semibold text-[var(--ink)] underline underline-offset-2">
+                    Kansen
+                  </a>
+                  , bij stap 2: manager zoeken.
                 </span>
               </li>
               <li>
                 <span className="ws-fold__n">3</span>
                 <span>
-                  <strong className="font-semibold text-[var(--ink)]">Of</strong> — open{" "}
-                  <a href="/kansen" className="font-semibold text-[var(--ink)] underline underline-offset-2">
-                    Kansen → Actie vandaag
-                  </a>
-                  .
+                  <strong className="font-semibold text-[var(--ink)]">Daaronder</strong> — blijft hier staan om
+                  te volgen. Scores lopen op als er nieuwe signalen bij komen.
                 </span>
               </li>
             </ol>

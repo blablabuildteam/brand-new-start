@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { AppShell } from "@/components/app-shell";
 import { ScoreChip } from "@/components/score-chip";
+import { DESK } from "@/lib/desk-labels";
 import type { PlacementProposal } from "@/lib/placement";
 import type { ApproachTarget } from "@/lib/approach";
 
@@ -293,43 +294,43 @@ export default function RegieDesk({
     tab === "hm" ? hm?.url : proposal?.shortlist.find((s) => s.person.id === tab)?.linkedinUrl;
 
   return (
-    <AppShell current="voorstel" title="Bericht" subtitle="Alleen naar de hiring manager. Jij verstuurt." fill>
+    <AppShell current="voorstel" title="Bericht" subtitle={DESK.voorstel.subtitle} fill>
       <div className="ws-shell ws-shell--split ws-shell--split-wide">
         <details className={`ws-fold lg:col-span-2 ${mobilePane === "detail" ? "max-lg:hidden" : ""}`}>
           <summary>
             <span>Wat is dit?</span>
-            <span className="ws-fold__meta">Bericht naar de hiring manager</span>
+            <span className="ws-fold__meta">Laatste stap van een kans</span>
           </summary>
           <div className="ws-fold__body">
             <p className="m-0 text-[0.8rem] leading-relaxed text-[var(--muted)]">
-              Hier staat het <strong className="font-semibold text-[var(--ink)]">bericht aan de hiring manager</strong>.
-              Niets gaat automatisch — jij kopieert en stuurt via LinkedIn of mail. Berichten naar kandidaten komen
-              later, niet in dit scherm.
+              Dit is <strong className="font-semibold text-[var(--ink)]">stap 4 van een kans</strong>: het bericht
+              aan de hiring manager. Stap 1 tot 3 (opdrachtgever, manager, contact) doe je op{" "}
+              <Link href="/kansen" className="font-semibold text-[var(--ink)] underline underline-offset-2">
+                Kansen
+              </Link>
+              . Niets gaat automatisch — jij kopieert en stuurt via LinkedIn of mail. Berichten naar kandidaten
+              komen later, niet in dit scherm.
             </p>
             <ol className="ws-fold__steps">
               <li>
                 <span className="ws-fold__n">1</span>
                 <span>
-                  <strong className="font-semibold text-[var(--ink)]">Kies opening</strong> — uit Jobboards of een
-                  bevestigde kans op{" "}
-                  <Link href="/kansen" className="font-semibold text-[var(--ink)] underline underline-offset-2">
-                    Kansen
-                  </Link>
-                  .
+                  <strong className="font-semibold text-[var(--ink)]">Kies de kans</strong> — links staan de
+                  openingen; via Kansen kom je direct op de juiste.
                 </span>
               </li>
               <li>
                 <span className="ws-fold__n">2</span>
                 <span>
-                  <strong className="font-semibold text-[var(--ink)]">Kies de manager</strong> — naam, mail en
-                  LinkedIn staan hier. Zoek ze als ze er nog niet zijn.
+                  <strong className="font-semibold text-[var(--ink)]">Check de manager</strong> — naam, mail en
+                  LinkedIn staan hier. Ontbreken ze, zoek ze dan eerst op Kansen.
                 </span>
               </li>
               <li>
                 <span className="ws-fold__n">3</span>
                 <span>
-                  <strong className="font-semibold text-[var(--ink)]">Kopieer & stuur</strong> — tekst klaarzetten,
-                  jij plakt het in LinkedIn of mail.
+                  <strong className="font-semibold text-[var(--ink)]">Kopieer & stuur</strong> — daarna zet je op
+                  Kansen de uitkomst: bericht verstuurd, gewonnen of afgelegd.
                 </span>
               </li>
             </ol>

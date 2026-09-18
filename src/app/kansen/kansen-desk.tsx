@@ -2,13 +2,14 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
 import { ScoreChip } from "@/components/score-chip";
 import { CompanyMark } from "@/components/company-mark";
 import type { CrmLane, CrmOpportunity, CrmStage } from "@/lib/crm";
 import { CRM_STAGE_NL } from "@/lib/crm";
 import { radarHref } from "@/lib/desk-links";
+import { DESK } from "@/lib/desk-labels";
 import { guessCompanyLogo } from "@/lib/company-logo";
 
 /** Filters volgen de vier stappen plus de twee bronnen — niet de losse stages. */
@@ -94,6 +95,7 @@ type InitialCrm = {
 
 export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
   const params = useSearchParams();
+  const router = useRouter();
   const [items, setItems] = useState<CrmOpportunity[]>(initial?.items || []);
   const [counts, setCounts] = useState(
     initial?.counts || { all: 0, bureau: 0, direct: 0, withHm: 0 }
@@ -340,7 +342,7 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
       await fetchContact(row.id, row.hiringManagerUrl);
       return;
     }
-    if (step.action === "bericht" && row.href) window.location.href = row.href;
+    if (step.action === "bericht" && row.href) router.push(row.href);
   }
 
   async function bulkSearchHm() {
@@ -373,12 +375,7 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
   const allFilteredPicked = filtered.length > 0 && filtered.every((r) => picked.has(r.id));
 
   return (
-    <AppShell
-      current="kansen"
-      title="Kansen"
-      subtitle="Opdrachtgever → manager → contact → bericht"
-      fill
-    >
+    <AppShell current="kansen" title={DESK.kansen.title} subtitle={DESK.kansen.subtitle} fill>
       <div className="ws-shell">
         <details className="ws-fold shrink-0">
           <summary>
@@ -424,10 +421,16 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
                 <span className="ws-fold__n">4</span>
                 <span>
                   <strong className="font-semibold text-[var(--ink)]">Bericht</strong> — tekst aan die manager. Jij
-                  verstuurt.
+                  verstuurt, en zet daarna de uitkomst in de rij.
                 </span>
               </li>
             </ol>
+            <p className="mt-3 text-[0.8rem] leading-relaxed text-[var(--muted)]">
+              <strong className="font-semibold text-[var(--ink)]">Kans-score</strong> is de som van het bewijs dat
+              hier nú een contracting-opdracht ligt: een vacature die contract of ZZP noemt, meerdere bronnen, verse
+              posts, meer open rollen bij dezelfde klant. Max 98, vanaf 55 noemen we het warm. Open een rij en je
+              ziet precies welke punten er in zitten.
+            </p>
           </div>
         </details>
 
@@ -503,25 +506,17 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
           </div>
           {backlog && (backlog.feedPending || backlog.boardBelow) ? (
             <p className="kans-backlog">
-              Niet meer kansen dan dit, omdat stap 1 elders nog open staat:{" "}
+              <span className="kans-backlog__label">Nog niet hier</span>
               {backlog.feedPending ? (
-                <>
-                  <a href="/leads" className="font-semibold text-[var(--ink)] underline underline-offset-2">
-                    {backlog.feedPending} feed-posts
-                  </a>{" "}
-                  zonder bevestigde opdrachtgever
-                </>
+                <Link href="/leads" className="kans-backlog__link">
+                  {backlog.feedPending} posts zonder opdrachtgever
+                </Link>
               ) : null}
-              {backlog.feedPending && backlog.boardBelow ? " · " : ""}
               {backlog.boardBelow ? (
-                <>
-                  <a href="/radar" className="font-semibold text-[var(--ink)] underline underline-offset-2">
-                    {backlog.boardBelow} jobboard-vacatures
-                  </a>{" "}
-                  onder kans-score {backlog.boardThreshold}
-                </>
+                <Link href="/radar" className="kans-backlog__link">
+                  {backlog.boardBelow} vacatures onder score {backlog.boardThreshold}
+                </Link>
               ) : null}
-              .
             </p>
           ) : null}
           <div className="radar-scroll-pane__body !p-0">
@@ -540,7 +535,12 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
                 <span>Opdrachtgever</span>
                 <span>Bron</span>
                 <span>Hiring manager</span>
-                <span className="text-right">Kans</span>
+                <span
+                  className="text-right"
+                  title="Kans-score: hoeveel bewijs er is dat hier nú een contracting-opdracht ligt. Max 98, 55+ is warm. Open een rij voor het bewijs."
+                >
+                  Kans-score
+                </span>
                 <span className="text-right">Volgende stap</span>
               </div>
             ) : null}
@@ -597,11 +597,6 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
                           <span className={`kans-origin ${row.lane === "bureau" ? "kans-origin--feed" : "kans-origin--board"}`}>
                             {originOf(row).label}
                           </span>
-                          {originOf(row).detail ? (
-                            <span className="kans-row__src-detail">{originOf(row).detail}</span>
-                          ) : (
-                            <span className="kans-row__src-detail">&nbsp;</span>
-                          )}
                         </span>
 
                         <span className="kans-row__hm">
@@ -623,7 +618,7 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
                           {row.kans != null ? (
                             <ScoreChip kans={row.kans} />
                           ) : (
-                            <span className="text-[0.7rem] text-[var(--muted)]">—</span>
+                            <span className="text-[0.7rem] text-[var(--muted)]">Geen bewijs</span>
                           )}
                         </span>
 
@@ -673,18 +668,11 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
                             <div>
                               <dt className="ws-label">Hoe binnengekomen</dt>
                               <dd className="mt-1 font-medium text-[var(--ink)]">{originOf(row).label}</dd>
-                              {originOf(row).detail ? (
-                                <dd className="mt-0.5 text-[0.78rem] text-[var(--muted)]">{originOf(row).detail}</dd>
-                              ) : null}
-                              {row.agencyName ? (
-                                <dd className="mt-0.5 text-[0.78rem] text-[var(--muted)]">
-                                  Bureau · {row.agencyName}
-                                  {row.recruiterName ? ` · ${row.recruiterName}` : ""}
-                                </dd>
-                              ) : null}
-                              {row.lane === "direct" ? (
-                                <dd className="mt-0.5 text-[0.78rem] text-[var(--muted)]">Directe vacature via Jobboards</dd>
-                              ) : null}
+                              <dd className="mt-0.5 text-[0.78rem] text-[var(--muted)]">
+                                {row.lane === "bureau"
+                                  ? `Post van ${[row.agencyName, row.recruiterName].filter(Boolean).join(" · ")} — jij bevestigde ${row.endClient} als opdrachtgever`
+                                  : `Vacature bij ${row.endClient} zelf${originOf(row).detail ? ` · ${originOf(row).detail}` : ""}`}
+                              </dd>
                             </div>
                             <div>
                               <dt className="ws-label">Hiring manager</dt>
@@ -804,27 +792,92 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
                             <p className="mt-3 text-[0.75rem] text-[var(--warn)]">{hmError}</p>
                           ) : null}
 
-                          <div className="mt-5 border-t border-[var(--line)] pt-4">
-                            <div className="flex flex-wrap items-end justify-between gap-3">
-                              <label className="block min-w-[10rem] flex-1">
-                                <span className="ws-label">Stage</span>
-                                <select
-                                  className="ws-input mt-1.5 w-full max-w-xs"
-                                  disabled={stageBusy}
-                                  value={row.stage}
-                                  onChange={(e) => void setStage(row.id, e.target.value as CrmStage)}
-                                >
-                                  {(["bevestigd", "hm", "outreach", "won", "lost"] as CrmStage[]).map((st) => (
-                                    <option key={st} value={st}>
-                                      {CRM_STAGE_NL[st]}
-                                    </option>
+                          <div className="mt-5 grid gap-5 border-t border-[var(--line)] pt-4 lg:grid-cols-2">
+                            <div>
+                              <p className="ws-label">Kans-score</p>
+                              <div className="mt-1.5 flex items-center gap-3">
+                                {row.kans != null ? (
+                                  <ScoreChip kans={row.kans} large />
+                                ) : (
+                                  <span className="text-sm text-[var(--muted)]">Geen bewijs geteld</span>
+                                )}
+                                <span className="text-[0.75rem] leading-snug text-[var(--muted)]">
+                                  Som van het bewijs dat hier nú een contracting-opdracht ligt. Max 98.
+                                </span>
+                              </div>
+                              {row.kansFactors.length ? (
+                                <ul className="mt-2 space-y-1">
+                                  {row.kansFactors.map((f) => (
+                                    <li
+                                      key={f.label}
+                                      className="flex items-baseline gap-2 text-[0.78rem] text-[var(--muted)]"
+                                    >
+                                      <span
+                                        className="shrink-0 font-semibold tabular-nums text-[var(--ink)]"
+                                        style={{ fontFamily: "var(--mono)" }}
+                                      >
+                                        {f.points > 0 ? `+${f.points}` : f.points}
+                                      </span>
+                                      <span>{f.label}</span>
+                                    </li>
                                   ))}
-                                </select>
-                              </label>
-                              {row.kans != null ? <ScoreChip kans={row.kans} large /> : null}
+                                </ul>
+                              ) : null}
+                              <p className="mt-2 text-[0.75rem] leading-snug text-[var(--muted)]">
+                                {row.lane === "bureau"
+                                  ? "Deze kans staat hier omdat jij de opdrachtgever bevestigde. De drempel van 55 geldt alleen voor vacatures van jobboards."
+                                  : `Vanaf 55 zetten we een jobboard-vacature automatisch op Kansen.`}
+                              </p>
                             </div>
 
-                            <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
+                            <div>
+                              <p className="ws-label">Uitkomst</p>
+                              <p className="mt-1 text-[0.75rem] text-[var(--muted)]">
+                                De stappen volgen automatisch uit wat er bekend is. Wat er daarna gebeurt, weet
+                                alleen jij:{" "}
+                                <strong className="font-semibold text-[var(--ink)]">
+                                  {row.stage === "outreach" || row.stage === "won" || row.stage === "lost"
+                                    ? CRM_STAGE_NL[row.stage]
+                                    : "nog niets gezet"}
+                                </strong>
+                                .
+                              </p>
+                              <div className="mt-2 flex flex-wrap gap-2">
+                                {(
+                                  [
+                                    ["outreach", "Bericht verstuurd"],
+                                    ["won", "Opdracht gewonnen"],
+                                    ["lost", "Afgelegd"],
+                                  ] as [CrmStage, string][]
+                                ).map(([st, label]) => (
+                                  <button
+                                    key={st}
+                                    type="button"
+                                    disabled={stageBusy}
+                                    onClick={() => void setStage(row.id, st)}
+                                    className={`ws-chip ${row.stage === st ? "ws-chip--on" : ""}`}
+                                  >
+                                    {label}
+                                  </button>
+                                ))}
+                                {row.stage === "outreach" || row.stage === "won" || row.stage === "lost" ? (
+                                  <button
+                                    type="button"
+                                    disabled={stageBusy}
+                                    onClick={() =>
+                                      void setStage(row.id, row.hiringManager ? "hm" : "bevestigd")
+                                    }
+                                    className="ws-chip"
+                                  >
+                                    Terug naar open
+                                  </button>
+                                ) : null}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="mt-4 border-t border-[var(--line)] pt-4">
+                            <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
                               <button
                                 type="button"
                                 disabled={hmBusy}
@@ -834,8 +887,8 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
                                 {hmBusy
                                   ? "LinkedIn zoeken…"
                                   : row.hiringManager
-                                    ? "Opnieuw HM zoeken"
-                                    : "Zoek hiring manager"}
+                                    ? "Opnieuw manager zoeken"
+                                    : "Zoek manager"}
                               </button>
                               {row.href ? (
                                 <Link
