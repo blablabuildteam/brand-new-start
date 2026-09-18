@@ -261,6 +261,57 @@ export function isAgencyName(name: string | null | undefined): boolean {
   return Boolean(matchAgency(name));
 }
 
+/**
+ * Detacheerders, brokers en vacaturebanken die zichzelf als "bedrijf" op een
+ * jobboard zetten. Jobboards belooft vacatures bij eindklanten; zonder deze
+ * filter staan bemiddelaars als OverheidZZP of Jobster daar als opdrachtgever.
+ */
+const INTERMEDIARY_HINTS = [
+  // Woorden in de naam
+  "detach",
+  "secondment",
+  "uitzend",
+  "werving en selectie",
+  "staffing",
+  "resourcing",
+  "recruitment",
+  "recruiting",
+  "recruiter",
+  "payroll",
+  "interim",
+  "zzp",
+  "freelance",
+  "jobboard",
+  "vacaturebank",
+  "consultancy",
+  "consulting",
+  "professionals",
+  "talent solutions",
+  "it-diensten",
+  // Merken zonder herkenbaar woord in de naam. Vul aan als je er een tegenkomt.
+  "jobster",
+  "ubique",
+  "la fosse",
+  "gazelle global",
+  "next ventures",
+  "global enterprise partners",
+  "xecutive",
+  "dev talents",
+  "nextgen",
+  "algoteque",
+  "coherenza",
+  "itproposal",
+  "source me",
+  "all about work",
+  "suited",
+];
+
+export function looksLikeIntermediary(name: string | null | undefined): boolean {
+  const n = norm(name || "");
+  if (!n) return false;
+  return INTERMEDIARY_HINTS.some((hint) => n.includes(hint));
+}
+
 /** Of dit bureau op jouw volglijst staat. */
 export function isWatchedAgency(agencyId: string): boolean {
   const a = agencyCatalog().find((x) => x.id === agencyId);

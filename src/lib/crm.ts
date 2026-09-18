@@ -32,6 +32,8 @@ export type CrmOpportunity = {
   kans: number | null;
   /** Bewijs achter de score, zodat "55" navraagbaar is. */
   kansFactors: { label: string; points: number }[];
+  /** Aantal vacatures voor deze rol bij deze klant, samengevoegd tot één rij. */
+  openingCount?: number;
   sources: string[];
   bronLabel: string;
   bronDetail: string | null;
@@ -417,7 +419,36 @@ function buildCrm({ leads, radar, signals, meta }: CrmInputs): CrmOpportunity[] 
     return (b.lastSeenAt || b.foundAt || "").localeCompare(a.lastSeenAt || a.foundAt || "");
   });
 
-  return out;
+  return mergeSameRole(out);
+}
+
+/**
+ * Drie vacatures voor dezelfde rol bij dezelfde klant zijn één gesprek met één
+ * manager. Hoogste score wint; de rest telt alleen mee als aantal.
+ */
+function mergeSameRole(items: CrmOpportunity[]): CrmOpportunity[] {
+  const byKey = new Map<string, CrmOpportunity>();
+  for (const item of items) {
+    const key = `${item.lane}|${normName(item.endClient)}|${normName(item.roleLabel)}`;
+    const seen = byKey.get(key);
+    if (!seen) {
+      byKey.set(key, { ...item, openingCount: 1 });
+      continue;
+    }
+    seen.openingCount = (seen.openingCount || 1) + 1;
+    seen.sources = [...new Set([...seen.sources, ...item.sources])];
+    // Een latere rij kan wel een manager hebben terwijl de best scorende er geen heeft.
+    if (!seen.hiringManager && item.hiringManager) {
+      seen.hiringManager = item.hiringManager;
+      seen.hiringManagerTitle = item.hiringManagerTitle;
+      seen.hiringManagerUrl = item.hiringManagerUrl;
+      seen.hiringManagerEmail = item.hiringManagerEmail;
+      seen.hiringManagerPhone = item.hiringManagerPhone;
+      seen.lushaStatus = item.lushaStatus;
+      seen.hmHits = item.hmHits;
+    }
+  }
+  return [...byKey.values()];
 }
 
 export function listActionQueue(items: CrmOpportunity[]) {

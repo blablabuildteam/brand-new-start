@@ -588,6 +588,9 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
                             </span>
                             <span className="truncate text-[0.78rem] text-[var(--muted)]">
                               {row.roleLabel}
+                              {row.openingCount && row.openingCount > 1
+                                ? ` · ${row.openingCount} vacatures`
+                                : ""}
                               {row.freshnessLabel ? ` · ${row.freshnessLabel}` : ""}
                             </span>
                           </span>

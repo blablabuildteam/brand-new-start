@@ -9,7 +9,7 @@ import { orgContextFromSignals } from "@/lib/org-context";
 import { buildApproach, companyLinkedinFromSignals } from "@/lib/approach";
 import { borrowHiringManager } from "@/lib/hm-hunt";
 import { huntSettings } from "@/lib/hunt";
-import { isAgencyName } from "@/lib/agency";
+import { isAgencyName, looksLikeIntermediary } from "@/lib/agency";
 
 function slugify(name: string) {
   return name
@@ -42,16 +42,23 @@ function openingIdHash(key: string): string {
 }
 
 /** Board-placeholders / UI-rommel — geen echte opdrachtgevers. */
+const ROLE_WORDS =
+  /(engineer|developer|analist|analyst|architect|scrum master|consultant|specialist|tester)/;
+
 export function isPlaceholderCompany(name: string): boolean {
   const n = name.trim().toLowerCase();
-  return (
+  if (
     n === "freelance.nl" ||
     n === "freelance.nl opdrachtgever" ||
     n.startsWith("freelance.nl ") ||
     n === "via freelance.nl" ||
     n === "indeed" ||
     n === "linkedin"
-  );
+  ) {
+    return true;
+  }
+  // Sommige boards zetten de vacaturetitel in het bedrijfsveld ("MLOps Engineer - Netherlands").
+  return ROLE_WORDS.test(n) && /( - | \| |\(m\/v|\(m\/f)/.test(n);
 }
 
 /**
@@ -436,7 +443,7 @@ export async function listRadar() {
       if (!company || !companySignals.length) continue;
       if (isPlaceholderCompany(company.name)) continue;
       // Bureau/recruiter-feeds horen op Bureaus, niet als directe Radar-eindklant
-      if (isAgencyName(company.name)) continue;
+      if (isAgencyName(company.name) || looksLikeIntermediary(company.name)) continue;
       const onlyAgencyFeed = companySignals.every(
         (s) =>
           s.source === "agency-swarm" ||
