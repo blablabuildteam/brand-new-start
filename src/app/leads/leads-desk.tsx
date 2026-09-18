@@ -817,14 +817,26 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
           ) : (
             <div className="space-y-3">
               {(() => {
-                const thin = data.live.filter((l) => l.status !== "confirmed" && l.status !== "rejected" && clientExplain(l).kind === "thin").length;
-                const open = data.live.filter((l) => l.status !== "confirmed" && l.status !== "rejected").length;
-                if (!open) return null;
+                const openLeads = data.live.filter(
+                  (l) => l.status !== "confirmed" && l.status !== "rejected"
+                );
+                if (!openLeads.length) return null;
+                const kinds = openLeads.map((l) => clientExplain(l).kind);
+                const ready = kinds.filter((k) => k === "ok").length;
+                const hunt = kinds.filter((k) => k === "hunt").length;
+                const thin = kinds.filter((k) => k === "thin").length;
                 return (
                   <p className="text-[0.8rem] leading-relaxed text-[var(--muted)]">
-                    <strong className="font-semibold text-[var(--ink)]">{thin} van {open}</strong> open posts
-                    noemen geen opdrachtgever. Die slaan we over: zonder naam of uniek project (programma, techniek,
-                    stad) is zoeken gokken. Vul de naam zelf in, of start AI als er wél een spoor staat.
+                    <strong className="font-semibold text-[var(--ink)]">{openLeads.length} posts</strong> wachten op
+                    een opdrachtgever.{" "}
+                    {ready ? <>Bij {ready} heeft de AI al een naam voorgesteld: nakijken en bevestigen. </> : null}
+                    {hunt ? <>Bij {hunt} staat een spoor (project, techniek of stad): druk op AI om te zoeken. </> : null}
+                    {thin ? (
+                      <>
+                        De overige {thin} noemen geen opdrachtgever én geen spoor — daar zou zoeken gokken zijn, dus
+                        vul de naam zelf in als je hem kent.
+                      </>
+                    ) : null}
                   </p>
                 );
               })()}

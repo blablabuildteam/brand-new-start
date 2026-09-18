@@ -11,7 +11,8 @@ import { CRM_STAGE_NL } from "@/lib/crm";
 import { radarHref } from "@/lib/desk-links";
 import { guessCompanyLogo } from "@/lib/company-logo";
 
-type Filter = "all" | CrmLane | CrmStage;
+/** Filters volgen de vier stappen plus de twee bronnen — niet de losse stages. */
+type Filter = "all" | "step2" | "step3" | "step4" | CrmLane;
 
 function formatDay(isoStr: string | null) {
   if (!isoStr) return "—";
@@ -56,20 +57,23 @@ function originOf(row: CrmOpportunity) {
   return { label: "Jobboards", detail };
 }
 
-function nextActionOf(row: CrmOpportunity) {
-  if (row.stage === "won" || row.stage === "lost") return CRM_STAGE_NL[row.stage];
-  if (!row.hiringManager) return "Zoek HM";
-  if (needsContact(row)) return "Haal contact";
-  if (row.stage === "outreach") return "Follow-up";
-  return "Bericht";
-}
+/** Vaste route: opdrachtgever → manager → contact → bericht. */
+const STEPS = ["Opdrachtgever", "Manager", "Contact", "Bericht"] as const;
 
-function actionLabel(row: CrmOpportunity) {
-  if (row.stage === "won" || row.stage === "lost") return null;
-  if (!row.hiringManager) return "Zoek HM";
-  if (needsContact(row)) return "Haal contact";
-  if (row.href) return "Bericht";
-  return null;
+type Step = {
+  /** 1-based positie in STEPS: de stap die nu open staat. */
+  n: number;
+  action: "hm" | "contact" | "bericht" | null;
+  label: string;
+};
+
+function stepOf(row: CrmOpportunity): Step {
+  if (row.stage === "won") return { n: 4, action: null, label: "Gewonnen" };
+  if (row.stage === "lost") return { n: 4, action: null, label: "Afgelegd" };
+  if (!row.hiringManager) return { n: 2, action: "hm", label: "Zoek manager" };
+  if (needsContact(row)) return { n: 3, action: "contact", label: "Haal contact" };
+  if (row.stage === "outreach") return { n: 4, action: "bericht", label: "Follow-up" };
+  return { n: 4, action: "bericht", label: "Bericht" };
 }
 
 type ActionItem = CrmOpportunity & { nextAction: string; nextHref: string };
@@ -84,6 +88,7 @@ type InitialCrm = {
     withHm: number;
     byStage?: Record<string, number>;
   };
+  backlog?: { feedPending: number; boardBelow: number; boardThreshold: number };
   lusha?: boolean;
 };
 
@@ -103,6 +108,7 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
   const [hmError, setHmError] = useState<string | null>(null);
   const [contactBusy, setContactBusy] = useState(false);
   const [lushaReady, setLushaReady] = useState(Boolean(initial?.lusha));
+  const [backlog, setBacklog] = useState(initial?.backlog || null);
   const [hmAutoRan, setHmAutoRan] = useState(false);
   const [q, setQ] = useState("");
   const [bulkNote, setBulkNote] = useState<string | null>(null);
@@ -113,6 +119,7 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
       return cachedJson<InitialCrm>("crm", "/api/crm", { ttlMs: 5_000 }).then((j: InitialCrm) => {
         setItems(j.items);
         setCounts(j.counts);
+        if (j.backlog) setBacklog(j.backlog);
         if (typeof j.lusha === "boolean") setLushaReady(j.lusha);
       });
     });
@@ -182,12 +189,14 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
         onUpdate: (j) => {
           setItems(j.items);
           setCounts(j.counts);
+          if (j.backlog) setBacklog(j.backlog);
           if (typeof j.lusha === "boolean") setLushaReady(j.lusha);
         },
       })
         .then((j: InitialCrm) => {
           setItems(j.items);
           setCounts(j.counts);
+          if (j.backlog) setBacklog(j.backlog);
           if (typeof j.lusha === "boolean") setLushaReady(j.lusha);
         })
         .catch((e: unknown) => {
@@ -221,7 +230,7 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
       if (filter === "bureau" || filter === "direct") {
         if (r.lane !== filter) return false;
       } else if (filter !== "all") {
-        if (r.stage !== filter) return false;
+        if (stepOf(r).n !== Number(filter.slice(4))) return false;
       }
       if (!needle) return true;
       const hay = [
@@ -321,18 +330,17 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
   }
 
   async function runPrimary(row: CrmOpportunity) {
-    const label = actionLabel(row);
-    if (!label) return;
-    if (label === "Zoek HM") {
+    const step = stepOf(row);
+    if (step.action === "hm") {
       setSel(row.id);
       await searchHm(row.id, Boolean(row.hiringManager));
       return;
     }
-    if (label === "Haal contact") {
+    if (step.action === "contact") {
       await fetchContact(row.id, row.hiringManagerUrl);
       return;
     }
-    if (label === "Bericht" && row.href) window.location.href = row.href;
+    if (step.action === "bericht" && row.href) window.location.href = row.href;
   }
 
   async function bulkSearchHm() {
@@ -351,52 +359,72 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
     window.setTimeout(() => setBulkNote(null), 2000);
   }
 
+  const perStep = (n: number) => items.filter((r) => stepOf(r).n === n).length;
   const filters: { id: Filter; label: string; n: number }[] = [
     { id: "all", label: "Alles", n: counts.all },
-    { id: "nieuw", label: "Nieuw", n: counts.byStage?.nieuw ?? 0 },
-    { id: "bevestigd", label: "Bevestigd", n: counts.byStage?.bevestigd ?? counts.bureau },
-    { id: "hm", label: "Manager", n: counts.byStage?.hm ?? 0 },
-    { id: "outreach", label: "Outreach", n: counts.byStage?.outreach ?? 0 },
+    { id: "step2", label: "Zoek manager", n: perStep(2) },
+    { id: "step3", label: "Haal contact", n: perStep(3) },
+    { id: "step4", label: "Bericht", n: perStep(4) },
     { id: "direct", label: "Jobboards", n: counts.direct },
+    { id: "bureau", label: "Recruiter feed", n: counts.bureau },
   ];
 
   const needsHm = filtered.filter((r) => !r.hiringManager && r.stage !== "won" && r.stage !== "lost").length;
   const allFilteredPicked = filtered.length > 0 && filtered.every((r) => picked.has(r.id));
 
   return (
-    <AppShell current="kansen" title="Kansen" subtitle="Eén lijst · volgende actie in de rij" fill>
+    <AppShell
+      current="kansen"
+      title="Kansen"
+      subtitle="Opdrachtgever → manager → contact → bericht"
+      fill
+    >
       <div className="ws-shell">
         <details className="ws-fold shrink-0">
           <summary>
             <span>Wat is Kansen?</span>
-            <span className="ws-fold__meta">Actielijst · HM · voorstel</span>
+            <span className="ws-fold__meta">Vier stappen per kans</span>
           </summary>
           <div className="ws-fold__body">
             <p className="m-0 text-[0.8rem] leading-relaxed text-[var(--muted)]">
-              Hier staan <strong className="font-semibold text-[var(--ink)]">bevestigde bureau-kansen</strong> en{" "}
-              <strong className="font-semibold text-[var(--ink)]">warme directe hits</strong> uit Jobboards. Per rij
-              zie je bron, logo en de volgende stap — meestal: hiring manager zoeken of voorstel openen.
+              Een kans komt hier binnen op twee manieren: je bevestigt de opdrachtgever van een post op{" "}
+              <a href="/leads" className="font-semibold text-[var(--ink)] underline underline-offset-2">
+                Recruiter feed
+              </a>
+              , of een vacature op{" "}
+              <a href="/radar" className="font-semibold text-[var(--ink)] underline underline-offset-2">
+                Jobboards
+              </a>{" "}
+              haalt kans-score 55. Daarna loopt elke kans dezelfde vier stappen, en de knop rechts is altijd de
+              eerstvolgende stap.
             </p>
             <ol className="ws-fold__steps">
               <li>
                 <span className="ws-fold__n">1</span>
                 <span>
-                  <strong className="font-semibold text-[var(--ink)]">Selecteer</strong> — vink rijen aan voor
-                  bulk HM-zoek, of open één rij voor detail.
+                  <strong className="font-semibold text-[var(--ink)]">Opdrachtgever</strong> — bekend, anders staat
+                  de kans hier nog niet.
                 </span>
               </li>
               <li>
                 <span className="ws-fold__n">2</span>
                 <span>
-                  <strong className="font-semibold text-[var(--ink)]">Actie</strong> — knop rechts: Zoek HM,
-                  haal mail/tel, of open het bericht aan de manager.
+                  <strong className="font-semibold text-[var(--ink)]">Manager</strong> — Zoek manager haalt namen van
+                  LinkedIn (≈ €0,10).
                 </span>
               </li>
               <li>
                 <span className="ws-fold__n">3</span>
                 <span>
-                  <strong className="font-semibold text-[var(--ink)]">Bericht</strong> — daarna het bericht aan die
-                  manager. Kandidaten uitsturen komt later.
+                  <strong className="font-semibold text-[var(--ink)]">Contact</strong> — Haal contact zet mail en
+                  telefoon op de kans.
+                </span>
+              </li>
+              <li>
+                <span className="ws-fold__n">4</span>
+                <span>
+                  <strong className="font-semibold text-[var(--ink)]">Bericht</strong> — tekst aan die manager. Jij
+                  verstuurt.
                 </span>
               </li>
             </ol>
@@ -469,26 +497,62 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
               <p className="ws-label">Lijst</p>
             </div>
             <p className="tabular-nums text-[0.68rem] text-[var(--muted)]" style={{ fontFamily: "var(--mono)" }}>
-              {filtered.length}
-              {needsHm ? ` · ${needsHm} zonder HM` : ""}
+              {filtered.length} {filtered.length === 1 ? "kans" : "kansen"}
+              {needsHm ? ` · ${needsHm} zonder manager` : ""}
             </p>
           </div>
+          {backlog && (backlog.feedPending || backlog.boardBelow) ? (
+            <p className="kans-backlog">
+              Niet meer kansen dan dit, omdat stap 1 elders nog open staat:{" "}
+              {backlog.feedPending ? (
+                <>
+                  <a href="/leads" className="font-semibold text-[var(--ink)] underline underline-offset-2">
+                    {backlog.feedPending} feed-posts
+                  </a>{" "}
+                  zonder bevestigde opdrachtgever
+                </>
+              ) : null}
+              {backlog.feedPending && backlog.boardBelow ? " · " : ""}
+              {backlog.boardBelow ? (
+                <>
+                  <a href="/radar" className="font-semibold text-[var(--ink)] underline underline-offset-2">
+                    {backlog.boardBelow} jobboard-vacatures
+                  </a>{" "}
+                  onder kans-score {backlog.boardThreshold}
+                </>
+              ) : null}
+              .
+            </p>
+          ) : null}
           <div className="radar-scroll-pane__body !p-0">
             {error ? <p className="px-5 py-3 text-sm text-[var(--warn)]">{error}</p> : null}
             {loading ? <p className="px-5 py-3 text-sm text-[var(--muted)]">Laden…</p> : null}
             {!loading && !filtered.length ? (
               <p className="ws-empty m-4">
-                Nog geen kansen hier. Bevestig een eindklant op Recruiter feed, of wacht op warme Direct-hits.
+                Nog geen kansen hier. Bevestig een opdrachtgever op Recruiter feed, of wacht op een warme
+                jobboard-hit.
               </p>
+            ) : null}
+
+            {!loading && filtered.length ? (
+              <div className="kans-head" aria-hidden>
+                <span />
+                <span>Opdrachtgever</span>
+                <span>Bron</span>
+                <span>Hiring manager</span>
+                <span className="text-right">Kans</span>
+                <span className="text-right">Volgende stap</span>
+              </div>
             ) : null}
 
             {!loading && filtered.length ? (
               <ul className="divide-y divide-[var(--line)]">
                 {filtered.map((row) => {
                   const on = active?.id === row.id;
-                  const next = nextActionOf(row);
-                  const cta = actionLabel(row);
+                  const step = stepOf(row);
                   const checked = picked.has(row.id);
+                  const stepBusy =
+                    (hmBusy && step.action === "hm") || (contactBusy && step.action === "contact");
                   return (
                     <li key={row.id} className={on ? "bg-[var(--surface-2)]" : ""}>
                       <div className={`kans-row ${on ? "kans-row--on" : ""}`}>
@@ -555,33 +619,56 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
                           )}
                         </span>
 
+                        <span className="kans-row__score">
+                          {row.kans != null ? (
+                            <ScoreChip kans={row.kans} />
+                          ) : (
+                            <span className="text-[0.7rem] text-[var(--muted)]">—</span>
+                          )}
+                        </span>
+
                         <span className="kans-row__side">
-                          {row.kans != null ? <ScoreChip kans={row.kans} /> : <span className="kans-row__score-gap" />}
-                          {cta ? (
+                          {step.action ? (
                             <button
                               type="button"
-                              disabled={(hmBusy && cta === "Zoek HM") || (contactBusy && cta === "Haal contact")}
-                              className="btn-ink btn-tool"
+                              disabled={stepBusy}
+                              className="btn-ink btn-tool w-full justify-center"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 void runPrimary(row);
                               }}
                             >
-                              {hmBusy && on && cta === "Zoek HM"
-                                ? "Zoeken…"
-                                : contactBusy && on && cta === "Haal contact"
-                                  ? "Contact…"
-                                  : cta}
+                              {stepBusy && on ? "Bezig…" : step.label}
                             </button>
                           ) : (
-                            <span className="kans-row__next">{next}</span>
+                            <span className="kans-row__next">{step.label}</span>
                           )}
+                          <span className="kans-row__step">
+                            Stap {step.n} van 4 · {STEPS[step.n - 1]}
+                          </span>
                         </span>
                       </div>
 
                       {on ? (
                         <div className="kans-row__detail">
                           <p className="text-sm text-[var(--muted)]">{row.title}</p>
+                          <ol className="kans-track">
+                            {STEPS.map((name, i) => (
+                              <li
+                                key={name}
+                                className={`kans-track__item ${
+                                  i + 1 < step.n
+                                    ? "kans-track__item--done"
+                                    : i + 1 === step.n
+                                      ? "kans-track__item--now"
+                                      : ""
+                                }`}
+                              >
+                                <span className="kans-track__n">{i + 1}</span>
+                                {name}
+                              </li>
+                            ))}
+                          </ol>
                           <dl className="mt-3 grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-3">
                             <div>
                               <dt className="ws-label">Hoe binnengekomen</dt>

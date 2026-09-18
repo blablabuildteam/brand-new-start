@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getSession } from "@/lib/auth";
-import { listActionQueue, listCrmOpportunities, setCrmStage } from "@/lib/crm";
+import { listActionQueue, listCrmDesk, setCrmStage } from "@/lib/crm";
 import { loadHuntSettings } from "@/lib/hunt";
 import { hasLushaKey } from "@/lib/lusha";
 import type { CrmStage } from "@/lib/desk-meta";
@@ -10,11 +10,12 @@ export async function GET() {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   await loadHuntSettings();
-  const items = await listCrmOpportunities();
+  const { items, backlog } = await listCrmDesk();
   const actionQueue = listActionQueue(items);
   return NextResponse.json({
     items,
     actionQueue,
+    backlog,
     counts: {
       all: items.length,
       bureau: items.filter((i) => i.lane === "bureau").length,

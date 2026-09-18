@@ -160,8 +160,27 @@ function sourceChannelOf(labels: string[]): string | null {
   return null;
 }
 
-/** Bevestigde bureau-kansen + warme/jobboard-radar-kansen. */
-export async function listCrmOpportunities(): Promise<CrmOpportunity[]> {
+/**
+ * Waarom een kans nog niet in de lijst staat. Zonder deze cijfers lijkt een
+ * lijst van drie een bug, terwijl de rest gewoon nog een stap mist.
+ */
+export type CrmBacklog = {
+  /** Feed-posts zonder bevestigde opdrachtgever. */
+  feedPending: number;
+  /** Jobboard-vacatures onder de kansdrempel. */
+  boardBelow: number;
+  /** Score die een jobboard-vacature nodig heeft. */
+  boardThreshold: number;
+};
+
+type CrmInputs = {
+  leads: Awaited<ReturnType<typeof listAgencyLeads>>;
+  radar: Awaited<ReturnType<typeof listRadar>>;
+  signals: Awaited<ReturnType<typeof listAgencySignals>>;
+  meta: Awaited<ReturnType<typeof loadDeskMeta>>;
+};
+
+async function loadCrmInputs(): Promise<CrmInputs> {
   const [leads, radar, signals, meta] = await Promise.all([
     listAgencyLeads(),
     listRadar(),
@@ -170,6 +189,29 @@ export async function listCrmOpportunities(): Promise<CrmOpportunity[]> {
     listAgencySignals(),
     loadDeskMeta(),
   ]);
+  return { leads, radar, signals, meta };
+}
+
+export async function listCrmDesk(): Promise<{ items: CrmOpportunity[]; backlog: CrmBacklog }> {
+  const inputs = await loadCrmInputs();
+  const feedPending = inputs.leads.live.filter(
+    (l) => l.status !== "confirmed" && l.status !== "rejected"
+  ).length;
+  const boardBelow = inputs.radar
+    .flatMap((r) => r.openings || [])
+    .filter((o) => o.status !== "hot" && o.status !== "warm").length;
+  return {
+    items: buildCrm(inputs),
+    backlog: { feedPending, boardBelow, boardThreshold: 55 },
+  };
+}
+
+/** Bevestigde bureau-kansen + warme/jobboard-radar-kansen. */
+export async function listCrmOpportunities(): Promise<CrmOpportunity[]> {
+  return buildCrm(await loadCrmInputs());
+}
+
+function buildCrm({ leads, radar, signals, meta }: CrmInputs): CrmOpportunity[] {
 
   const signalById = new Map(signals.map((s) => [s.id, s]));
   const radarByCompany = new Map(radar.map((r) => [normName(r.company.name), r] as const));
