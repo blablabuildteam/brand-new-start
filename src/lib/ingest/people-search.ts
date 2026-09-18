@@ -42,6 +42,7 @@ function titleFromUnknown(v: unknown): string | null {
 
 function personTitle(item: Record<string, unknown>): string | null {
   return (
+    titleFromUnknown(item.currentPositions) ||
     titleFromUnknown(item.currentPosition) ||
     titleFromUnknown(item.jobTitle) ||
     titleFromUnknown(item.headline) ||
@@ -77,7 +78,10 @@ function companyFromObject(v: unknown): string | null {
 }
 
 function personCurrentCompany(item: Record<string, unknown>, headline: string | null): string | null {
-  const fromPos = companyFromObject(item.currentPosition) || companyFromObject(item.currentCompany);
+  const fromPos =
+    companyFromObject(item.currentPositions) ||
+    companyFromObject(item.currentPosition) ||
+    companyFromObject(item.currentCompany);
   if (fromPos) return fromPos;
   const exp = item.experience;
   if (Array.isArray(exp)) {
@@ -150,7 +154,12 @@ export async function searchHiringManagers(input: PeopleSearchInput): Promise<{
 
   const parsed = items
     .map((item) => {
-      const headline = typeof item.headline === "string" ? item.headline : null;
+      const headline =
+        typeof item.headline === "string"
+          ? item.headline
+          : typeof item.summary === "string"
+            ? item.summary.slice(0, 240)
+            : null;
       const company = personCurrentCompany(item, headline);
       const alumni = Boolean(
         headline && /\b(ex-|former|voorheen|previously|alumni)\b/i.test(headline)
@@ -211,7 +220,12 @@ export async function searchAgencyRecruiters(input: {
 
   const people = items
     .map((item) => {
-      const headline = typeof item.headline === "string" ? item.headline : null;
+      const headline =
+        typeof item.headline === "string"
+          ? item.headline
+          : typeof item.summary === "string"
+            ? item.summary.slice(0, 240)
+            : null;
       const company = personCurrentCompany(item, headline);
       const alumni = Boolean(
         headline && /\b(ex-|former|voorheen|previously|alumni)\b/i.test(headline)
