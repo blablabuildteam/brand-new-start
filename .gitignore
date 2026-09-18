@@ -43,4 +43,3 @@ next-env.d.ts
 
 # Database-backups (bevat klantdata)
 backups/
-tmp-data-tool.mjs
