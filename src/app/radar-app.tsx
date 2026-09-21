@@ -814,7 +814,7 @@ export default function RadarApp({
         : action === "indeed"
           ? "Indeed NL via Apify: jouw rollen + ZZP. Filter in-app."
           : action === "freelance-nl"
-            ? "Freelance.nl via Firecrawl: zoekpagina’s per ingestelde rol."
+            ? "Freelance.nl: open opdrachten uit de sitemap. Alleen als de opdrachtgever publiek op de pagina staat; anders zit die achter een login en slaan we de opdracht over."
             : action === "recruiter-feeds"
               ? "LinkedIn-posts van recruiters die je volgt. Vacature/kans-posts → Recruiter feed → eindklant bevestigen."
               : "Careers-pagina’s van de watchlist op openstaande rollen in jouw kader.";
@@ -1085,10 +1085,10 @@ export default function RadarApp({
                     return {
                       id: "freelance-nl",
                       label: "Freelance.nl",
-                      status: flRun && flRun.fetched === 0 ? "error" : "done",
+                      status: flRun && flRun.mode === "error" ? "error" : "done",
                       detail: flRun
-                        ? flRun.fetched === 0 && flRun.detail
-                          ? flRun.detail.slice(0, 40)
+                        ? flRun.kept === 0 && flRun.detail
+                          ? flRun.detail.slice(0, 48)
                           : `${flRun.kept}/${flRun.fetched}`
                         : "klaar",
                     };

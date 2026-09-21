@@ -334,29 +334,22 @@ export default async function MethodePage() {
 
       <section className="mb-4 overflow-hidden rounded-md border border-[var(--line)] bg-[var(--surface)]">
         <div className="border-b border-[var(--line)]/80 px-4 py-3 sm:px-5">
-          <SourceHeading channel="freelance-nl" title="Freelance.nl" tool="Firecrawl · aparte sync-run" />
+          <SourceHeading channel="freelance-nl" title="Freelance.nl" tool="sitemap · aparte sync-run" />
         </div>
         <div className="space-y-3 px-4 py-3 text-sm leading-relaxed text-[var(--ink)] sm:px-5">
           <p>
-            Freelance.nl is een SPA zonder nette jobs-API. We scrapen{" "}
-            <strong>zoekpagina’s</strong> (
-            <code className="text-[0.75rem]">freelance.nl/opdrachten?zoekwoord=…</code>) via
-            Firecrawl. <strong>Eigen sync-ronde</strong>, los van Indeed. Advies: ~1×/
-            {INGEST_POLICY.boardsCadenceDays} dagen. Tot {INGEST_POLICY.syncFreelanceQueries}{" "}
-            zoekpagina’s per sync.
+            De zoek-URL levert geen vacatures meer (dat is een marketingpagina). We lezen de
+            publieke sitemap en de nieuwste opdrachtpagina’s in je rollen.{" "}
+            <strong>Eigen sync-ronde</strong>, los van Indeed.
           </p>
           <p className="text-[var(--muted)]">
-            Uit de markdown trekken we alleen echte opdracht-links (
-            <code className="text-[0.75rem]">/opdracht/…</code>) mét opdrachtgever-naam. Tot{" "}
-            {INGEST_POLICY.syncFreelanceDetails} opdracht-pagina’s extra voor contact/afdeling.
-            Freelance.nl zelf is geen bedrijf op de radar.
+            Een open opdracht noemt de opdrachtgever meestal niet: die tekst zit achter een login.
+            Alleen als de naam wél op de pagina staat, komt de vacature op Jobboards. Anders slaan
+            we hem over, zodat er geen “Freelance.nl” als nep-eindklant verschijnt.
           </p>
           <p className="text-xs text-[var(--muted)]">
-            Freelance.nl alleen
-            {admin
-              ? ` ≈ €${SYNC_COST_PER_RUN.actions["freelance-nl"].eur.low}–${SYNC_COST_PER_RUN.actions["freelance-nl"].eur.high} / run (Firecrawl-credits)`
-              : " (Firecrawl)"}
-            .
+            Geen Firecrawl meer: de sitemap en de opdrachtpagina’s zijn publiek. De rollen hieronder
+            bepalen welke opdrachten we bekijken.
           </p>
           <div className="flex flex-wrap gap-1.5">
             {freelanceQueries.map((q) => (

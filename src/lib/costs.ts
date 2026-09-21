@@ -256,9 +256,9 @@ export const SYNC_COST_PER_RUN = {
     },
     "freelance-nl": {
       label: "Freelance.nl",
-      tool: "Firecrawl",
-      eur: { low: 0.3, high: 2.0 },
-      what: `${INGEST_POLICY.syncFreelanceQueries} zoekpagina’s · advies 1×/${INGEST_POLICY.boardsCadenceDays}d`,
+      tool: "sitemap",
+      eur: { low: 0, high: 0 },
+      what: "nieuwste open opdrachten in je rollen · alleen als de opdrachtgever publiek is",
     },
     boards: {
       label: "Indeed + Freelance.nl (legacy bundel)",

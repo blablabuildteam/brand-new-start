@@ -230,144 +230,203 @@ async function fetchIndeedJobs(opts?: {
   }
 }
 
-/** Freelance.nl is a Gatsby SPA — needs Firecrawl (or browser actor). */
-function cleanFreelanceTitle(raw: string): string {
-  return raw
-    .replace(/\\+/g, "")
-    .replace(/^#+\s*/, "")
-    .replace(/^[-*•\d.]+\s*/, "")
+/**
+ * De zoek-URL /opdrachten?zoekwoord= is een statische marketingpagina zonder
+ * vacatures. Open opdrachten staan in de sitemap; de pagina zelf noemt de
+ * opdrachtgever meestal niet (die zit achter een gratis login).
+ */
+const FREELANCE_SITEMAP = "https://www.freelance.nl/sitemaps/sitemap-projects.xml.gz";
+const FREELANCE_UA =
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36";
+
+const FREELANCE_GENERIC = new Set([
+  "onze",
+  "ons",
+  "een",
+  "deze",
+  "hun",
+  "de",
+  "het",
+  "opdrachtgever",
+  "eindklant",
+  "klant",
+  "organisatie",
+  "grote",
+  "publieke",
+  "sector",
+  "client",
+  "our",
+  "the",
+  "opdracht",
+  "project",
+  "team",
+  "nederland",
+  "amsterdam",
+  "rotterdam",
+  "utrecht",
+  "haag",
+  "den",
+]);
+
+function roleNeedles(role: string): string[] {
+  const slug = role
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+  if (!slug) return [];
+  const needles = [slug];
+  if (slug.includes("analist")) needles.push(slug.replace(/analist/g, "analyst"));
+  if (slug.includes("analyst")) needles.push(slug.replace(/analyst/g, "analist"));
+  return needles;
+}
+
+function freelanceUrlMatchesRole(url: string, roles: string[]): boolean {
+  const slug = (url.split("/opdracht/")[1] || "").toLowerCase();
+  const needles = roles.flatMap(roleNeedles);
+  return needles.some((n) => n.length >= 4 && slug.includes(n));
+}
+
+function stripTags(html: string): string {
+  return html
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&#39;|&apos;/g, "'")
+    .replace(/&quot;/g, '"')
+    .replace(/&nbsp;/g, " ")
     .replace(/\s+/g, " ")
     .trim();
 }
 
-function isJunkFreelanceTitle(title: string): boolean {
-  if (title.length < 8 || title.length > 140) return true;
-  return /sorteer|relevantie|filter|cookie|inloggen|registreer|bekijk alle|pagina \d|opdrachtgever|nieuwste opdrachten|oudste opdrachten|^https?:\/\//i.test(
-    title
-  );
+function fieldOf(html: string, label: string): string | null {
+  const re = new RegExp(`<dt>\\s*${label}\\s*:?\\s*</dt>\\s*<dd[^>]*>([\\s\\S]*?)</dd>`, "i");
+  const m = html.match(re);
+  return m ? stripTags(m[1]) : null;
 }
 
-function extractFreelanceCompany(context: string): string | null {
+/** Alleen een echte organisatienaam. "Onze opdrachtgever" en "een klant" tellen niet. */
+function extractNamedClient(text: string): string | null {
+  // Geen /i op de hele regex: dan telt [A-Z] ook kleine letters en loopt de naam
+  // door tot het eind van de zin.
+  const name = String.raw`[A-ZÁÉÍÓÚÄËÏÖÜ][\w&.'’\-]+(?:\s+(?:van|de|het|der|&)\s+[A-ZÁÉÍÓÚÄËÏÖÜ][\w&.'’\-]+|\s+[A-ZÁÉÍÓÚÄËÏÖÜ][\w&.'’\-]+){0,3}`;
   const patterns = [
-    /opdrachtgever[:\s|*]+([A-ZÁÉÍÓÚÄËÏÖÜ0-9][\w&.'’\- ]{1,60})/i,
-    /(?:^|\n)\s*\*?\*?([A-ZÁÉÍÓÚÄËÏÖÜ][\w&.'’\- ]{2,50})\*?\*?\s*(?:\n|$)/,
+    new RegExp(String.raw`[Oo]pdrachtgever\s*[:|]\s*(${name})`),
+    new RegExp(String.raw`\b(?:[Bb]ij|[Vv]oor)\s+(?:de\s+|het\s+)?(${name})`),
   ];
   for (const re of patterns) {
-    const m = context.match(re);
-    const name = m?.[1]?.trim().replace(/\s+/g, " ");
-    if (!name) continue;
-    if (/freelance\.nl|opdrachtgever|nederland|amsterdam|rotterdam|utrecht|remote|zzp|interim/i.test(name)) {
+    const name = re.exec(text)?.[1]?.trim().replace(/\s+/g, " ");
+    if (!name || name.length < 2 || name.length > 60) continue;
+    const first = name.split(/\s+/)[0]?.toLowerCase() || "";
+    if (FREELANCE_GENERIC.has(first)) continue;
+    if (/freelance\.nl|zzp|interim|remote|engineer|analist|analyst|architect|scrum|owner/i.test(name)) {
       continue;
     }
-    if (name.length < 2 || name.length > 60) continue;
     return name;
   }
   return null;
 }
 
-function parseFreelanceMarkdown(md: string, query: string): BoardJob[] {
-  const jobs: BoardJob[] = [];
-  const seen = new Set<string>();
-  const linkRe =
-    /\[([^\]]+)\]\((https?:\/\/(?:www\.)?freelance\.nl\/opdracht\/(\d+)[^)\s]*)\)/gi;
-  let m: RegExpExecArray | null;
-  while ((m = linkRe.exec(md)) !== null) {
-    const title = cleanFreelanceTitle(m[1] || "");
-    const url = (m[2] || "").split("?")[0];
-    if (!url || seen.has(url)) continue;
-    if (isJunkFreelanceTitle(title) || !matchesRole(title)) continue;
-
-    const start = Math.max(0, m.index - 400);
-    const end = Math.min(md.length, m.index + m[0].length + 500);
-    const context = md.slice(start, end);
-    const company = extractFreelanceCompany(context);
-    // Zonder echte opdrachtgever niet onder “Freelance.nl” bundelen — skip.
-    if (!company) continue;
-
-    seen.add(url);
-    jobs.push({
-      company,
-      title,
-      description: context.replace(/\s+/g, " ").trim().slice(0, 1200),
-      url,
-      channel: "freelance-nl",
-    });
-  }
-  return jobs;
+function parseFreelancePage(html: string, url: string): BoardJob | "closed" | "hidden" | null {
+  const status = fieldOf(html, "Status");
+  if (!status) return null;
+  if (!/gepubliceerd/i.test(status)) return "closed";
+  const title = stripTags(html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i)?.[1] || "");
+  if (!title || !matchesRole(title)) return null;
+  const descMatch = html.match(
+    /project-details__description[\s\S]*?<div[^>]*>([\s\S]*?)<\/div>/i
+  );
+  const description = stripTags(descMatch?.[1] || "");
+  const location = fieldOf(html, "Op locatie");
+  const company = extractNamedClient(`${title}. ${description}`);
+  if (!company) return "hidden";
+  const posted = fieldOf(html, "Publicatiedatum");
+  let postedAt: string | undefined;
+  const dm = posted?.match(/(\d{1,2})-(\d{1,2})-(\d{4})/);
+  if (dm) postedAt = new Date(Date.UTC(Number(dm[3]), Number(dm[2]) - 1, Number(dm[1]))).toISOString();
+  return {
+    company,
+    title,
+    description: [description, location ? `Locatie: ${location}` : ""].filter(Boolean).join(" ").slice(0, 1200),
+    url: url.split("?")[0],
+    location: location || undefined,
+    channel: "freelance-nl",
+    postedAt,
+  };
 }
 
-async function scrapeFreelanceMarkdown(url: string, key: string): Promise<string> {
-  const res = await fetch("https://api.firecrawl.dev/v1/scrape", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${key}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      url,
-      formats: ["markdown"],
-      onlyMainContent: true,
-      waitFor: 2000,
-    }),
+async function loadFreelanceSitemap(): Promise<string[]> {
+  const res = await fetch(FREELANCE_SITEMAP, {
+    headers: { "User-Agent": FREELANCE_UA, Accept: "application/xml,text/xml,*/*" },
     signal: AbortSignal.timeout(20000),
   });
-  if (!res.ok) return "";
-  const data = (await res.json()) as { data?: { markdown?: string } };
-  return data.data?.markdown || "";
+  if (!res.ok) throw new Error(`sitemap ${res.status}`);
+  const buf = Buffer.from(await res.arrayBuffer());
+  const xml =
+    buf[0] === 0x1f && buf[1] === 0x8b
+      ? (await import("node:zlib")).gunzipSync(buf).toString("utf8")
+      : buf.toString("utf8");
+  return [...xml.matchAll(/<loc>([^<]*\/opdracht\/[^<]+)<\/loc>/g)].map((m) => m[1]);
 }
 
-/** Enkele opdracht-pagina’s voor contactpersoon / afdeling (niet alle hits). */
-async function enrichFreelanceDetails(jobs: BoardJob[], maxDetails: number): Promise<BoardJob[]> {
-  const key = process.env.FIRECRAWL_API_KEY;
-  if (!key || maxDetails <= 0) return jobs;
-  const targets = jobs.filter((j) => j.url).slice(0, maxDetails);
-  const extra = new Map<string, string>();
-  await Promise.all(
-    targets.map(async (j) => {
-      try {
-        const md = await scrapeFreelanceMarkdown(j.url!, key);
-        if (md.length > 40) extra.set(j.url!, md);
-      } catch {
-        // skip
-      }
-    })
-  );
-  return jobs.map((j) => {
-    const md = j.url ? extra.get(j.url) : null;
-    if (!md) return j;
-    return { ...j, description: md.slice(0, 2500) };
-  });
-}
-
-async function fetchFreelanceNlJobs(maxQueries = 2): Promise<{ jobs: BoardJob[]; detail: string }> {
-  const key = process.env.FIRECRAWL_API_KEY;
-  if (!key) {
-    return { jobs: [], detail: "freelance:needs-FIRECRAWL_API_KEY" };
+async function fetchFreelanceNlJobs(maxQueries = 12): Promise<{
+  jobs: BoardJob[];
+  detail: string;
+  scanned: number;
+}> {
+  const roles = huntRoles().slice(0, maxQueries);
+  const maxPages = Math.min(24, Math.max(16, maxQueries));
+  let urls: string[] = [];
+  try {
+    const all = await loadFreelanceSitemap();
+    urls = all
+      .filter((u) => freelanceUrlMatchesRole(u, roles))
+      .sort((a, b) => {
+        const id = (u: string) => Number(u.match(/\/opdracht\/(\d+)/)?.[1] || 0);
+        return id(b) - id(a);
+      })
+      .slice(0, maxPages);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message.slice(0, 80) : "sitemap-error";
+    return { jobs: [], detail: `freelance:${msg}`, scanned: 0 };
   }
 
+  let open = 0;
+  let hidden = 0;
   const jobs: BoardJob[] = [];
-  const queries = huntRoles().slice(0, maxQueries);
-
-  for (const q of queries) {
-    const url = `https://www.freelance.nl/opdrachten?zoekwoord=${encodeURIComponent(q)}`;
-    try {
-      const md = await scrapeFreelanceMarkdown(url, key);
-      jobs.push(...parseFreelanceMarkdown(md, q));
-    } catch {
-      // per-query ignore
+  let cursor = 0;
+  async function worker() {
+    while (cursor < urls.length) {
+      const url = urls[cursor++];
+      try {
+        const res = await fetch(url, {
+          headers: { "User-Agent": FREELANCE_UA, Accept: "text/html" },
+          signal: AbortSignal.timeout(15000),
+        });
+        if (!res.ok) continue;
+        const parsed = parseFreelancePage(await res.text(), url);
+        if (parsed === "closed" || parsed === null) continue;
+        open += 1;
+        if (parsed === "hidden") {
+          hidden += 1;
+          continue;
+        }
+        jobs.push(parsed);
+      } catch {
+        // één pagina mag de run niet stoppen
+      }
     }
   }
+  await Promise.all(Array.from({ length: Math.min(3, urls.length) }, () => worker()));
 
-  const byUrl = new Map<string, BoardJob>();
-  for (const j of jobs) {
-    if (j.url) byUrl.set(j.url, j);
-  }
-  const unique = [...byUrl.values()];
-  const enriched = await enrichFreelanceDetails(unique, INGEST_POLICY.syncFreelanceDetails);
-  return {
-    jobs: enriched,
-    detail: `freelance:firecrawl→${enriched.length} (+${Math.min(INGEST_POLICY.syncFreelanceDetails, unique.length)} details)`,
-  };
+  const detail =
+    jobs.length > 0
+      ? `freelance:${jobs.length} met publieke opdrachtgever, ${hidden} achter login`
+      : hidden > 0
+        ? `opdrachtgever achter login, 0 van ${open}`
+        : open === 0
+          ? "freelance:geen open opdrachten in de ingestelde rollen"
+          : "freelance:leeg";
+
+  return { jobs, detail, scanned: open };
 }
 
 export async function syncJobBoards(opts?: {
@@ -427,6 +486,7 @@ export async function syncJobBoards(opts?: {
 
   let flJobs: BoardJob[] = [];
   let flDetail = "freelance:skipped";
+  let flScanned = 0;
   let flIngest = { scanned: 0, kept: 0, skipped: 0, hits: [] as Awaited<ReturnType<typeof ingestBoardJobs>>["hits"] };
 
   if (doFreelance) {
@@ -434,6 +494,7 @@ export async function syncJobBoards(opts?: {
       const fl = await fetchFreelanceNlJobs(maxFl);
       flJobs = fl.jobs;
       flDetail = fl.detail;
+      flScanned = fl.scanned;
     } catch (e) {
       errors.push(e instanceof Error ? e.message.slice(0, 160) : "freelance-error");
       flDetail = "freelance:error";
@@ -447,15 +508,13 @@ export async function syncJobBoards(opts?: {
         label: "Freelance.nl",
         mode: flJobs.length
           ? "live"
-          : flDetail.includes("needs-FIRECRAWL")
-            ? "skipped"
-            : flDetail.includes("error")
-              ? "error"
-              : "empty",
+          : flDetail.includes("error") || flDetail.includes("sitemap")
+            ? "error"
+            : "empty",
         detail: flDetail,
-        fetched: flJobs.length,
+        fetched: Math.max(flScanned, flJobs.length),
         kept: flIngest.kept,
-        skipped: flIngest.skipped,
+        skipped: flScanned - flJobs.length,
         searched: huntRoles().slice(0, maxFl).map((q) => `Freelance.nl · ${q}`),
         hits: flIngest.hits,
       })
