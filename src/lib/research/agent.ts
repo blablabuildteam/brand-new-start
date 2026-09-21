@@ -1,12 +1,12 @@
 import { z } from "zod";
 import { aiJsonCompletion, hasAiKey } from "@/lib/ai-client";
+import { readClientFromVacancy } from "@/lib/read-client";
 import { isAgencyName } from "@/lib/agency";
-import { guessEndClient, huntSignals, isHuntWorthy, type ClientGuess, type Evidence } from "@/lib/end-client";
+import { guessEndClient, isHuntWorthy, type ClientGuess, type Evidence } from "@/lib/end-client";
 import { findRelatedJobs, relatedJobsBlock, type RelatedJob } from "@/lib/research/corpus";
 import {
   buildRulesOnlyResult,
   buildSerpConfirmResult,
-  cheapSignalsToJobSignals,
   needsClaudeAnalyze,
   serpConfirmsPrior,
   shouldSkipPaidResearch,
@@ -485,21 +485,43 @@ export async function researchEndClient(opts: {
     (!prior || prior.confidence < 55)
   ) {
     progress.done();
-    if (prior) {
-      return buildRulesOnlyResult(
-        prior,
-        "Te weinig onderscheidend spoor voor betaalde search — Deep later of handmatig"
-      );
-    }
     return {
       guess: null,
       model: "",
-      detail: "Te dun voor eerste hit — geen onderscheidende signalen",
+      detail: "Te dun voor een zekere opdrachtgever — niet gegokt",
       report: null,
     };
   }
 
-  // ── Signalen: standaard gratis heuristiek; deep = LLM-extract ──
+  // Standaard: één korte lezing van de tekst. Geen recruiter, geen websearch.
+  // Deep blijft de uitgebreide ronde voor als je die expliciet kiest.
+  if (depth !== "deep") {
+    progress.start("read");
+    const read = await readClientFromVacancy({ title: opts.title, text: opts.text });
+    progress.done();
+    if (!read) {
+      return {
+        guess: null,
+        model: "",
+        detail: "Geen zekere opdrachtgever in de tekst — niet gegokt",
+        report: null,
+      };
+    }
+    return {
+      guess: {
+        name: read.name,
+        confidence: read.confidence,
+        evidence: [{ label: read.because, quote: read.quote, weight: read.confidence }],
+        alternatives: [],
+        source: "ai",
+      },
+      model: read.model,
+      detail: read.because,
+      report: null,
+    };
+  }
+
+  // ── Signalen: deep = LLM-extract ──
   progress.start("signals");
   let signals: JobSignals | null = null;
     let extractedModel = "";
@@ -514,8 +536,6 @@ export async function researchEndClient(opts: {
     }
     signals = extracted.signals;
     extractedModel = extracted.model;
-  } else {
-    signals = cheapSignalsToJobSignals(huntSignals({ title: opts.title, text: opts.text }), agency, recruiter);
   }
 
   progress.start(
@@ -531,7 +551,7 @@ export async function researchEndClient(opts: {
       recruiterName: recruiter,
       signals,
       title: opts.title,
-      limit: depth === "deep" ? 8 : 5,
+      limit: 8,
     }),
     (async () => {
       // Reserve 1 search for naamlek-chase when present (standard uses only 3).
@@ -540,7 +560,7 @@ export async function researchEndClient(opts: {
         chaseLeak ? Math.max(1, budget.maxSearches - 1) : budget.maxSearches
       );
       const seen = new Set<string>();
-      const hits = await multiSearch(queries, budget, { perQuery: depth === "quick" ? 4 : 5, seen });
+      const hits = await multiSearch(queries, budget, { perQuery: 5, seen });
       return { hits, seen };
     })(),
   ]);

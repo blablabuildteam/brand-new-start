@@ -576,8 +576,8 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
               <li>
                 <span className="ws-fold__n">1</span>
                 <span>
-                  <strong className="font-semibold text-[var(--ink)]">Review</strong> — AI of regels raden de
-                  eindklant; jij bevestigt of wijst af.
+                  <strong className="font-semibold text-[var(--ink)]">Review</strong> — de tekst wordt gelezen
+                  (geen websearch). Alleen een zekere opdrachtgever komt erop; jij bevestigt of wijst af.
                 </span>
               </li>
               <li>
@@ -796,7 +796,7 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
               disabled={!deepOpenCount}
               onClick={deepAllOpen}
               className="btn-ghost btn-tool"
-              title="AI-research op alle open hits. ~3 webzoeken per hit, max 3 tegelijk."
+              title="Leest de vacaturetekst. Alleen een naam als die zeker is, geen websearch."
             >
               AI alle open{deepOpenCount ? ` · ${deepOpenCount}` : ""}
             </button>
@@ -831,7 +831,7 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
                     <strong className="font-semibold text-[var(--ink)]">{openLeads.length} posts</strong> wachten op
                     een opdrachtgever.{" "}
                     {ready ? <>Bij {ready} heeft de AI al een naam voorgesteld: nakijken en bevestigen. </> : null}
-                    {hunt ? <>Bij {hunt} staat een spoor (project, techniek of stad): druk op AI om te zoeken. </> : null}
+                    {hunt ? <>Bij {hunt} staat een spoor in de tekst: laat die lezen, alleen een zekere naam komt erop. </> : null}
                     {thin ? (
                       <>
                         De overige {thin} noemen geen opdrachtgever én geen spoor — daar zou zoeken gokken zijn, dus

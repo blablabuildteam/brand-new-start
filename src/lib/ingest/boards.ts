@@ -325,7 +325,10 @@ function extractNamedClient(text: string): string | null {
   return null;
 }
 
-function parseFreelancePage(html: string, url: string): BoardJob | "closed" | "hidden" | null {
+function parseFreelancePage(
+  html: string,
+  url: string
+): { job: Omit<BoardJob, "company">; company: string | null } | "closed" | null {
   const status = fieldOf(html, "Status");
   if (!status) return null;
   if (!/gepubliceerd/i.test(status)) return "closed";
@@ -337,19 +340,20 @@ function parseFreelancePage(html: string, url: string): BoardJob | "closed" | "h
   const description = stripTags(descMatch?.[1] || "");
   const location = fieldOf(html, "Op locatie");
   const company = extractNamedClient(`${title}. ${description}`);
-  if (!company) return "hidden";
   const posted = fieldOf(html, "Publicatiedatum");
   let postedAt: string | undefined;
   const dm = posted?.match(/(\d{1,2})-(\d{1,2})-(\d{4})/);
   if (dm) postedAt = new Date(Date.UTC(Number(dm[3]), Number(dm[2]) - 1, Number(dm[1]))).toISOString();
   return {
     company,
-    title,
-    description: [description, location ? `Locatie: ${location}` : ""].filter(Boolean).join(" ").slice(0, 1200),
-    url: url.split("?")[0],
-    location: location || undefined,
-    channel: "freelance-nl",
-    postedAt,
+    job: {
+      title,
+      description: [description, location ? `Locatie: ${location}` : ""].filter(Boolean).join(" ").slice(0, 1200),
+      url: url.split("?")[0],
+      location: location || undefined,
+      channel: "freelance-nl",
+      postedAt,
+    },
   };
 }
 
@@ -391,7 +395,9 @@ async function fetchFreelanceNlJobs(maxQueries = 12): Promise<{
 
   let open = 0;
   let hidden = 0;
+  let recognized = 0;
   const jobs: BoardJob[] = [];
+  const unnamed: { job: Omit<BoardJob, "company"> }[] = [];
   let cursor = 0;
   async function worker() {
     while (cursor < urls.length) {
@@ -405,11 +411,12 @@ async function fetchFreelanceNlJobs(maxQueries = 12): Promise<{
         const parsed = parseFreelancePage(await res.text(), url);
         if (parsed === "closed" || parsed === null) continue;
         open += 1;
-        if (parsed === "hidden") {
+        if (!parsed.company) {
           hidden += 1;
+          unnamed.push(parsed);
           continue;
         }
-        jobs.push(parsed);
+        jobs.push({ ...parsed.job, company: parsed.company });
       } catch {
         // één pagina mag de run niet stoppen
       }
@@ -417,11 +424,29 @@ async function fetchFreelanceNlJobs(maxQueries = 12): Promise<{
   }
   await Promise.all(Array.from({ length: Math.min(3, urls.length) }, () => worker()));
 
+  // Alleen teksten met een echt spoor. Een template ("Word Scrum Master") slaan we over.
+  const { isHuntWorthy } = await import("@/lib/end-client");
+  const { readClientFromVacancy } = await import("@/lib/read-client");
+  let asked = 0;
+  for (const row of unnamed) {
+    if (asked >= 4) break;
+    if (!isHuntWorthy({ title: row.job.title, text: row.job.description || "" })) continue;
+    asked += 1;
+    const read = await readClientFromVacancy({
+      title: row.job.title,
+      text: row.job.description || "",
+    });
+    if (!read) continue;
+    recognized += 1;
+    hidden -= 1;
+    jobs.push({ ...row.job, company: read.name });
+  }
+
   const detail =
     jobs.length > 0
-      ? `freelance:${jobs.length} met publieke opdrachtgever, ${hidden} achter login`
+      ? `freelance:${jobs.length} opdrachtgever${recognized ? ` (${recognized} uit de tekst)` : ""}, ${hidden} zonder zekere naam`
       : hidden > 0
-        ? `opdrachtgever achter login, 0 van ${open}`
+        ? `geen zekere opdrachtgever, 0 van ${open}`
         : open === 0
           ? "freelance:geen open opdrachten in de ingestelde rollen"
           : "freelance:leeg";
