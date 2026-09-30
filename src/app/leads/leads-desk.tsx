@@ -24,6 +24,7 @@ type AiJob = {
 };
 
 type Payload = {
+  persistence?: "postgres" | "memory";
   watchlist: {
     id: string;
     name: string;
@@ -627,39 +628,63 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
     }
   }
 
+  const dataRef = useRef<Payload | null>(initial || null);
+
   function applyPayload(j: Payload) {
-    setData(j);
+    const live = Array.isArray(j?.live) ? j.live : [];
+    const prev = dataRef.current;
+    if (prev && prev.live.length > 0 && live.length === 0) {
+      setError("Vernieuwen lukte niet. De posts die er stonden, staan er nog.");
+      return;
+    }
+    const next = { ...j, live };
+    dataRef.current = next;
+    setData(next);
+    if (live.length === 0) {
+      setError(
+        j.persistence === "memory"
+          ? "De database was even niet bereikbaar. Er is niets gewist."
+          : "De posts zijn niet geladen. Er is niets gewist."
+      );
+    } else {
+      setError(null);
+    }
     const drafts: Record<string, string> = {};
-    for (const l of [...j.live, ...j.demo]) {
+    for (const l of [...live, ...(j.demo || [])]) {
       const name = l.confirmedClient || l.guess?.name;
       if (name) drafts[l.id] = name;
     }
-    setClientDrafts((prev) => ({ ...drafts, ...prev }));
+    setClientDrafts((prevDrafts) => ({ ...drafts, ...prevDrafts }));
   }
 
-  function load() {
-    return import("@/lib/client-cache").then(({ cachedJson, cacheSet }) =>
-      cachedJson<Payload>("leads", "/api/leads", {
+  function load(attempt = 0): Promise<void> {
+    return import("@/lib/client-cache").then(({ cachedJson, cacheClear, cachePeek, cacheSet, isBlankDesk }) => {
+      if (initial && initial.live.length > 0 && !cachePeek("leads")) cacheSet("leads", initial);
+      return cachedJson<Payload>("leads", "/api/leads", {
         ttlMs: 45_000,
         staleMs: 5 * 60_000,
         onUpdate: (j) => {
-          applyPayload(j);
-          cacheSet("leads", j);
+          if (!isBlankDesk("leads", j)) applyPayload(j);
         },
       })
-        .then((j) => applyPayload(j))
+        .then((j) => {
+          if (isBlankDesk("leads", j) && attempt < 1) {
+            cacheClear("leads");
+            return load(attempt + 1);
+          }
+          applyPayload(j);
+        })
         .catch((e: unknown) => {
           const status = (e as { status?: number }).status;
           if (status === 401) window.location.href = "/login?next=/leads";
-          else if (!initial) setError(e instanceof Error ? e.message : "fout");
-        })
-    );
+          else if (!dataRef.current?.live.length) {
+            setError("De posts zijn niet geladen. Er is niets gewist.");
+          }
+        });
+    });
   }
 
   useEffect(() => {
-    if (initial) {
-      import("@/lib/client-cache").then(({ cacheSet }) => cacheSet("leads", initial));
-    }
     void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -925,7 +950,7 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
               <p className="lead-status__title">{syncNote.title}</p>
               <p className="lead-status__body">{syncNote.body}</p>
             </div>
-          ) : data && checkedRecently ? (
+          ) : data && counts.all > 0 && checkedRecently ? (
             <div className="lead-status">
               <p className="lead-status__title">Alles staat er nog. {counts.all} posts.</p>
               <p className="lead-status__body">
@@ -933,7 +958,7 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
                 {counts.ready} klaar om te bevestigen, {counts.open} nog te reviewen. Er is niets weggehaald.
               </p>
             </div>
-          ) : data && feedStale ? (
+          ) : data && counts.all > 0 && feedStale ? (
             <div className="lead-status">
               <p className="lead-status__title">Alles staat er nog. {counts.all} posts.</p>
               <p className="lead-status__body">
@@ -1058,6 +1083,23 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
                     Niets in {BUCKET_NL[bucket].toLowerCase()}
                     {q || watchAgency ? " met dit filter" : ""}.
                   </p>
+                ) : error ? (
+                  <div className="ws-empty">
+                    <p className="m-0">{error}</p>
+                    <button
+                      type="button"
+                      className="btn-ink btn-tool mt-3"
+                      onClick={() => {
+                        setError(null);
+                        void import("@/lib/client-cache").then(({ cacheClear }) => {
+                          cacheClear("leads");
+                          void load();
+                        });
+                      }}
+                    >
+                      Opnieuw laden
+                    </button>
+                  </div>
                 ) : (
                   <p className="ws-empty">
                     Nog geen live hits. Zorg dat recruiters een LinkedIn-URL hebben en sync de feeds. Of test AI op

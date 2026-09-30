@@ -590,29 +590,52 @@ function matchCompanyByQuery(rows: RadarRow[], q: string | null | undefined) {
   );
 }
 
+type RadarBoot = {
+  radar: RadarRow[];
+  stats: {
+    hot: number;
+    warm: number;
+    companies: number;
+    openings?: number;
+    signals: number;
+    persistence?: string;
+  };
+  user?: { email: string; role?: string };
+  sync: SyncInfo;
+};
+
 export default function RadarApp({
   initialId = null,
   initialOpening = null,
   initialQuery = null,
+  initial = null,
 }: {
   initialId?: string | null;
   initialOpening?: string | null;
   initialQuery?: string | null;
+  initial?: RadarBoot | null;
 } = {}) {
   const router = useRouter();
-  const [radar, setRadar] = useState<RadarRow[]>([]);
+  const [radar, setRadar] = useState<RadarRow[]>(initial?.radar ?? []);
+  const radarRef = useRef<RadarRow[]>(initial?.radar ?? []);
   const [stats, setStats] = useState<{
     hot: number;
     warm: number;
     companies: number;
     openings?: number;
     signals: number;
-  } | null>(null);
-  const [user, setUser] = useState<{ email: string; role: "admin" | "recruiter" } | null>(null);
-  const [sync, setSync] = useState<SyncInfo | null>(null);
-  const [activeId, setActiveId] = useState<string | null>(initialId);
+    persistence?: string;
+  } | null>(initial?.stats ?? null);
+  const [user, setUser] = useState<{ email: string; role: "admin" | "recruiter" } | null>(
+    initial?.user?.email
+      ? { email: initial.user.email, role: initial.user.role === "admin" ? "admin" : "recruiter" }
+      : null
+  );
+  const [sync, setSync] = useState<SyncInfo | null>(initial?.sync ?? null);
+  const [activeId, setActiveId] = useState<string | null>(initialId || initial?.radar?.[0]?.id || null);
   const [focusQuery, setFocusQuery] = useState<string | null>(initialQuery);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!(initial?.radar?.length));
+  const [loadNote, setLoadNote] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [live, setLive] = useState<LiveSync | null>(null);
@@ -626,20 +649,21 @@ export default function RadarApp({
   const listScrollRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  async function load(opts?: { keepActive?: boolean; fresh?: boolean }) {
+  async function load(opts?: { keepActive?: boolean; fresh?: boolean; attempt?: number }) {
     try {
-      const { cachedJson, cacheSet, cacheClear, cachePeek } = await import("@/lib/client-cache");
+      const { cachedJson, cacheSet, cacheClear, cachePeek, isBlankDesk } = await import("@/lib/client-cache");
       if (opts?.fresh) cacheClear("radar");
-      type RadarPayload = {
-        radar: RadarRow[];
-        stats: typeof stats;
-        user?: { email: string; role?: string };
-        sync: SyncInfo;
-      };
+      type RadarPayload = RadarBoot;
+      if (initial?.radar?.length && !cachePeek<RadarPayload>("radar")) cacheSet("radar", initial);
       const hadCache = Boolean(cachePeek<RadarPayload>("radar"));
-      if (!opts?.keepActive && !hadCache) setLoading(true);
+      if (!opts?.keepActive && !hadCache && radarRef.current.length === 0) setLoading(true);
 
       const apply = (data: RadarPayload) => {
+        if (data.radar.length === 0 && radarRef.current.length > 0) {
+          setLoadNote("Vernieuwen lukte niet. De lijst die er stond, blijft staan.");
+          return;
+        }
+        radarRef.current = data.radar;
         setRadar(data.radar);
         setStats(data.stats);
         if (data.user?.email) {
@@ -649,6 +673,13 @@ export default function RadarApp({
           });
         }
         setSync(data.sync);
+        setLoadNote(
+          data.radar.length === 0
+            ? data.stats?.persistence === "memory"
+              ? "De database was even niet bereikbaar. Er is niets gewist."
+              : "De bedrijven zijn niet geladen. Er is niets gewist."
+            : null
+        );
         setActiveId((prev) => {
           const fromUrl =
             (initialId && data.radar.some((r) => r.id === initialId) && initialId) ||
@@ -659,14 +690,20 @@ export default function RadarApp({
           const still = data.radar.some((r) => r.id === prev);
           return still ? prev : data.radar[0]?.id || null;
         });
-        cacheSet("radar", data);
+        if (data.radar.length > 0) cacheSet("radar", data);
       };
 
       const data = await cachedJson<RadarPayload>("radar", "/api/radar", {
         ttlMs: opts?.fresh ? 0 : 45_000,
         staleMs: 5 * 60_000,
-        onUpdate: apply,
+        onUpdate: (next) => {
+          if (!isBlankDesk("radar", next)) apply(next);
+        },
       });
+      if (isBlankDesk("radar", data) && (opts?.attempt ?? 0) < 1) {
+        cacheClear("radar");
+        return load({ ...opts, attempt: (opts?.attempt ?? 0) + 1, fresh: true });
+      }
       apply(data);
       return data;
     } catch (e) {
@@ -675,7 +712,10 @@ export default function RadarApp({
         router.replace("/login?next=/radar");
         return null;
       }
-      throw e;
+      if (radarRef.current.length === 0) {
+        setLoadNote("De bedrijven zijn niet geladen. Er is niets gewist.");
+      }
+      return null;
     } finally {
       setLoading(false);
     }
@@ -1490,6 +1530,19 @@ export default function RadarApp({
               </ul>
             </div>
           </details>
+        ) : radar.length === 0 ? (
+          <div
+            className={`mb-0 shrink-0 flex flex-wrap items-center justify-between gap-2 rounded-[var(--radius)] border border-[var(--line)] bg-[var(--surface)] px-3.5 py-2.5 text-sm text-[var(--muted)] ${
+              mobilePane === "detail" ? "max-lg:hidden" : ""
+            }`}
+          >
+            <p>{loading ? "Laden…" : loadNote || "De bedrijven zijn niet geladen. Er is niets gewist."}</p>
+            {loading ? null : (
+              <button type="button" className="btn-ink btn-tool" onClick={() => void load({ fresh: true })}>
+                Opnieuw laden
+              </button>
+            )}
+          </div>
         ) : (
           <div
             className={`mb-0 shrink-0 flex flex-wrap items-center justify-between gap-2 rounded-[var(--radius)] border border-[var(--line)] bg-[var(--surface)] px-3.5 py-2.5 text-sm text-[var(--muted)] ${
@@ -1768,7 +1821,12 @@ export default function RadarApp({
               {loading && !radar.length ? (
                 <p className="px-2 py-3 text-sm text-[var(--muted)]">Laden…</p>
               ) : filtered.length === 0 ? (
-                <p className="px-2 py-3 text-sm text-[var(--muted)]">Geen resultaten in dit filter.</p>
+                <div className="px-2 py-3 text-sm text-[var(--muted)]">
+                  <p className="m-0">{loadNote || "De bedrijven zijn niet geladen. Er is niets gewist."}</p>
+                  <button type="button" className="btn-ink btn-tool mt-3" onClick={() => void load({ fresh: true })}>
+                    Opnieuw laden
+                  </button>
+                </div>
               ) : (
                 <ul className="space-y-1">
                   {filtered.map((r, idx) => {
@@ -1968,7 +2026,7 @@ export default function RadarApp({
               </div>
             ) : (
               <p className="text-sm text-[var(--muted)]">
-                {loading ? "Vacatures worden geladen…" : "Kies links een bedrijf."}
+                {loading ? "Vacatures worden geladen…" : radar.length === 0 ? loadNote || "De bedrijven zijn niet geladen." : "Kies links een bedrijf."}
               </p>
             )}
           </aside>

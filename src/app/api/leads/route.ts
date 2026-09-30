@@ -1,32 +1,15 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getSession } from "@/lib/auth";
+import { deskCacheHeaders, readLeadsPayload } from "@/lib/desk-payloads";
 import { loadHuntSettings } from "@/lib/hunt";
-import { listAgencyLeads, reopenLead, reviewLead } from "@/lib/opportunity";
-import { listSyncRuns } from "@/lib/sync-log";
-import { loadDeskMeta } from "@/lib/desk-meta";
+import { reopenLead, reviewLead } from "@/lib/opportunity";
 
 export async function GET() {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  await loadHuntSettings();
-  const [data, runs, meta] = await Promise.all([listAgencyLeads(), listSyncRuns(40), loadDeskMeta()]);
-  const feed = runs.find((r) => r.channel === "recruiter-feed") || null;
-  const last = runs[0] || null;
-  const checkedAt = Object.values(meta.feedChecks)
-    .map((c) => c.at)
-    .sort()
-    .at(-1) || null;
-  return NextResponse.json({
-    ...data,
-    sync: {
-      lastFeed: feed
-        ? { at: feed.at, kept: feed.kept, fetched: feed.fetched, mode: feed.mode }
-        : null,
-      last: last ? { at: last.at, channel: last.channel, label: last.label } : null,
-      checkedAt,
-    },
-  });
+  const payload = await readLeadsPayload();
+  return NextResponse.json(payload, { headers: deskCacheHeaders() });
 }
 
 const Body = z.object({

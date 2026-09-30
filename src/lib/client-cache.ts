@@ -43,8 +43,25 @@ export function cacheClear(prefix?: string) {
   }
 }
 
+/** A successful 200 with an empty desk list must not stick in memory. */
+export function isBlankDesk(key: string, data: unknown): boolean {
+  if (!data || typeof data !== "object") return false;
+  const row = data as { live?: unknown; radar?: unknown };
+  if (key === "leads") return Array.isArray(row.live) && row.live.length === 0;
+  if (key === "radar") return Array.isArray(row.radar) && row.radar.length === 0;
+  return false;
+}
+
+function remember(key: string, data: unknown) {
+  if (isBlankDesk(key, data)) {
+    store().delete(key);
+    return;
+  }
+  cacheSet(key, data);
+}
+
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(url, init);
+  const res = await fetch(url, { cache: "no-store", ...init });
   if (!res.ok) {
     const err = new Error(`fetch ${url} → ${res.status}`);
     (err as Error & { status?: number }).status = res.status;
@@ -75,30 +92,31 @@ export async function cachedJson<T>(
   const age = cacheAge(key);
   const peek = cachePeek<T>(key);
 
-  if (peek != null && age != null && age <= ttl) {
+  const blank = peek != null && isBlankDesk(key, peek);
+  if (!blank && peek != null && age != null && age <= ttl) {
     return peek;
   }
 
-  if (peek != null && age != null && age <= staleMs) {
+  if (!blank && peek != null && age != null && age <= staleMs) {
     void fetchJson<T>(url, opts?.init)
       .then((data) => {
-        cacheSet(key, data);
-        opts?.onUpdate?.(data);
+        remember(key, data);
+        if (!isBlankDesk(key, data)) opts?.onUpdate?.(data);
       })
       .catch(() => null);
     return peek;
   }
 
   const data = await fetchJson<T>(url, opts?.init);
-  cacheSet(key, data);
+  remember(key, data);
   return data;
 }
 
 /** Fire-and-forget prefetch for snappy nav. */
 export function prefetchJson(key: string, url: string, ttlMs = 90_000) {
   const age = cacheAge(key);
-  if (age != null && age < ttlMs * 0.7) return;
+  if (age != null && age < ttlMs * 0.7 && !isBlankDesk(key, cachePeek(key))) return;
   void fetchJson(url)
-    .then((data) => cacheSet(key, data))
+    .then((data) => remember(key, data))
     .catch(() => null);
 }
