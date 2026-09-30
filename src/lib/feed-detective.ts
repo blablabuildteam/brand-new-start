@@ -126,10 +126,21 @@ function roleQuery(opts: { title: string; stack: string[]; city: string | null }
 
 const NOT_USEFUL_URL = /linkedin\.com\/(posts|feed|in\/)|\/hashtag\//i;
 
-function hitMentions(hit: SearchHit, name: string) {
-  const hay = fold(`${hit.title} ${hit.description} ${hit.url}`);
+export function hitMentions(hit: SearchHit, name: string) {
+  const hay = ` ${fold(`${hit.title} ${hit.description} ${hit.url}`)} `;
   const n = fold(name);
-  if (n.length >= 3 && hay.includes(n)) return true;
+  if (!n) return false;
+  if (n.length <= 3) {
+    if (hay.includes(` ${n} `)) return true;
+    // werkenbijns.nl, careers.ing.com: short names show up in the host.
+    try {
+      const host = new URL(hit.url).hostname.replace(/^www\./, "").split(".");
+      return host.some((part) => part === n || part === `werkenbij${n}` || part === `werkenbij-${n}`);
+    } catch {
+      return false;
+    }
+  }
+  if (hay.includes(` ${n} `) || hay.includes(n.replace(/ /g, ""))) return true;
   const core = n.split(" ").filter((w) => w.length >= 4 && !/^(gemeente|provincie|bank|groep|group|nederland|holding)$/.test(w));
   return core.length > 0 && core.every((w) => hay.includes(w));
 }
@@ -207,6 +218,7 @@ export function calibrate(opts: {
   const nameInPost = fold(name).length >= 3 && post.includes(fold(name));
 
   let webProof = false;
+  let citedWebProof = false;
   let memoryProof = false;
   let postClues = 0;
   const evidence: Evidence[] = [];
@@ -229,6 +241,7 @@ export function calibrate(opts: {
         url = hit.url;
         if (hitMentions(hit, name)) {
           webProof = true;
+          citedWebProof = true;
           weight = 88;
         } else weight = 55;
       }
@@ -290,7 +303,11 @@ export function calibrate(opts: {
           ? `${postClues} specifieke aanwijzingen uit de post, naam niet nagetrokken`
           : "vooral marktkennis — niet nagetrokken";
   const modelConf = Number(opts.raw.confidence);
-  const confidence = Math.round(Math.max(20, Math.min(cap, Number.isFinite(modelConf) ? modelConf : 50)));
+  // The model is shy about its own web find; a cited hit that names the client is strong.
+  const floor = citedWebProof || nameInPost ? 78 : memoryProof ? 72 : 20;
+  const confidence = Math.round(
+    Math.min(cap, Math.max(floor, Number.isFinite(modelConf) ? modelConf : 50))
+  );
   return { name, confidence, evidence: evidence.sort((a, b) => b.weight - a.weight), basis };
 }
 
