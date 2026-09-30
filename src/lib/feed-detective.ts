@@ -59,7 +59,8 @@ const CAP = {
   nameInPost: 96,
   web: 92,
   memory: 88,
-  memoryWeb: 84,
+  // Below "Sterk voorstel" (80): one recruiter often serves several clients.
+  memoryWeb: 78,
   threePostClues: 74,
   twoPostClues: 68,
   knowledge: 60,
