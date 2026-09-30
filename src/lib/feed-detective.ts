@@ -165,7 +165,8 @@ function webBlock(hits: SearchHit[]) {
 const SYSTEM = `Je bent een senior IT-recruiter in Nederland. Je raadt welke eindklant (opdrachtgever) achter een LinkedIn-post van een bureau zit.
 Het bureau en andere bemiddelaars/detacheerders zijn NOOIT de eindklant.
 
-Stap 1 — Is dit een echte opdracht/vacature voor een klant? Nee bij: eigen personeel werven voor het bureau (recruiter, accountmanager), felicitaties, promotie, event, marktupdate, kandidaat-promotie ("beschikbaar: developer X").
+Stap 1 — Is dit een echte opdracht/vacature voor een klant? is_assignment=false ALLEEN bij: eigen personeel werven voor het bureau (recruiter, accountmanager, consultant bij het bureau), felicitaties, promotie, event, marktupdate, kandidaat-promotie ("beschikbaar: developer X").
+Een korte, vage of afgebroken post die een rol voor een klant zoekt is wél een opdracht (is_assignment=true, client mag null zijn).
 Stap 2 — Zo ja: welke organisatie? Gebruik alles:
 - letterlijke naam, afkorting, programmanaam, systeemnaam, gebouw, plaats, sector, schaal ("miljoenen klanten"), jargon
 - je kennis van de Nederlandse markt (wie zit waar, wie gebruikt welk platform, welke programma's lopen waar)

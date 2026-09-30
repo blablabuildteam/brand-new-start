@@ -148,8 +148,18 @@ export async function loadDeskMeta(): Promise<DeskMeta> {
   }
 }
 
-export async function saveDeskMeta(patch: Partial<DeskMeta>): Promise<DeskMeta> {
+/** Drop a lead's review + AI miss, so it is open again. */
+export async function forgetLeadVerdict(id: string): Promise<DeskMeta> {
   const prev = await loadDeskMeta();
+  const leadReviews = { ...prev.leadReviews };
+  const aiMisses = { ...prev.aiMisses };
+  delete leadReviews[id];
+  delete aiMisses[id];
+  return saveDeskMeta({}, { ...prev, leadReviews, aiMisses });
+}
+
+export async function saveDeskMeta(patch: Partial<DeskMeta>, base?: DeskMeta): Promise<DeskMeta> {
+  const prev = base ?? (await loadDeskMeta());
   if (hasDatabase() && g.__bnsDeskMetaStale) {
     throw new Error("Desk-data kon niet gelezen worden — niet opgeslagen om verlies te voorkomen.");
   }

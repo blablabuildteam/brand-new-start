@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getSession } from "@/lib/auth";
 import { loadHuntSettings } from "@/lib/hunt";
-import { listAgencyLeads, reviewLead } from "@/lib/opportunity";
+import { listAgencyLeads, reopenLead, reviewLead } from "@/lib/opportunity";
 import { listSyncRuns } from "@/lib/sync-log";
 
 export async function GET() {
@@ -25,7 +25,7 @@ export async function GET() {
 
 const Body = z.object({
   id: z.string().min(1),
-  action: z.enum(["confirmed", "rejected"]),
+  action: z.enum(["confirmed", "rejected", "reopen"]),
   clientName: z.string().min(2).max(80).optional(),
 });
 
@@ -36,7 +36,10 @@ export async function POST(req: Request) {
   const parsed = Body.safeParse(await req.json().catch(() => ({})));
   if (!parsed.success) return NextResponse.json({ error: "ongeldig" }, { status: 400 });
   try {
-    const lead = await reviewLead(parsed.data.id, parsed.data.action, parsed.data.clientName);
+    const lead =
+      parsed.data.action === "reopen"
+        ? await reopenLead(parsed.data.id)
+        : await reviewLead(parsed.data.id, parsed.data.action, parsed.data.clientName);
     if (!lead) return NextResponse.json({ error: "niet gevonden" }, { status: 404 });
     return NextResponse.json({ ok: true, lead });
   } catch (e) {

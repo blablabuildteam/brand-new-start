@@ -163,7 +163,7 @@ function LeadCard({
   hmBusy?: boolean;
   clientDraft: string;
   onClientDraft: (v: string) => void;
-  onReview: (id: string, action: "confirmed" | "rejected", clientName?: string) => void;
+  onReview: (id: string, action: "confirmed" | "rejected" | "reopen", clientName?: string) => void;
   onAiGuess: (id: string, depth?: ResearchDepth) => void;
   onHmSearch?: (id: string) => void;
 }) {
@@ -305,7 +305,13 @@ function LeadCard({
                 {hmBusy ? "Zoeken…" : "Zoek manager"}
               </button>
             </div>
-          ) : null}
+          ) : (
+            <div className="lead-row__actions">
+              <button type="button" disabled={busy} onClick={() => onReview(lead.id, "reopen")} className="btn-ghost btn-tool">
+                Terugzetten
+              </button>
+            </div>
+          )}
 
           {aiQueued ? <p className="mt-2 text-[0.72rem] text-[var(--muted)]">In wachtrij…</p> : null}
           {aiBusy && aiProgress && aiDepth ? <ResearchMeter depth={aiDepth} progress={aiProgress} /> : null}
@@ -427,7 +433,7 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
     return { running, queued };
   }, [aiJobs]);
 
-  async function onReview(id: string, action: "confirmed" | "rejected", clientName?: string) {
+  async function onReview(id: string, action: "confirmed" | "rejected" | "reopen", clientName?: string) {
     setBusy(true);
     setError(null);
     try {

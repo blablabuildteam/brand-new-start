@@ -19,7 +19,7 @@ import {
 import { rulesReport } from "@/lib/end-client-research";
 import { detectRoleLabel } from "@/lib/niche";
 import { listAgencySignals, patchSignalRaw } from "@/lib/store";
-import { loadDeskMeta, pushAlert, saveDeskMeta } from "@/lib/desk-meta";
+import { forgetLeadVerdict, loadDeskMeta, pushAlert, saveDeskMeta } from "@/lib/desk-meta";
 import type { FeedMemory } from "@/lib/feed-detective";
 
 export type LeadStatus = "suggest" | "review" | "weak" | "confirmed" | "rejected";
@@ -328,6 +328,7 @@ export async function listAgencyLeads(): Promise<{
   demo: AgencyLead[];
 }> {
   const meta = await loadDeskMeta();
+  reviews().clear();
   for (const [id, r] of Object.entries(meta.leadReviews)) {
     reviews().set(id, { status: r.status, clientName: r.clientName });
   }
@@ -518,6 +519,17 @@ export async function saveAiGuess(
   }
 
   return applyStoredAi(applyReview({ ...src.lead, guess, aiGuess: true }), stored);
+}
+
+export async function reopenLead(id: string): Promise<AgencyLead | null> {
+  const data = await listAgencyLeads();
+  const lead = [...data.live, ...data.demo].find((l) => l.id === id);
+  if (!lead) return null;
+  await forgetLeadVerdict(id);
+  reviews().delete(id);
+  if (lead.signalId) await patchSignalRaw(lead.signalId, { leadReview: null });
+  const fresh = await listAgencyLeads();
+  return [...fresh.live, ...fresh.demo].find((l) => l.id === id) || null;
 }
 
 export async function reviewLead(
