@@ -324,7 +324,9 @@ export async function identifyFeedClient(opts: {
 }): Promise<FeedVerdict> {
   if (!hasAiKey()) return { kind: "unknown", detail: "ANTHROPIC_API_KEY ontbreekt", model: "" };
 
-  const post = cleanPost(dedupeHalves(`${opts.title}\n\n${opts.text}`)).slice(0, 2400);
+  const body = dedupeHalves(opts.text);
+  const titleIsLead = fold(body).startsWith(fold(opts.title.replace(/^.*?—\s*/, "")).slice(0, 40));
+  const post = cleanPost(titleIsLead ? body : `${opts.title}\n\n${body}`).slice(0, 2400);
 
   let hits: SearchHit[] = [];
   if (hasWeb()) {
@@ -363,7 +365,8 @@ ${webBlock(hits)}`,
   const raw = result.json as RawVerdict | null;
   if (!raw) return { kind: "unknown", detail: result.detail, model: result.model };
 
-  if (raw.is_assignment === false) {
+  const reason = raw.not_assignment_reason || "";
+  if (raw.is_assignment === false && !/afgebroken|onvolledig|incompleet|onvoldoende informatie|te kort/i.test(reason)) {
     return {
       kind: "not-assignment",
       reason: (raw.not_assignment_reason || "Geen opdracht voor een klant").slice(0, 160),
