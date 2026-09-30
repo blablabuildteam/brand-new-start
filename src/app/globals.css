@@ -1120,9 +1120,11 @@ button:focus-visible {
   margin-left: auto;
   flex-shrink: 0;
 }
-.lead-row__quickbtn {
-  padding: 0.2rem 0.6rem;
+.lead-row__quick .lead-row__quickbtn {
+  min-height: 0;
+  padding: 0.25rem 0.65rem;
   font-size: 0.72rem;
+  line-height: 1.2;
 }
 .lead-basis {
   flex-shrink: 0;
