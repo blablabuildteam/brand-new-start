@@ -1743,7 +1743,7 @@ export default function RadarApp({
               <div className="min-w-0">
                 <p className="ws-label">Lijst</p>
                 <p className="text-sm font-semibold text-[var(--ink)]">
-                  {filtered.length}
+                  {loading ? "…" : filtered.length}
                   <span className="font-normal text-[var(--muted)]"> bedrijven</span>
                 </p>
               </div>
@@ -1967,7 +1967,9 @@ export default function RadarApp({
                 })}
               </div>
             ) : (
-              <p className="text-sm text-[var(--muted)]">Selecteer een bedrijf.</p>
+              <p className="text-sm text-[var(--muted)]">
+                {loading ? "Vacatures worden geladen…" : "Kies links een bedrijf."}
+              </p>
             )}
           </aside>
         </div>

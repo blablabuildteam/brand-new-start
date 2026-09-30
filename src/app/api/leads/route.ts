@@ -4,14 +4,19 @@ import { getSession } from "@/lib/auth";
 import { loadHuntSettings } from "@/lib/hunt";
 import { listAgencyLeads, reopenLead, reviewLead } from "@/lib/opportunity";
 import { listSyncRuns } from "@/lib/sync-log";
+import { loadDeskMeta } from "@/lib/desk-meta";
 
 export async function GET() {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   await loadHuntSettings();
-  const [data, runs] = await Promise.all([listAgencyLeads(), listSyncRuns(40)]);
+  const [data, runs, meta] = await Promise.all([listAgencyLeads(), listSyncRuns(40), loadDeskMeta()]);
   const feed = runs.find((r) => r.channel === "recruiter-feed") || null;
   const last = runs[0] || null;
+  const checkedAt = Object.values(meta.feedChecks)
+    .map((c) => c.at)
+    .sort()
+    .at(-1) || null;
   return NextResponse.json({
     ...data,
     sync: {
@@ -19,6 +24,7 @@ export async function GET() {
         ? { at: feed.at, kept: feed.kept, fetched: feed.fetched, mode: feed.mode }
         : null,
       last: last ? { at: last.at, channel: last.channel, label: last.label } : null,
+      checkedAt,
     },
   });
 }

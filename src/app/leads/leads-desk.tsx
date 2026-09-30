@@ -35,6 +35,7 @@ type Payload = {
   sync?: {
     lastFeed: { at: string; kept: number; fetched: number; mode: string } | null;
     last: { at: string; channel: string; label: string } | null;
+    checkedAt?: string | null;
   };
 };
 
@@ -602,7 +603,7 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
   const [reviewIds, setReviewIds] = useState<string[] | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [now] = useState(() => Date.now());
-  const [syncNote, setSyncNote] = useState<string | null>(null);
+  const [syncNote, setSyncNote] = useState<{ title: string; body: string } | null>(null);
   const [watchAgency, setWatchAgency] = useState<string | null>(null);
   const [clientDrafts, setClientDrafts] = useState<Record<string, string>>(() => {
     const drafts: Record<string, string> = {};
@@ -689,8 +690,11 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
   const leadMap = useMemo(() => new Map([...(data?.live || []), ...(data?.demo || [])].map((l) => [l.id, l])), [data]);
 
   const feedAt = data?.sync?.lastFeed?.at || null;
+  const checkedAt = data?.sync?.checkedAt || null;
   const feedDays = feedAt ? (now - new Date(feedAt).getTime()) / 86_400_000 : null;
-  const feedStale = feedDays == null || feedDays > 3;
+  const checkedHours = checkedAt ? (now - new Date(checkedAt).getTime()) / 3_600_000 : null;
+  const checkedRecently = checkedHours != null && checkedHours < 20;
+  const feedStale = !checkedRecently && (feedDays == null || feedDays > 3);
 
   async function syncFeeds() {
     setSyncing(true);
@@ -712,30 +716,37 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
         detective?: { tried: number; found: number; left: number } | null;
       };
       if (!res.ok) {
-        setSyncNote(j.message || j.error || "Sync mislukt");
+        setSyncNote({ title: "Sync mislukt", body: j.message || j.error || "Probeer het later nog eens." });
         return;
       }
       if (j.mode === "fresh") {
-        setSyncNote(j.detail || "Net al gecheckt. Niets opnieuw opgehaald.");
+        setSyncNote({
+          title: "Al gecheckt",
+          body: "Deze recruiters zijn in de afgelopen 20 uur al bekeken. Er is niets opnieuw opgehaald. De lijst hieronder is niet veranderd.",
+        });
         return;
       }
       const d = j.detective;
-      const neu =
-        (j.kept ?? 0) > 0
-          ? `${j.kept} vacature-posts opgehaald. Die staan in de lijst.`
-          : "Geen nieuwe vacatures. De posts die er al stonden blijven staan. Je hoeft niets te doen.";
-      setSyncNote(
-        neu +
-          (j.unchanged ? ` ${j.unchanged} recruiters zijn in de afgelopen 20 uur al gecheckt.` : " Morgen opnieuw kijken is genoeg.") +
-          (d?.tried ? ` AI heeft ${d.tried} nieuwe posts gelezen, bij ${d.found} een opdrachtgever gevonden.` : "") +
-          (d?.left ? ` Nog ${d.left} open: klik AI alle open.` : "")
-      );
+      const extra = d?.tried
+        ? ` De AI heeft ${d.tried} nieuwe posts gelezen en bij ${d.found} een opdrachtgever gevonden.`
+        : "";
+      if ((j.kept ?? 0) > 0) {
+        setSyncNote({
+          title: "Nieuwe posts binnen",
+          body: `${j.kept} vacature-posts staan nu in de lijst hieronder.${extra}`,
+        });
+      } else {
+        setSyncNote({
+          title: "Geen nieuwe vacatures",
+          body: "De check is gelukt. Recruiters hebben niets nieuws gepost. De lijst hieronder stond er al. Je hoeft niets te doen. Morgen opnieuw kijken is genoeg.",
+        });
+      }
       const { cacheClear } = await import("@/lib/client-cache");
       cacheClear("leads");
       cacheClear("crm");
       await load();
     } catch (e) {
-      setSyncNote(e instanceof Error ? e.message : "Sync mislukt");
+      setSyncNote({ title: "Sync mislukt", body: e instanceof Error ? e.message : "Probeer het later nog eens." });
     } finally {
       setSyncing(false);
     }
@@ -909,14 +920,29 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
     <AppShell current="leads" title={DESK.bureau.title} subtitle={DESK.bureau.subtitle} fill>
       <div className="ws-shell flex min-h-0 flex-1 flex-col gap-3">
         <main className="ws-main min-h-0 flex-1">
-          {data && feedStale ? (
+          {syncNote ? (
+            <div className="lead-status">
+              <p className="lead-status__title">{syncNote.title}</p>
+              <p className="lead-status__body">{syncNote.body}</p>
+            </div>
+          ) : data && checkedRecently ? (
+            <div className="lead-status">
+              <p className="lead-status__title">Geen nieuwe vacatures</p>
+              <p className="lead-status__body">
+                Vandaag gecheckt{checkedAt ? ` (${timeAgoShort(checkedAt)})` : ""}. Recruiters hebben niets
+                nieuws gepost. De lijst hieronder stond er al: {counts.ready} klaar om te bevestigen,{" "}
+                {counts.open} nog te reviewen. Morgen opnieuw kijken is genoeg.
+              </p>
+            </div>
+          ) : data && feedStale ? (
             <div className="lead-banner">
               <p className="m-0">
                 <strong className="font-semibold text-[var(--ink)]">
-                  {feedDays == null ? "Feeds nog nooit gesynct." : `Feed is ${Math.floor(feedDays)} dagen oud.`}
+                  {feedDays == null
+                    ? "Deze lijst is nog nooit ververst."
+                    : `De lijst hieronder is ${Math.floor(feedDays)} dagen oud.`}
                 </strong>{" "}
-                Nieuwe posts van recruiters komen pas binnen na een sync; de AI zoekt daarna meteen de
-                opdrachtgever.
+                Sync kijkt of recruiters deze week iets nieuws hebben gepost. Posts die er al staan blijven staan.
               </p>
               <button
                 type="button"
@@ -929,7 +955,6 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
               </button>
             </div>
           ) : null}
-          {syncNote ? <p className="mb-3 text-[0.8rem] text-[var(--ink)]">{syncNote}</p> : null}
 
           <div className="mb-2 flex flex-wrap items-center gap-1.5">
             {(["ready", "open", "confirmed", "rejected", "all"] as const).map((b) => (

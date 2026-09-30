@@ -1151,6 +1151,25 @@ button:focus-visible {
   background: var(--warn-soft);
   color: var(--warn);
 }
+.lead-status {
+  margin-bottom: 0.75rem;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+.lead-status__title {
+  margin: 0;
+  font-size: 0.92rem;
+  font-weight: 650;
+  color: var(--ink);
+}
+.lead-status__body {
+  margin: 0.25rem 0 0;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: var(--muted);
+}
 .lead-banner {
   display: flex;
   flex-wrap: wrap;
