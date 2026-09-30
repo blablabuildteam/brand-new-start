@@ -721,8 +721,8 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
       }
       if (j.mode === "fresh") {
         setSyncNote({
-          title: "Al gecheckt",
-          body: "Deze recruiters zijn in de afgelopen 20 uur al bekeken. Er is niets opnieuw opgehaald. De lijst hieronder is niet veranderd.",
+          title: "Alles staat er nog",
+          body: "Net al gecheckt. Geen nieuwe vacatures. Er is niets weggehaald.",
         });
         return;
       }
@@ -737,8 +737,8 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
         });
       } else {
         setSyncNote({
-          title: "Geen nieuwe vacatures",
-          body: "De check is gelukt. Recruiters hebben niets nieuws gepost. De lijst hieronder stond er al. Je hoeft niets te doen. Morgen opnieuw kijken is genoeg.",
+          title: "Alles staat er nog",
+          body: "Geen nieuwe vacatures. Er is niets weggehaald. Je hoeft niets te doen.",
         });
       }
       const { cacheClear } = await import("@/lib/client-cache");
@@ -927,31 +927,28 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
             </div>
           ) : data && checkedRecently ? (
             <div className="lead-status">
-              <p className="lead-status__title">Geen nieuwe vacatures</p>
+              <p className="lead-status__title">Alles staat er nog. {counts.all} posts.</p>
               <p className="lead-status__body">
-                Vandaag gecheckt{checkedAt ? ` (${timeAgoShort(checkedAt)})` : ""}. Recruiters hebben niets
-                nieuws gepost. De lijst hieronder stond er al: {counts.ready} klaar om te bevestigen,{" "}
-                {counts.open} nog te reviewen. Morgen opnieuw kijken is genoeg.
+                Geen nieuwe vacatures{checkedAt ? ` (${timeAgoShort(checkedAt)})` : ""}.{" "}
+                {counts.ready} klaar om te bevestigen, {counts.open} nog te reviewen. Er is niets weggehaald.
               </p>
             </div>
           ) : data && feedStale ? (
-            <div className="lead-banner">
-              <p className="m-0">
-                <strong className="font-semibold text-[var(--ink)]">
-                  {feedDays == null
-                    ? "Deze lijst is nog nooit ververst."
-                    : `De lijst hieronder is ${Math.floor(feedDays)} dagen oud.`}
-                </strong>{" "}
-                Sync kijkt of recruiters deze week iets nieuws hebben gepost. Posts die er al staan blijven staan.
+            <div className="lead-status">
+              <p className="lead-status__title">Alles staat er nog. {counts.all} posts.</p>
+              <p className="lead-status__body">
+                {counts.ready} klaar om te bevestigen, {counts.open} nog te reviewen. Er zijn geen nieuwere
+                posts sinds {feedAt ? timeAgoShort(feedAt) : "de vorige keer"}. Sync kijkt alleen of er iets
+                nieuws is. Wat er al staat, blijft staan.
               </p>
               <button
                 type="button"
-                className="btn-ink btn-tool shrink-0"
+                className="btn-ink btn-tool mt-2"
                 disabled={syncing}
                 title="Haalt alleen nieuwe posts op. Een tweede klik binnen 20 uur kost niets."
                 onClick={() => void syncFeeds()}
               >
-                {syncing ? "Sync loopt… (1–4 min)" : "Sync nu"}
+                {syncing ? "Sync loopt…" : "Sync nu"}
               </button>
             </div>
           ) : null}
