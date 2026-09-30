@@ -1,7 +1,8 @@
 import { isAgencyName } from "@/lib/agency";
 import type { ResearchReport } from "@/lib/research/types";
 
-export type EvidenceOrigin = "post" | "web" | "memory" | "knowledge";
+/** memory = door de desk bevestigd; history = eerdere AI-vondst bij dezelfde recruiter. */
+export type EvidenceOrigin = "post" | "web" | "memory" | "history" | "knowledge";
 
 export type Evidence = {
   label: string;

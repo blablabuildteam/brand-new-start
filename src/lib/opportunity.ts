@@ -20,7 +20,7 @@ import { rulesReport } from "@/lib/end-client-research";
 import { detectRoleLabel } from "@/lib/niche";
 import { listAgencySignals, patchSignalRaw } from "@/lib/store";
 import { forgetLeadVerdict, loadDeskMeta, pushAlert, saveDeskMeta } from "@/lib/desk-meta";
-import type { FeedMemory } from "@/lib/feed-detective";
+import { isListingPage, type FeedMemory } from "@/lib/feed-detective";
 
 export type LeadStatus = "suggest" | "review" | "weak" | "confirmed" | "rejected";
 
@@ -411,7 +411,14 @@ export function feedMemoryFor(lead: AgencyLead, all: AgencyLead[]): FeedMemory[]
     l.aiGuess &&
     l.status !== "rejected" &&
     (l.guess?.confidence ?? 0) >= 85 &&
-    Boolean(l.guess?.evidence.some((e) => e.origin === "web" && e.url));
+    Boolean(
+      l.guess?.evidence.some(
+        (e) =>
+          e.origin === "web" &&
+          e.url &&
+          !isListingPage({ title: e.quote || "", url: e.url, description: "", tier: 2 })
+      )
+    );
   return all
     .filter((l) => l.id !== lead.id && l.agency.id === lead.agency.id)
     .filter((l) => (l.status === "confirmed" && l.confirmedClient) || webProven(l))

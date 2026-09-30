@@ -81,6 +81,7 @@ const ORIGIN_NL: Record<EvidenceOrigin, string> = {
   post: "uit de post",
   web: "online gevonden",
   memory: "eerder bevestigd",
+  history: "zelfde recruiter",
   knowledge: "marktkennis",
 };
 

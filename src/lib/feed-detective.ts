@@ -180,6 +180,18 @@ export function sameRole(hit: SearchHit, title: string, stack: string[], city: s
 
 const NOT_USEFUL_URL = /linkedin\.com\/(posts|feed|in\/)|\/hashtag\//i;
 
+const LISTING_HOST =
+  /(indeed\.|glassdoor\.|jooble\.|nationalevacaturebank\.|werkzoeken\.|jobbird\.|monsterboard\.|careerjet\.|talent\.com|jobrapido\.|adzuna\.|whatjobs\.|jobleads\.|neuvoo\.|joblift\.)/i;
+const LISTING_TITLE = /\b(vacatures?|jobs?|banen|opdrachten)\s+(in|voor|bij)\b|\b\d[\d.,]*\+?\s+(vacatures|jobs|banen|opdrachten)\b/i;
+
+/**
+ * Search-result and aggregator pages list dozens of employers at once; the
+ * client's name on one proves nothing about this assignment.
+ */
+export function isListingPage(hit: SearchHit) {
+  return LISTING_HOST.test(hit.url) || LISTING_TITLE.test(hit.title) || /[?&](q|query|keywords?)=/i.test(hit.url);
+}
+
 export function hitMentions(hit: SearchHit, name: string) {
   const hay = ` ${fold(`${hit.title} ${hit.description} ${hit.url}`)} `;
   const n = fold(name);
@@ -297,7 +309,7 @@ export function calibrate(opts: {
       if (hit) {
         origin = "web";
         url = hit.url;
-        if (hitMentions(hit, name)) {
+        if (!isListingPage(hit) && hitMentions(hit, name)) {
           webProof = true;
           citedWebProof = true;
           weight = 88;
@@ -306,7 +318,7 @@ export function calibrate(opts: {
     } else if (g) {
       const m = opts.memory[Number(g[1]) - 1];
       if (m) {
-        origin = "memory";
+        origin = m.proof === "confirmed" ? "memory" : "history";
         // An unconfirmed AI find only counts as proof for the same recruiter.
         if (fold(m.client) === fold(name) && (m.proof === "confirmed" || m.sameRecruiter)) {
           memoryProof = true;
@@ -328,7 +340,7 @@ export function calibrate(opts: {
 
   // The model sometimes forgets to cite a web hit that plainly names its pick.
   if (!webProof) {
-    const idx = opts.hits.findIndex((h) => hitMentions(h, name));
+    const idx = opts.hits.findIndex((h) => !isListingPage(h) && hitMentions(h, name));
     if (idx >= 0) {
       webProof = true;
       const hit = opts.hits[idx]!;
@@ -459,7 +471,9 @@ ${webBlock(hits)}`,
     const budget = makeBudget("standard");
     budget.maxSearches = 1;
     const q = `"${cal.name}" ${roleCore(opts.title)} ${opts.city || ""} freelance opdracht`.replace(/\s+/g, " ").trim();
-    const check = (await multiSearch([q], budget, { perQuery: 6 })).filter((h) => !NOT_USEFUL_URL.test(h.url));
+    const check = (await multiSearch([q], budget, { perQuery: 6 })).filter(
+      (h) => !NOT_USEFUL_URL.test(h.url) && !isListingPage(h)
+    );
     const hit = check.find((h) => hitMentions(h, cal.name) && sameRole(h, opts.title, opts.stack, opts.city));
     if (hit) {
       cal.confidence = Math.min(CAP.web, Math.max(cal.confidence + 12, 85));

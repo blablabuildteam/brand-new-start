@@ -1195,7 +1195,8 @@ button:focus-visible {
   background: var(--green-soft);
   color: var(--green);
 }
-.lead-why__origin--memory {
+.lead-why__origin--memory,
+.lead-why__origin--history {
   background: var(--accent-soft);
   color: var(--accent);
 }
