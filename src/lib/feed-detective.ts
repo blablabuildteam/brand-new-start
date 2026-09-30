@@ -34,9 +34,17 @@ const CAP = {
   nameInPost: 96,
   web: 92,
   memory: 88,
-  postClues: 78,
-  knowledge: 66,
+  threePostClues: 74,
+  twoPostClues: 68,
+  knowledge: 60,
 } as const;
+
+/** Rules hints below this only anchor the model on a weak guess. */
+const HINT_MIN = 70;
+
+/** Quotes that fit hundreds of organisations prove nothing. */
+const GENERIC_QUOTE =
+  /^(?:(?:grote|large|groot|internationale?|nederlandse|dutch|hybride|hybrid|remote|enterprise|enterpriseomgeving|organisatie|organization|azure|aws|gcp|cloud|java|\.net|c#|python|kubernetes|scrum|agile|devops|amsterdam|rotterdam|utrecht|den haag|eindhoven|freelance|zzp|en|of|and|or|\/|,|-)\s*)+$/i;
 
 function fold(s: string) {
   return s
@@ -153,7 +161,10 @@ Stap 2 — Zo ja: welke organisatie? Gebruik alles:
 - [W] zoekresultaten: dezelfde opdracht bij een ander bureau of op de site van de klant noemt vaak de naam
 - [G] eerder bevestigde klanten van dit bureau: recruiters werken vaak jaren voor dezelfde paar klanten
 Noem alleen een echte organisatienaam, nooit "een grote bank" of "een overheidsorganisatie".
+Iets wat bij honderden organisaties past (Azure, Java, "grote organisatie", hybride, een grote stad) is geen aanwijzing — noem het niet.
 Als het echt niet te zeggen is: client null — liever eerlijk dan een gok.
+
+confidence: 85+ alleen als de naam in de post, een [W]-resultaat of een [G]-klant staat. Alleen marktkennis: max 65.
 
 Elke aanwijzing ("clue"):
 - quote: kort en LETTERLIJK overgenomen uit de post of uit een [W]-resultaat
@@ -232,8 +243,12 @@ export function calibrate(opts: {
       }
     } else if (src === "POST" && quote.length >= 4 && post.includes(fold(quote))) {
       origin = "post";
-      postClues += 1;
-      weight = 65;
+      if (quote.split(/\s+/).length >= 3 && !GENERIC_QUOTE.test(quote)) {
+        postClues += 1;
+        weight = 65;
+      } else weight = 35;
+    } else if (/hint|regels|\(\d+%\)/i.test(`${src} ${quote}`)) {
+      continue;
     }
     evidence.push({ label: why, quote: quote || undefined, weight, origin, url });
   }
@@ -260,9 +275,11 @@ export function calibrate(opts: {
       ? CAP.web
       : memoryProof
         ? CAP.memory
-        : postClues >= 2
-          ? CAP.postClues
-          : CAP.knowledge;
+        : postClues >= 3
+          ? CAP.threePostClues
+          : postClues === 2
+            ? CAP.twoPostClues
+            : CAP.knowledge;
   const basis = nameInPost
     ? "naam staat in de post"
     : webProof
@@ -270,8 +287,8 @@ export function calibrate(opts: {
       : memoryProof
         ? "eerder bevestigd bij dit bureau"
         : postClues >= 2
-          ? `${postClues} aanwijzingen uit de post`
-          : "alleen marktkennis — niet nagetrokken";
+          ? `${postClues} specifieke aanwijzingen uit de post, naam niet nagetrokken`
+          : "vooral marktkennis — niet nagetrokken";
   const modelConf = Number(opts.raw.confidence);
   const confidence = Math.round(Math.max(20, Math.min(cap, Number.isFinite(modelConf) ? modelConf : 50)));
   return { name, confidence, evidence: evidence.sort((a, b) => b.weight - a.weight), basis };
@@ -304,14 +321,14 @@ export async function identifyFeedClient(opts: {
       .slice(0, 8);
   }
 
-  const hint = opts.rulesHint
-    ? `Onze gratis regels denken aan ${opts.rulesHint.name} (${opts.rulesHint.confidence}%) — alleen een hint, mag je verwerpen.`
-    : "Geen hint uit onze regels.";
+  const hint =
+    opts.rulesHint && opts.rulesHint.confidence >= HINT_MIN
+      ? `Onze catalogus herkent mogelijk ${opts.rulesHint.name} — check dat zelf, geen bewijs op zich.`
+      : "";
 
   const result = await aiJsonCompletion({
     system: SYSTEM,
-    user: `Bureau: ${opts.agencyName}${opts.recruiterName ? ` · recruiter ${opts.recruiterName}` : ""}
-${hint}
+    user: `Bureau: ${opts.agencyName}${opts.recruiterName ? ` · recruiter ${opts.recruiterName}` : ""}${hint ? `\n${hint}` : ""}
 
 === POST ===
 ${post}
