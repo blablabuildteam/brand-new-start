@@ -720,11 +720,13 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
         return;
       }
       const d = j.detective;
-      const neu = (j.kept ?? 0) > 0 ? `${j.kept} vacature-posts gezien` : "Geen nieuwe vacature-posts";
+      const neu =
+        (j.kept ?? 0) > 0
+          ? `${j.kept} vacature-posts opgehaald. Die staan in de lijst.`
+          : "Geen nieuwe vacatures. De posts die er al stonden blijven staan. Je hoeft niets te doen.";
       setSyncNote(
-        `${neu}.` +
-          (j.unchanged ? ` ${j.unchanged} recruiters overgeslagen, die zijn in de afgelopen 20 uur al gecheckt.` : "") +
-          " Bekende profielen: alleen posts van de laatste week." +
+        neu +
+          (j.unchanged ? ` ${j.unchanged} recruiters zijn in de afgelopen 20 uur al gecheckt.` : " Morgen opnieuw kijken is genoeg.") +
           (d?.tried ? ` AI heeft ${d.tried} nieuwe posts gelezen, bij ${d.found} een opdrachtgever gevonden.` : "") +
           (d?.left ? ` Nog ${d.left} open: klik AI alle open.` : "")
       );
