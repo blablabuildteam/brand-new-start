@@ -89,7 +89,7 @@ type InitialCrm = {
     withHm: number;
     byStage?: Record<string, number>;
   };
-  backlog?: { feedPending: number; boardBelow: number; boardThreshold: number };
+  backlog?: { feedPending: number; feedReady?: number; boardBelow: number; boardThreshold: number };
   lusha?: boolean;
 };
 
@@ -504,12 +504,17 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
               {needsHm ? ` · ${needsHm} zonder manager` : ""}
             </p>
           </div>
-          {backlog && (backlog.feedPending || backlog.boardBelow) ? (
+          {backlog && (backlog.feedReady || backlog.feedPending || backlog.boardBelow) ? (
             <p className="kans-backlog">
               <span className="kans-backlog__label">Nog niet hier</span>
+              {backlog.feedReady ? (
+                <Link href="/leads" className="kans-backlog__link">
+                  {backlog.feedReady} posts klaar om te bevestigen
+                </Link>
+              ) : null}
               {backlog.feedPending ? (
                 <Link href="/leads" className="kans-backlog__link">
-                  {backlog.feedPending} posts zonder opdrachtgever
+                  {backlog.feedPending} posts nog te reviewen
                 </Link>
               ) : null}
               {backlog.boardBelow ? (

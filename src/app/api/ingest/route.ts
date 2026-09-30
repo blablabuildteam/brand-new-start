@@ -38,8 +38,8 @@ async function authorized(req: Request) {
   const authHeader = req.headers.get("authorization");
   const isCron = Boolean(cronSecret && authHeader === `Bearer ${cronSecret}`);
   const session = await getSession();
-  // Sync alleen voor admin (of cron-secret) — recruiters mogen de radar zien, niet scrapen.
-  return { ok: isCron || isAdmin(session), isCron, session };
+  // Iedereen die is ingelogd mag syncen. Reset blijft admin. Cron gebruikt het secret.
+  return { ok: isCron || Boolean(session), isCron, session };
 }
 
 async function alertNewHits(opts: {
@@ -110,10 +110,10 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   const startedAt = Date.now();
-  const { ok } = await authorized(req);
+  const { ok, session } = await authorized(req);
   if (!ok) {
     return NextResponse.json(
-      { error: "unauthorized", message: "Sync alleen voor admin." },
+      { error: "unauthorized", message: "Log in om te syncen." },
       { status: 401 }
     );
   }
@@ -123,6 +123,9 @@ export async function POST(req: Request) {
   await loadHuntSettings();
 
   if (action === "reset") {
+    if (!isAdmin(session)) {
+      return NextResponse.json({ error: "unauthorized", message: "Reset alleen voor admin." }, { status: 401 });
+    }
     return NextResponse.json({
       ok: true,
       stats: await resetStore(),

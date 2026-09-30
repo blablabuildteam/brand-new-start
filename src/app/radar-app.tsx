@@ -892,7 +892,7 @@ export default function RadarApp({
   async function run(
     action: "all" | "market" | "indeed" | "freelance-nl" | "platforms" | "recruiter-feeds"
   ) {
-    if (user?.role !== "admin") {
+    if (!user) {
       setMenuOpen(false);
       return;
     }
@@ -1208,7 +1208,7 @@ export default function RadarApp({
   const runningStep = live?.steps.find((s) => s.status === "running");
   const doneSteps = live?.steps.filter((s) => s.status === "done").length ?? 0;
   const totalSteps = live?.steps.length ?? 0;
-  const canSync = user?.role === "admin";
+  const canSync = Boolean(user);
   const menuLabel = canSync ? "Sync & meer" : "Meer";
 
   const syncToolbar = (
@@ -1223,7 +1223,7 @@ export default function RadarApp({
         type="button"
         aria-expanded={menuOpen}
         aria-haspopup="menu"
-        data-tip={canSync ? "Bronnen ophalen" : "Sync is alleen voor admin"}
+        data-tip="Bronnen ophalen"
         onClick={() => setMenuOpen((v) => !v)}
         className="btn-ghost btn-tool"
       >
@@ -1305,16 +1305,9 @@ export default function RadarApp({
               </div>
             </>
           ) : (
-            <div className="px-3 py-2">
-              <p className="text-[0.65rem] font-medium uppercase tracking-wide text-[var(--muted)]" style={{ fontFamily: "var(--mono)" }}>
-                Recruiter
-              </p>
-              <p className="mt-0.5 text-[0.7rem] leading-snug text-[var(--muted)]">
-                Sync is alleen voor admin. Vraag blablabuild als de radar ververst moet worden.
-              </p>
-            </div>
+            <p className="px-3 py-2 text-[0.75rem] text-[var(--muted)]">Laden…</p>
           )}
-          {canSync ? (
+          {user?.role === "admin" ? (
             <>
               <button
                 type="button"

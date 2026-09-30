@@ -350,7 +350,7 @@ export default function SettingsForm() {
 
         {hunt?.integrations ? (
           <section className="ws-panel mb-3 px-4 py-3">
-            <p className="ws-label">Pilot-klaarheid</p>
+            <p className="ws-label">Koppelingen</p>
             <ul className="mt-2 flex flex-wrap gap-2">
               {(
                 [

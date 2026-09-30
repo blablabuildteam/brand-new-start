@@ -115,7 +115,7 @@ export default async function MethodePage() {
             "AI research (Recruiter feed) zoekt de eindklant via web + desk-geheugen. Jij blijft de eindbeslisser.",
             admin
               ? "Stack-kosten (Apify/Firecrawl/Claude) staan onder Kosten — alleen zichtbaar voor admin."
-              : "Filteren in de app is gratis; syncs kosten alleen als admin ze start.",
+              : "Filteren in de app is gratis. Sync haalt bronnen op en kost per run.",
           ].map((t) => (
             <li key={t} className="flex gap-2 px-4 py-2.5 sm:px-5">
               <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-[var(--accent)]" />

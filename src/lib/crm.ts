@@ -172,6 +172,8 @@ function sourceChannelOf(labels: string[]): string | null {
 export type CrmBacklog = {
   /** Feed-posts zonder bevestigde opdrachtgever. */
   feedPending: number;
+  /** Posts where the AI is already sure enough to confirm. */
+  feedReady: number;
   /** Jobboard-vacatures onder de kansdrempel. */
   boardBelow: number;
   /** Score die een jobboard-vacature nodig heeft. */
@@ -199,15 +201,17 @@ async function loadCrmInputs(): Promise<CrmInputs> {
 
 export async function listCrmDesk(): Promise<{ items: CrmOpportunity[]; backlog: CrmBacklog }> {
   const inputs = await loadCrmInputs();
-  const feedPending = inputs.leads.live.filter(
+  const openLeads = inputs.leads.live.filter(
     (l) => l.status !== "confirmed" && l.status !== "rejected"
-  ).length;
+  );
+  const feedReady = openLeads.filter((l) => l.status === "suggest").length;
+  const feedPending = openLeads.length - feedReady;
   const boardBelow = inputs.radar
     .flatMap((r) => r.openings || [])
     .filter((o) => o.status !== "hot" && o.status !== "warm").length;
   return {
     items: buildCrm(inputs),
-    backlog: { feedPending, boardBelow, boardThreshold: 55 },
+    backlog: { feedPending, feedReady, boardBelow, boardThreshold: 55 },
   };
 }
 

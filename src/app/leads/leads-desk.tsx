@@ -708,10 +708,6 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
         error?: string;
         detective?: { tried: number; found: number; left: number } | null;
       };
-      if (res.status === 401) {
-        setSyncNote("Alleen een admin kan de feeds syncen.");
-        return;
-      }
       if (!res.ok) {
         setSyncNote(j.message || j.error || "Sync mislukt");
         return;
@@ -726,6 +722,8 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
       cacheClear("leads");
       cacheClear("crm");
       await load();
+    } catch (e) {
+      setSyncNote(e instanceof Error ? e.message : "Sync mislukt");
     } finally {
       setSyncing(false);
     }
