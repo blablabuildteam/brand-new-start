@@ -170,9 +170,9 @@ function sourceChannelOf(labels: string[]): string | null {
  * lijst van drie een bug, terwijl de rest gewoon nog een stap mist.
  */
 export type CrmBacklog = {
-  /** Feed-posts zonder bevestigde opdrachtgever. */
+  /** Feed-posts die nog review of een naam nodig hebben. */
   feedPending: number;
-  /** Posts where the AI is already sure enough to confirm. */
+  /** Posts waar de AI al zeker genoeg is om te bevestigen. */
   feedReady: number;
   /** Jobboard-vacatures onder de kansdrempel. */
   boardBelow: number;
