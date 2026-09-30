@@ -7,9 +7,10 @@
 import { watchedAgencies, watchedRecruitersFor, type Agency } from "@/lib/agency";
 import { hasApifyToken, runApifyActor } from "@/lib/apify";
 import { INGEST_POLICY } from "@/lib/costs";
+import { loadDeskMeta, saveDeskMeta, type FeedCheck } from "@/lib/desk-meta";
 import { isVacancyPost, type LinkedInPost } from "@/lib/ingest/linkedin";
 import { detectRoleLabel, matchesRole } from "@/lib/niche";
-import { ingestSignal } from "@/lib/store";
+import { ingestSignal, listAgencySignals } from "@/lib/store";
 import { recordSync, type SyncHit } from "@/lib/sync-log";
 
 const POSTS_ACTOR = process.env.APIFY_LINKEDIN_ACTOR || "harvestapi/linkedin-profile-posts";
@@ -109,9 +110,13 @@ function isRecruiterVacancyPost(text: string): boolean {
   );
 }
 
+/** Binnen dit venster is een profiel "net gecheckt": een tweede klik haalt niets op. */
+const FRESH_MS = 20 * 60 * 60 * 1000;
+
 async function fetchPostsForUrls(
   urls: string[],
-  maxPosts: number
+  maxPosts: number,
+  postedLimit: "week" | "year"
 ): Promise<{ posts: LinkedInPost[]; detail: string; mode: string }> {
   if (!urls.length) {
     return { posts: [], detail: "no-recruiter-urls", mode: "skipped" };
@@ -125,7 +130,7 @@ async function fetchPostsForUrls(
     {
       targetUrls: urls,
       maxPosts,
-      postedLimit: "year",
+      postedLimit,
     },
     { waitSecs: 180 }
   );
@@ -183,6 +188,8 @@ export async function syncRecruiterFeeds(opts?: {
   withUrl: number;
   hits: SyncHit[];
   searched: string[];
+  /** Profielen die binnen 20 uur al gecheckt waren en daarom niet opnieuw zijn opgehaald. */
+  unchanged: number;
   run: Awaited<ReturnType<typeof recordSync>>;
 }> {
   const maxRecruiters = opts?.maxRecruiters ?? INGEST_POLICY.recruiterFeedMaxProfiles;
@@ -190,10 +197,22 @@ export async function syncRecruiterFeeds(opts?: {
   const all = listFeedRecruiters();
   const withUrl = all.length;
   const offset = Math.max(0, opts?.offset ?? 0);
-  const batch = all.slice(offset, offset + maxRecruiters);
+  const pool = all.slice(offset);
+  const meta = await loadDeskMeta();
+  const known = await knownNewestByProfile(meta.feedChecks);
+  const now = Date.now();
+  const isFresh = (url: string) => {
+    const at = meta.feedChecks[url]?.at;
+    if (!at) return false;
+    const t = new Date(at).getTime();
+    return !Number.isNaN(t) && now - t < FRESH_MS;
+  };
+  const stale = pool.filter((r) => !isFresh(r.linkedinUrl));
+  const unchanged = pool.length - stale.length;
+  const batch = stale.slice(0, maxRecruiters);
   const searched = batch.map((r) => `${r.name} · ${r.agency.name}`);
 
-  if (!batch.length) {
+  if (!pool.length) {
     const run = await recordSync({
       channel: "recruiter-feed",
       label: "Recruiter-feeds",
@@ -215,6 +234,35 @@ export async function syncRecruiterFeeds(opts?: {
       withUrl,
       hits: [],
       searched,
+      unchanged: 0,
+      run,
+    };
+  }
+
+  if (!batch.length) {
+    const detail = `Alle ${pool.length} recruiters zijn in de afgelopen 20 uur al gecheckt. Niets opnieuw opgehaald.`;
+    const run = await recordSync({
+      channel: "recruiter-feed",
+      label: "Recruiter-feeds",
+      mode: "fresh",
+      detail,
+      fetched: 0,
+      kept: 0,
+      searched: pool.map((r) => `${r.name} · ${r.agency.name}`),
+      hits: [],
+    });
+    return {
+      mode: "fresh",
+      detail,
+      scanned: 0,
+      kept: 0,
+      skipped: 0,
+      vacancies: 0,
+      recruiters: all.length,
+      withUrl,
+      hits: [],
+      searched: [],
+      unchanged,
       run,
     };
   }
@@ -228,9 +276,15 @@ export async function syncRecruiterFeeds(opts?: {
   try {
     // One profile per Apify call keeps attribution reliable (actor often omits author URL).
     const details: string[] = [];
+    const checks: Record<string, FeedCheck> = {};
 
     for (const rec of batch) {
-      const fetched = await fetchPostsForUrls([rec.linkedinUrl], maxPosts);
+      const light = known.has(rec.linkedinUrl);
+      const fetched = await fetchPostsForUrls(
+        [rec.linkedinUrl],
+        light ? Math.min(4, maxPosts) : maxPosts,
+        light ? "week" : "year"
+      );
       details.push(fetched.detail);
       if (fetched.mode === "skipped") {
         const run = await recordSync({
@@ -254,9 +308,15 @@ export async function syncRecruiterFeeds(opts?: {
           withUrl,
           hits: [],
           searched,
+          unchanged,
           run,
         };
       }
+
+      checks[rec.linkedinUrl] = {
+        at: new Date().toISOString(),
+        newestUrl: fetched.posts[0]?.url || known.get(rec.linkedinUrl) || null,
+      };
 
       for (const post of fetched.posts) {
         scanned += 1;
@@ -318,11 +378,20 @@ export async function syncRecruiterFeeds(opts?: {
       }
     }
 
+    if (Object.keys(checks).length) await saveDeskMeta({ feedChecks: checks });
+
+    const lightCount = batch.filter((r) => known.has(r.linkedinUrl)).length;
     const run = await recordSync({
       channel: "recruiter-feed",
       label: "Recruiter-feeds",
       mode: "apify",
-      detail: details.slice(0, 3).join(" · "),
+      detail: [
+        lightCount ? `${lightCount} profielen alleen laatste week` : "",
+        unchanged ? `${unchanged} vandaag al gecheckt` : "",
+        details.slice(0, 2).join(" · "),
+      ]
+        .filter(Boolean)
+        .join(" · "),
       fetched: scanned,
       kept,
       skipped,
@@ -341,6 +410,7 @@ export async function syncRecruiterFeeds(opts?: {
       withUrl,
       hits,
       searched,
+      unchanged,
       run,
     };
   } catch (e) {
@@ -372,7 +442,25 @@ export async function syncRecruiterFeeds(opts?: {
       withUrl,
       hits,
       searched,
+      unchanged,
       run,
     };
   }
+}
+
+/** Newest post we already stored per recruiter, so a later sync does not pull a year again. */
+async function knownNewestByProfile(checks: Record<string, FeedCheck>) {
+  const map = new Map<string, string | null>();
+  for (const [url, check] of Object.entries(checks)) {
+    const key = normalizeProfileUrl(url);
+    if (key) map.set(key, check.newestUrl || null);
+  }
+  const signals = await listAgencySignals();
+  for (const s of signals) {
+    const raw = (s.raw || {}) as { jobPosterProfileUrl?: string };
+    const url = normalizeProfileUrl(raw.jobPosterProfileUrl);
+    if (!url || map.has(url)) continue;
+    map.set(url, s.evidenceUrl || null);
+  }
+  return map;
 }

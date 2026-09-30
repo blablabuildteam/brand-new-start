@@ -97,10 +97,18 @@ export type AiMissRow = {
   notAssignment?: boolean;
 };
 
+/** Laatste keer dat we het LinkedIn-profiel van een recruiter echt bij Apify hebben opgehaald. */
+export type FeedCheck = {
+  at: string;
+  newestUrl?: string | null;
+};
+
 export type DeskMeta = {
   leadReviews: Record<string, ReviewRow>;
   aiGuesses: Record<string, AiRow>;
   aiMisses: Record<string, AiMissRow>;
+  /** keyed by genormaliseerde LinkedIn-URL */
+  feedChecks: Record<string, FeedCheck>;
   crmStages: Record<string, CrmStage>;
   /** Hiring-manager results keyed by CRM id (crm_bureau_* / crm_direct_*). */
   hmGuesses: Record<string, HmGuessRow>;
@@ -111,6 +119,7 @@ const emptyMeta = (): DeskMeta => ({
   leadReviews: {},
   aiGuesses: {},
   aiMisses: {},
+  feedChecks: {},
   crmStages: {},
   hmGuesses: {},
   alerts: [],
@@ -133,6 +142,7 @@ export async function loadDeskMeta(): Promise<DeskMeta> {
       leadReviews: raw?.leadReviews && typeof raw.leadReviews === "object" ? raw.leadReviews : {},
       aiGuesses: raw?.aiGuesses && typeof raw.aiGuesses === "object" ? raw.aiGuesses : {},
       aiMisses: raw?.aiMisses && typeof raw.aiMisses === "object" ? raw.aiMisses : {},
+      feedChecks: raw?.feedChecks && typeof raw.feedChecks === "object" ? raw.feedChecks : {},
       crmStages: raw?.crmStages && typeof raw.crmStages === "object" ? raw.crmStages : {},
       hmGuesses: raw?.hmGuesses && typeof raw.hmGuesses === "object" ? raw.hmGuesses : {},
       alerts: Array.isArray(raw?.alerts) ? raw!.alerts.slice(0, 40) : [],
@@ -167,6 +177,7 @@ export async function saveDeskMeta(patch: Partial<DeskMeta>, base?: DeskMeta): P
     leadReviews: { ...prev.leadReviews, ...patch.leadReviews },
     aiGuesses: { ...prev.aiGuesses, ...patch.aiGuesses },
     aiMisses: { ...prev.aiMisses, ...patch.aiMisses },
+    feedChecks: { ...prev.feedChecks, ...patch.feedChecks },
     crmStages: { ...prev.crmStages, ...patch.crmStages },
     hmGuesses: { ...prev.hmGuesses, ...patch.hmGuesses },
     alerts: patch.alerts ?? prev.alerts,

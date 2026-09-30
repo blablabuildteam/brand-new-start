@@ -704,6 +704,9 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
       const j = (await res.json().catch(() => ({}))) as {
         kept?: number;
         fetched?: number;
+        mode?: string;
+        detail?: string;
+        unchanged?: number;
         message?: string;
         error?: string;
         detective?: { tried: number; found: number; left: number } | null;
@@ -712,9 +715,16 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
         setSyncNote(j.message || j.error || "Sync mislukt");
         return;
       }
+      if (j.mode === "fresh") {
+        setSyncNote(j.detail || "Net al gecheckt. Niets opnieuw opgehaald.");
+        return;
+      }
       const d = j.detective;
+      const neu = (j.kept ?? 0) > 0 ? `${j.kept} vacature-posts gezien` : "Geen nieuwe vacature-posts";
       setSyncNote(
-        `${j.kept ?? 0} vacature-posts uit ${j.fetched ?? 0} posts.` +
+        `${neu}.` +
+          (j.unchanged ? ` ${j.unchanged} recruiters overgeslagen, die zijn in de afgelopen 20 uur al gecheckt.` : "") +
+          " Bekende profielen: alleen posts van de laatste week." +
           (d?.tried ? ` AI heeft ${d.tried} nieuwe posts gelezen, bij ${d.found} een opdrachtgever gevonden.` : "") +
           (d?.left ? ` Nog ${d.left} open: klik AI alle open.` : "")
       );
@@ -906,7 +916,13 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
                 Nieuwe posts van recruiters komen pas binnen na een sync; de AI zoekt daarna meteen de
                 opdrachtgever.
               </p>
-              <button type="button" className="btn-ink btn-tool shrink-0" disabled={syncing} onClick={() => void syncFeeds()}>
+              <button
+                type="button"
+                className="btn-ink btn-tool shrink-0"
+                disabled={syncing}
+                title="Haalt alleen nieuwe posts op. Een tweede klik binnen 20 uur kost niets."
+                onClick={() => void syncFeeds()}
+              >
                 {syncing ? "Sync loopt… (1–4 min)" : "Sync nu"}
               </button>
             </div>

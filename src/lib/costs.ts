@@ -288,7 +288,7 @@ export const SYNC_COST_PER_RUN = {
       label: "Recruiter-feeds",
       tool: "Apify",
       eur: { low: 0.5, high: 3.5 },
-      what: `tot ${INGEST_POLICY.recruiterFeedMaxProfiles} recruiters · ~${INGEST_POLICY.recruiterFeedMaxPosts} posts · advies 1×/${INGEST_POLICY.recruiterFeedCadenceDays}d`,
+      what: `eerste keer vol, daarna alleen de laatste week · een tweede klik binnen 20 uur haalt niets op`,
     },
     lusha: {
       label: "Lusha mail/tel",
