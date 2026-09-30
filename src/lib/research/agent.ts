@@ -1,8 +1,8 @@
 import { z } from "zod";
 import { aiJsonCompletion, hasAiKey } from "@/lib/ai-client";
-import { readClientFromVacancy } from "@/lib/read-client";
+import { identifyFeedClient, type FeedMemory } from "@/lib/feed-detective";
 import { isAgencyName } from "@/lib/agency";
-import { guessEndClient, isHuntWorthy, type ClientGuess, type Evidence } from "@/lib/end-client";
+import { extractVacancyFacts, guessEndClient, type ClientGuess, type Evidence } from "@/lib/end-client";
 import { findRelatedJobs, relatedJobsBlock, type RelatedJob } from "@/lib/research/corpus";
 import {
   buildRulesOnlyResult,
@@ -459,7 +459,14 @@ export async function researchEndClient(opts: {
   signalId?: string;
   depth?: ResearchDepth;
   onProgress?: (p: ResearchProgress) => void;
-}): Promise<{ guess: ClientGuess | null; model: string; detail: string; report: ResearchReport | null }> {
+  memory?: FeedMemory[];
+}): Promise<{
+  guess: ClientGuess | null;
+  model: string;
+  detail: string;
+  report: ResearchReport | null;
+  notAssignment?: string;
+}> {
   const depth: ResearchDepth = opts.depth || "standard";
   const blob = `${opts.title}\n\n${opts.text}`.slice(0, 8000);
   const agency = opts.agencyName;
@@ -478,47 +485,40 @@ export async function researchEndClient(opts: {
     );
   }
 
-  // Te dun om te jagen op standaard: geen onderscheidend spoor → geen geld verbranden.
-  if (
-    depth !== "deep" &&
-    !isHuntWorthy({ title: opts.title, text: opts.text, prior }) &&
-    (!prior || prior.confidence < 55)
-  ) {
-    progress.done();
-    return {
-      guess: null,
-      model: "",
-      detail: "Te dun voor een zekere opdrachtgever — niet gegokt",
-      report: null,
-    };
-  }
-
-  // Standaard: één korte lezing van de tekst. Geen recruiter, geen websearch.
-  // Deep blijft de uitgebreide ronde voor als je die expliciet kiest.
+  // Standaard: de speurder — post lezen, opdracht één keer terugzoeken, eigen
+  // geheugen erbij, één Claude-call. Deep blijft de uitgebreide ronde.
   if (depth !== "deep") {
     progress.start("read");
-    const read = await readClientFromVacancy({ title: opts.title, text: opts.text });
+    const facts = extractVacancyFacts(`${opts.title}\n${opts.text}`);
+    const verdict = await identifyFeedClient({
+      title: opts.title,
+      text: opts.text,
+      agencyName: agency,
+      recruiterName: recruiter || undefined,
+      stack: facts.stack,
+      city: facts.location,
+      memory: opts.memory || [],
+      rulesHint: prior,
+    });
     progress.done();
-    if (!read) {
+    if (verdict.kind === "not-assignment") {
       return {
         guess: null,
-        model: "",
-        detail: "Geen zekere opdrachtgever in de tekst — niet gegokt",
+        model: verdict.model,
+        detail: `Geen opdracht: ${verdict.reason}`,
+        report: null,
+        notAssignment: verdict.reason,
+      };
+    }
+    if (verdict.kind === "unknown") {
+      return {
+        guess: null,
+        model: verdict.model,
+        detail: verdict.check ? `${verdict.detail} · Check: ${verdict.check}` : verdict.detail,
         report: null,
       };
     }
-    return {
-      guess: {
-        name: read.name,
-        confidence: read.confidence,
-        evidence: [{ label: read.because, quote: read.quote, weight: read.confidence }],
-        alternatives: [],
-        source: "ai",
-      },
-      model: read.model,
-      detail: read.because,
-      report: null,
-    };
+    return { guess: verdict.guess, model: verdict.model, detail: verdict.detail, report: null };
   }
 
   // ── Signalen: deep = LLM-extract ──

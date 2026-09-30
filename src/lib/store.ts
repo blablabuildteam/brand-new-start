@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import type { Company, RadarEntry, Signal } from "@/lib/db/schema";
 import { companies, radarEntries, signals } from "@/lib/db/schema";
 import { getDb, hasDatabase } from "@/lib/db/client";
-import { fingerprintOf, scoreSignals } from "@/lib/score";
+import { companyKey, fingerprintOf, scoreSignals, type FeedClientMatch } from "@/lib/score";
 import { detectRoleLabel, matchesContract, matchesRole, matchesTender } from "@/lib/niche";
 import { orgContextFromSignals } from "@/lib/org-context";
 import { buildApproach, companyLinkedinFromSignals } from "@/lib/approach";
@@ -465,10 +465,38 @@ export async function ingestSignal(rawInput: IngestInput): Promise<{
  * Bouw radar uit signalen + score in-memory.
  * Eén rij per bedrijf; openingen (met eigen score) als nested array.
  */
+/** Feed posts whose client we know (bevestigd, of AI ≥80%), keyed by company. */
+function feedClientIndex(all: Signal[], coMap: Map<string, Company>) {
+  const index = new Map<string, FeedClientMatch[]>();
+  for (const s of all) {
+    const raw = (s.raw && typeof s.raw === "object" ? s.raw : {}) as Record<string, unknown>;
+    if (s.source !== "agency-swarm" && !raw.recruiterFeed) continue;
+    const review = raw.leadReview as { status?: string; clientName?: string } | undefined;
+    const ai = raw.aiClientGuess as { guess?: { name?: string; confidence?: number } } | undefined;
+    if (review?.status === "rejected") continue;
+    const confirmed = review?.status === "confirmed" && Boolean(review.clientName);
+    const name = confirmed
+      ? review!.clientName!
+      : ai?.guess?.name && (ai.guess.confidence ?? 0) >= 80
+        ? ai.guess.name
+        : null;
+    if (!name) continue;
+    const key = companyKey(name);
+    if (key.length < 2) continue;
+    const agency =
+      (typeof raw.agencyName === "string" && raw.agencyName) || coMap.get(s.companyId)?.name || "Bureau";
+    const list = index.get(key) || [];
+    list.push({ agency, roleLabel: s.roleLabel, confirmed });
+    index.set(key, list);
+  }
+  return index;
+}
+
 export async function listRadar() {
   function buildCompanyRows(
     byCompany: Map<string, Signal[]>,
-    coMap: Map<string, Company>
+    coMap: Map<string, Company>,
+    feedIndex: Map<string, FeedClientMatch[]>
   ) {
     const rows = [];
     for (const [companyId, companySignals] of byCompany) {
@@ -487,10 +515,13 @@ export async function listRadar() {
       const bundles = buildOpeningBundles(companySignals);
       if (!bundles.length) continue;
 
+      const feedMatches = feedIndex.get(companyKey(company.name)) || [];
       const openings = bundles.map((bundle) => {
         const scored = scoreSignals(bundle.signals, {
           primary: bundle.primary,
           siblingOpenings: bundle.siblingOpenings,
+          directClient: true,
+          feedMatches,
         });
         const org = orgContextFromSignals(bundle.signals);
         const approach = buildApproach({
@@ -591,7 +622,7 @@ export async function listRadar() {
       list.push(s);
       byCompany.set(s.companyId, list);
     }
-    return buildCompanyRows(byCompany, coMap);
+    return buildCompanyRows(byCompany, coMap, feedClientIndex(allSignals, coMap));
   }
 
   const store = mem();
@@ -603,7 +634,7 @@ export async function listRadar() {
     list.push(s);
     byCompany.set(s.companyId, list);
   }
-  return buildCompanyRows(byCompany, coMap);
+  return buildCompanyRows(byCompany, coMap, feedClientIndex([...store.signals.values()], coMap));
 }
 
 export async function getRadarDetail(id: string) {

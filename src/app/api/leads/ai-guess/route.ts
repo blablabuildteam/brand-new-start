@@ -4,7 +4,7 @@ import { getSession } from "@/lib/auth";
 import { hasAiKey } from "@/lib/ai-client";
 import { researchEndClient } from "@/lib/end-client-research";
 import { hasWeb } from "@/lib/research/web";
-import { leadSourceForAi, saveAiGuess } from "@/lib/opportunity";
+import { leadSourceForAi, reviewLead, saveAiGuess, saveAiMiss } from "@/lib/opportunity";
 
 export const maxDuration = 300;
 export const runtime = "nodejs";
@@ -90,14 +90,22 @@ export async function POST(req: Request) {
       signalId: src.lead.signalId || undefined,
       depth: parsed.data.depth,
       onProgress: (p) => send({ type: "progress", ...p }),
+      memory: src.memory,
     });
 
     if (!result.guess) {
+      // Remember the miss so "AI alle open" doesn't pay for the same empty post again.
+      if (result.model) await saveAiMiss(parsed.data.id, result.detail, Boolean(result.notAssignment));
+      const lead = result.notAssignment
+        ? await reviewLead(parsed.data.id, "rejected")
+        : src.lead;
       send({
         type: "done",
         ok: false,
         detail: result.detail,
-        lead: src.lead,
+        lead: lead
+          ? { ...lead, aiMiss: { detail: result.detail, notAssignment: Boolean(result.notAssignment), at: new Date().toISOString() } }
+          : src.lead,
       });
       return;
     }

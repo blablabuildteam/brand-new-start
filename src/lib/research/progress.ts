@@ -3,8 +3,8 @@ import type { ResearchDepth, ResearchProgress } from "@/lib/research/types";
 type StepDef = { id: string; label: string; sec: number };
 
 const PIPELINE: Record<ResearchDepth, StepDef[]> = {
-  quick: [{ id: "read", label: "Tekst lezen", sec: 4 }],
-  standard: [{ id: "read", label: "Tekst lezen", sec: 5 }],
+  quick: [{ id: "read", label: "Post lezen + terugzoeken", sec: 12 }],
+  standard: [{ id: "read", label: "Post lezen + terugzoeken", sec: 12 }],
   deep: [
     { id: "signals", label: "Vacature ontleden", sec: 8 },
     { id: "search", label: "Web zoeken", sec: 14 },

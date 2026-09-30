@@ -1162,6 +1162,47 @@ button:focus-visible {
   font-size: 0.72rem;
   color: var(--muted);
 }
+.lead-why__summary {
+  margin: 0.35rem 0 0;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: var(--ink);
+}
+.lead-why__check {
+  margin: 0.45rem 0 0;
+  font-size: 0.74rem;
+  color: var(--ink);
+}
+.lead-why__quote a {
+  font-style: normal;
+  color: var(--accent);
+}
+.lead-why__origin {
+  display: inline-block;
+  margin-right: 0.35rem;
+  padding: 0 0.3rem;
+  border-radius: 3px;
+  font-size: 0.62rem;
+  font-weight: 650;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  vertical-align: 0.08em;
+  background: var(--surface-2);
+  color: var(--muted);
+}
+.lead-why__origin--post,
+.lead-why__origin--web {
+  background: var(--green-soft);
+  color: var(--green);
+}
+.lead-why__origin--memory {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.lead-why__origin--knowledge {
+  background: var(--warn-soft);
+  color: var(--warn);
+}
 .lead-row__actions {
   display: flex;
   flex-wrap: wrap;

@@ -1,10 +1,15 @@
 import { isAgencyName } from "@/lib/agency";
 import type { ResearchReport } from "@/lib/research/types";
 
+export type EvidenceOrigin = "post" | "web" | "memory" | "knowledge";
+
 export type Evidence = {
   label: string;
   quote?: string;
   weight: number;
+  /** Where the clue comes from; knowledge = marktkennis van het model, niet nagetrokken. */
+  origin?: EvidenceOrigin;
+  url?: string;
 };
 
 export type ClientGuess = {
@@ -16,6 +21,10 @@ export type ClientGuess = {
   source?: "rules" | "serp" | "ai" | "deep";
   /** Transparent research / scoring explanation */
   report?: ResearchReport;
+  /** One-sentence verdict in plain Dutch. */
+  summary?: string;
+  /** What the recruiter should check to be sure. */
+  check?: string;
 };
 
 export type VacancyFacts = {
@@ -389,6 +398,7 @@ export function guessEndClient(opts: { title?: string; text: string }): ClientGu
       label: "Vacature noemt de opdrachtgever",
       quote: named.quote,
       weight: 88,
+      origin: "post",
     });
   }
 
@@ -398,6 +408,7 @@ export function guessEndClient(opts: { title?: string; text: string }): ClientGu
       label: "Klantnaam in de opdrachtreferentie",
       quote: referenced.quote,
       weight: 84,
+      origin: "post",
     });
   }
 
@@ -406,7 +417,7 @@ export function guessEndClient(opts: { title?: string; text: string }): ClientGu
       if (alias.length < 3) continue;
       if (hasWord(h, alias) && !named) {
         // Explicit name in text still wins even across provinces (HQ vs standplaats).
-        add(c.name, { label: `Naam ${c.name} in de tekst`, weight: 86 });
+        add(c.name, { label: `De naam ${alias} staat letterlijk in de post`, weight: 86, origin: "post" });
       }
     }
 
@@ -431,9 +442,11 @@ export function guessEndClient(opts: { title?: string; text: string }): ClientGu
     const sorted = [...hits].sort((a, b) => (TAG_RARITY.get(b) ?? 0.5) - (TAG_RARITY.get(a) ?? 0.5));
 
     add(c.name, {
-      label: `Profiel: ${sorted.slice(0, 4).join(", ")}`,
-      quote: distinctive.length ? `Onderscheidend: ${distinctive.slice(0, 3).join(", ")}` : undefined,
+      label: distinctive.length
+        ? `De post noemt ${sorted.slice(0, 4).join(", ")} — dat past bij ${c.name} (${c.sector}), de naam zelf staat er niet`
+        : `Alleen algemene woorden (${sorted.slice(0, 4).join(", ")}) die ook bij ${c.name} passen — zwakke hint`,
       weight: Math.min(ceiling, Math.round(22 + mass * 22)),
+      origin: "post",
     });
   }
 

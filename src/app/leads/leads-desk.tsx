@@ -8,7 +8,7 @@ import { ResearchMeter } from "@/components/research-meter";
 import { kansenHref, regieHref } from "@/lib/desk-links";
 import { DESK } from "@/lib/desk-labels";
 import type { AgencyLead, LeadStatus } from "@/lib/opportunity";
-import { isHuntWorthy, huntSignals } from "@/lib/end-client";
+import { huntSignals, type EvidenceOrigin } from "@/lib/end-client";
 import { streamResearch } from "@/lib/research/client";
 import { skipBatchResearch } from "@/lib/research/first-pass";
 import { startingProgress } from "@/lib/research/progress";
@@ -77,48 +77,56 @@ function statusClass(status: LeadStatus) {
   return "border-[var(--warn)]/30 bg-[var(--warn-soft)] text-[var(--warn)]";
 }
 
+const ORIGIN_NL: Record<EvidenceOrigin, string> = {
+  post: "uit de post",
+  web: "online gevonden",
+  memory: "eerder bevestigd",
+  knowledge: "marktkennis",
+};
+
 function whyLine(lead: AgencyLead): string | null {
   const g = lead.guess;
   if (!g) return null;
-  if (g.source === "serp") return "Bevestigd in zoekresultaten, zonder Claude.";
-  if (g.source === "deep") return "Via deep research.";
-  if (g.source === "ai") return "Via AI-analyse van de post.";
-  if (g.source === "rules") return "Naam of signaal staat in de post zelf.";
+  if (g.summary) return g.summary;
+  if (g.source === "serp") return "De naam kwam terug in zoekresultaten die bij deze opdracht passen.";
+  if (g.source === "deep") return g.report?.hypothesis || "Via diep onderzoek.";
   const top = g.evidence?.[0];
-  if (top?.label && top?.quote) {
-    const q = top.quote.replace(/\s+/g, " ").trim();
-    const short = q.length > 110 ? `${q.slice(0, 108)}…` : q;
-    return `${top.label}: “${short}”`;
-  }
   if (top?.label) return top.label;
   if (g.report?.hypothesis) return g.report.hypothesis;
-  return "Lokale regels.";
+  return null;
+}
+
+/** Aanwijzingen = losse stukjes in de post die naar één organisatie kunnen wijzen. */
+function cluesInPost(lead: AgencyLead) {
+  const text = `${lead.title}\n${lead.summary || ""}`;
+  const s = huntSignals({ title: lead.title, text });
+  return [...s.project_signals, ...s.hard_signals, s.location.city || "", ...lead.facts.stack.slice(0, 2)]
+    .filter(Boolean)
+    .filter((v, i, a) => a.indexOf(v) === i)
+    .slice(0, 4);
 }
 
 function clientExplain(lead: AgencyLead): { kind: "ok" | "thin" | "hunt"; why: string } {
   if (lead.status === "confirmed") return { kind: "ok", why: "Door jou bevestigd." };
-  if (lead.status === "rejected") return { kind: "ok", why: "Afgewezen." };
-  const text = `${lead.title}\n${lead.summary || ""}`;
-  const signals = huntSignals({ title: lead.title, text });
-  const sporen = [...signals.project_signals, ...signals.hard_signals, signals.location.city || ""]
-    .filter(Boolean)
-    .slice(0, 3);
-  const g = lead.guess;
-  if (g && g.confidence >= 45) {
-    const why = whyLine(lead);
-    return { kind: "ok", why: `${g.confidence}% · ${why || "match op de post"}` };
-  }
-  if (!isHuntWorthy({ title: lead.title, text, prior: g })) {
+  if (lead.status === "rejected") {
     return {
-      kind: "thin",
-      why: sporen.length
-        ? `Niet te vinden: de post noemt geen opdrachtgever. Alleen ${sporen.join(", ")} — te algemeen om te zoeken.`
-        : "Niet te vinden: de post noemt geen opdrachtgever en geen uniek project, techniek of stad.",
+      kind: "ok",
+      why: lead.aiMiss?.notAssignment ? `Weggezet door AI — ${lead.aiMiss.detail}` : "Afgewezen.",
     };
   }
+  const g = lead.guess;
+  if (g && g.confidence >= 45) {
+    return { kind: "ok", why: `${g.confidence}% · ${whyLine(lead) || "past bij de post"}` };
+  }
+  if (lead.aiMiss) {
+    return { kind: "thin", why: `AI heeft gezocht, geen zekere naam. ${lead.aiMiss.detail}` };
+  }
+  const clues = cluesInPost(lead);
   return {
     kind: "hunt",
-    why: `Nog niet gezocht. Wel een spoor${sporen.length ? `: ${sporen.join(", ")}` : ""}. Start AI om de opdrachtgever te jagen.`,
+    why: clues.length
+      ? `Nog niet uitgezocht. Aanwijzingen in de post: ${clues.join(", ")}. Klik AI om de opdrachtgever te zoeken.`
+      : "Nog niet uitgezocht. De post noemt geen naam; AI zoekt de opdracht online terug en kijkt naar eerdere klanten van dit bureau.",
   };
 }
 
@@ -200,14 +208,31 @@ function LeadCard({
           {lead.guess?.evidence?.length ? (
             <div className="lead-why">
               <p className="lead-why__label">Waarom {lead.guess.name || "deze opdrachtgever"}?</p>
+              {lead.guess.summary ? <p className="lead-why__summary">{lead.guess.summary}</p> : null}
               <ul className="lead-why__list">
-                {lead.guess.evidence.slice(0, 3).map((e, i) => (
+                {lead.guess.evidence.slice(0, 4).map((e, i) => (
                   <li key={i}>
+                    {e.origin ? (
+                      <span className={`lead-why__origin lead-why__origin--${e.origin}`}>{ORIGIN_NL[e.origin]}</span>
+                    ) : null}
                     <span className="font-medium text-[var(--ink)]">{e.label}</span>
-                    {e.quote ? <span className="lead-why__quote">“{e.quote.replace(/\s+/g, " ").trim()}”</span> : null}
+                    {e.quote ? (
+                      <span className="lead-why__quote">
+                        “{e.quote.replace(/\s+/g, " ").trim()}”
+                        {e.url ? (
+                          <>
+                            {" "}
+                            <a href={e.url} target="_blank" rel="noopener noreferrer">
+                              bron
+                            </a>
+                          </>
+                        ) : null}
+                      </span>
+                    ) : null}
                   </li>
                 ))}
               </ul>
+              {lead.guess.check ? <p className="lead-why__check">Check: {lead.guess.check}</p> : null}
               {lead.guess.alternatives.length ? (
                 <p className="lead-why__alts">
                   Ook mogelijk:{" "}
@@ -391,12 +416,8 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
     });
   }, [data, q, bucket, watchAgency]);
 
-  const deepOpenCount =
-    data?.live.filter((l) => {
-      if (l.status === "confirmed" || l.status === "rejected") return false;
-      if (skipBatchResearch(l)) return false;
-      return isHuntWorthy({ title: l.title, text: l.summary || "", prior: l.guess });
-    }).length ?? 0;
+  const batchable = (l: AgencyLead) => !skipBatchResearch(l) && !l.aiMiss && !l.aiGuess;
+  const deepOpenCount = data?.live.filter(batchable).length ?? 0;
 
   const researchStrip = useMemo(() => {
     const jobs = Object.values(aiJobs);
@@ -488,17 +509,8 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
 
   function deepAllOpen() {
     if (!data) return;
-    // Eerste hit: alleen jachtwaardige leads — skip naamlek/al-sterk (gratis op desk).
-    const targets = data.live.filter((l) => {
-      if (l.status === "confirmed" || l.status === "rejected") return false;
-      if (skipBatchResearch(l)) return false;
-      return isHuntWorthy({
-        title: l.title,
-        text: l.summary || "",
-        prior: l.guess,
-      });
-    });
-    for (const l of targets) onAiGuess(l.id, "standard");
+    // Alles wat nog niet door AI is gelezen; missers en al-sterke leads kosten niets extra.
+    for (const l of data.live.filter(batchable)) onAiGuess(l.id, "standard");
   }
 
   async function onHmSearch(id: string) {
@@ -576,8 +588,10 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
               <li>
                 <span className="ws-fold__n">1</span>
                 <span>
-                  <strong className="font-semibold text-[var(--ink)]">Review</strong> — de tekst wordt gelezen
-                  (geen websearch). Alleen een zekere opdrachtgever komt erop; jij bevestigt of wijst af.
+                  <strong className="font-semibold text-[var(--ink)]">Review</strong> — AI leest de post, zoekt
+                  dezelfde opdracht online terug (andere bureaus noemen de klant vaak wél) en kijkt naar klanten die
+                  je eerder bij dit bureau bevestigde. Per aanwijzing zie je waar die vandaan komt: uit de post,
+                  online gevonden, eerder bevestigd of alleen marktkennis. Jij bevestigt of wijst af.
                 </span>
               </li>
               <li>
@@ -796,7 +810,7 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
               disabled={!deepOpenCount}
               onClick={deepAllOpen}
               className="btn-ghost btn-tool"
-              title="Leest de vacaturetekst. Alleen een naam als die zeker is, geen websearch."
+              title="Leest elke post die nog niet is uitgezocht, zoekt de opdracht één keer online terug en legt per aanwijzing uit waarom. Ongeveer 2 cent per post."
             >
               AI alle open{deepOpenCount ? ` · ${deepOpenCount}` : ""}
             </button>
@@ -831,11 +845,15 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
                     <strong className="font-semibold text-[var(--ink)]">{openLeads.length} posts</strong> wachten op
                     een opdrachtgever.{" "}
                     {ready ? <>Bij {ready} heeft de AI al een naam voorgesteld: nakijken en bevestigen. </> : null}
-                    {hunt ? <>Bij {hunt} staat een spoor in de tekst: laat die lezen, alleen een zekere naam komt erop. </> : null}
+                    {hunt ? (
+                      <>
+                        {hunt} zijn nog niet uitgezocht: klik <strong className="font-semibold text-[var(--ink)]">AI alle open</strong>.
+                        Per post krijg je de opdrachtgever plus de aanwijzingen waarom.{" "}
+                      </>
+                    ) : null}
                     {thin ? (
                       <>
-                        De overige {thin} noemen geen opdrachtgever én geen spoor — daar zou zoeken gokken zijn, dus
-                        vul de naam zelf in als je hem kent.
+                        Bij {thin} vond de AI geen zekere naam — vul hem zelf in als je hem kent.
                       </>
                     ) : null}
                   </p>

@@ -20,6 +20,7 @@ import { rulesReport } from "@/lib/end-client-research";
 import { detectRoleLabel } from "@/lib/niche";
 import { listAgencySignals, patchSignalRaw } from "@/lib/store";
 import { loadDeskMeta, pushAlert, saveDeskMeta } from "@/lib/desk-meta";
+import type { FeedMemory } from "@/lib/feed-detective";
 
 export type LeadStatus = "suggest" | "review" | "weak" | "confirmed" | "rejected";
 
@@ -43,6 +44,8 @@ export type AgencyLead = {
   hiringManager?: string | null;
   hiringManagerTitle?: string | null;
   hiringManagerUrl?: string | null;
+  /** AI heeft gezocht zonder resultaat: waarom niet. */
+  aiMiss?: { detail: string; notAssignment: boolean; at: string } | null;
 };
 
 type Review = {
@@ -397,11 +400,41 @@ export async function listAgencyLeads(): Promise<{
   };
 }
 
+/**
+ * Wat we al zeker weten over dit bureau: bevestigde klanten, zelfde recruiter
+ * eerst. Recruiters werken jaren voor dezelfde paar klanten — gratis bewijs.
+ */
+export function feedMemoryFor(lead: AgencyLead, all: AgencyLead[]): FeedMemory[] {
+  const rec = (lead.recruiter.name || "").toLowerCase().trim();
+  return all
+    .filter((l) => l.id !== lead.id && l.status === "confirmed" && l.confirmedClient && l.agency.id === lead.agency.id)
+    .map((l) => ({
+      client: l.confirmedClient!,
+      title: l.title.slice(0, 120),
+      recruiter: l.recruiter.name,
+      sameRecruiter: Boolean(rec) && (l.recruiter.name || "").toLowerCase().trim() === rec,
+      summary: l.summary.slice(0, 240),
+    }))
+    .sort((a, b) => Number(b.sameRecruiter) - Number(a.sameRecruiter))
+    .slice(0, 6);
+}
+
+export async function saveAiMiss(id: string, detail: string, notAssignment: boolean) {
+  await saveDeskMeta({
+    aiMisses: { [id]: { at: new Date().toISOString(), detail: detail.slice(0, 240), notAssignment } },
+  });
+}
+
 function attachLeadHm(lead: AgencyLead, meta: Awaited<ReturnType<typeof loadDeskMeta>>): AgencyLead {
+  const miss = meta.aiMisses[lead.id];
+  const withMiss: AgencyLead =
+    miss && !lead.aiGuess
+      ? { ...lead, aiMiss: { detail: miss.detail, notAssignment: Boolean(miss.notAssignment), at: miss.at } }
+      : lead;
   const hm = meta.hmGuesses[`crm_bureau_${lead.id}`];
-  if (!hm) return lead;
+  if (!hm) return withMiss;
   return {
-    ...lead,
+    ...withMiss,
     hiringManager: hm.hiringManager,
     hiringManagerTitle: hm.hiringManagerTitle,
     hiringManagerUrl: hm.hiringManagerUrl,
@@ -414,6 +447,7 @@ export async function leadSourceForAi(id: string): Promise<{
   title: string;
   text: string;
   agencyName: string;
+  memory: FeedMemory[];
 } | null> {
   const demo = demoSeeds().find((s) => s.id === id);
   if (demo) {
@@ -438,6 +472,7 @@ export async function leadSourceForAi(id: string): Promise<{
       title: demo.title,
       text: demo.text,
       agencyName: demo.agency.name,
+      memory: [],
     };
   }
 
@@ -453,7 +488,7 @@ export async function leadSourceForAi(id: string): Promise<{
   const data = await listAgencyLeads();
   const lead = data.live.find((l) => l.id === id);
   if (!lead) return null;
-  return { lead, title: s.title, text, agencyName: agency.name };
+  return { lead, title: s.title, text, agencyName: agency.name, memory: feedMemoryFor(lead, data.live) };
 }
 
 export async function saveAiGuess(

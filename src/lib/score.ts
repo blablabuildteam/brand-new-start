@@ -44,7 +44,24 @@ export type ScoreOptions = {
   siblingOpenings?: number;
   /** Prefer this title/role when scoring one opening. */
   primary?: Signal | null;
+  /** Posted by the organisation itself, not by a bureau. */
+  directClient?: boolean;
+  /** Recruiter-feed posts whose client resolved to this company. */
+  feedMatches?: FeedClientMatch[];
 };
+
+export type FeedClientMatch = { agency: string; roleLabel: string; confirmed: boolean };
+
+/** Loose company key so "ING Bank N.V." and "ING" meet. */
+export function companyKey(name: string) {
+  return name
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/\b(b\.?v\.?|n\.?v\.?|nederland|netherlands|group|groep|holding|the)\b/g, " ")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
 
 export function scoreSignals(
   companySignals: Signal[],
@@ -120,6 +137,32 @@ export function scoreSignals(
     factors.push({
       label: "Meerdere bureaus / posts op dezelfde rol",
       points: 10,
+      source: "agency-swarm",
+    });
+  }
+
+  if (opts.directClient && hasContract) {
+    factors.push({
+      label: "Eindklant zet zelf een contract-rol uit — geen bureau ertussen",
+      points: 10,
+      source: "job-type",
+    });
+  }
+
+  const feed = opts.feedMatches || [];
+  const sameRoleFeed = feed.filter((f) => f.roleLabel === roleLabel);
+  if (sameRoleFeed.length) {
+    const agencies = [...new Set(sameRoleFeed.map((f) => f.agency))];
+    factors.push({
+      label: `Ook via recruiter-feed: ${agencies.slice(0, 2).join(", ")} zoekt dezelfde rol voor dit bedrijf`,
+      points: 14,
+      source: "agency-swarm",
+    });
+  } else if (feed.length) {
+    const agencies = [...new Set(feed.map((f) => f.agency))];
+    factors.push({
+      label: `${agencies.slice(0, 2).join(", ")} werft ook voor dit bedrijf (andere rol)`,
+      points: 6,
       source: "agency-swarm",
     });
   }
@@ -214,13 +257,16 @@ export function scoreSignals(
   const days = (Date.now() - discovered) / (1000 * 60 * 60 * 24);
   if (days <= 1) factors.push({ label: "Net gezien (≤24u)", points: 14 });
   else if (days <= 3) factors.push({ label: "Vers signaal (≤3 dagen)", points: 10 });
-  else if (days <= 10) factors.push({ label: "Recent (≤10 dagen)", points: 5 });
+  else if (days <= 10) factors.push({ label: "Recent (≤10 dagen)", points: 7 });
   else if (days >= 60) factors.push({ label: "Al >60 dagen open — waarschijnlijk moeizaam", points: -6 });
 
   // Still being re-posted weeks after discovery = the client has not filled it.
   const lastSeen = Math.max(...companySignals.map((s) => s.seenAt.getTime()));
   const openDays = (lastSeen - discovered) / (1000 * 60 * 60 * 24);
   const seenRecently = (Date.now() - lastSeen) / (1000 * 60 * 60 * 24) <= 4;
+  if (days > 10 && days <= 21 && seenRecently) {
+    factors.push({ label: "Nog live op de board (≤3 weken)", points: 4 });
+  }
   if (openDays >= 21 && seenRecently) {
     factors.push({
       label: `Staat al ${Math.round(openDays)} dagen open en is nog live — klant komt er niet door`,
@@ -321,6 +367,8 @@ export const SCORE_METHOD = {
   ],
   factors: [
     { when: "Vacature noemt contract / interim / ZZP", points: "+35" },
+    { when: "Eindklant zet de contract-rol zelf uit (geen bureau)", points: "+10" },
+    { when: "Recruiter-feed zoekt dezelfde rol voor dit bedrijf (andere rol: +6)", points: "+14" },
     { when: "Aanbesteding / award", points: "+25–40" },
     { when: "Team-melding (pulse)", points: "+18–35" },
     { when: "Combo contract-vacature + team-melding", points: "+12" },
@@ -328,7 +376,7 @@ export const SCORE_METHOD = {
     { when: "Meerdere bureaus op dezelfde rol", points: "+10" },
     { when: "Zelfde kans op ≥2 bronnen", points: "+14" },
     { when: "Andere openingen bij hetzelfde bedrijf", points: "+6–12" },
-    { when: "Net gezien (≤24u / ≤3d / ≤10d)", points: "+14 / +10 / +5" },
+    { when: "Net gezien (≤24u / ≤3d / ≤10d / nog live ≤3 weken)", points: "+14 / +10 / +7 / +4" },
     { when: "Net gepost op de board (≤2 dagen)", points: "+12" },
     { when: "AI-extract: contracting + stack/start", points: "+5–12" },
   ],
