@@ -407,16 +407,27 @@ export async function listAgencyLeads(): Promise<{
  */
 export function feedMemoryFor(lead: AgencyLead, all: AgencyLead[]): FeedMemory[] {
   const rec = (lead.recruiter.name || "").toLowerCase().trim();
+  const webProven = (l: AgencyLead) =>
+    l.aiGuess &&
+    l.status !== "rejected" &&
+    (l.guess?.confidence ?? 0) >= 85 &&
+    Boolean(l.guess?.evidence.some((e) => e.origin === "web" && e.url));
   return all
-    .filter((l) => l.id !== lead.id && l.status === "confirmed" && l.confirmedClient && l.agency.id === lead.agency.id)
+    .filter((l) => l.id !== lead.id && l.agency.id === lead.agency.id)
+    .filter((l) => (l.status === "confirmed" && l.confirmedClient) || webProven(l))
     .map((l) => ({
-      client: l.confirmedClient!,
+      client: l.status === "confirmed" ? l.confirmedClient! : l.guess!.name,
       title: l.title.slice(0, 120),
       recruiter: l.recruiter.name,
       sameRecruiter: Boolean(rec) && (l.recruiter.name || "").toLowerCase().trim() === rec,
       summary: l.summary.slice(0, 240),
+      proof: l.status === "confirmed" ? ("confirmed" as const) : ("web" as const),
     }))
-    .sort((a, b) => Number(b.sameRecruiter) - Number(a.sameRecruiter))
+    .sort(
+      (a, b) =>
+        Number(b.sameRecruiter) - Number(a.sameRecruiter) ||
+        Number(b.proof === "confirmed") - Number(a.proof === "confirmed")
+    )
     .slice(0, 6);
 }
 
@@ -449,6 +460,7 @@ export async function leadSourceForAi(id: string): Promise<{
   text: string;
   agencyName: string;
   memory: FeedMemory[];
+  brand: string | null;
 } | null> {
   const demo = demoSeeds().find((s) => s.id === id);
   if (demo) {
@@ -474,6 +486,7 @@ export async function leadSourceForAi(id: string): Promise<{
       text: demo.text,
       agencyName: demo.agency.name,
       memory: [],
+      brand: null,
     };
   }
 
@@ -489,7 +502,9 @@ export async function leadSourceForAi(id: string): Promise<{
   const data = await listAgencyLeads();
   const lead = data.live.find((l) => l.id === id);
   if (!lead) return null;
-  return { lead, title: s.title, text, agencyName: agency.name, memory: feedMemoryFor(lead, data.live) };
+  const rec = (lead.recruiter.name || "").toLowerCase().trim();
+  const brand = agency.recruiters.find((r) => r.name.toLowerCase().trim() === rec)?.brand || null;
+  return { lead, title: s.title, text, agencyName: agency.name, memory: feedMemoryFor(lead, data.live), brand };
 }
 
 export async function saveAiGuess(

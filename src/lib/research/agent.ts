@@ -460,6 +460,7 @@ export async function researchEndClient(opts: {
   depth?: ResearchDepth;
   onProgress?: (p: ResearchProgress) => void;
   memory?: FeedMemory[];
+  brand?: string | null;
 }): Promise<{
   guess: ClientGuess | null;
   model: string;
@@ -495,6 +496,7 @@ export async function researchEndClient(opts: {
       text: opts.text,
       agencyName: agency,
       recruiterName: recruiter || undefined,
+      brand: opts.brand,
       stack: facts.stack,
       city: facts.location,
       memory: opts.memory || [],

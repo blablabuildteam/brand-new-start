@@ -10,7 +10,8 @@ import type { SearchHit } from "@/lib/research/types";
  * Werkt zoals een goede recruiter met ChatGPT: lees de post, gebruik
  * marktkennis, zoek de opdracht één keer terug op internet (andere bureaus
  * plaatsen dezelfde opdracht vaak mét naam) en leg per aanwijzing uit waarom.
- * Eén Claude-call, maximaal twee zoekopdrachten.
+ * Eén Claude-call, maximaal drie zoekopdrachten, plus één controle-zoek als
+ * de uitkomst in de twijfelzone valt.
  *
  * De zekerheid komt niet van het model zelf: elke aanwijzing wordt nagetrokken
  * (staat het citaat echt in de post, noemt de webhit echt de naam) en het
@@ -23,7 +24,31 @@ export type FeedMemory = {
   recruiter: string | null;
   sameRecruiter: boolean;
   summary: string;
+  /** confirmed = door jou bevestigd; web = AI-vondst die online bewezen is. */
+  proof: "confirmed" | "web";
 };
+
+/** Own vacancy sites per bureau/brand: they often carry the client or a client code. */
+const AGENCY_SITES: Record<string, string> = {
+  sthree: "computerfutures.com",
+  "computer futures": "computerfutures.com",
+  "vibe group": "vibegroup.com",
+  spilberg: "spilberg.com",
+  tergos: "tergos.com",
+  eswelt: "eswelt.com",
+  "visser & van baars": "visservanbaars.com",
+  "the next moove": "thenextmoove.nl",
+  "elevation partners": "elevationpartners.nl",
+};
+
+export function agencySites(names: (string | null | undefined)[]) {
+  const out = new Set<string>();
+  for (const n of names) {
+    const site = n ? AGENCY_SITES[n.toLowerCase().trim()] : undefined;
+    if (site) out.add(site);
+  }
+  return [...out];
+}
 
 export type FeedVerdict =
   | { kind: "client"; guess: ClientGuess; model: string; detail: string }
@@ -34,6 +59,7 @@ const CAP = {
   nameInPost: 96,
   web: 92,
   memory: 88,
+  memoryWeb: 84,
   threePostClues: 74,
   twoPostClues: 68,
   knowledge: 60,
@@ -109,19 +135,46 @@ export function fingerprintSentence(text: string): string | null {
   return best.split(" ").slice(0, 12).join(" ");
 }
 
-function roleQuery(opts: { title: string; stack: string[]; city: string | null }) {
-  const role = cleanPost(opts.title)
+const ROLE_TERMS =
+  /\b(sre|site reliability|scrum master|agile coach|product owner|business analy[sz]?[te]|informatie analist|functioneel beheerder|test(?:er| engineer| coördinator| coordinator)|pmo|project ?manager|programma ?manager|change manager|tech lead|architect|data (?:engineer|scientist|analist|analyst)|ai (?:engineer|specialist)|platform engineer|cloud (?:platform )?engineer|devops engineer|linux engineer|embedded (?:software )?engineer|security (?:engineer|officer)|iam engineer|(?:full[- ]?stack|front[- ]?end|back[- ]?end|java|\.net|c#|python|node\.js|react|typescript|outsystems|mobile|software) (?:developer|engineer)|elk stack engineer|observability|consultant)\b/gi;
+
+function roleCore(title: string) {
+  const clean = cleanPost(title);
+  const terms = [...new Set((clean.match(ROLE_TERMS) || []).map((t) => t.toLowerCase()))];
+  if (terms.length) return terms.slice(0, 2).join(" ");
+  return clean
     .replace(/^.*?—\s*/, "")
-    .replace(/\b(freelance|zzp|gezocht|vacature|opdracht|hybride|remote|senior|medior|junior)\b/gi, " ")
-    .replace(/[()[\]|/,]+/g, " ")
+    .replace(/\b(freelance|zzp|gezocht|vacature|opdracht|hybride|remote|senior|medior|junior|interim)\b/gi, " ")
+    .replace(/[()[\]|/,!:*]+/g, " ")
     .replace(/\s+/g, " ")
     .trim()
     .split(" ")
-    .slice(0, 5)
+    .slice(0, 4)
     .join(" ");
-  const bits = [role, ...opts.stack.slice(0, 3), opts.city || ""].filter(Boolean);
+}
+
+function roleQuery(opts: { title: string; stack: string[]; city: string | null }) {
+  const bits = [roleCore(opts.title), ...opts.stack.slice(0, 3), opts.city || ""].filter(Boolean);
   if (bits.join(" ").length < 12) return null;
   return `${bits.join(" ")} opdracht opdrachtgever`;
+}
+
+const GENERIC_ROLE_WORD = /^(engineer|developer|consultant|specialist|medewerker|expert|lead|gezocht|voor|een|and|the)$/;
+
+/**
+ * Same assignment, not just any page naming the client: the role must match
+ * and so must the place or part of the stack. A big bank always has *a* Scrum
+ * Master vacancy somewhere.
+ */
+export function sameRole(hit: SearchHit, title: string, stack: string[], city: string | null) {
+  const hay = fold(`${hit.title} ${hit.description} ${hit.url}`);
+  const words = fold(roleCore(title))
+    .split(" ")
+    .filter((w) => w.length >= 3 && !GENERIC_ROLE_WORD.test(w));
+  if (!words.some((w) => ` ${hay} `.includes(` ${w}`))) return false;
+  const cityHit = Boolean(city) && fold(city!).length >= 3 && hay.includes(fold(city!));
+  const stackHit = stack.slice(0, 5).some((s) => fold(s).length >= 3 && hay.includes(fold(s)));
+  return cityHit || stackHit;
 }
 
 const NOT_USEFUL_URL = /linkedin\.com\/(posts|feed|in\/)|\/hashtag\//i;
@@ -146,11 +199,13 @@ export function hitMentions(hit: SearchHit, name: string) {
 }
 
 function memoryBlock(memory: FeedMemory[]) {
-  if (!memory.length) return "(nog geen bevestigde klanten voor dit bureau)";
+  if (!memory.length) return "(nog geen bekende klanten voor dit bureau)";
   return memory
     .map(
       (m, i) =>
-        `[G${i + 1}] ${m.client} — ${m.title}${m.sameRecruiter ? " (zelfde recruiter)" : ""}\n${m.summary.slice(0, 220)}`
+        `[G${i + 1}] ${m.client} — ${m.title}${m.sameRecruiter ? " (zelfde recruiter)" : ""} · ${
+          m.proof === "confirmed" ? "bevestigd door de desk" : "online bewezen door eerdere zoektocht"
+        }\n${m.summary.slice(0, 220)}`
     )
     .join("\n");
 }
@@ -171,7 +226,7 @@ Stap 2 — Zo ja: welke organisatie? Gebruik alles:
 - letterlijke naam, afkorting, programmanaam, systeemnaam, gebouw, plaats, sector, schaal ("miljoenen klanten"), jargon
 - je kennis van de Nederlandse markt (wie zit waar, wie gebruikt welk platform, welke programma's lopen waar)
 - [W] zoekresultaten: dezelfde opdracht bij een ander bureau of op de site van de klant noemt vaak de naam
-- [G] eerder bevestigde klanten van dit bureau: recruiters werken vaak jaren voor dezelfde paar klanten
+- [G] bekende klanten van dit bureau: recruiters werken vaak jaren voor dezelfde paar klanten. Zelfde recruiter + zelfde soort rol/platform/plaats als een [G]-post is een sterke aanwijzing.
 Noem alleen een echte organisatienaam, nooit "een grote bank" of "een overheidsorganisatie".
 Iets wat bij honderden organisaties past (Azure, Java, "grote organisatie", hybride, een grote stad) is geen aanwijzing — noem het niet.
 Als het echt niet te zeggen is: client null — liever eerlijk dan een gok.
@@ -212,7 +267,7 @@ export function calibrate(opts: {
   post: string;
   hits: SearchHit[];
   memory: FeedMemory[];
-}): { name: string; confidence: number; evidence: Evidence[]; basis: string } | null {
+}): { name: string; confidence: number; evidence: Evidence[]; basis: string; webProof: boolean } | null {
   const name = (opts.raw.client || "").trim().replace(/\s+/g, " ");
   if (!isRealName(name)) return null;
   const post = fold(opts.post);
@@ -221,6 +276,7 @@ export function calibrate(opts: {
   let webProof = false;
   let citedWebProof = false;
   let memoryProof = false;
+  let memoryConfirmed = false;
   let postClues = 0;
   const evidence: Evidence[] = [];
 
@@ -250,9 +306,11 @@ export function calibrate(opts: {
       const m = opts.memory[Number(g[1]) - 1];
       if (m) {
         origin = "memory";
-        if (fold(m.client) === fold(name)) {
+        // An unconfirmed AI find only counts as proof for the same recruiter.
+        if (fold(m.client) === fold(name) && (m.proof === "confirmed" || m.sameRecruiter)) {
           memoryProof = true;
-          weight = 80;
+          if (m.proof === "confirmed") memoryConfirmed = true;
+          weight = m.proof === "confirmed" ? 80 : 72;
         } else weight = 45;
       }
     } else if (src === "POST" && quote.length >= 4 && post.includes(fold(quote))) {
@@ -288,7 +346,9 @@ export function calibrate(opts: {
     : webProof
       ? CAP.web
       : memoryProof
-        ? CAP.memory
+        ? memoryConfirmed
+          ? CAP.memory
+          : CAP.memoryWeb
         : postClues >= 3
           ? CAP.threePostClues
           : postClues === 2
@@ -299,7 +359,9 @@ export function calibrate(opts: {
     : webProof
       ? "online teruggevonden"
       : memoryProof
-        ? "eerder bevestigd bij dit bureau"
+        ? memoryConfirmed
+          ? "eerder bevestigd bij dit bureau"
+          : "zelfde recruiter werkt al aantoonbaar voor deze klant"
         : postClues >= 2
           ? `${postClues} specifieke aanwijzingen uit de post, naam niet nagetrokken`
           : "vooral marktkennis — niet nagetrokken";
@@ -309,7 +371,7 @@ export function calibrate(opts: {
   const confidence = Math.round(
     Math.min(cap, Math.max(floor, Number.isFinite(modelConf) ? modelConf : 50))
   );
-  return { name, confidence, evidence: evidence.sort((a, b) => b.weight - a.weight), basis };
+  return { name, confidence, evidence: evidence.sort((a, b) => b.weight - a.weight), basis, webProof };
 }
 
 export async function identifyFeedClient(opts: {
@@ -317,6 +379,8 @@ export async function identifyFeedClient(opts: {
   text: string;
   agencyName: string;
   recruiterName?: string;
+  /** Niche brand the recruiter works under (Computer Futures, Spilberg, …). */
+  brand?: string | null;
   stack: string[];
   city: string | null;
   memory: FeedMemory[];
@@ -331,11 +395,15 @@ export async function identifyFeedClient(opts: {
   let hits: SearchHit[] = [];
   if (hasWeb()) {
     const budget = makeBudget("standard");
-    budget.maxSearches = 2;
+    budget.maxSearches = 3;
     const fp = fingerprintSentence(opts.text);
-    const queries = [fp ? `"${fp}"` : null, roleQuery({ title: opts.title, stack: opts.stack, city: opts.city })].filter(
-      (q): q is string => Boolean(q)
-    );
+    const site = agencySites([opts.brand, opts.agencyName])[0];
+    const role = roleCore(opts.title);
+    const queries = [
+      fp ? `"${fp}"` : null,
+      roleQuery({ title: opts.title, stack: opts.stack, city: opts.city }),
+      site && role.length >= 4 ? `site:${site} ${role} ${opts.city || opts.stack[0] || ""}`.trim() : null,
+    ].filter((q): q is string => Boolean(q));
     hits = (await multiSearch(queries, budget, { perQuery: 5 }))
       .filter((h) => !NOT_USEFUL_URL.test(h.url))
       .slice(0, 8);
@@ -382,6 +450,30 @@ ${webBlock(hits)}`,
       check: raw.check?.slice(0, 200),
       model: result.model,
     };
+  }
+
+  // Twijfelzone: één gerichte zoek naar "kandidaat + rol". Noemt een hit die
+  // klant bij hetzelfde soort rol, dan is het nagetrokken; anders blijft het staan.
+  if (!cal.webProof && cal.confidence >= 55 && cal.confidence < 85 && hasWeb()) {
+    const budget = makeBudget("standard");
+    budget.maxSearches = 1;
+    const q = `"${cal.name}" ${roleCore(opts.title)} ${opts.city || ""} freelance opdracht`.replace(/\s+/g, " ").trim();
+    const check = (await multiSearch([q], budget, { perQuery: 6 })).filter((h) => !NOT_USEFUL_URL.test(h.url));
+    const hit = check.find((h) => hitMentions(h, cal.name) && sameRole(h, opts.title, opts.stack, opts.city));
+    if (hit) {
+      cal.confidence = Math.min(CAP.web, Math.max(cal.confidence + 12, 85));
+      cal.basis = "nagetrokken: dezelfde soort opdracht staat online bij deze klant";
+      cal.webProof = true;
+      cal.evidence.unshift({
+        label: `Controle-zoek: ${cal.name} heeft online dezelfde soort opdracht uitstaan`,
+        quote: hit.title.slice(0, 160),
+        weight: 85,
+        origin: "web",
+        url: hit.url,
+      });
+    } else {
+      cal.basis = `${cal.basis}; controle-zoek vond geen bevestiging`;
+    }
   }
 
   const alternatives = (raw.alternatives || [])

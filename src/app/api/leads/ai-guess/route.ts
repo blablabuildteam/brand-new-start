@@ -91,6 +91,7 @@ export async function POST(req: Request) {
       depth: parsed.data.depth,
       onProgress: (p) => send({ type: "progress", ...p }),
       memory: src.memory,
+      brand: src.brand,
     });
 
     if (!result.guess) {
