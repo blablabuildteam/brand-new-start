@@ -187,7 +187,7 @@ export function sameRole(hit: SearchHit, title: string, stack: string[], city: s
   return cityHit || stackHit;
 }
 
-const NOT_USEFUL_URL = /linkedin\.com\/(posts|feed|in\/)|\/hashtag\//i;
+const NOT_USEFUL_URL = /linkedin\.com\/(posts|feed|in\/)|\/hashtag\/|\/bitstream\/|repository\.|\.pdf(\?|$)/i;
 
 const LISTING_HOST =
   /(indeed\.|glassdoor\.|jooble\.|nationalevacaturebank\.|werkzoeken\.|jobbird\.|monsterboard\.|careerjet\.|talent\.com|jobrapido\.|adzuna\.|whatjobs\.|jobleads\.|neuvoo\.|joblift\.)/i;
@@ -289,12 +289,19 @@ export function calibrate(opts: {
   post: string;
   hits: SearchHit[];
   memory: FeedMemory[];
+  /** When set, a web hit only proves the client if it is about the same kind of job. */
+  role?: { title: string; stack: string[]; city: string | null };
 }): { name: string; confidence: number; evidence: Evidence[]; basis: string; webProof: boolean } | null {
   const name = (opts.raw.client || "").trim().replace(/\s+/g, " ");
   if (!isRealName(name)) return null;
   const post = fold(opts.post);
   const nameInPost = fold(name).length >= 3 && post.includes(fold(name));
 
+  const proves = (hit: SearchHit) =>
+    !NOT_USEFUL_URL.test(hit.url) &&
+    !isListingPage(hit) &&
+    hitMentions(hit, name) &&
+    (!opts.role || sameRole(hit, opts.role.title, opts.role.stack, opts.role.city));
   let webProof = false;
   let citedWebProof = false;
   let memoryProof = false;
@@ -318,7 +325,7 @@ export function calibrate(opts: {
       if (hit) {
         origin = "web";
         url = hit.url;
-        if (!isListingPage(hit) && hitMentions(hit, name)) {
+        if (proves(hit)) {
           webProof = true;
           citedWebProof = true;
           weight = 88;
@@ -349,7 +356,7 @@ export function calibrate(opts: {
 
   // The model sometimes forgets to cite a web hit that plainly names its pick.
   if (!webProof) {
-    const idx = opts.hits.findIndex((h) => !isListingPage(h) && hitMentions(h, name));
+    const idx = opts.hits.findIndex(proves);
     if (idx >= 0) {
       webProof = true;
       const hit = opts.hits[idx]!;
@@ -464,7 +471,13 @@ ${webBlock(hits)}`,
     };
   }
 
-  const cal = calibrate({ raw, post, hits, memory: opts.memory });
+  const cal = calibrate({
+    raw,
+    post,
+    hits,
+    memory: opts.memory,
+    role: { title: opts.title, stack: opts.stack, city: opts.city ?? null },
+  });
   if (!cal) {
     return {
       kind: "unknown",

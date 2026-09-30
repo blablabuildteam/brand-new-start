@@ -142,7 +142,7 @@ function basisOf(lead: AgencyLead): Basis | null {
   const g = lead.guess;
   if (!g || lead.status === "rejected") return null;
   const has = (o: EvidenceOrigin) => g.evidence.some((e) => e.origin === o);
-  if (g.evidence.some((e) => e.origin === "web" && e.url)) {
+  if (g.evidence.some((e) => e.origin === "web" && e.url && e.weight >= 80)) {
     return { label: "bron online", tone: "strong", hint: "Dezelfde opdracht staat online mét de klantnaam" };
   }
   if (has("memory")) return { label: "eerder bevestigd", tone: "strong", hint: "Je bevestigde deze klant eerder bij dit bureau" };

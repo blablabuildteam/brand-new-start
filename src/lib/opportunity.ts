@@ -417,6 +417,8 @@ export function hasWebProof(guess: ClientGuess | null | undefined): boolean {
         (e) =>
           e.origin === "web" &&
           e.url &&
+          e.weight >= 80 &&
+          !/\/bitstream\/|repository\.|\.pdf(\?|$)/i.test(e.url) &&
           !isListingPage({ title: e.quote || "", url: e.url, description: "", tier: 2 })
       )
   );
