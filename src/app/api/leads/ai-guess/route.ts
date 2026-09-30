@@ -2,9 +2,8 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getSession } from "@/lib/auth";
 import { hasAiKey } from "@/lib/ai-client";
-import { researchEndClient } from "@/lib/end-client-research";
 import { hasWeb } from "@/lib/research/web";
-import { leadSourceForAi, reviewLead, saveAiGuess, saveAiMiss } from "@/lib/opportunity";
+import { identifyLead } from "@/lib/lead-ai";
 
 export const maxDuration = 300;
 export const runtime = "nodejs";
@@ -74,52 +73,12 @@ export async function POST(req: Request) {
     );
   }
 
-  const src = await leadSourceForAi(parsed.data.id);
-  if (!src) return NextResponse.json({ error: "niet gevonden" }, { status: 404 });
-
-  if (src.lead.status === "confirmed" || src.lead.status === "rejected") {
-    return NextResponse.json({ error: "al beoordeeld" }, { status: 400 });
-  }
-
   return ndjsonResponse(async (send) => {
-    const result = await researchEndClient({
-      title: src.title,
-      text: src.text,
-      agencyName: src.agencyName,
-      recruiterName: src.lead.recruiter.name || undefined,
-      signalId: src.lead.signalId || undefined,
-      depth: parsed.data.depth,
-      onProgress: (p) => send({ type: "progress", ...p }),
-      memory: src.memory,
-      brand: src.brand,
-    });
-
-    if (!result.guess) {
-      // Remember the miss so "AI alle open" doesn't pay for the same empty post again.
-      if (result.model) await saveAiMiss(parsed.data.id, result.detail, Boolean(result.notAssignment));
-      const lead = result.notAssignment
-        ? await reviewLead(parsed.data.id, "rejected")
-        : src.lead;
-      send({
-        type: "done",
-        ok: false,
-        detail: result.detail,
-        lead: lead
-          ? { ...lead, aiMiss: { detail: result.detail, notAssignment: Boolean(result.notAssignment), at: new Date().toISOString() } }
-          : src.lead,
-      });
+    const r = await identifyLead(parsed.data.id, parsed.data.depth, (p) => send({ type: "progress", ...p }));
+    if (r.error) {
+      send({ type: "error", error: r.error });
       return;
     }
-
-    const lead = await saveAiGuess(parsed.data.id, result.guess, { model: result.model });
-    send({
-      type: "done",
-      ok: true,
-      detail: result.detail,
-      model: result.model,
-      report: result.report,
-      hasWeb: hasWeb(),
-      lead,
-    });
+    send({ type: "done", ok: r.ok, detail: r.detail, model: r.model, report: r.report, hasWeb: hasWeb(), lead: r.lead });
   });
 }

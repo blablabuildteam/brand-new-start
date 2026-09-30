@@ -73,6 +73,15 @@ const HINT_MIN = 70;
 const GENERIC_QUOTE =
   /^(?:(?:grote|large|groot|internationale?|nederlandse|dutch|hybride|hybrid|remote|enterprise|enterpriseomgeving|organisatie|organization|azure|aws|gcp|cloud|java|\.net|c#|python|kubernetes|scrum|agile|devops|amsterdam|rotterdam|utrecht|den haag|eindhoven|freelance|zzp|en|of|and|or|\/|,|-)\s*)+$/i;
 
+/** Shorten at a word boundary so the desk never shows "dit profiel ex". */
+export function clip(s: string, max: number) {
+  const t = s.replace(/\s+/g, " ").trim();
+  if (t.length <= max) return t;
+  const cut = t.slice(0, max);
+  const at = cut.lastIndexOf(" ");
+  return `${(at > max * 0.6 ? cut.slice(0, at) : cut).replace(/[\s,;:.–-]+$/, "")}…`;
+}
+
 function fold(s: string) {
   return s
     .normalize("NFKC")
@@ -294,8 +303,8 @@ export function calibrate(opts: {
   const evidence: Evidence[] = [];
 
   for (const c of (opts.raw.clues || []).slice(0, 4)) {
-    const quote = (c.quote || "").trim().slice(0, 200);
-    const why = (c.why || "").trim().slice(0, 200);
+    const quote = clip(c.quote || "", 200);
+    const why = clip(c.why || "", 200);
     if (!why) continue;
     const src = (c.source || "").trim().toUpperCase();
     let origin: EvidenceOrigin = "knowledge";
@@ -450,7 +459,7 @@ ${webBlock(hits)}`,
   if (raw.is_assignment === false && !/afgebroken|onvolledig|incompleet|onvoldoende informatie|te kort/i.test(reason)) {
     return {
       kind: "not-assignment",
-      reason: (raw.not_assignment_reason || "Geen opdracht voor een klant").slice(0, 160),
+      reason: clip(raw.not_assignment_reason || "Geen opdracht voor een klant", 160),
       model: result.model,
     };
   }
@@ -459,8 +468,8 @@ ${webBlock(hits)}`,
   if (!cal) {
     return {
       kind: "unknown",
-      detail: (raw.summary || "Geen opdrachtgever te herleiden uit de post of online").slice(0, 200),
-      check: raw.check?.slice(0, 200),
+      detail: clip(raw.summary || "Geen opdrachtgever te herleiden uit de post of online", 240),
+      check: raw.check ? clip(raw.check, 220) : undefined,
       model: result.model,
     };
   }
@@ -508,11 +517,11 @@ ${webBlock(hits)}`,
       confidence: cal.confidence,
       evidence: cal.evidence.length
         ? cal.evidence
-        : [{ label: raw.summary?.slice(0, 200) || "Herleid uit de post", weight: cal.confidence, origin: "knowledge" }],
+        : [{ label: raw.summary ? clip(raw.summary, 200) : "Herleid uit de post", weight: cal.confidence, origin: "knowledge" }],
       alternatives,
       source: "ai",
-      summary: `${(raw.summary || "").trim().slice(0, 220)}${raw.summary ? " " : ""}(${cal.basis})`.trim(),
-      check: raw.check?.trim().slice(0, 200) || undefined,
+      summary: `${clip(raw.summary || "", 320)}${raw.summary ? " " : ""}(${cal.basis})`.trim(),
+      check: raw.check?.trim() ? clip(raw.check, 220) : undefined,
     },
   };
 }

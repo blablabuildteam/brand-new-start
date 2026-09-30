@@ -378,9 +378,13 @@ export async function listAgencyLeads(): Promise<{
   }
   const seenAtById = new Map(rows.map((s) => [s.id, s.seenAt.getTime()]));
   live.sort((a, b) => {
-    const rank = { review: 0, suggest: 1, weak: 2, confirmed: 3, rejected: 4 };
+    const rank = { suggest: 0, review: 1, weak: 2, confirmed: 3, rejected: 4 };
     const ra = rank[a.status] - rank[b.status];
     if (ra !== 0) return ra;
+    if (a.status === "suggest" || a.status === "review") {
+      const dc = (b.guess?.confidence ?? 0) - (a.guess?.confidence ?? 0);
+      if (dc !== 0) return dc;
+    }
     // Within a status band the freshest post goes first.
     return (seenAtById.get(b.id) || 0) - (seenAtById.get(a.id) || 0);
   });
@@ -405,20 +409,22 @@ export async function listAgencyLeads(): Promise<{
  * Wat we al zeker weten over dit bureau: bevestigde klanten, zelfde recruiter
  * eerst. Recruiters werken jaren voor dezelfde paar klanten — gratis bewijs.
  */
-export function feedMemoryFor(lead: AgencyLead, all: AgencyLead[]): FeedMemory[] {
-  const rec = (lead.recruiter.name || "").toLowerCase().trim();
-  const webProven = (l: AgencyLead) =>
-    l.aiGuess &&
-    l.status !== "rejected" &&
-    (l.guess?.confidence ?? 0) >= 85 &&
-    Boolean(
-      l.guess?.evidence.some(
+export function hasWebProof(guess: ClientGuess | null | undefined): boolean {
+  return Boolean(
+    guess &&
+      guess.confidence >= 85 &&
+      guess.evidence.some(
         (e) =>
           e.origin === "web" &&
           e.url &&
           !isListingPage({ title: e.quote || "", url: e.url, description: "", tier: 2 })
       )
-    );
+  );
+}
+
+export function feedMemoryFor(lead: AgencyLead, all: AgencyLead[]): FeedMemory[] {
+  const rec = (lead.recruiter.name || "").toLowerCase().trim();
+  const webProven = (l: AgencyLead) => l.aiGuess && l.status !== "rejected" && hasWebProof(l.guess);
   return all
     .filter((l) => l.id !== lead.id && l.agency.id === lead.agency.id)
     .filter((l) => (l.status === "confirmed" && l.confirmedClient) || webProven(l))

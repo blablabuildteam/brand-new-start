@@ -452,7 +452,7 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
             >
               {f.label}
               <span className="tabular-nums opacity-80" style={{ fontFamily: "var(--mono)" }}>
-                {f.n}
+                {loading ? "…" : f.n}
               </span>
             </button>
           ))}

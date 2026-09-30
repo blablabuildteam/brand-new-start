@@ -22,10 +22,13 @@ export async function GET(req: Request) {
 
   const radarRows = await listRadar();
   function withChannel<T extends { source: string; raw?: unknown }>(s: T) {
+    const raw = s.raw && typeof s.raw === "object" ? (s.raw as Record<string, unknown>) : null;
     const channel =
-      (s.raw && typeof s.raw === "object" && (s.raw as { channel?: string }).channel) ||
+      (raw && typeof raw.channel === "string" && raw.channel) ||
       (s.source === "tender" ? "tenderned" : s.source === "pulse" ? "pulse" : "seed");
-    return { ...s, channel, channelLabel: channelLabel(String(channel)) };
+    // Full vacancy text is only needed server-side (org context is already on each opening).
+    const slim = raw && "description" in raw ? { ...raw, description: undefined } : raw;
+    return { ...s, raw: slim, channel, channelLabel: channelLabel(String(channel)) };
   }
   const radar = radarRows.map((r) => ({
     ...r,

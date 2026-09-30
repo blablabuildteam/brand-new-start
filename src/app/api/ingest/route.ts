@@ -17,6 +17,8 @@ import { INGEST_POLICY } from "@/lib/costs";
 import { loadHuntSettings } from "@/lib/hunt";
 import { pushAlert } from "@/lib/desk-meta";
 import { z } from "zod";
+import { hasAiKey } from "@/lib/ai-client";
+import { autoIdentifyOpenLeads } from "@/lib/lead-ai";
 
 /** Apify Indeed/LinkedIn kan lang duren */
 export const maxDuration = 300;
@@ -24,6 +26,12 @@ export const maxDuration = 300;
 /** Lichte cron-caps — goedkoop houden, radar + bureau-feeds vers. */
 const CRON_MARKET = { maxUrls: 8, maxJobs: 24 } as const;
 const CRON_FEEDS = { maxRecruiters: 4, maxPostsPerProfile: 8 } as const;
+
+/** Name the client of fresh feed posts before anyone opens the desk; stops well inside maxDuration. */
+async function identifyFresh(startedAt: number) {
+  if (!hasAiKey()) return null;
+  return autoIdentifyOpenLeads({ max: 12, deadline: startedAt + 200_000 }).catch(() => null);
+}
 
 async function authorized(req: Request) {
   const cronSecret = process.env.CRON_SECRET;
@@ -57,6 +65,7 @@ async function alertNewHits(opts: {
 
 /** Vercel Cron: lichte LinkedIn-market sync (~1×/3d). */
 export async function GET(req: Request) {
+  const startedAt = Date.now();
   const { ok, isCron } = await authorized(req);
   if (!ok) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
@@ -87,17 +96,20 @@ export async function GET(req: Request) {
     kept: feeds.kept,
     hits: feeds.hits,
   });
+  const detective = await identifyFresh(startedAt);
 
   return NextResponse.json({
     ok: true,
     kind: "cron-market+feeds",
     market,
     feeds,
+    detective,
     stats: await stats(),
   });
 }
 
 export async function POST(req: Request) {
+  const startedAt = Date.now();
   const { ok } = await authorized(req);
   if (!ok) {
     return NextResponse.json(
@@ -212,11 +224,13 @@ export async function POST(req: Request) {
       offset: Number((body as { offset?: number }).offset) || 0,
     });
     await alertNewHits({ kind: "Recruiter-feeds", kept: result.kept, hits: result.hits });
+    const detective = await identifyFresh(startedAt);
     return NextResponse.json({
       ok: true,
       kind: "recruiter-feeds",
       feedRecruiters: listFeedRecruiters().length,
       ...result,
+      detective,
       stats: await stats(),
     });
   }

@@ -107,20 +107,22 @@ function cluesInPost(lead: AgencyLead) {
     .slice(0, 4);
 }
 
-function clientExplain(lead: AgencyLead): { kind: "ok" | "thin" | "hunt"; why: string } {
-  if (lead.status === "confirmed") return { kind: "ok", why: "Door jou bevestigd." };
+function clientExplain(lead: AgencyLead): { kind: "ok" | "thin" | "hunt"; why: string; short: string } {
+  if (lead.status === "confirmed") return { kind: "ok", why: "Door jou bevestigd.", short: "" };
   if (lead.status === "rejected") {
-    return {
-      kind: "ok",
-      why: lead.aiMiss?.notAssignment ? `Weggezet door AI — ${lead.aiMiss.detail}` : "Afgewezen.",
-    };
+    const why = lead.aiMiss?.notAssignment ? `Weggezet door AI — ${lead.aiMiss.detail}` : "Afgewezen.";
+    return { kind: "ok", why, short: lead.aiMiss?.notAssignment ? "AI: geen opdracht" : "" };
   }
   const g = lead.guess;
   if (g && g.confidence >= 45) {
-    return { kind: "ok", why: `${g.confidence}% · ${whyLine(lead) || "past bij de post"}` };
+    return { kind: "ok", why: `${g.confidence}% · ${whyLine(lead) || "past bij de post"}`, short: "" };
   }
   if (lead.aiMiss) {
-    return { kind: "thin", why: `AI heeft gezocht, geen zekere naam. ${lead.aiMiss.detail}` };
+    return {
+      kind: "thin",
+      why: `AI heeft gezocht, geen zekere naam. ${lead.aiMiss.detail}`,
+      short: "AI vond geen zekere naam — vul in als je hem kent",
+    };
   }
   const clues = cluesInPost(lead);
   return {
@@ -128,7 +130,109 @@ function clientExplain(lead: AgencyLead): { kind: "ok" | "thin" | "hunt"; why: s
     why: clues.length
       ? `Nog niet uitgezocht. Aanwijzingen in de post: ${clues.join(", ")}. Klik AI om de opdrachtgever te zoeken.`
       : "Nog niet uitgezocht. De post noemt geen naam; AI zoekt de opdracht online terug en kijkt naar eerdere klanten van dit bureau.",
+    short: clues.length ? `Nog niet uitgezocht · ${clues.slice(0, 3).join(", ")}` : "Nog niet uitgezocht",
   };
+}
+
+type Basis = { label: string; tone: "strong" | "mid" | "weak"; hint: string };
+
+/** One word on where the name comes from, so the row doesn't need the whole story. */
+function basisOf(lead: AgencyLead): Basis | null {
+  if (lead.status === "confirmed") return { label: "bevestigd", tone: "strong", hint: "Door jou bevestigd" };
+  const g = lead.guess;
+  if (!g || lead.status === "rejected") return null;
+  const has = (o: EvidenceOrigin) => g.evidence.some((e) => e.origin === o);
+  if (g.evidence.some((e) => e.origin === "web" && e.url)) {
+    return { label: "bron online", tone: "strong", hint: "Dezelfde opdracht staat online mét de klantnaam" };
+  }
+  if (has("memory")) return { label: "eerder bevestigd", tone: "strong", hint: "Je bevestigde deze klant eerder bij dit bureau" };
+  if (g.evidence.some((e) => e.origin === "post" && /letterlijk/i.test(e.label))) {
+    return { label: "naam in post", tone: "strong", hint: "De naam staat letterlijk in de post" };
+  }
+  if (has("history")) return { label: "zelfde recruiter", tone: "mid", hint: "Deze recruiter had eerder een online bewezen opdracht bij deze klant" };
+  if (g.source === "serp") return { label: "zoekresultaten", tone: "mid", hint: "De naam kwam terug in passende zoekresultaten" };
+  if (has("post")) return { label: "aanwijzingen", tone: "mid", hint: "Losse aanwijzingen in de post, de naam zelf staat er niet" };
+  return { label: "hypothese", tone: "weak", hint: "Alleen marktkennis van de AI — niet nagetrokken" };
+}
+
+function BasisBadge({ basis }: { basis: Basis | null }) {
+  if (!basis) return null;
+  return (
+    <span className={`lead-basis lead-basis--${basis.tone}`} title={basis.hint}>
+      {basis.label}
+    </span>
+  );
+}
+
+function WhyBlock({ lead }: { lead: AgencyLead }) {
+  const g = lead.guess;
+  if (!g?.evidence?.length) {
+    return <p className="text-[0.78rem] leading-relaxed text-[var(--muted)]">{clientExplain(lead).why}</p>;
+  }
+  return (
+    <div className="lead-why">
+      <p className="lead-why__label">Waarom {g.name || "deze opdrachtgever"}?</p>
+      {g.summary ? <p className="lead-why__summary">{g.summary}</p> : null}
+      <ul className="lead-why__list">
+        {g.evidence.slice(0, 4).map((e, i) => (
+          <li key={i}>
+            {e.origin ? (
+              <span className={`lead-why__origin lead-why__origin--${e.origin}`}>{ORIGIN_NL[e.origin]}</span>
+            ) : null}
+            <span className="font-medium text-[var(--ink)]">{e.label}</span>
+            {e.quote ? (
+              <span className="lead-why__quote">
+                “{e.quote.replace(/\s+/g, " ").trim()}”
+                {e.url ? (
+                  <>
+                    {" "}
+                    <a href={e.url} target="_blank" rel="noopener noreferrer">
+                      bron
+                    </a>
+                  </>
+                ) : null}
+              </span>
+            ) : null}
+          </li>
+        ))}
+      </ul>
+      {g.check ? <p className="lead-why__check">Check: {g.check}</p> : null}
+      {g.alternatives.length ? (
+        <p className="lead-why__alts">
+          Ook mogelijk:{" "}
+          {g.alternatives
+            .slice(0, 3)
+            .map((a) => `${a.name} (${a.confidence}%)`)
+            .join(" · ")}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+type Bucket = "ready" | "open" | "confirmed" | "rejected" | "all";
+
+const BUCKET_NL: Record<Bucket, string> = {
+  ready: "Klaar om te bevestigen",
+  open: "Te reviewen",
+  confirmed: "Bevestigd",
+  rejected: "Weg",
+  all: "Alles",
+};
+
+const BUCKET_CHIP: Record<Bucket, string> = {
+  ready: "Klaar",
+  open: "Te reviewen",
+  confirmed: "Bevestigd",
+  rejected: "Weg",
+  all: "Alles",
+};
+
+function bucketOf(l: AgencyLead): Exclude<Bucket, "all"> {
+  if (l.status === "suggest") return "ready";
+  if (l.status === "confirmed") return "confirmed";
+  if (l.status === "rejected") return "rejected";
+  return "open";
 }
 
 function statusShort(status: LeadStatus) {
@@ -176,6 +280,10 @@ function LeadCard({
   const why = clientExplain(lead);
   const conf = lead.guess && actionable ? lead.guess.confidence : null;
 
+  const basis = basisOf(lead);
+  const quickConfirm = actionable && Boolean(lead.guess?.name) && (lead.guess?.confidence ?? 0) >= 45;
+  const quickAi = actionable && !lead.guess && !lead.aiMiss;
+
   return (
     <article className={`lead-row ${openRow ? "lead-row--open" : ""}`}>
       <button type="button" className="lead-row__hit" onClick={() => setOpenRow((v) => !v)} aria-expanded={openRow}>
@@ -192,61 +300,47 @@ function LeadCard({
             {lead.recruiter.name ? ` · ${lead.recruiter.name}` : ""}
             {factsLine(lead) ? ` · ${factsLine(lead)}` : ""}
           </span>
-          <span className="lead-row__clientline">
-            <span className="lead-row__arrow" aria-hidden>
-              →
-            </span>
-            <span className={`truncate ${client ? "font-semibold text-[var(--ink)]" : "text-[var(--muted)]"}`}>
-              {client || "Opdrachtgever onbekend"}
-            </span>
-          </span>
-          <span className={`lead-row__why ${why.kind === "thin" ? "lead-row__why--thin" : ""}`}>{why.why}</span>
         </span>
       </button>
+      <div className="lead-row__clientline" onClick={() => setOpenRow((v) => !v)}>
+        <span className="lead-row__arrow" aria-hidden>
+          →
+        </span>
+        <span className={`min-w-0 truncate ${client ? "font-semibold text-[var(--ink)]" : "text-[var(--muted)]"}`}>
+          {client || "Opdrachtgever onbekend"}
+        </span>
+        <BasisBadge basis={basis} />
+        {why.short ? <span className={`lead-row__why ${why.kind === "thin" ? "lead-row__why--thin" : ""}`}>{why.short}</span> : null}
+        {quickConfirm || quickAi ? (
+          <span className="lead-row__quick" onClick={(e) => e.stopPropagation()}>
+            {quickConfirm ? (
+              <button
+                type="button"
+                disabled={busy || aiBusy || client.length < 2}
+                onClick={() => onReview(lead.id, "confirmed", client)}
+                className="btn-ink btn-tool lead-row__quickbtn"
+                title={`Bevestig ${client} als opdrachtgever — daarna staat de kans op Kansen`}
+              >
+                Bevestig
+              </button>
+            ) : (
+              <button
+                type="button"
+                disabled={researchLock}
+                onClick={() => onAiGuess(lead.id, "standard")}
+                className="btn-ghost btn-tool lead-row__quickbtn"
+                title="AI leest de post en zoekt de opdracht online terug (~2 cent)"
+              >
+                {aiBusy ? "Zoekt…" : aiQueued ? "Wacht…" : "AI zoek"}
+              </button>
+            )}
+          </span>
+        ) : null}
+      </div>
 
       {openRow ? (
         <div className="lead-row__detail" onClick={(e) => e.stopPropagation()}>
-          {lead.guess?.evidence?.length ? (
-            <div className="lead-why">
-              <p className="lead-why__label">Waarom {lead.guess.name || "deze opdrachtgever"}?</p>
-              {lead.guess.summary ? <p className="lead-why__summary">{lead.guess.summary}</p> : null}
-              <ul className="lead-why__list">
-                {lead.guess.evidence.slice(0, 4).map((e, i) => (
-                  <li key={i}>
-                    {e.origin ? (
-                      <span className={`lead-why__origin lead-why__origin--${e.origin}`}>{ORIGIN_NL[e.origin]}</span>
-                    ) : null}
-                    <span className="font-medium text-[var(--ink)]">{e.label}</span>
-                    {e.quote ? (
-                      <span className="lead-why__quote">
-                        “{e.quote.replace(/\s+/g, " ").trim()}”
-                        {e.url ? (
-                          <>
-                            {" "}
-                            <a href={e.url} target="_blank" rel="noopener noreferrer">
-                              bron
-                            </a>
-                          </>
-                        ) : null}
-                      </span>
-                    ) : null}
-                  </li>
-                ))}
-              </ul>
-              {lead.guess.check ? <p className="lead-why__check">Check: {lead.guess.check}</p> : null}
-              {lead.guess.alternatives.length ? (
-                <p className="lead-why__alts">
-                  Ook mogelijk:{" "}
-                  {lead.guess.alternatives
-                    .slice(0, 3)
-                    .map((a) => `${a.name} (${a.confidence}%)`)
-                    .join(" · ")}
-                </p>
-              ) : null}
-            </div>
-          ) : (
-            <p className="text-[0.78rem] leading-relaxed text-[var(--muted)]">{why.why}</p>
-          )}
+          <WhyBlock lead={lead} />
 
           {actionable ? (
             <div className="lead-row__actions">
@@ -323,6 +417,174 @@ function LeadCard({
   );
 }
 
+/** One post at a time: read why, then Bevestig / Weg / Volgende. Keys: B or Enter, W, → or spatie, ←, Esc. */
+function QuickReview({
+  ids,
+  leads,
+  busy,
+  drafts,
+  onDraft,
+  onReview,
+  onClose,
+}: {
+  ids: string[];
+  leads: Map<string, AgencyLead>;
+  busy: boolean;
+  drafts: Record<string, string>;
+  onDraft: (id: string, v: string) => void;
+  onReview: (id: string, action: "confirmed" | "rejected", clientName?: string) => Promise<void>;
+  onClose: () => void;
+}) {
+  const [at, setAt] = useState(0);
+  const [done, setDone] = useState({ confirmed: 0, rejected: 0 });
+  const lead = ids[at] ? leads.get(ids[at]) : undefined;
+  const client = lead ? (drafts[lead.id] || lead.confirmedClient || lead.guess?.name || "").trim() : "";
+  const decided = lead ? lead.status === "confirmed" || lead.status === "rejected" : false;
+  const finished = at >= ids.length;
+
+  const act = useRef<(k: "confirm" | "reject" | "next" | "prev" | "close") => void>(() => undefined);
+  useEffect(() => {
+    act.current = (k) => {
+      if (k === "close") return onClose();
+      if (k === "prev") return setAt((i) => Math.max(0, i - 1));
+      if (k === "next") return setAt((i) => Math.min(ids.length, i + 1));
+      if (!lead || busy || decided) return;
+      if (k === "confirm" && client.length < 2) return;
+      const action = k === "confirm" ? "confirmed" : "rejected";
+      void onReview(lead.id, action, action === "confirmed" ? client : undefined).then(() => {
+        setDone((d) => ({ ...d, [action]: d[action] + 1 }));
+        setAt((i) => i + 1);
+      });
+    };
+  });
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      const typing = e.target instanceof HTMLInputElement;
+      if (e.key === "Escape") return act.current("close");
+      if (typing) {
+        if (e.key === "Enter") act.current("confirm");
+        return;
+      }
+      const map: Record<string, "confirm" | "reject" | "next" | "prev"> = {
+        b: "confirm",
+        Enter: "confirm",
+        w: "reject",
+        ArrowRight: "next",
+        " ": "next",
+        ArrowLeft: "prev",
+      };
+      const k = map[e.key];
+      if (k) {
+        e.preventDefault();
+        act.current(k);
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  return (
+    <div className="quick-review" role="dialog" aria-modal="true" aria-label="Snel beoordelen">
+      <div className="quick-review__card">
+        <div className="quick-review__bar">
+          <span className="ws-label">
+            Snel beoordelen · {Math.min(at + 1, ids.length)}/{ids.length}
+          </span>
+          <button type="button" className="btn-ghost btn-tool" onClick={onClose}>
+            Sluiten
+          </button>
+        </div>
+        <div className="quick-review__progress" aria-hidden>
+          <span style={{ width: `${(Math.min(at, ids.length) / Math.max(ids.length, 1)) * 100}%` }} />
+        </div>
+
+        {finished || !lead ? (
+          <div className="quick-review__body">
+            <p className="text-base font-semibold text-[var(--ink)]">Klaar.</p>
+            <p className="text-sm text-[var(--muted)]">
+              {done.confirmed} bevestigd · {done.rejected} weggezet. Bevestigde kansen staan nu op{" "}
+              <Link href="/kansen" className="font-semibold text-[var(--ink)] underline underline-offset-2">
+                Kansen
+              </Link>
+              , klaar voor stap 2: manager zoeken.
+            </p>
+            <div className="mt-3 flex gap-2">
+              <Link href="/kansen" className="btn-ink btn-tool no-underline">
+                Naar Kansen
+              </Link>
+              <button type="button" className="btn-ghost btn-tool" onClick={onClose}>
+                Terug naar de lijst
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="quick-review__body">
+            <p className="lead-row__title">{lead.title}</p>
+            <p className="lead-row__meta">
+              {lead.agency.name}
+              {lead.recruiter.name ? ` · ${lead.recruiter.name}` : ""}
+              {factsLine(lead) ? ` · ${factsLine(lead)}` : ""}
+            </p>
+            <div className="quick-review__client">
+              <input
+                type="text"
+                value={drafts[lead.id] ?? lead.guess?.name ?? ""}
+                onChange={(e) => onDraft(lead.id, e.target.value)}
+                placeholder="Eindklant"
+                className="lead-row__input"
+                aria-label="Eindklant"
+              />
+              {lead.guess ? <span className="quick-review__conf">{lead.guess.confidence}%</span> : null}
+              <BasisBadge basis={basisOf(lead)} />
+            </div>
+            <WhyBlock lead={lead} />
+            {lead.evidenceUrl ? (
+              <a href={lead.evidenceUrl} target="_blank" rel="noopener noreferrer" className="lead-row__vac">
+                Open de post
+              </a>
+            ) : null}
+            {decided ? (
+              <p className="mt-2 text-[0.78rem] text-[var(--muted)]">
+                Al {lead.status === "confirmed" ? "bevestigd" : "weggezet"}.
+              </p>
+            ) : null}
+          </div>
+        )}
+
+        {!finished && lead ? (
+          <div className="quick-review__actions">
+            <button type="button" className="btn-ghost btn-tool" onClick={() => act.current("prev")} disabled={at === 0}>
+              ←
+            </button>
+            <button
+              type="button"
+              className="btn-ghost btn-tool"
+              disabled={busy || decided}
+              onClick={() => act.current("reject")}
+              title="Geen opdracht of niet voor ons (W)"
+            >
+              Weg
+            </button>
+            <button type="button" className="btn-ghost btn-tool" onClick={() => act.current("next")} title="Later (→)">
+              Volgende
+            </button>
+            <button
+              type="button"
+              className="btn-ink btn-tool quick-review__confirm"
+              disabled={busy || decided || client.length < 2}
+              onClick={() => act.current("confirm")}
+              title="Bevestig opdrachtgever (B of Enter)"
+            >
+              {busy ? "…" : `Bevestig ${client || ""}`.trim()}
+            </button>
+          </div>
+        ) : null}
+        <p className="quick-review__keys">B/Enter bevestig · W weg · → volgende · ← terug · Esc sluit</p>
+      </div>
+    </div>
+  );
+}
 
 export default function LeadsDesk({ initial }: { initial?: Payload }) {
   const router = useRouter();
@@ -336,7 +598,11 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
   const [hmId, setHmId] = useState<string | null>(null);
   const [hmNote, setHmNote] = useState<string | null>(null);
   const [q, setQ] = useState("");
-  const [bucket, setBucket] = useState<"all" | "open" | "confirmed">("all");
+  const [bucketPick, setBucketPick] = useState<Bucket | null>(null);
+  const [reviewIds, setReviewIds] = useState<string[] | null>(null);
+  const [syncing, setSyncing] = useState(false);
+  const [now] = useState(() => Date.now());
+  const [syncNote, setSyncNote] = useState<string | null>(null);
   const [watchAgency, setWatchAgency] = useState<string | null>(null);
   const [clientDrafts, setClientDrafts] = useState<Record<string, string>>(() => {
     const drafts: Record<string, string> = {};
@@ -397,34 +663,87 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const filteredLive = useMemo(() => {
-    if (!data) return [];
+  const counts = useMemo(() => {
+    const c: Record<Bucket, number> = { ready: 0, open: 0, confirmed: 0, rejected: 0, all: 0 };
+    for (const l of data?.live || []) {
+      c.all += 1;
+      c[bucketOf(l)] += 1;
+    }
+    return c;
+  }, [data]);
+  const bucket: Bucket = bucketPick ?? (counts.ready ? "ready" : "open");
+
+  const matches = useMemo(() => {
     const n = q.trim().toLowerCase();
-    return data.live.filter((l) => {
-      if (bucket === "open" && (l.status === "confirmed" || l.status === "rejected")) return false;
-      if (bucket === "confirmed" && l.status !== "confirmed") return false;
+    return (l: AgencyLead) => {
+      if (bucket !== "all" && bucketOf(l) !== bucket) return false;
       if (watchAgency && l.agency.name.toLowerCase() !== watchAgency.toLowerCase()) return false;
       if (!n) return true;
       const blob = `${l.title} ${l.agency.name} ${l.confirmedClient || ""} ${l.guess?.name || ""} ${l.roleLabel}`.toLowerCase();
       return blob.includes(n);
-    });
-  }, [data, q, bucket, watchAgency]);
+    };
+  }, [q, bucket, watchAgency]);
 
-  const filteredDemo = useMemo(() => {
-    if (!data) return [];
-    const n = q.trim().toLowerCase();
-    return data.demo.filter((l) => {
-      if (bucket === "open" && (l.status === "confirmed" || l.status === "rejected")) return false;
-      if (bucket === "confirmed" && l.status !== "confirmed") return false;
-      if (watchAgency && l.agency.name.toLowerCase() !== watchAgency.toLowerCase()) return false;
-      if (!n) return true;
-      const blob = `${l.title} ${l.agency.name} ${l.confirmedClient || ""} ${l.guess?.name || ""}`.toLowerCase();
-      return blob.includes(n);
-    });
-  }, [data, q, bucket, watchAgency]);
+  const filteredLive = useMemo(() => (data ? data.live.filter(matches) : []), [data, matches]);
+  const filteredDemo = useMemo(() => (data ? data.demo.filter(matches) : []), [data, matches]);
+  const leadMap = useMemo(() => new Map([...(data?.live || []), ...(data?.demo || [])].map((l) => [l.id, l])), [data]);
+
+  const feedAt = data?.sync?.lastFeed?.at || null;
+  const feedDays = feedAt ? (now - new Date(feedAt).getTime()) / 86_400_000 : null;
+  const feedStale = feedDays == null || feedDays > 3;
+
+  async function syncFeeds() {
+    setSyncing(true);
+    setSyncNote(null);
+    try {
+      const res = await fetch("/api/ingest", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "recruiter-feeds" }),
+      });
+      const j = (await res.json().catch(() => ({}))) as {
+        kept?: number;
+        fetched?: number;
+        message?: string;
+        error?: string;
+        detective?: { tried: number; found: number; left: number } | null;
+      };
+      if (res.status === 401) {
+        setSyncNote("Alleen een admin kan de feeds syncen.");
+        return;
+      }
+      if (!res.ok) {
+        setSyncNote(j.message || j.error || "Sync mislukt");
+        return;
+      }
+      const d = j.detective;
+      setSyncNote(
+        `${j.kept ?? 0} vacature-posts uit ${j.fetched ?? 0} posts.` +
+          (d?.tried ? ` AI heeft ${d.tried} nieuwe posts gelezen, bij ${d.found} een opdrachtgever gevonden.` : "") +
+          (d?.left ? ` Nog ${d.left} open: klik AI alle open.` : "")
+      );
+      const { cacheClear } = await import("@/lib/client-cache");
+      cacheClear("leads");
+      cacheClear("crm");
+      await load();
+    } finally {
+      setSyncing(false);
+    }
+  }
+
+  function startReview() {
+    const pool = (data?.live || []).filter((l) => bucketOf(l) === "ready" || bucketOf(l) === "open");
+    const ids = (bucket === "ready" || bucket === "open" ? pool.filter((l) => bucketOf(l) === bucket) : pool)
+      .filter((l) => l.guess?.name)
+      .map((l) => l.id);
+    if (ids.length) setReviewIds(ids);
+  }
 
   const batchable = (l: AgencyLead) => !skipBatchResearch(l) && !l.aiMiss && !l.aiGuess;
   const deepOpenCount = data?.live.filter(batchable).length ?? 0;
+  const reviewable = (data?.live || []).filter(
+    (l) => (bucket === "all" || bucket === bucketOf(l)) && (bucketOf(l) === "ready" || bucketOf(l) === "open") && l.guess?.name
+  ).length;
 
   const researchStrip = useMemo(() => {
     const jobs = Object.values(aiJobs);
@@ -434,7 +753,7 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
     return { running, queued };
   }, [aiJobs]);
 
-  async function onReview(id: string, action: "confirmed" | "rejected" | "reopen", clientName?: string) {
+  async function onReview(id: string, action: "confirmed" | "rejected" | "reopen", clientName?: string): Promise<void> {
     setBusy(true);
     setError(null);
     try {
@@ -451,9 +770,10 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
       const j = (await res.json()) as { lead?: AgencyLead };
       if (j.lead) upsertLead(j.lead);
       else void load();
-      const { cacheClear } = await import("@/lib/client-cache");
+      const { cacheClear, prefetchJson } = await import("@/lib/client-cache");
       cacheClear("leads");
       cacheClear("crm");
+      if (action === "confirmed") prefetchJson("crm", "/api/crm", 90_000);
     } finally {
       setBusy(false);
     }
@@ -500,7 +820,9 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
       void runResearchJob(id, job.depth);
     }
   }
-  pumpRef.current = pumpQueue;
+  useEffect(() => {
+    pumpRef.current = pumpQueue;
+  });
 
   function onAiGuess(id: string, depth: ResearchDepth = "standard") {
     const current = aiJobsRef.current[id];
@@ -576,222 +898,36 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
   return (
     <AppShell current="leads" title={DESK.bureau.title} subtitle={DESK.bureau.subtitle} fill>
       <div className="ws-shell flex min-h-0 flex-1 flex-col gap-3">
-        <details className="ws-fold shrink-0">
-          <summary>
-            <span>{DESK.bureau.foldTitle}</span>
-            <span className="ws-fold__meta">{DESK.bureau.foldMeta}</span>
-          </summary>
-          <div className="ws-fold__body">
-            <p className="m-0 text-[0.8rem] leading-relaxed text-[var(--muted)]">
-              Dit is de <strong className="font-semibold text-[var(--ink)]">recruiter-feed</strong>: vacatures uit
-              LinkedIn-feeds van kantoren die je volgt. Jij bevestigt de eindklant — daarna zoek je de hiring
-              manager. De andere radar is{" "}
-              <a href={DESK.direct.href} className="font-semibold text-[var(--ink)] underline underline-offset-2">
-                {DESK.direct.nav}
-              </a>{" "}
-              (jobboards).
-            </p>
-            <ol className="ws-fold__steps">
-              <li>
-                <span className="ws-fold__n">1</span>
-                <span>
-                  <strong className="font-semibold text-[var(--ink)]">Review</strong> — AI leest de post, zoekt
-                  dezelfde opdracht online terug (andere bureaus noemen de klant vaak wél) en kijkt naar klanten die
-                  je eerder bij dit bureau bevestigde. Per aanwijzing zie je waar die vandaan komt: uit de post,
-                  online gevonden, eerder bevestigd of alleen marktkennis. Jij bevestigt of wijst af.
-                </span>
-              </li>
-              <li>
-                <span className="ws-fold__n">2</span>
-                <span>
-                  <strong className="font-semibold text-[var(--ink)]">Bevestigd</strong> — de kans verschijnt
-                  meteen op{" "}
-                  <a href="/kansen" className="font-semibold text-[var(--ink)] underline underline-offset-2">
-                    Kansen
-                  </a>
-                  , bij stap 2: manager zoeken.
-                </span>
-              </li>
-              <li>
-                <span className="ws-fold__n">3</span>
-                <span>
-                  <strong className="font-semibold text-[var(--ink)]">Daar verder</strong> — manager, contact en
-                  bericht doe je op Kansen. Hier gaat het alleen om de vraag: wie is de opdrachtgever?
-                </span>
-              </li>
-            </ol>
-          </div>
-        </details>
-
-        <details className="ws-fold shrink-0">
-          <summary>
-            <span>Laatste scrape</span>
-            <span className="ws-fold__meta">
-              {data?.sync?.lastFeed
-                ? `Feeds ${timeAgoShort(data.sync.lastFeed.at)}`
-                : data?.sync?.last
-                  ? `${data.sync.last.label} ${timeAgoShort(data.sync.last.at)}`
-                  : "Nog geen sync"}
-            </span>
-          </summary>
-          <div className="ws-fold__body">
-            <p className="m-0 text-[0.8rem] leading-relaxed text-[var(--muted)]">
-              Recruiter-feeds (LinkedIn-posts van kantoren die je volgt) landen hier. Jobboards sync je via{" "}
-              <a href={DESK.direct.href} className="font-semibold text-[var(--ink)] underline underline-offset-2">
-                {DESK.direct.nav}
-              </a>
-              .
-            </p>
-            <ul className="mt-2 space-y-1 text-[0.78rem] text-[var(--ink)]">
-              <li>
-                <span className="text-[var(--muted)]">Recruiter-feeds: </span>
-                {data?.sync?.lastFeed ? (
-                  <>
-                    {timeAgoShort(data.sync.lastFeed.at)} · {data.sync.lastFeed.kept}/
-                    {data.sync.lastFeed.fetched} gehouden
-                    {data.sync.lastFeed.mode === "error"
-                      ? " · mislukt — sync opnieuw via Jobboards"
-                      : ""}
-                  </>
-                ) : (
-                  <span className="text-[var(--muted)]">nog niet gedraaid</span>
-                )}
-              </li>
-              {data?.sync?.last ? (
-                <li>
-                  <span className="text-[var(--muted)]">Laatste desk-sync: </span>
-                  {data.sync.last.label} · {timeAgoShort(data.sync.last.at)}
-                </li>
-              ) : null}
-            </ul>
-            <p className="mt-2 mb-0 text-[0.72rem] text-[var(--muted)]">
-              Nieuwe hits zie je ook in de bel rechtsboven. Mail (Resend) staat nog niet aan — wel
-              in-app + optioneel Slack/Discord via{" "}
-              <code className="text-[0.68rem]">ALERT_WEBHOOK_URL</code>.
-            </p>
-          </div>
-        </details>
-
-        <details className="ws-fold shrink-0">
-          <summary>
-            <span>Kantoren die je volgt</span>
-            <span className="ws-fold__meta">
-              {data
-                ? `${data.watchlist.length} kantoren · ${data.watchlist.reduce((n, a) => n + a.recruiters.length, 0)} recruiters`
-                : "Laden…"}
-              {watchAgency ? ` · filter ${watchAgency}` : ""}
-            </span>
-          </summary>
-          <div className="ws-fold__body !p-0">
-            <div className="flex items-center justify-between gap-2 border-b border-[var(--line)] px-3.5 py-2">
-              <p className="text-[0.72rem] text-[var(--muted)]">Filter op kantoor · klik naam om te filteren</p>
-              <Link
-                href="/instellingen#volgen"
-                className="text-[0.72rem] font-semibold text-[var(--ink)] underline decoration-[var(--signal)] underline-offset-2"
-              >
-                Bewerken
-              </Link>
-            </div>
-            {!data ? (
-              <p className="px-3.5 py-3 text-[0.78rem] text-[var(--muted)] sm:px-4">Laden…</p>
-            ) : data.watchlist.length === 0 ? (
-              <p className="px-3.5 py-3 text-[0.78rem] text-[var(--muted)] sm:px-4">
-                Nog geen kantoren.{" "}
-                <Link href="/instellingen#volgen" className="font-semibold text-[var(--ink)] no-underline hover:underline">
-                  Stel in →
-                </Link>
-              </p>
-            ) : (
-              <ul className="divide-y divide-[var(--line)]">
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => setWatchAgency(null)}
-                    className={`flex w-full items-center justify-between gap-2 px-3.5 py-2.5 text-left text-sm transition hover:bg-[var(--surface-2)] sm:px-4 ${
-                      !watchAgency ? "bg-[var(--accent-soft)] font-semibold text-[var(--ink)]" : "text-[var(--ink)]"
-                    }`}
-                  >
-                    <span>Alle kantoren</span>
-                    <span className="tabular-nums text-[0.7rem] text-[var(--muted)]" style={{ fontFamily: "var(--mono)" }}>
-                      {data.live.length} hits
-                    </span>
-                  </button>
-                </li>
-                {data.watchlist.map((a) => {
-                  const on = watchAgency?.toLowerCase() === a.name.toLowerCase();
-                  const leadCount = data.live.filter((l) => l.agency.name.toLowerCase() === a.name.toLowerCase()).length;
-                  return (
-                    <li key={a.id} className={on ? "bg-[var(--accent-soft)]/40" : ""}>
-                      <details className="group">
-                        <summary className="flex cursor-pointer list-none items-center gap-2 px-3.5 py-2.5 hover:bg-[var(--surface-2)] sm:px-4 [&::-webkit-details-marker]:hidden">
-                          <span
-                            role="button"
-                            tabIndex={0}
-                            className={`min-w-0 flex-1 truncate text-left text-sm ${
-                              on ? "font-semibold text-[var(--ink)]" : "font-medium text-[var(--ink)]"
-                            }`}
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              setWatchAgency(on ? null : a.name);
-                            }}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter" || e.key === " ") {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                setWatchAgency(on ? null : a.name);
-                              }
-                            }}
-                          >
-                            {a.name}
-                          </span>
-                          <span className="shrink-0 tabular-nums text-[0.7rem] text-[var(--muted)]" style={{ fontFamily: "var(--mono)" }}>
-                            {leadCount} hits · {a.recruiters.length}
-                          </span>
-                          <span className="shrink-0 text-[0.65rem] text-[var(--muted)] transition group-open:rotate-180" aria-hidden>
-                            ▾
-                          </span>
-                        </summary>
-                        <div className="border-t border-[var(--line)]/70 bg-[var(--surface-2)]/50 px-3.5 py-2.5 sm:px-4">
-                          {a.note ? <p className="mb-2 text-[0.72rem] text-[var(--muted)]">{a.note}</p> : null}
-                          <ul className="space-y-1.5">
-                            {a.recruiters.map((r) => (
-                              <li key={r.name} className="flex items-center justify-between gap-3 text-[0.78rem]">
-                                {r.linkedinUrl ? (
-                                  <a
-                                    href={r.linkedinUrl}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="font-medium text-[var(--ink)] no-underline hover:underline"
-                                  >
-                                    {r.name}
-                                  </a>
-                                ) : (
-                                  <span className="font-medium text-[var(--ink)]">{r.name}</span>
-                                )}
-                                {r.brand ? <span className="truncate text-[var(--muted)]">{r.brand}</span> : null}
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      </details>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </div>
-        </details>
-
         <main className="ws-main min-h-0 flex-1">
-          <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
-            <p className="ws-label">Openingen</p>
-            {data ? (
-              <p className="text-[0.7rem] text-[var(--muted)]" style={{ fontFamily: "var(--mono)" }}>
-                {filteredLive.length}/{data.live.length} live
-                {watchAgency ? ` · ${watchAgency}` : ""}
+          {data && feedStale ? (
+            <div className="lead-banner">
+              <p className="m-0">
+                <strong className="font-semibold text-[var(--ink)]">
+                  {feedDays == null ? "Feeds nog nooit gesynct." : `Feed is ${Math.floor(feedDays)} dagen oud.`}
+                </strong>{" "}
+                Nieuwe posts van recruiters komen pas binnen na een sync; de AI zoekt daarna meteen de
+                opdrachtgever.
               </p>
-            ) : null}
+              <button type="button" className="btn-ink btn-tool shrink-0" disabled={syncing} onClick={() => void syncFeeds()}>
+                {syncing ? "Sync loopt… (1–4 min)" : "Sync nu"}
+              </button>
+            </div>
+          ) : null}
+          {syncNote ? <p className="mb-3 text-[0.8rem] text-[var(--ink)]">{syncNote}</p> : null}
+
+          <div className="mb-2 flex flex-wrap items-center gap-1.5">
+            {(["ready", "open", "confirmed", "rejected", "all"] as const).map((b) => (
+              <button
+                key={b}
+                type="button"
+                onClick={() => setBucketPick(b)}
+                className={`ws-chip ${bucket === b ? "ws-chip--on" : ""}`}
+                title={BUCKET_NL[b]}
+              >
+                {BUCKET_CHIP[b]}
+                <span className="ws-chip__n">{data ? counts[b] : "…"}</span>
+              </button>
+            ))}
           </div>
           <div className="mb-3 flex flex-wrap items-center gap-2">
             <input
@@ -799,29 +935,37 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
               value={q}
               onChange={(e) => setQ(e.target.value)}
               placeholder="Zoek bureau, rol of eindklant…"
-              className="min-w-[12rem] flex-1 rounded-[var(--radius)] border border-[var(--line)] bg-[var(--surface)] px-2.5 py-1.5 text-sm outline-none focus:border-[var(--accent)]"
+              className="min-w-[10rem] flex-1 rounded-[var(--radius)] border border-[var(--line)] bg-[var(--surface)] px-2.5 py-1.5 text-sm outline-none focus:border-[var(--accent)]"
               aria-label="Filter openingen"
             />
-            {(["all", "open", "confirmed"] as const).map((b) => (
-              <button
-                key={b}
-                type="button"
-                onClick={() => setBucket(b)}
-                className={`ws-chip ${bucket === b ? "ws-chip--on" : ""}`}
-              >
-                {b === "all" ? "Alles" : b === "open" ? "Te reviewen" : "Bevestigd"}
+            {reviewable ? (
+              <button type="button" onClick={startReview} className="btn-ink btn-tool" title="Eén post tegelijk: bevestig, weg of volgende">
+                Snel beoordelen · {reviewable}
               </button>
-            ))}
-            <button
-              type="button"
-              disabled={!deepOpenCount}
-              onClick={deepAllOpen}
-              className="btn-ghost btn-tool"
-              title="Leest elke post die nog niet is uitgezocht, zoekt de opdracht één keer online terug en legt per aanwijzing uit waarom. Ongeveer 2 cent per post."
-            >
-              AI alle open{deepOpenCount ? ` · ${deepOpenCount}` : ""}
-            </button>
+            ) : null}
+            {deepOpenCount ? (
+              <button
+                type="button"
+                onClick={deepAllOpen}
+                className="btn-ghost btn-tool"
+                title="Leest elke post die nog niet is uitgezocht, zoekt de opdracht één keer online terug en legt per aanwijzing uit waarom. Ongeveer 2 cent per post."
+              >
+                AI alle open · {deepOpenCount}
+              </button>
+            ) : data ? (
+              <span className="text-[0.72rem] text-[var(--muted)]" title="Posts waar de AI al zocht of niets vond worden niet opnieuw betaald; gebruik AI per post om het opnieuw te proberen.">
+                Alle posts zijn al door de AI gelezen
+              </span>
+            ) : null}
           </div>
+          {watchAgency ? (
+            <p className="mb-3 text-[0.78rem] text-[var(--muted)]">
+              Alleen <strong className="text-[var(--ink)]">{watchAgency}</strong> ·{" "}
+              <button type="button" className="underline underline-offset-2" onClick={() => setWatchAgency(null)}>
+                filter weg
+              </button>
+            </p>
+          ) : null}
 
           {researchStrip ? (
             <p className="mb-3 text-[0.78rem] text-[var(--ink)]">
@@ -838,41 +982,18 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
             <p className="text-sm text-[var(--muted)]">Laden…</p>
           ) : (
             <div className="space-y-3">
-              {(() => {
-                const openLeads = data.live.filter(
-                  (l) => l.status !== "confirmed" && l.status !== "rejected"
-                );
-                if (!openLeads.length) return null;
-                const kinds = openLeads.map((l) => clientExplain(l).kind);
-                const ready = kinds.filter((k) => k === "ok").length;
-                const hunt = kinds.filter((k) => k === "hunt").length;
-                const thin = kinds.filter((k) => k === "thin").length;
-                return (
-                  <p className="text-[0.8rem] leading-relaxed text-[var(--muted)]">
-                    <strong className="font-semibold text-[var(--ink)]">{openLeads.length} posts</strong> wachten op
-                    een opdrachtgever.{" "}
-                    {ready ? <>Bij {ready} heeft de AI al een naam voorgesteld: nakijken en bevestigen. </> : null}
-                    {hunt ? (
-                      <>
-                        {hunt} zijn nog niet uitgezocht: klik <strong className="font-semibold text-[var(--ink)]">AI alle open</strong>.
-                        Per post krijg je de opdrachtgever plus de aanwijzingen waarom.{" "}
-                      </>
-                    ) : null}
-                    {thin ? (
-                      <>
-                        Bij {thin} vond de AI geen zekere naam — vul hem zelf in als je hem kent.
-                      </>
-                    ) : null}
-                  </p>
-                );
-              })()}
               <section>
                 <div className="mb-2 flex items-center justify-between gap-2">
-                  <p className="ws-label">Te reviewen</p>
+                  <p className="ws-label">{BUCKET_NL[bucket]}</p>
                   <span className="tabular-nums text-[0.68rem] text-[var(--muted)]" style={{ fontFamily: "var(--mono)" }}>
                     {filteredLive.length}
                   </span>
                 </div>
+                {bucket === "ready" && filteredLive.length ? (
+                  <p className="mb-2 text-[0.75rem] text-[var(--muted)]">
+                    AI is hier ≥80% zeker. Bevestig en de kans staat meteen op Kansen; klik een rij voor het bewijs.
+                  </p>
+                ) : null}
                 {filteredLive.length ? (
                   <div className="ws-panel overflow-hidden !p-0">
                     {filteredLive.map((l) => (
@@ -894,22 +1015,237 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
                       />
                     ))}
                   </div>
+                ) : data.live.length ? (
+                  <p className="ws-empty">
+                    Niets in {BUCKET_NL[bucket].toLowerCase()}
+                    {q || watchAgency ? " met dit filter" : ""}.
+                  </p>
                 ) : (
                   <p className="ws-empty">
-                    Nog geen live hits. Zorg dat recruiters een LinkedIn-URL hebben, daarna
-                    admin: Sync → Recruiter-feeds. Of test AI op een voorbeeld hieronder.
+                    Nog geen live hits. Zorg dat recruiters een LinkedIn-URL hebben en sync de feeds. Of test AI op
+                    een voorbeeld hieronder.
                   </p>
                 )}
               </section>
+            </div>
+          )}
 
-              <section>
-                <div className="mb-2 flex items-center justify-between gap-2">
-                  <p className="ws-label">Voorbeelden</p>
-                  <span className="tabular-nums text-[0.68rem] text-[var(--muted)]" style={{ fontFamily: "var(--mono)" }}>
-                    {filteredDemo.length}
+          <div className="mt-5 space-y-2">
+          <details className="ws-fold">
+            <summary>
+              <span>{DESK.bureau.foldTitle}</span>
+              <span className="ws-fold__meta">{DESK.bureau.foldMeta}</span>
+            </summary>
+            <div className="ws-fold__body">
+              <p className="m-0 text-[0.8rem] leading-relaxed text-[var(--muted)]">
+                Dit is de <strong className="font-semibold text-[var(--ink)]">recruiter-feed</strong>: vacatures uit
+                LinkedIn-feeds van kantoren die je volgt. Jij bevestigt de eindklant — daarna zoek je de hiring
+                manager. De andere radar is{" "}
+                <a href={DESK.direct.href} className="font-semibold text-[var(--ink)] underline underline-offset-2">
+                  {DESK.direct.nav}
+                </a>{" "}
+                (jobboards).
+              </p>
+              <ol className="ws-fold__steps">
+                <li>
+                  <span className="ws-fold__n">1</span>
+                  <span>
+                    <strong className="font-semibold text-[var(--ink)]">Review</strong> — AI leest de post, zoekt
+                    dezelfde opdracht online terug (andere bureaus noemen de klant vaak wél) en kijkt naar klanten die
+                    je eerder bij dit bureau bevestigde. Per aanwijzing zie je waar die vandaan komt: uit de post,
+                    online gevonden, eerder bevestigd of alleen marktkennis. Jij bevestigt of wijst af.
                   </span>
-                </div>
-                <div className="ws-panel overflow-hidden !p-0">
+                </li>
+                <li>
+                  <span className="ws-fold__n">2</span>
+                  <span>
+                    <strong className="font-semibold text-[var(--ink)]">Bevestigd</strong> — de kans verschijnt
+                    meteen op{" "}
+                    <a href="/kansen" className="font-semibold text-[var(--ink)] underline underline-offset-2">
+                      Kansen
+                    </a>
+                    , bij stap 2: manager zoeken.
+                  </span>
+                </li>
+                <li>
+                  <span className="ws-fold__n">3</span>
+                  <span>
+                    <strong className="font-semibold text-[var(--ink)]">Daar verder</strong> — manager, contact en
+                    bericht doe je op Kansen. Hier gaat het alleen om de vraag: wie is de opdrachtgever?
+                  </span>
+                </li>
+              </ol>
+            </div>
+          </details>
+
+          <details className="ws-fold">
+            <summary>
+              <span>Laatste scrape</span>
+              <span className="ws-fold__meta">
+                {data?.sync?.lastFeed
+                  ? `Feeds ${timeAgoShort(data.sync.lastFeed.at)}`
+                  : data?.sync?.last
+                    ? `${data.sync.last.label} ${timeAgoShort(data.sync.last.at)}`
+                    : "Nog geen sync"}
+              </span>
+            </summary>
+            <div className="ws-fold__body">
+              <p className="m-0 text-[0.8rem] leading-relaxed text-[var(--muted)]">
+                Recruiter-feeds (LinkedIn-posts van kantoren die je volgt) landen hier. Jobboards sync je via{" "}
+                <a href={DESK.direct.href} className="font-semibold text-[var(--ink)] underline underline-offset-2">
+                  {DESK.direct.nav}
+                </a>
+                .
+              </p>
+              <ul className="mt-2 space-y-1 text-[0.78rem] text-[var(--ink)]">
+                <li>
+                  <span className="text-[var(--muted)]">Recruiter-feeds: </span>
+                  {data?.sync?.lastFeed ? (
+                    <>
+                      {timeAgoShort(data.sync.lastFeed.at)} · {data.sync.lastFeed.kept}/
+                      {data.sync.lastFeed.fetched} gehouden
+                      {data.sync.lastFeed.mode === "error"
+                        ? " · mislukt — sync opnieuw via Jobboards"
+                        : ""}
+                    </>
+                  ) : (
+                    <span className="text-[var(--muted)]">nog niet gedraaid</span>
+                  )}
+                </li>
+                {data?.sync?.last ? (
+                  <li>
+                    <span className="text-[var(--muted)]">Laatste desk-sync: </span>
+                    {data.sync.last.label} · {timeAgoShort(data.sync.last.at)}
+                  </li>
+                ) : null}
+              </ul>
+              <p className="mt-2 mb-0 text-[0.72rem] text-[var(--muted)]">
+                Nieuwe hits zie je ook in de bel rechtsboven. Mail (Resend) staat nog niet aan — wel
+                in-app + optioneel Slack/Discord via{" "}
+                <code className="text-[0.68rem]">ALERT_WEBHOOK_URL</code>.
+              </p>
+            </div>
+          </details>
+
+          <details className="ws-fold">
+            <summary>
+              <span>Kantoren die je volgt</span>
+              <span className="ws-fold__meta">
+                {data
+                  ? `${data.watchlist.length} kantoren · ${data.watchlist.reduce((n, a) => n + a.recruiters.length, 0)} recruiters`
+                  : "Laden…"}
+                {watchAgency ? ` · filter ${watchAgency}` : ""}
+              </span>
+            </summary>
+            <div className="ws-fold__body !p-0">
+              <div className="flex items-center justify-between gap-2 border-b border-[var(--line)] px-3.5 py-2">
+                <p className="text-[0.72rem] text-[var(--muted)]">Filter op kantoor · klik naam om te filteren</p>
+                <Link
+                  href="/instellingen#volgen"
+                  className="text-[0.72rem] font-semibold text-[var(--ink)] underline decoration-[var(--signal)] underline-offset-2"
+                >
+                  Bewerken
+                </Link>
+              </div>
+              {!data ? (
+                <p className="px-3.5 py-3 text-[0.78rem] text-[var(--muted)] sm:px-4">Laden…</p>
+              ) : data.watchlist.length === 0 ? (
+                <p className="px-3.5 py-3 text-[0.78rem] text-[var(--muted)] sm:px-4">
+                  Nog geen kantoren.{" "}
+                  <Link href="/instellingen#volgen" className="font-semibold text-[var(--ink)] no-underline hover:underline">
+                    Stel in →
+                  </Link>
+                </p>
+              ) : (
+                <ul className="divide-y divide-[var(--line)]">
+                  <li>
+                    <button
+                      type="button"
+                      onClick={() => setWatchAgency(null)}
+                      className={`flex w-full items-center justify-between gap-2 px-3.5 py-2.5 text-left text-sm transition hover:bg-[var(--surface-2)] sm:px-4 ${
+                        !watchAgency ? "bg-[var(--accent-soft)] font-semibold text-[var(--ink)]" : "text-[var(--ink)]"
+                      }`}
+                    >
+                      <span>Alle kantoren</span>
+                      <span className="tabular-nums text-[0.7rem] text-[var(--muted)]" style={{ fontFamily: "var(--mono)" }}>
+                        {data.live.length} hits
+                      </span>
+                    </button>
+                  </li>
+                  {data.watchlist.map((a) => {
+                    const on = watchAgency?.toLowerCase() === a.name.toLowerCase();
+                    const leadCount = data.live.filter((l) => l.agency.name.toLowerCase() === a.name.toLowerCase()).length;
+                    return (
+                      <li key={a.id} className={on ? "bg-[var(--accent-soft)]/40" : ""}>
+                        <details className="group">
+                          <summary className="flex cursor-pointer list-none items-center gap-2 px-3.5 py-2.5 hover:bg-[var(--surface-2)] sm:px-4 [&::-webkit-details-marker]:hidden">
+                            <span
+                              role="button"
+                              tabIndex={0}
+                              className={`min-w-0 flex-1 truncate text-left text-sm ${
+                                on ? "font-semibold text-[var(--ink)]" : "font-medium text-[var(--ink)]"
+                              }`}
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                setWatchAgency(on ? null : a.name);
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter" || e.key === " ") {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  setWatchAgency(on ? null : a.name);
+                                }
+                              }}
+                            >
+                              {a.name}
+                            </span>
+                            <span className="shrink-0 tabular-nums text-[0.7rem] text-[var(--muted)]" style={{ fontFamily: "var(--mono)" }}>
+                              {leadCount} hits · {a.recruiters.length}
+                            </span>
+                            <span className="shrink-0 text-[0.65rem] text-[var(--muted)] transition group-open:rotate-180" aria-hidden>
+                              ▾
+                            </span>
+                          </summary>
+                          <div className="border-t border-[var(--line)]/70 bg-[var(--surface-2)]/50 px-3.5 py-2.5 sm:px-4">
+                            {a.note ? <p className="mb-2 text-[0.72rem] text-[var(--muted)]">{a.note}</p> : null}
+                            <ul className="space-y-1.5">
+                              {a.recruiters.map((r) => (
+                                <li key={r.name} className="flex items-center justify-between gap-3 text-[0.78rem]">
+                                  {r.linkedinUrl ? (
+                                    <a
+                                      href={r.linkedinUrl}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="font-medium text-[var(--ink)] no-underline hover:underline"
+                                    >
+                                      {r.name}
+                                    </a>
+                                  ) : (
+                                    <span className="font-medium text-[var(--ink)]">{r.name}</span>
+                                  )}
+                                  {r.brand ? <span className="truncate text-[var(--muted)]">{r.brand}</span> : null}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        </details>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+          </details>
+
+          <details className="ws-fold">
+            <summary>
+              <span>Voorbeelden</span>
+              <span className="ws-fold__meta">test de AI zonder live posts</span>
+            </summary>
+            <div className="ws-fold__body !p-0">
+              <section>
+                <div className="overflow-hidden">
                   {filteredDemo.map((l) => (
                     <LeadCard
                       key={l.id}
@@ -931,9 +1267,21 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
                 </div>
               </section>
             </div>
-          )}
+          </details>
+          </div>
         </main>
       </div>
+      {reviewIds ? (
+        <QuickReview
+          ids={reviewIds}
+          leads={leadMap}
+          busy={busy}
+          drafts={clientDrafts}
+          onDraft={(id, v) => setClientDrafts((d) => ({ ...d, [id]: v }))}
+          onReview={(id, action, name) => onReview(id, action, name)}
+          onClose={() => setReviewIds(null)}
+        />
+      ) : null}
     </AppShell>
   );
 }
