@@ -286,32 +286,58 @@ function LeadCard({
   const rowBusy = Boolean(confirming || hmBusy);
   return (
     <article className={`lead-row ${openRow ? "lead-row--open" : ""} ${rowBusy ? "lead-row--busy" : ""}`}>
-      <button type="button" className="lead-row__hit" onClick={() => setOpenRow((v) => !v)} aria-expanded={openRow}>
-        <span className="lead-row__main">
-          <span className="lead-row__top">
-            <span className="lead-row__title truncate">{lead.title}</span>
-            {conf != null ? (
-              <ScoreChip
-                kans={conf}
-                percent
-                label={lead.status === "confirmed" ? "Bevestigd" : lead.status === "rejected" ? "Weg" : undefined}
-              />
-            ) : (
-              <span
-                className={`ws-score shrink-0 ${lead.status === "confirmed" ? "ws-score--hot" : lead.status === "rejected" ? "ws-score--cold" : "ws-score--watch"}`}
-                title={STATUS_HINT[lead.status]}
-              >
-                <span className="ws-score__band">{statusShort(lead.status)}</span>
-              </span>
-            )}
-          </span>
+      <div className="lead-row__head">
+        <button type="button" className="lead-row__hit" onClick={() => setOpenRow((v) => !v)} aria-expanded={openRow}>
+          <span className="lead-row__title truncate">{lead.title}</span>
           <span className="lead-row__meta truncate">
             {lead.agency.name}
             {lead.recruiter.name ? ` · ${lead.recruiter.name}` : ""}
             {factsLine(lead) ? ` · ${factsLine(lead)}` : ""}
           </span>
-        </span>
-      </button>
+        </button>
+        <div className="lead-row__side">
+          {conf != null ? (
+            <ScoreChip
+              kans={conf}
+              percent
+              label={lead.status === "confirmed" ? "Bevestigd" : lead.status === "rejected" ? "Weg" : undefined}
+              parts={(lead.guess?.evidence || []).slice(0, 6).map((e) => ({
+                label: e.origin ? `${e.label} · ${ORIGIN_NL[e.origin] || e.origin}` : e.label,
+              }))}
+            />
+          ) : (
+            <span
+              className={`ws-score shrink-0 ${lead.status === "confirmed" ? "ws-score--hot" : lead.status === "rejected" ? "ws-score--cold" : "ws-score--watch"}`}
+              title={STATUS_HINT[lead.status]}
+            >
+              <span className="ws-score__band">{statusShort(lead.status)}</span>
+            </span>
+          )}
+          {quickConfirm ? (
+            <button
+              type="button"
+              disabled={busy || aiBusy || client.length < 2}
+              onClick={() => onReview(lead.id, "confirmed", client)}
+              className={`btn-ink lead-row__confirm ${confirming ? "is-busy" : ""}`}
+              aria-busy={confirming || undefined}
+              title={`Bevestig ${client} als opdrachtgever — daarna staat de kans op Kansen`}
+            >
+              {confirming ? <BtnSpinner /> : null}
+              {confirming ? "Bevestigen" : "Bevestig"}
+            </button>
+          ) : quickAi ? (
+            <button
+              type="button"
+              disabled={researchLock}
+              onClick={() => onAiGuess(lead.id, "standard")}
+              className="btn-ghost lead-row__confirm"
+              title="AI leest de post en zoekt de opdracht online terug (~2 cent)"
+            >
+              {aiBusy ? "Zoekt…" : aiQueued ? "Wacht…" : "AI zoek"}
+            </button>
+          ) : null}
+        </div>
+      </div>
       <div className="lead-row__clientline" onClick={() => setOpenRow((v) => !v)}>
         <span className="lead-row__arrow" aria-hidden>
           →
@@ -321,33 +347,6 @@ function LeadCard({
         </span>
         <BasisBadge basis={basis} />
         {why.short ? <span className={`lead-row__why ${why.kind === "thin" ? "lead-row__why--thin" : ""}`}>{why.short}</span> : null}
-        {quickConfirm || quickAi ? (
-          <span className="lead-row__quick" onClick={(e) => e.stopPropagation()}>
-            {quickConfirm ? (
-              <button
-                type="button"
-                disabled={busy || aiBusy || client.length < 2}
-                onClick={() => onReview(lead.id, "confirmed", client)}
-                className={`btn-ink btn-tool lead-row__quickbtn ${confirming ? "is-busy" : ""}`}
-                aria-busy={confirming || undefined}
-                title={`Bevestig ${client} als opdrachtgever — daarna staat de kans op Kansen`}
-              >
-                {confirming ? <BtnSpinner /> : null}
-                {confirming ? "Bevestigen" : "Bevestig"}
-              </button>
-            ) : (
-              <button
-                type="button"
-                disabled={researchLock}
-                onClick={() => onAiGuess(lead.id, "standard")}
-                className="btn-ghost btn-tool lead-row__quickbtn"
-                title="AI leest de post en zoekt de opdracht online terug (~2 cent)"
-              >
-                {aiBusy ? "Zoekt…" : aiQueued ? "Wacht…" : "AI zoek"}
-              </button>
-            )}
-          </span>
-        ) : null}
       </div>
 
       {openRow ? (

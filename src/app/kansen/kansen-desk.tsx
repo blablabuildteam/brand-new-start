@@ -631,7 +631,10 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
 
                         <span className="kans-row__score">
                           {row.kans != null ? (
-                            <ScoreChip kans={row.kans} />
+                            <ScoreChip
+                              kans={row.kans}
+                              parts={(row.kansFactors || []).map((f) => ({ label: f.label, points: f.points }))}
+                            />
                           ) : (
                             <span className="text-[0.7rem] text-[var(--muted)]">Geen bewijs</span>
                           )}
@@ -814,7 +817,11 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
                               <p className="ws-label">Kans-score</p>
                               <div className="mt-1.5 flex items-center gap-3">
                                 {row.kans != null ? (
-                                  <ScoreChip kans={row.kans} large />
+                                  <ScoreChip
+                                    kans={row.kans}
+                                    large
+                                    parts={(row.kansFactors || []).map((f) => ({ label: f.label, points: f.points }))}
+                                  />
                                 ) : (
                                   <span className="text-sm text-[var(--muted)]">Geen bewijs geteld</span>
                                 )}

@@ -1867,7 +1867,10 @@ export default function RadarApp({
                               {title}
                             </span>
                           </span>
-                          <ScoreChip kans={r.kans} />
+                          <ScoreChip
+                            kans={r.kans}
+                            parts={(r.factors || []).map((f) => ({ label: f.label, points: f.points }))}
+                          />
                         </button>
                       </li>
                     );
@@ -1917,7 +1920,13 @@ export default function RadarApp({
                       </p>
                     ) : null}
                   </div>
-                  {(active.openingsAtCompany || 0) <= 1 ? <ScoreChip kans={active.kans} large /> : null}
+                  {(active.openingsAtCompany || 0) <= 1 ? (
+                    <ScoreChip
+                      kans={active.kans}
+                      large
+                      parts={(active.factors || []).map((f) => ({ label: f.label, points: f.points }))}
+                    />
+                  ) : null}
                 </div>
 
                 {(active.openings?.length
@@ -1959,7 +1968,10 @@ export default function RadarApp({
                               .join(" · ")}
                           </p>
                         </div>
-                        <ScoreChip kans={o.kans} />
+                        <ScoreChip
+                          kans={o.kans}
+                          parts={(o.factors || []).map((f) => ({ label: f.label, points: f.points }))}
+                        />
                       </div>
 
                       {angle ? (
