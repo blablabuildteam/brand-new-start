@@ -2683,6 +2683,62 @@ body:has(.desk-home--scout) {
   justify-content: center;
 }
 
+.scout-hero__inner--radar {
+  align-items: center;
+  padding: 1.75rem 1.25rem 2.5rem;
+}
+
+.scout-hero__inner--radar .scout-hero__canvas {
+  margin-top: 0;
+  padding: 1.5rem 0.75rem 1.25rem;
+  border-radius: 1.25rem;
+}
+
+.scout-hero__inner--radar .scout-hero__stage {
+  min-height: 340px;
+  max-width: none;
+}
+
+.scout-hero__inner--radar .hero-radar__disc {
+  width: min(88%, 340px);
+}
+
+.scout-hero__aside h1 {
+  margin: 0;
+  max-width: 22ch;
+  font-family: var(--scout-sans);
+  font-size: clamp(1.35rem, 2.1vw, 1.7rem);
+  font-weight: 500;
+  letter-spacing: -0.025em;
+  line-height: 1.28;
+  color: var(--scout-ink);
+}
+
+.scout-hero__aside p {
+  margin: 0.85rem 0 0;
+  max-width: 38ch;
+  font-size: 0.95rem;
+  font-weight: 450;
+  line-height: 1.55;
+  color: var(--scout-muted);
+}
+
+@media (min-width: 900px) {
+  .scout-hero__inner--radar {
+    grid-template-columns: 1.15fr 0.85fr;
+    gap: 2.75rem;
+    padding: 3rem 2rem 3.25rem;
+  }
+
+  .scout-hero__inner--radar .scout-hero__stage {
+    min-height: 420px;
+  }
+
+  .scout-hero__inner--radar .hero-radar__disc {
+    width: min(92%, 400px);
+  }
+}
+
 .scout-hero__canvas {
   width: 100%;
   margin-top: 2.75rem;
@@ -2702,7 +2758,7 @@ body:has(.desk-home--scout) {
 }
 
 @media (min-width: 960px) {
-  .scout-hero__inner:not(.scout-hero__inner--center) {
+  .scout-hero__inner:not(.scout-hero__inner--center):not(.scout-hero__inner--radar) {
     grid-template-columns: 1fr 1fr;
     gap: 2rem 2.5rem;
     padding: 3.5rem 2rem 3.25rem;
@@ -3007,7 +3063,18 @@ body:has(.desk-home--scout) {
   background: rgba(255, 255, 255, 0.92);
   backdrop-filter: blur(14px);
   box-shadow: 0 14px 32px -24px rgba(10, 10, 10, 0.4);
-  animation: home-tick 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: hero-find-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes hero-find-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%);
+  }
 }
 
 .hero-radar__live {

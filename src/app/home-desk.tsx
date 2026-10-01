@@ -80,43 +80,24 @@ export default function HomeDesk() {
   }, []);
 
   const deskHref = "/radar";
-  const loginHref = `/login?next=${encodeURIComponent(deskHref)}`;
 
   return (
     <div className="desk-home desk-home--scout min-h-dvh">
       <SiteNav name={PRODUCT.name} email={email} scout />
 
-      <section className="scout-hero scout-hero--center">
-        <div className="scout-hero__inner scout-hero__inner--center">
-          <p className="scout-kicker home-reveal">{PRODUCT.category}</p>
-          <h1 className="scout-headline scout-headline--center home-reveal home-reveal--2">
-            De recruiter
-            <span className="scout-headline__break">vóór de vacature</span>
-          </h1>
-          <p className="scout-tagline scout-tagline--center home-reveal home-reveal--3">
-            Interim en ZZP. Eindklant, hiring manager, bericht.
-          </p>
-          <div className="scout-cta scout-cta--center home-reveal home-reveal--4">
-            {email ? (
-              <Link href={deskHref} className="scout-btn scout-btn--signal">
-                Open de desk
-              </Link>
-            ) : (
-              <>
-                <Link href={loginHref} className="scout-btn scout-btn--signal">
-                  Inloggen
-                </Link>
-                <a href="#werk" className="scout-btn scout-btn--ghost">
-                  De desk
-                </a>
-              </>
-            )}
-          </div>
-
-          <div className="scout-hero__canvas home-reveal home-reveal--4">
+      <section className="scout-hero">
+        <div className="scout-hero__inner scout-hero__inner--radar">
+          <div className="scout-hero__canvas home-reveal">
             <div className="scout-hero__stage">
               <HomeOpportunityStage />
             </div>
+          </div>
+          <div className="scout-hero__aside home-reveal home-reveal--2">
+            <h1>Nooit meer handmatig zoeken naar opdrachtkansen bij bedrijven.</h1>
+            <p>
+              Onze Scout weet precies wanneer er een bepaalde personeelsbehoefte is en signaleert deze
+              automatisch op basis van een groot aantal signalen.
+            </p>
           </div>
         </div>
       </section>
