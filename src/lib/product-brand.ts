@@ -8,8 +8,8 @@
 export const PRODUCT = {
   name: "Recruitment Scout",
   /** Industrie + wat het is */
-  category: "Interim & ZZP · opdrachtkansen",
+  category: "Recruitment · interim & ZZP",
   /** Belofte */
-  tagline: "Opdrachtkansen spotten. Business opvolgen.",
-  lede: "Private desk voor recruitment: contracting-opdrachten sneller in beeld, tot plaatsing.",
+  tagline: "De recruiter, vóór de vacature.",
+  lede: "Voor recruitmentbureaus. Interim en ZZP: de eindklant, de hiring manager, het bericht.",
 } as const;

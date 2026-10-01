@@ -12,40 +12,25 @@ import { PRODUCT } from "@/lib/product-brand";
 const FEATURES = [
   {
     title: "Jobboards",
-    text: "Vacatures bij eindklanten van LinkedIn, Indeed en Freelance.nl — gescoord op versheid.",
+    text: "De rol staat bij de eindklant zelf.",
     icon: "radar",
   },
   {
     title: "Recruiter feed",
-    text: "Posts van kantoren die je volgt. Eindklant bevestigen, daarna hiring manager.",
+    text: "Posts van andere kantoren. De opdrachtgever zit erin.",
     icon: "bureaus",
   },
   {
     title: "Kansen",
-    text: "Eén lijst met volgende actie — geen losse notities of spreadsheet.",
+    text: "Wie je vandaag spreekt.",
     icon: "kansen",
   },
   {
     title: "Voorstel",
-    text: "Bericht klaarzetten voor manager of kandidaat. Jij stuurt zelf.",
+    text: "Naar de hiring manager. Jij verstuurt.",
     icon: "voorstel",
   },
 ] as const;
-
-const FAQ = [
-  {
-    q: "Voor wie is Scout?",
-    a: "Voor recruitmentbureaus die interim- en ZZP-opdrachten sneller willen spotten en opvolgen — zonder marketplace-ruis.",
-  },
-  {
-    q: "Werkt sync automatisch?",
-    a: "Nee. Je start syncs bewust (advies ~1× per dag). Zo houd je credits en focus onder controle.",
-  },
-  {
-    q: "Vervangt dit ons CRM?",
-    a: "Nee. Scout is de desk vóór plaatsing: jobboards, bureau-feeds, kansen en voorstel. Bench koppel je aan jullie echte kandidaten.",
-  },
-];
 
 function FeatureIcon({ kind }: { kind: (typeof FEATURES)[number]["icon"] }) {
   const common = { width: 18, height: 18, viewBox: "0 0 16 16", fill: "none" as const };
@@ -105,11 +90,11 @@ export default function HomeDesk() {
         <div className="scout-hero__inner scout-hero__inner--center">
           <p className="scout-kicker home-reveal">{PRODUCT.category}</p>
           <h1 className="scout-headline scout-headline--center home-reveal home-reveal--2">
-            De AI-desk voor
-            <span className="scout-headline__break">opdrachtkansen</span>
+            De recruiter
+            <span className="scout-headline__break">vóór de vacature</span>
           </h1>
           <p className="scout-tagline scout-tagline--center home-reveal home-reveal--3">
-            Spotten, wegen en plaatsen — van board-hit tot voorstel, zonder ruis.
+            Interim en ZZP. Eindklant, hiring manager, bericht.
           </p>
           <div className="scout-cta scout-cta--center home-reveal home-reveal--4">
             {email ? (
@@ -122,7 +107,7 @@ export default function HomeDesk() {
                   Inloggen
                 </Link>
                 <a href="#werk" className="scout-btn scout-btn--ghost">
-                  Hoe het werkt
+                  De desk
                 </a>
               </>
             )}
@@ -138,19 +123,19 @@ export default function HomeDesk() {
 
       <main>
         <section className="scout-proof">
-          <p className="scout-proof__label">Gebouwd voor contracting-desks</p>
+          <p className="scout-proof__label">Naast het bureau</p>
           <ul className="scout-proof__stats">
             <li>
-              <strong>4</strong>
-              <span>stappen tot voorstel</span>
+              <strong>Eerder</strong>
+              <span>dan de vacature rondgaat</span>
             </li>
             <li>
               <strong>98</strong>
-              <span>max. kans-score</span>
+              <span>de score zwijgt verder</span>
             </li>
             <li>
-              <strong>1×</strong>
-              <span>sync per dag (advies)</span>
+              <strong>Jij</strong>
+              <span>stuurt het bericht</span>
             </li>
           </ul>
         </section>
@@ -158,10 +143,10 @@ export default function HomeDesk() {
         <section id="werk" className="scout-work scout-work--air scroll-mt-28">
           <div className="scout-work__head scout-work__head--center">
             <h2 className="scout-work__title scout-work__title--center">
-              Alles wat je nodig hebt om kansen af te handelen
+              Het werk van een bureau
             </h2>
             <p className="scout-work__lead">
-              Geen losse tools. Eén desk: Jobboards, Recruiter feed, Kansen en Voorstel.
+              De vacature bij de klant. De post van een ander kantoor. Het gesprek daarna.
             </p>
           </div>
 
@@ -184,23 +169,7 @@ export default function HomeDesk() {
             <h2 id="soon-title" className="scout-soon-block__title">
               Permanent
             </h2>
-            <p className="scout-soon-block__text">Ook voor vaste rollen — zelfde desk, bredere pipeline.</p>
-          </div>
-        </section>
-
-        <section className="scout-faq" aria-labelledby="faq-title">
-          <div className="scout-faq__inner">
-            <h2 id="faq-title" className="scout-faq__title">
-              Veelgestelde vragen
-            </h2>
-            <div className="scout-faq__list">
-              {FAQ.map((item) => (
-                <details key={item.q} className="scout-faq__item">
-                  <summary>{item.q}</summary>
-                  <p>{item.a}</p>
-                </details>
-              ))}
-            </div>
+            <p className="scout-soon-block__text">Ook vaste functies. Zelfde bureau, andere opdracht.</p>
           </div>
         </section>
 
@@ -209,11 +178,10 @@ export default function HomeDesk() {
             <div className="scout-invite__copy">
               <p className="scout-eyebrow scout-eyebrow--on-dark">Alleen op uitnodiging</p>
               <h2 id="invite-title" className="scout-invite__title">
-                Voor teams die geen kans laten liggen.
+                Voor bureaus die de opdracht niet missen.
               </h2>
               <p className="scout-invite__text">
-                Private desk voor recruitmentbureaus. Geen marketplace — wel opdrachtkansen spotten
-                en opvolgen.
+                Geen marketplace. Wel de eindklant, eerder dan de rest.
               </p>
               {email ? (
                 <div className="scout-invite__cta">
