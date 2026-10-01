@@ -27,26 +27,32 @@ const BAND_SHORT: Record<string, string> = {
 export function ScoreChip({
   kans,
   large,
-  compact,
+  percent,
+  label,
 }: {
   kans: number;
   large?: boolean;
-  /** Alleen getal (lijsten met weinig ruimte). */
-  compact?: boolean;
+  /** Zekerheid van de opdrachtgever, zelfde vorm als de kans-score. */
+  percent?: boolean;
+  /** Vervangt de bandnaam, bijvoorbeeld Bevestigd. */
+  label?: string;
 }) {
   const tone = scoreTone(kans);
-  const band = BAND_SHORT[tone] || "Score";
+  const band = label || BAND_SHORT[tone] || "Score";
+  const tip = percent
+    ? `${label || SCORE_BAND[tone]} · zekerheid ${kans}%`
+    : `${SCORE_BAND[tone]} · ${kans}/${SCORE_MAX}`;
 
   return (
     <span
-      className={`ws-score ws-score--${tone} ${large ? "ws-score--lg" : ""} ${compact ? "ws-score--compact" : ""}`}
-      data-tip={`${SCORE_BAND[tone]} · ${kans}/${SCORE_MAX}`}
-      title={`${SCORE_BAND[tone]} · ${kans}/${SCORE_MAX}`}
+      className={`ws-score ws-score--${tone} ${large ? "ws-score--lg" : ""}`}
+      data-tip={tip}
+      title={tip}
     >
-      {!compact ? <span className="ws-score__band">{band}</span> : null}
+      <span className="ws-score__band">{band}</span>
       <span className="ws-score__value">
         <strong>{kans}</strong>
-        <span className="ws-score__max">/{SCORE_MAX}</span>
+        <span className="ws-score__max">{percent ? "%" : `/${SCORE_MAX}`}</span>
       </span>
     </span>
   );

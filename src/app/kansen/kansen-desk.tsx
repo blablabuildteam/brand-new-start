@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
+import { BtnSpinner } from "@/components/btn-spinner";
 import { ScoreChip } from "@/components/score-chip";
 import { CompanyMark } from "@/components/company-mark";
 import type { CrmLane, CrmOpportunity, CrmStage } from "@/lib/crm";
@@ -107,6 +108,7 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [stageBusy, setStageBusy] = useState(false);
   const [hmBusy, setHmBusy] = useState(false);
+  const [hmBusyId, setHmBusyId] = useState<string | null>(null);
   const [hmError, setHmError] = useState<string | null>(null);
   const [contactBusy, setContactBusy] = useState(false);
   const [lushaReady, setLushaReady] = useState(Boolean(initial?.lusha));
@@ -154,6 +156,7 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
 
   async function searchHm(crmId: string, force = false) {
     setHmBusy(true);
+    setHmBusyId(crmId);
     setHmError(null);
     try {
       const res = await fetch("/api/leads/hm-search", {
@@ -178,6 +181,7 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
       await refresh().catch(() => null);
     } finally {
       setHmBusy(false);
+      setHmBusyId(null);
     }
   }
 
@@ -474,9 +478,11 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
                 type="button"
                 disabled={hmBusy}
                 onClick={() => void bulkSearchHm()}
-                className="btn-ink btn-tool"
+                className={`btn-ink btn-tool ${hmBusy ? "is-busy" : ""}`}
+                aria-busy={hmBusy || undefined}
               >
-                {hmBusy ? "Zoeken…" : "Zoek HM"}
+                {hmBusy ? <BtnSpinner /> : null}
+                {hmBusy ? "Zoeken" : "Zoek HM"}
               </button>
               <button type="button" className="btn-ghost btn-tool" onClick={() => setPicked(new Set())}>
                 Wissen
@@ -557,7 +563,8 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
                   const step = stepOf(row);
                   const checked = picked.has(row.id);
                   const stepBusy =
-                    (hmBusy && step.action === "hm") || (contactBusy && step.action === "contact");
+                    (hmBusyId === row.id && step.action === "hm") ||
+                    (contactBusy && step.action === "contact" && on);
                   return (
                     <li key={row.id} className={on ? "bg-[var(--surface-2)]" : ""}>
                       <div className={`kans-row ${on ? "kans-row--on" : ""}`}>
@@ -635,13 +642,15 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
                             <button
                               type="button"
                               disabled={stepBusy}
-                              className="btn-ink btn-tool w-full justify-center"
+                              className={`btn-ink btn-tool w-full justify-center ${stepBusy ? "is-busy" : ""}`}
+                              aria-busy={stepBusy || undefined}
                               onClick={(e) => {
                                 e.stopPropagation();
                                 void runPrimary(row);
                               }}
                             >
-                              {stepBusy && on ? "Bezig…" : step.label}
+                              {stepBusy ? <BtnSpinner /> : null}
+                              {stepBusy ? (step.action === "hm" ? "Zoeken" : "Bezig") : step.label}
                             </button>
                           ) : (
                             <span className="kans-row__next">{step.label}</span>
@@ -888,12 +897,14 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
                             <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
                               <button
                                 type="button"
-                                disabled={hmBusy}
+                                disabled={hmBusy && hmBusyId === row.id}
                                 onClick={() => void searchHm(row.id, Boolean(row.hiringManager))}
-                                className="btn-ink btn-tool"
+                                className={`btn-ink btn-tool ${hmBusyId === row.id ? "is-busy" : ""}`}
+                                aria-busy={hmBusyId === row.id || undefined}
                               >
-                                {hmBusy
-                                  ? "LinkedIn zoeken…"
+                                {hmBusyId === row.id ? <BtnSpinner /> : null}
+                                {hmBusyId === row.id
+                                  ? "Zoeken"
                                   : row.hiringManager
                                     ? "Opnieuw manager zoeken"
                                     : "Zoek manager"}

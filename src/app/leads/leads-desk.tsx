@@ -4,6 +4,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
+import { BtnSpinner } from "@/components/btn-spinner";
+import { ScoreChip } from "@/components/score-chip";
 import { ResearchMeter } from "@/components/research-meter";
 import { kansenHref, regieHref } from "@/lib/desk-links";
 import { DESK } from "@/lib/desk-labels";
@@ -70,13 +72,6 @@ function factsLine(l: AgencyLead) {
   return [l.facts.location, l.facts.start, l.facts.duration, l.facts.hours, l.facts.stack.slice(0, 4).join(", ")]
     .filter(Boolean)
     .join(" · ");
-}
-
-function statusClass(status: LeadStatus) {
-  if (status === "confirmed") return "border-[var(--green)]/30 bg-[var(--green-soft)] text-[var(--green)]";
-  if (status === "suggest") return "border-[var(--accent)]/25 bg-[var(--accent-soft)] text-[var(--accent)]";
-  if (status === "rejected") return "border-[var(--line)] bg-[var(--surface-2)] text-[var(--muted)]";
-  return "border-[var(--warn)]/30 bg-[var(--warn-soft)] text-[var(--warn)]";
 }
 
 const ORIGIN_NL: Record<EvidenceOrigin, string> = {
@@ -259,6 +254,7 @@ function LeadCard({
   onAiGuess,
   onHmSearch,
   hmBusy,
+  confirming,
 }: {
   lead: AgencyLead;
   busy: boolean;
@@ -268,6 +264,7 @@ function LeadCard({
   aiQueued?: boolean;
   aiError?: string | null;
   hmBusy?: boolean;
+  confirming?: boolean;
   clientDraft: string;
   onClientDraft: (v: string) => void;
   onReview: (id: string, action: "confirmed" | "rejected" | "reopen", clientName?: string) => void;
@@ -280,22 +277,33 @@ function LeadCard({
   const actionable = lead.status !== "confirmed" && lead.status !== "rejected";
   const researchLock = busy || aiBusy || Boolean(aiQueued);
   const why = clientExplain(lead);
-  const conf = lead.guess && actionable ? lead.guess.confidence : null;
+  const conf = lead.guess?.confidence ?? null;
 
   const basis = basisOf(lead);
   const quickConfirm = actionable && Boolean(lead.guess?.name) && (lead.guess?.confidence ?? 0) >= 45;
   const quickAi = actionable && !lead.guess && !lead.aiMiss;
 
+  const rowBusy = Boolean(confirming || hmBusy);
   return (
-    <article className={`lead-row ${openRow ? "lead-row--open" : ""}`}>
+    <article className={`lead-row ${openRow ? "lead-row--open" : ""} ${rowBusy ? "lead-row--busy" : ""}`}>
       <button type="button" className="lead-row__hit" onClick={() => setOpenRow((v) => !v)} aria-expanded={openRow}>
         <span className="lead-row__main">
           <span className="lead-row__top">
             <span className="lead-row__title truncate">{lead.title}</span>
-            <span className={`ws-status shrink-0 ${statusClass(lead.status)}`} title={STATUS_HINT[lead.status]}>
-              {statusShort(lead.status)}
-              {conf != null ? ` · ${conf}%` : ""}
-            </span>
+            {conf != null ? (
+              <ScoreChip
+                kans={conf}
+                percent
+                label={lead.status === "confirmed" ? "Bevestigd" : lead.status === "rejected" ? "Weg" : undefined}
+              />
+            ) : (
+              <span
+                className={`ws-score shrink-0 ${lead.status === "confirmed" ? "ws-score--hot" : lead.status === "rejected" ? "ws-score--cold" : "ws-score--watch"}`}
+                title={STATUS_HINT[lead.status]}
+              >
+                <span className="ws-score__band">{statusShort(lead.status)}</span>
+              </span>
+            )}
           </span>
           <span className="lead-row__meta truncate">
             {lead.agency.name}
@@ -320,10 +328,12 @@ function LeadCard({
                 type="button"
                 disabled={busy || aiBusy || client.length < 2}
                 onClick={() => onReview(lead.id, "confirmed", client)}
-                className="btn-ink btn-tool lead-row__quickbtn"
+                className={`btn-ink btn-tool lead-row__quickbtn ${confirming ? "is-busy" : ""}`}
+                aria-busy={confirming || undefined}
                 title={`Bevestig ${client} als opdrachtgever — daarna staat de kans op Kansen`}
               >
-                Bevestig
+                {confirming ? <BtnSpinner /> : null}
+                {confirming ? "Bevestigen" : "Bevestig"}
               </button>
             ) : (
               <button
@@ -358,9 +368,11 @@ function LeadCard({
                 type="button"
                 disabled={busy || aiBusy || client.length < 2}
                 onClick={() => onReview(lead.id, "confirmed", client)}
-                className="btn-ink btn-tool"
+                className={`btn-ink btn-tool ${confirming ? "is-busy" : ""}`}
+                aria-busy={confirming || undefined}
               >
-                Bevestig
+                {confirming ? <BtnSpinner /> : null}
+                {confirming ? "Bevestigen" : "Bevestig"}
               </button>
               <button
                 type="button"
@@ -398,8 +410,15 @@ function LeadCard({
               <Link href={kansenHref(`crm_bureau_${lead.id}`)} className="btn-ink btn-tool no-underline">
                 Open op Kansen
               </Link>
-              <button type="button" disabled={hmBusy} onClick={() => onHmSearch?.(lead.id)} className="btn-ghost btn-tool">
-                {hmBusy ? "Zoeken…" : "Zoek manager"}
+              <button
+                type="button"
+                disabled={hmBusy}
+                onClick={() => onHmSearch?.(lead.id)}
+                className={`btn-ghost btn-tool ${hmBusy ? "is-busy" : ""}`}
+                aria-busy={hmBusy || undefined}
+              >
+                {hmBusy ? <BtnSpinner /> : null}
+                {hmBusy ? "Zoeken" : "Zoek manager"}
               </button>
             </div>
           ) : (
@@ -573,12 +592,14 @@ function QuickReview({
             </button>
             <button
               type="button"
-              className="btn-ink btn-tool quick-review__confirm"
+              className={`btn-ink btn-tool quick-review__confirm ${busy ? "is-busy" : ""}`}
               disabled={busy || decided || client.length < 2}
+              aria-busy={busy || undefined}
               onClick={() => act.current("confirm")}
               title="Bevestig opdrachtgever (B of Enter)"
             >
-              {busy ? "…" : `Bevestig ${client || ""}`.trim()}
+              {busy ? <BtnSpinner /> : null}
+              {busy ? "Bevestigen" : `Bevestig ${client || ""}`.trim()}
             </button>
           </div>
         ) : null}
@@ -593,6 +614,8 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
   const [data, setData] = useState<Payload | null>(initial || null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [confirmId, setConfirmId] = useState<string | null>(null);
+  const [bulk, setBulk] = useState<{ done: number; total: number } | null>(null);
   const [aiJobs, setAiJobs] = useState<Record<string, AiJob>>({});
   const aiJobsRef = useRef<Record<string, AiJob>>({});
   const runningRef = useRef(new Set<string>());
@@ -799,30 +822,70 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
     return { running, queued };
   }, [aiJobs]);
 
+  async function postReview(id: string, action: "confirmed" | "rejected" | "reopen", clientName?: string) {
+    const res = await fetch("/api/leads", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        id,
+        action,
+        ...(action === "confirmed" && clientName ? { clientName } : {}),
+      }),
+    });
+    if (!res.ok) throw new Error("opslaan mislukt");
+    const j = (await res.json()) as { lead?: AgencyLead };
+    if (j.lead) upsertLead(j.lead);
+    else void load();
+    const { cacheClear, prefetchJson } = await import("@/lib/client-cache");
+    cacheClear("leads");
+    cacheClear("crm");
+    if (action === "confirmed") prefetchJson("crm", "/api/crm", 90_000);
+  }
+
   async function onReview(id: string, action: "confirmed" | "rejected" | "reopen", clientName?: string): Promise<void> {
+    setConfirmId(id);
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch("/api/leads", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          id,
-          action,
-          ...(action === "confirmed" && clientName ? { clientName } : {}),
-        }),
-      });
-      if (!res.ok) throw new Error("opslaan mislukt");
-      const j = (await res.json()) as { lead?: AgencyLead };
-      if (j.lead) upsertLead(j.lead);
-      else void load();
-      const { cacheClear, prefetchJson } = await import("@/lib/client-cache");
-      cacheClear("leads");
-      cacheClear("crm");
-      if (action === "confirmed") prefetchJson("crm", "/api/crm", 90_000);
+      await postReview(id, action, clientName);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "opslaan mislukt");
     } finally {
+      setConfirmId(null);
       setBusy(false);
     }
+  }
+
+  function readyRows() {
+    return (data?.live || []).filter((l) => {
+      if (bucketOf(l) !== "ready") return false;
+      const name = (clientDrafts[l.id] || l.confirmedClient || l.guess?.name || "").trim();
+      return name.length >= 2;
+    });
+  }
+
+  async function confirmReady() {
+    const rows = readyRows();
+    if (!rows.length || busy) return;
+    setBulk({ done: 0, total: rows.length });
+    setBusy(true);
+    setError(null);
+    let failed = 0;
+    for (let i = 0; i < rows.length; i++) {
+      const l = rows[i]!;
+      const name = (clientDrafts[l.id] || l.confirmedClient || l.guess?.name || "").trim();
+      setConfirmId(l.id);
+      setBulk({ done: i, total: rows.length });
+      try {
+        await postReview(l.id, "confirmed", name);
+      } catch {
+        failed += 1;
+      }
+    }
+    setConfirmId(null);
+    setBusy(false);
+    setBulk(null);
+    if (failed) setError(`${failed} van ${rows.length} posts niet bevestigd. De rest staat op Kansen.`);
   }
 
   function patchJob(id: string, patch: Partial<AiJob> | null) {
@@ -1001,8 +1064,21 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
               className="min-w-[10rem] flex-1 rounded-[var(--radius)] border border-[var(--line)] bg-[var(--surface)] px-2.5 py-1.5 text-sm outline-none focus:border-[var(--accent)]"
               aria-label="Filter openingen"
             />
+            {readyRows().length ? (
+              <button
+                type="button"
+                onClick={() => void confirmReady()}
+                disabled={busy}
+                className={`btn-ink btn-tool ${bulk ? "is-busy" : ""}`}
+                aria-busy={Boolean(bulk) || undefined}
+                title="Bevestigt elke post waar de AI 80% of zekerder is. Ze komen meteen op Kansen."
+              >
+                {bulk ? <BtnSpinner /> : null}
+                {bulk ? `Bevestigen ${bulk.done} van ${bulk.total}` : `Bevestig alle ${readyRows().length}`}
+              </button>
+            ) : null}
             {reviewable ? (
-              <button type="button" onClick={startReview} className="btn-ink btn-tool" title="Eén post tegelijk: bevestig, weg of volgende">
+              <button type="button" onClick={startReview} className="btn-ghost btn-tool" title="Eén post tegelijk: bevestig, weg of volgende">
                 Snel beoordelen · {reviewable}
               </button>
             ) : null}
@@ -1038,6 +1114,17 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
             </p>
           ) : null}
 
+          {bulk ? (
+            <div className="lead-bulk" role="status" aria-live="polite">
+              <BtnSpinner />
+              <span>
+                Bevestigen {Math.min(bulk.done + 1, bulk.total)} van {bulk.total}
+              </span>
+              <span className="lead-bulk__bar" aria-hidden>
+                <span style={{ width: `${Math.round((bulk.done / bulk.total) * 100)}%` }} />
+              </span>
+            </div>
+          ) : null}
           {error ? <p className="mb-3 text-sm text-[var(--warn)]">{error}</p> : null}
           {hmNote ? <p className="mb-3 text-sm text-[var(--accent)]">{hmNote}</p> : null}
 
@@ -1070,6 +1157,7 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
                         aiProgress={aiJobs[l.id]?.progress ?? null}
                         aiError={aiJobs[l.id]?.error ?? null}
                         hmBusy={hmId === l.id}
+                        confirming={confirmId === l.id}
                         clientDraft={clientDrafts[l.id] || ""}
                         onClientDraft={(v) => setClientDrafts((d) => ({ ...d, [l.id]: v }))}
                         onReview={onReview}

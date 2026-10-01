@@ -1578,6 +1578,72 @@ button:focus-visible {
   opacity: 0.5;
 }
 
+.btn-ink.is-busy:disabled,
+.btn-ghost.is-busy:disabled,
+.btn-signal.is-busy:disabled {
+  opacity: 1;
+  cursor: progress;
+}
+
+.btn-spin {
+  width: 0.9rem;
+  height: 0.9rem;
+  flex-shrink: 0;
+  border: 2px solid color-mix(in srgb, currentColor 35%, transparent);
+  border-top-color: currentColor;
+  border-radius: 999px;
+  animation: btn-spin 0.65s linear infinite;
+}
+
+@keyframes btn-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn-spin {
+    animation: none;
+    border-color: currentColor;
+    opacity: 0.7;
+  }
+}
+
+.lead-bulk {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem;
+  margin-bottom: 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  padding: 0.65rem 0.85rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.lead-bulk__bar {
+  flex: 1 1 8rem;
+  height: 0.35rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--surface-2);
+}
+
+.lead-bulk__bar > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--ink);
+  transition: width 0.2s ease;
+}
+
+.lead-row--busy {
+  background: color-mix(in srgb, var(--accent-soft) 55%, var(--surface));
+}
+
 .radar-scroll-pane {
   position: relative;
   display: flex;

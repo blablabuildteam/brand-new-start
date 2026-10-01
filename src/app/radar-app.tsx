@@ -1867,7 +1867,7 @@ export default function RadarApp({
                               {title}
                             </span>
                           </span>
-                          <ScoreChip kans={r.kans} compact />
+                          <ScoreChip kans={r.kans} />
                         </button>
                       </li>
                     );
