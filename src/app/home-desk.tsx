@@ -9,63 +9,28 @@ import { SiteNav } from "@/components/site-nav";
 import { WaitlistForm } from "@/components/waitlist-form";
 import { PRODUCT } from "@/lib/product-brand";
 
-const FEATURES = [
+const STEPS = [
   {
+    n: "01",
     title: "Jobboards",
-    text: "De rol staat bij de eindklant zelf.",
-    icon: "radar",
+    text: "Vacatures die de eindklant zelf uitzet. LinkedIn, Indeed en Freelance.nl. Geen bureau ertussen.",
   },
   {
+    n: "02",
     title: "Recruiter feed",
-    text: "Posts van andere kantoren. De opdrachtgever zit erin.",
-    icon: "bureaus",
+    text: "Posts van kantoren die je volgt. De opdrachtgever, ook als de naam niet in de post staat.",
   },
   {
+    n: "03",
     title: "Kansen",
-    text: "Wie je vandaag spreekt.",
-    icon: "kansen",
+    text: "Eindklant bevestigd. Dan de hiring manager, het mailadres en het telefoonnummer.",
   },
   {
+    n: "04",
     title: "Voorstel",
-    text: "Naar de hiring manager. Jij verstuurt.",
-    icon: "voorstel",
+    text: "Het bericht naar die manager ligt klaar. Jij verstuurt.",
   },
 ] as const;
-
-function FeatureIcon({ kind }: { kind: (typeof FEATURES)[number]["icon"] }) {
-  const common = { width: 18, height: 18, viewBox: "0 0 16 16", fill: "none" as const };
-  if (kind === "radar") {
-    return (
-      <svg {...common} aria-hidden>
-        <circle cx="8" cy="8" r="5.5" stroke="currentColor" strokeWidth="1.4" />
-        <circle cx="8" cy="8" r="2" stroke="currentColor" strokeWidth="1.3" />
-        <path d="M8 8 L13 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-      </svg>
-    );
-  }
-  if (kind === "bureaus") {
-    return (
-      <svg {...common} aria-hidden>
-        <path d="M3 13V5.5L8 3l5 2.5V13" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" />
-        <path d="M6 13V8h4v5" stroke="currentColor" strokeWidth="1.4" />
-      </svg>
-    );
-  }
-  if (kind === "kansen") {
-    return (
-      <svg {...common} aria-hidden>
-        <path d="M3 12.5V5l5-2.5L13 5v7.5l-5 2.5L3 12.5Z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" />
-        <path d="M8 5v10" stroke="currentColor" strokeWidth="1.3" />
-      </svg>
-    );
-  }
-  return (
-    <svg {...common} aria-hidden>
-      <path d="M3 4.5h10v8H5.5L3 14.5V4.5Z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" />
-      <path d="M6 7.5h4M6 10h3" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
-    </svg>
-  );
-}
 
 export default function HomeDesk() {
   const [email, setEmail] = useState<string | null>(null);
@@ -103,45 +68,24 @@ export default function HomeDesk() {
       </section>
 
       <main>
-        <section className="scout-proof">
-          <p className="scout-proof__label">Naast het bureau</p>
-          <ul className="scout-proof__stats">
-            <li>
-              <strong>Eerder</strong>
-              <span>dan de vacature rondgaat</span>
-            </li>
-            <li>
-              <strong>98</strong>
-              <span>de score zwijgt verder</span>
-            </li>
-            <li>
-              <strong>Jij</strong>
-              <span>stuurt het bericht</span>
-            </li>
-          </ul>
-        </section>
-
-        <section id="werk" className="scout-work scout-work--air scroll-mt-28">
-          <div className="scout-work__head scout-work__head--center">
-            <h2 className="scout-work__title scout-work__title--center">
-              Het werk van een bureau
-            </h2>
-            <p className="scout-work__lead">
-              De vacature bij de klant. De post van een ander kantoor. Het gesprek daarna.
+        <section id="werk" className="scout-path scroll-mt-28">
+          <div className="scout-path__intro">
+            <p className="scout-path__kicker">De desk</p>
+            <h2>Van sein naar gesprek</h2>
+            <p>
+              Scout ziet dat een bedrijf iemand nodig heeft. Jij ziet de eindklant, de manager en de
+              tekst.
             </p>
           </div>
-
-          <ul className="scout-features">
-            {FEATURES.map((f) => (
-              <li key={f.title} className="scout-feature">
-                <span className="scout-feature__icon">
-                  <FeatureIcon kind={f.icon} />
-                </span>
-                <h3 className="scout-feature__title">{f.title}</h3>
-                <p className="scout-feature__text">{f.text}</p>
+          <ol>
+            {STEPS.map((step) => (
+              <li key={step.n}>
+                <span className="scout-path__n">{step.n}</span>
+                <h3>{step.title}</h3>
+                <p>{step.text}</p>
               </li>
             ))}
-          </ul>
+          </ol>
         </section>
 
         <section className="scout-soon-block" aria-labelledby="soon-title">
