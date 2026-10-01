@@ -10,7 +10,7 @@ import { CompanyMark } from "@/components/company-mark";
 import type { CrmLane, CrmOpportunity, CrmStage } from "@/lib/crm";
 import { CRM_STAGE_NL } from "@/lib/crm";
 import { radarHref } from "@/lib/desk-links";
-import { DESK } from "@/lib/desk-labels";
+import { DESK, hmSearchMessage } from "@/lib/desk-labels";
 import { guessCompanyLogo } from "@/lib/company-logo";
 
 /** Filters volgen de vier stappen plus de twee bronnen — niet de losse stages. */
@@ -176,7 +176,7 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
         return;
       }
       if (j.empty || !j.hiringManager) {
-        setHmError(j.detail || "Geen hiring manager gevonden bij dit bedrijf op LinkedIn.");
+        setHmError(hmSearchMessage(j.detail));
       }
       await refresh().catch(() => null);
     } finally {
@@ -645,7 +645,7 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
                             <button
                               type="button"
                               disabled={stepBusy}
-                              className={`btn-ink btn-tool w-full justify-center ${stepBusy ? "is-busy" : ""}`}
+                              className={`btn-ink btn-row w-full justify-center ${stepBusy ? "is-busy" : ""}`}
                               aria-busy={stepBusy || undefined}
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -906,7 +906,7 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
                                 type="button"
                                 disabled={hmBusy && hmBusyId === row.id}
                                 onClick={() => void searchHm(row.id, Boolean(row.hiringManager))}
-                                className={`btn-ink btn-tool ${hmBusyId === row.id ? "is-busy" : ""}`}
+                                className={`btn-ink btn-row ${hmBusyId === row.id ? "is-busy" : ""}`}
                                 aria-busy={hmBusyId === row.id || undefined}
                               >
                                 {hmBusyId === row.id ? <BtnSpinner /> : null}

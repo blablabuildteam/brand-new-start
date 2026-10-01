@@ -2,6 +2,16 @@
  * Desk labels — two radars, different sources.
  * Routes stay /radar and /leads; only user-facing names live here.
  */
+/** Wat de recruiter ziet als LinkedIn geen manager teruggeeft. Nooit de ruwe actor-regel. */
+export function hmSearchMessage(detail?: string | null) {
+  if (detail === "no-apify-token") return "LinkedIn-zoeken staat uit.";
+  if (detail === "no-company-linkedin") return "Geen LinkedIn-pagina van dit bedrijf gevonden.";
+  if (!detail || /actor=|harvestapi|linkedin-profile/i.test(detail)) {
+    return "Geen hiring manager gevonden op LinkedIn voor deze rol.";
+  }
+  return detail;
+}
+
 export const DESK = {
   direct: {
     id: "radar" as const,

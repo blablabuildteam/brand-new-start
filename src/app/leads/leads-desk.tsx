@@ -8,7 +8,7 @@ import { BtnSpinner } from "@/components/btn-spinner";
 import { ScoreChip } from "@/components/score-chip";
 import { ResearchMeter } from "@/components/research-meter";
 import { kansenHref, regieHref } from "@/lib/desk-links";
-import { DESK } from "@/lib/desk-labels";
+import { DESK, hmSearchMessage } from "@/lib/desk-labels";
 import type { AgencyLead, LeadStatus } from "@/lib/opportunity";
 import { huntSignals, type EvidenceOrigin } from "@/lib/end-client";
 import { streamResearch } from "@/lib/research/client";
@@ -318,7 +318,7 @@ function LeadCard({
               type="button"
               disabled={busy || aiBusy || client.length < 2}
               onClick={() => onReview(lead.id, "confirmed", client)}
-              className={`btn-ink lead-row__confirm ${confirming ? "is-busy" : ""}`}
+              className={`btn-ink btn-row ${confirming ? "is-busy" : ""}`}
               aria-busy={confirming || undefined}
               title={`Bevestig ${client} als opdrachtgever — daarna staat de kans op Kansen`}
             >
@@ -330,7 +330,7 @@ function LeadCard({
               type="button"
               disabled={researchLock}
               onClick={() => onAiGuess(lead.id, "standard")}
-              className="btn-ghost lead-row__confirm"
+              className="btn-ghost btn-row"
               title="AI leest de post en zoekt de opdracht online terug (~2 cent)"
             >
               {aiBusy ? "Zoekt…" : aiQueued ? "Wacht…" : "AI zoek"}
@@ -996,7 +996,7 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
         });
         router.push(kansenHref(j.crmId || `crm_bureau_${id}`));
       } else {
-        setHmNote(j.detail || "Geen hiring manager gevonden — check LinkedIn company-slug of probeer opnieuw.");
+        setHmNote(hmSearchMessage(j.detail));
       }
     } finally {
       setHmId(null);

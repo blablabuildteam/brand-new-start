@@ -684,7 +684,7 @@ button:focus-visible {
 
 .ws-score__value {
   display: inline-flex;
-  align-items: baseline;
+  align-items: center;
   gap: 0;
   font-family: var(--mono);
   font-size: 0.78rem;
@@ -815,7 +815,7 @@ button:focus-visible {
 .kans-head,
 .kans-row {
   display: grid;
-  grid-template-columns: 1.1rem minmax(12rem, 1.5fr) 8.6rem minmax(10rem, 1.1fr) 5rem 9.5rem;
+  grid-template-columns: 1.1rem minmax(12rem, 1.5fr) 9.4rem minmax(8rem, 1fr) 9rem 9.5rem;
   align-items: center;
   gap: 0.55rem 1rem;
   width: 100%;
@@ -866,22 +866,32 @@ button:focus-visible {
 
 .kans-origin {
   display: inline-flex;
-  width: 7.6rem;
+  align-items: center;
   justify-content: center;
+  height: 1.75rem;
+  padding: 0 0.65rem;
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  padding: 0.16rem 0.35rem;
+  background: var(--surface);
   font-size: 0.62rem;
   font-weight: 650;
-  letter-spacing: 0.01em;
-  line-height: 1.2;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  text-transform: uppercase;
   color: var(--ink);
-  background: var(--surface-2);
+  white-space: nowrap;
 }
 
 .kans-origin--board {
-  border-color: color-mix(in srgb, var(--accent) 35%, var(--line));
-  background: var(--accent-soft);
+  border-color: color-mix(in srgb, var(--warn) 35%, var(--line));
+  background: var(--warn-soft);
+  color: var(--warn);
+}
+
+.kans-origin--feed {
+  border-color: color-mix(in srgb, var(--green) 35%, var(--line));
+  background: var(--green-soft);
+  color: var(--green);
 }
 
 .kans-row__src {
@@ -1145,6 +1155,9 @@ button:focus-visible {
 }
 
 .lead-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
   border-bottom: 1px solid var(--line);
   background: transparent;
 }
@@ -1155,15 +1168,15 @@ button:focus-visible {
   background: var(--surface-2);
 }
 .lead-row__head {
-  display: flex;
-  align-items: flex-start;
+  display: contents;
 }
 .lead-row__hit {
   display: block;
+  grid-column: 1;
+  grid-row: 1;
   width: 100%;
   min-width: 0;
-  flex: 1;
-  padding: 0.7rem 0.85rem;
+  padding: 0.55rem 0.45rem 0.05rem 0.85rem;
   text-align: left;
   background: transparent;
   border: 0;
@@ -1209,11 +1222,12 @@ button:focus-visible {
 }
 .lead-row__clientline {
   display: flex;
+  grid-column: 1;
+  grid-row: 2;
   min-width: 0;
   align-items: center;
   gap: 0.45rem;
-  margin-top: -0.35rem;
-  padding: 0 0.85rem 0.65rem;
+  padding: 0.15rem 0.45rem 0.6rem 0.85rem;
   font-size: 0.8rem;
   line-height: 1.35;
   cursor: pointer;
@@ -1230,25 +1244,34 @@ button:focus-visible {
   margin-left: auto;
   flex-shrink: 0;
 }
-.lead-row__head .lead-row__hit {
-  flex: 1;
-  width: auto;
-  padding-right: 0.4rem;
-}
 .lead-row__side {
   display: flex;
-  flex-shrink: 0;
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  align-self: center;
   align-items: center;
   gap: 0.4rem;
-  padding: 0.62rem 0.75rem 0 0;
+  padding: 0 0.75rem 0 0;
 }
-.lead-row__confirm {
+.btn-row {
   height: 1.75rem;
   min-height: 0;
-  padding: 0 0.7rem;
+  padding: 0 0.75rem;
   font-size: 0.72rem;
   line-height: 1;
   white-space: nowrap;
+}
+.btn-ink.btn-row:hover:not(:disabled) {
+  background: var(--surface);
+  color: var(--ink);
+  border-color: var(--ink);
+  box-shadow: none;
+}
+.btn-ghost.btn-row:hover:not(:disabled) {
+  background: var(--ink);
+  color: #fff;
+  border-color: var(--ink);
+  box-shadow: none;
 }
 .lead-basis {
   flex-shrink: 0;
@@ -1427,6 +1450,7 @@ button:focus-visible {
   color: var(--ink);
 }
 .lead-row__detail {
+  grid-column: 1 / -1;
   padding: 0 0.85rem 0.85rem;
 }
 .lead-why {
