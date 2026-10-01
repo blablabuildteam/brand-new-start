@@ -20,7 +20,17 @@ export function SiteNav({
   const router = useRouter();
   const [open, setOpen] = useState(false);
 
+  useEffect(() => {
+    if (!open) return;
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") setOpen(false);
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open]);
+
   async function logout() {
+    setOpen(false);
     await fetch("/api/auth/login", { method: "DELETE" });
     router.replace("/");
     router.refresh();
@@ -30,9 +40,20 @@ export function SiteNav({
     return (
       <header className="scout-nav pt-[env(safe-area-inset-top)]">
         <div className="scout-nav__bar">
-          <Link href="/" className="scout-nav__brand" aria-label={`${name} home`}>
+          <Link href="/" className="scout-nav__brand" aria-label={`${name} home`} onClick={() => setOpen(false)}>
             <ScoutWordmark name={name} tone="ink" lockup="scout" font="manrope" />
           </Link>
+
+          <button
+            type="button"
+            className="scout-nav__burger"
+            aria-expanded={open}
+            aria-controls="scout-nav-panel"
+            aria-label={open ? "Menu sluiten" : "Menu openen"}
+            onClick={() => setOpen((value) => !value)}
+          >
+            <span className="scout-nav__burger-icon" data-open={open ? "" : undefined} />
+          </button>
 
           <nav className="scout-nav__actions" aria-label="Primary">
             <a href="#werk" className="scout-nav__link">
@@ -54,6 +75,26 @@ export function SiteNav({
             )}
           </nav>
         </div>
+
+        <nav id="scout-nav-panel" className="scout-nav__panel" hidden={!open} aria-label="Menu">
+          <a href="#werk" className="scout-nav__item" onClick={() => setOpen(false)}>
+            Hoe het werkt
+          </a>
+          {email ? (
+            <>
+              <Link href="/radar" className="scout-nav__item" onClick={() => setOpen(false)}>
+                Desk
+              </Link>
+              <button type="button" className="scout-nav__item" onClick={() => void logout()}>
+                Uitloggen
+              </button>
+            </>
+          ) : (
+            <Link href="/login?next=%2Fradar" className="scout-nav__item" onClick={() => setOpen(false)}>
+              Inloggen
+            </Link>
+          )}
+        </nav>
       </header>
     );
   }
