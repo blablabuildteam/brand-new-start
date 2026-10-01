@@ -43,7 +43,7 @@ export default function LoginForm() {
     <div className="min-h-dvh bg-[var(--bg)]">
       <header className="mx-auto flex h-14 max-w-[1120px] items-center justify-between gap-4 px-5 pt-[env(safe-area-inset-top)] md:px-8">
         <Link href="/" className="nav-link" aria-label={`${PRODUCT.name} home`}>
-          <ScoutWordmark name={PRODUCT.name} tone="light" />
+          <ScoutWordmark name={PRODUCT.name} tone="ink" font="manrope" />
         </Link>
         <Link href="/" className="text-sm font-medium text-[var(--muted)] no-underline hover:text-[var(--ink)]">
           ← Home

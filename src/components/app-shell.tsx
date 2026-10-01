@@ -3,7 +3,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ScoutMark } from "@/components/scout-mark";
+import { ScoutWordmark } from "@/components/scout-mark";
 import { AlertsBell } from "@/components/alerts-bell";
 import { CommandPalette } from "@/components/command-palette";
 import { cacheClear, cacheGet, cachedJson, prefetchJson } from "@/lib/client-cache";
@@ -173,13 +173,7 @@ export function AppShell({
           />
         ) : (
           <>
-            <ScoutMark className="h-8 w-8" tone="light" />
-            <span
-              className="truncate text-[1.05rem] font-bold tracking-tight text-[var(--ink)]"
-              style={{ fontFamily: "var(--font)" }}
-            >
-              {brandName === "Recruitment Scout" ? "Scout" : brandName}
-            </span>
+            <ScoutWordmark tone="ink" lockup="scout" font="manrope" compact />
           </>
         )}
       </Link>

@@ -95,16 +95,18 @@ export function ScoutWordmark({
   tone = "light",
   font = "dm",
   lockup = "scout",
+  compact = false,
 }: {
   name?: string;
   tone?: ScoutMarkTone;
   font?: ScoutWordFont;
   lockup?: ScoutLockup;
+  compact?: boolean;
 }) {
   const face = { fontFamily: FONTS[font] };
 
   return (
-    <span className={`scout-wm scout-wm--${lockup}`}>
+    <span className={`scout-wm scout-wm--${lockup} ${compact ? "scout-wm--compact" : ""}`}>
       <ScoutMark className="scout-wm__mark" tone={tone} />
       {lockup === "flat" ? (
         <span className="scout-wm__flat" style={face}>
@@ -119,7 +121,7 @@ export function ScoutWordmark({
       ) : null}
       {lockup === "scout" ? (
         <span className="scout-wm__solo" style={face}>
-          Scout
+          recruitment scout
         </span>
       ) : null}
       {lockup === "pair" ? (

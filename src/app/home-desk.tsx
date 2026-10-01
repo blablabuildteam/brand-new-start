@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { BlablaLogo } from "@/components/blabla-logo";
 import { HomeOpportunityStage } from "@/components/home-opportunity-stage";
-import { ScoutMark } from "@/components/scout-mark";
+import { ScoutWordmark } from "@/components/scout-mark";
 import { SiteNav } from "@/components/site-nav";
 import { WaitlistForm } from "@/components/waitlist-form";
 import { PRODUCT } from "@/lib/product-brand";
@@ -129,8 +129,7 @@ export default function HomeDesk() {
       <footer className="scout-foot">
         <div className="scout-foot__inner scout-foot__inner--apollo">
           <div className="scout-foot__brand">
-            <ScoutMark className="h-14 w-14" tone="ink" animated={false} />
-            <p className="scout-foot__name">{PRODUCT.name}</p>
+            <ScoutWordmark tone="ink" lockup="scout" font="manrope" />
           </div>
           <a
             href="https://blablabuild.com"
