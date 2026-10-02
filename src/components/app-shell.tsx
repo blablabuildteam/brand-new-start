@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ScoutWordmark } from "@/components/scout-mark";
+import { ScoutMark, ScoutWordmark } from "@/components/scout-mark";
 import { AlertsBell } from "@/components/alerts-bell";
 import { CommandPalette } from "@/components/command-palette";
 import { cacheClear, cacheGet, cachedJson, prefetchJson } from "@/lib/client-cache";
@@ -20,7 +20,13 @@ const PRIMARY: { href: string; id: AppNavId; label: string; icon: "radar" | "bur
 
 type ShellUser = { email: string; role?: string };
 
-function SideIcon({ kind, on }: { kind: "radar" | "bureaus" | "kansen" | "voorstel" | "settings"; on: boolean }) {
+function SideIcon({
+  kind,
+  on,
+}: {
+  kind: "radar" | "bureaus" | "kansen" | "voorstel" | "settings" | "help" | "costs" | "logout";
+  on: boolean;
+}) {
   const stroke = on ? "var(--ink)" : "currentColor";
   if (kind === "radar") {
     return (
@@ -52,6 +58,31 @@ function SideIcon({ kind, on }: { kind: "radar" | "bureaus" | "kansen" | "voorst
       <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden className="shrink-0">
         <path d="M3 4.5h10v8H5.5L3 14.5V4.5Z" stroke={stroke} strokeWidth="1.4" strokeLinejoin="round" />
         <path d="M6 7.5h4M6 10h3" stroke={stroke} strokeWidth="1.3" strokeLinecap="round" />
+      </svg>
+    );
+  }
+  if (kind === "help") {
+    return (
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden className="shrink-0">
+        <circle cx="8" cy="8" r="5.5" stroke={stroke} strokeWidth="1.4" />
+        <path d="M6.4 6.3a1.6 1.6 0 0 1 3.1.5c0 1.1-1.5 1.4-1.5 2.4" stroke={stroke} strokeWidth="1.3" strokeLinecap="round" />
+        <circle cx="8" cy="11.2" r="0.7" fill={stroke} />
+      </svg>
+    );
+  }
+  if (kind === "costs") {
+    return (
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden className="shrink-0">
+        <rect x="3" y="2.5" width="10" height="11" rx="1.4" stroke={stroke} strokeWidth="1.4" />
+        <path d="M6 6h4M6 8.5h4M6 11h2.5" stroke={stroke} strokeWidth="1.3" strokeLinecap="round" />
+      </svg>
+    );
+  }
+  if (kind === "logout") {
+    return (
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden className="shrink-0">
+        <path d="M6.5 3.5H4.2A1.2 1.2 0 0 0 3 4.7v6.6a1.2 1.2 0 0 0 1.2 1.2h2.3" stroke={stroke} strokeWidth="1.4" strokeLinecap="round" />
+        <path d="M7 8h6.2M11 5.6 13.4 8 11 10.4" stroke={stroke} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
     );
   }
@@ -95,6 +126,19 @@ export function AppShell({
   const [name, setName] = useState("Recruitment Scout");
   const [user, setUser] = useState<ShellUser | null>(null);
   const [open, setOpen] = useState(false);
+  const [slim, setSlim] = useState(false);
+
+  useLayoutEffect(() => {
+    setSlim(window.localStorage.getItem("scout-sidebar") === "slim");
+  }, []);
+
+  function toggleSlim() {
+    setSlim((v) => {
+      const next = !v;
+      window.localStorage.setItem("scout-sidebar", next ? "slim" : "wide");
+      return next;
+    });
+  }
 
   useEffect(() => {
     const cached = cacheGet<{ name?: string; user?: ShellUser }>("settings");
@@ -162,34 +206,37 @@ export function AppShell({
     <>
       <Link
         href={partner ? "/radar" : "/"}
-        className="nav-link flex items-center gap-2.5 px-1 py-0.5 text-[var(--ink)]"
+        data-rail={brandName}
+        className="nav-link rail-brand flex items-center gap-2.5 px-1 py-0.5 text-[var(--ink)]"
         onClick={() => setOpen(false)}
       >
-        {partner ? (
-          <img
-            src={partner.logoSrc}
-            alt={partner.name}
-            className="partner-logo h-9 w-auto max-w-[9.5rem] object-contain"
-          />
-        ) : (
-          <>
+        <span className="rail-brand__full min-w-0">
+          {partner ? (
+            <img
+              src={partner.logoSrc}
+              alt={partner.name}
+              className="partner-logo h-9 w-auto max-w-[9.5rem] object-contain"
+            />
+          ) : (
             <ScoutWordmark tone="ink" lockup="scout" font="manrope" compact />
-          </>
-        )}
+          )}
+        </span>
+        <ScoutMark className="rail-brand__mark h-8 w-8" tone="ink" animated={false} />
       </Link>
       {partner ? (
-        <p className="mt-1.5 px-1 text-[0.68rem] text-[var(--muted)]">{brandTag}</p>
+        <p className="rail-meta mt-1.5 px-1 text-[0.68rem] text-[var(--muted)]">{brandTag}</p>
       ) : null}
 
-      <p className="mt-8 px-2.5 text-[0.68rem] font-semibold uppercase tracking-[0.12em] text-[var(--muted)]">
+      <p className="rail-section mt-8 px-2.5 text-[0.68rem] font-semibold uppercase tracking-[0.12em] text-[var(--muted)]">
         Workspace
       </p>
-      <nav className="mt-2 flex flex-col gap-0.5">
+      <nav className="rail-nav mt-2 flex flex-col gap-0.5">
         {PRIMARY.map((l) => (
             <Link
               key={l.id}
               href={l.href}
               prefetch
+              data-rail={l.label}
               onClick={() => setOpen(false)}
             onMouseEnter={() => {
               if (l.id === "radar") prefetchJson("radar", "/api/radar", 90_000);
@@ -200,53 +247,60 @@ export function AppShell({
             className={navClass(current === l.id)}
           >
             <SideIcon kind={l.icon} on={current === l.id} />
-            {l.label}
+            <span className="rail-label">{l.label}</span>
           </Link>
         ))}
       </nav>
 
-      <p className="mt-7 px-2.5 text-[0.68rem] font-semibold uppercase tracking-[0.12em] text-[var(--muted)]">
+      <p className="rail-section mt-7 px-2.5 text-[0.68rem] font-semibold uppercase tracking-[0.12em] text-[var(--muted)]">
         Overig
       </p>
-      <nav className="mt-2 flex flex-col gap-0.5">
+      <nav className="rail-nav mt-2 flex flex-col gap-0.5">
         <Link
           href="/instellingen"
+          data-rail="Instellingen"
           onClick={() => setOpen(false)}
           className={navClass(current === "instellingen")}
         >
           <SideIcon kind="settings" on={current === "instellingen"} />
-          Instellingen
+          <span className="rail-label">Instellingen</span>
         </Link>
       </nav>
 
       <div className="mt-auto border-t border-[var(--line)] pt-3">
         <Link
           href="/methode"
-          className="nav-link block rounded-[var(--radius)] px-2.5 py-2 text-[0.8rem] text-[var(--muted)] hover:bg-[var(--surface-2)] hover:text-[var(--ink)]"
+          data-rail="Hoe het werkt"
+          className="nav-link flex items-center gap-2.5 rounded-[var(--radius)] px-2.5 py-2 text-[0.8rem] text-[var(--muted)] hover:bg-[var(--surface-2)] hover:text-[var(--ink)]"
           onClick={() => setOpen(false)}
         >
-          Hoe het werkt
+          <SideIcon kind="help" on={false} />
+          <span className="rail-label">Hoe het werkt</span>
         </Link>
         {user?.role === "admin" ? (
           <Link
             href="/costs"
-            className="nav-link block rounded-[var(--radius)] px-2.5 py-2 text-[0.8rem] text-[var(--muted)] hover:bg-[var(--surface-2)] hover:text-[var(--ink)]"
+            data-rail="Kosten"
+            className="nav-link flex items-center gap-2.5 rounded-[var(--radius)] px-2.5 py-2 text-[0.8rem] text-[var(--muted)] hover:bg-[var(--surface-2)] hover:text-[var(--ink)]"
             onClick={() => setOpen(false)}
           >
-            Kosten
+            <SideIcon kind="costs" on={false} />
+            <span className="rail-label">Kosten</span>
           </Link>
         ) : null}
         {user?.email ? (
-          <p className="mt-2 truncate px-2.5 text-[0.7rem] text-[var(--muted)]" style={{ fontFamily: "var(--mono)" }}>
+          <p className="rail-meta mt-2 truncate px-2.5 text-[0.7rem] text-[var(--muted)]" style={{ fontFamily: "var(--mono)" }}>
             {user.email}
           </p>
         ) : null}
         <button
           type="button"
+          data-rail="Uitloggen"
           onClick={() => void logout()}
-          className="mt-1 w-full rounded-[var(--radius)] px-2.5 py-2 text-left text-[0.8rem] font-medium text-[var(--muted)] hover:bg-[var(--surface-2)] hover:text-[var(--ink)]"
+          className="nav-link mt-1 flex w-full items-center gap-2.5 rounded-[var(--radius)] px-2.5 py-2 text-left text-[0.8rem] font-medium text-[var(--muted)] hover:bg-[var(--surface-2)] hover:text-[var(--ink)]"
         >
-          Uitloggen
+          <SideIcon kind="logout" on={false} />
+          <span className="rail-label">Uitloggen</span>
         </button>
       </div>
     </>
@@ -254,8 +308,27 @@ export function AppShell({
 
   return (
     <div className="app-root flex h-dvh overflow-hidden">
-      <aside className="app-sidebar hidden w-[240px] shrink-0 flex-col overflow-y-auto px-4 py-5 md:flex">
+      <aside className={`app-sidebar app-sidebar-desk hidden shrink-0 flex-col md:flex ${slim ? "app-sidebar--slim" : ""}`}>
         {nav}
+        <button
+          type="button"
+          data-rail={slim ? "Menu uitklappen" : "Menu inklappen"}
+          aria-pressed={slim}
+          aria-label={slim ? "Menu uitklappen" : "Menu inklappen"}
+          onClick={toggleSlim}
+          className="nav-link rail-collapse mt-2 flex w-full items-center gap-2.5 rounded-[var(--radius)] px-2.5 py-2 text-left text-[0.8rem] font-medium text-[var(--muted)] hover:bg-[var(--surface-2)] hover:text-[var(--ink)]"
+        >
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden className="shrink-0">
+            <rect x="2.2" y="2.5" width="11.6" height="11" rx="1.6" stroke="currentColor" strokeWidth="1.4" />
+            <path d="M6 2.5v11" stroke="currentColor" strokeWidth="1.4" />
+            {slim ? (
+              <path d="M8.2 6.2 10.2 8l-2 1.8" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
+            ) : (
+              <path d="M10.2 6.2 8.2 8l2 1.8" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
+            )}
+          </svg>
+          <span className="rail-label">{slim ? "Uitklappen" : "Inklappen"}</span>
+        </button>
       </aside>
 
       {open ? (

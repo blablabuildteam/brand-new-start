@@ -23,6 +23,34 @@ export type FeedRecruiter = {
   linkedinUrl: string;
 };
 
+/** Recruiters op de watchlist die nog nooit zijn opgehaald. Een nieuwe naam hoort hier, niet bij "al gecheckt". */
+export function pendingFeedRecruiters(checks: Record<string, { at?: string | null } | undefined>) {
+  const seen = checkedProfileUrls(checks);
+  return listFeedRecruiters()
+    .filter((r) => !seen.has(r.linkedinUrl))
+    .map((r) => ({ name: r.name, agency: r.agency.name }));
+}
+
+function checkedProfileUrls(checks: Record<string, { at?: string | null } | undefined>) {
+  const seen = new Set<string>();
+  for (const [key, check] of Object.entries(checks || {})) {
+    if (!check?.at) continue;
+    const norm = normalizeProfileUrl(key);
+    if (norm) seen.add(norm);
+  }
+  return seen;
+}
+
+function checkedAt(checks: Record<string, FeedCheck>, url: string): string | undefined {
+  if (checks[url]?.at) return checks[url].at;
+  const norm = normalizeProfileUrl(url);
+  if (!norm) return undefined;
+  for (const [key, check] of Object.entries(checks)) {
+    if (check?.at && normalizeProfileUrl(key) === norm) return check.at;
+  }
+  return undefined;
+}
+
 export function listFeedRecruiters(): FeedRecruiter[] {
   const out: FeedRecruiter[] = [];
   for (const agency of watchedAgencies()) {
@@ -201,15 +229,25 @@ export async function syncRecruiterFeeds(opts?: {
   const meta = await loadDeskMeta();
   const known = await knownNewestByProfile(meta.feedChecks);
   const now = Date.now();
-  const isFresh = (url: string) => {
-    const at = meta.feedChecks[url]?.at;
-    if (!at) return false;
+  const freshAt = (url: string) => {
+    const at = checkedAt(meta.feedChecks, url);
+    if (!at) return null;
     const t = new Date(at).getTime();
-    return !Number.isNaN(t) && now - t < FRESH_MS;
+    if (Number.isNaN(t) || now - t >= FRESH_MS) return null;
+    return t;
   };
-  const stale = pool.filter((r) => !isFresh(r.linkedinUrl));
-  const unchanged = pool.length - stale.length;
-  const batch = stale.slice(0, maxRecruiters);
+  // Eerst wie nog nooit is opgehaald, anders telt een nieuwe recruiter mee als "al gecheckt"
+  // zodra de batch van 8 vol zit met mensen die er al stonden.
+  const never = pool.filter((r) => !checkedAt(meta.feedChecks, r.linkedinUrl));
+  const due = pool
+    .filter((r) => checkedAt(meta.feedChecks, r.linkedinUrl) && freshAt(r.linkedinUrl) == null)
+    .sort((a, b) => {
+      const ta = new Date(checkedAt(meta.feedChecks, a.linkedinUrl) || 0).getTime();
+      const tb = new Date(checkedAt(meta.feedChecks, b.linkedinUrl) || 0).getTime();
+      return ta - tb;
+    });
+  const unchanged = pool.filter((r) => freshAt(r.linkedinUrl) != null).length;
+  const batch = [...never, ...due].slice(0, maxRecruiters);
   const searched = batch.map((r) => `${r.name} · ${r.agency.name}`);
 
   if (!pool.length) {
@@ -240,7 +278,7 @@ export async function syncRecruiterFeeds(opts?: {
   }
 
   if (!batch.length) {
-    const detail = `Alle ${pool.length} recruiters zijn in de afgelopen 20 uur al gecheckt. Niets opnieuw opgehaald.`;
+    const detail = `Niemand opgehaald. De ${pool.length} recruiters die er al stonden zijn in de afgelopen 20 uur gecheckt.`;
     const run = await recordSync({
       channel: "recruiter-feed",
       label: "Recruiter-feeds",
@@ -248,7 +286,7 @@ export async function syncRecruiterFeeds(opts?: {
       detail,
       fetched: 0,
       kept: 0,
-      searched: pool.map((r) => `${r.name} · ${r.agency.name}`),
+      searched: [],
       hits: [],
     });
     return {
@@ -275,17 +313,18 @@ export async function syncRecruiterFeeds(opts?: {
 
   try {
     // One profile per Apify call keeps attribution reliable (actor often omits author URL).
-    const details: string[] = [];
     const checks: Record<string, FeedCheck> = {};
+    const pulled: string[] = [];
 
     for (const rec of batch) {
       const light = known.has(rec.linkedinUrl);
+      const window = light ? "week" : "year";
       const fetched = await fetchPostsForUrls(
         [rec.linkedinUrl],
         light ? Math.min(4, maxPosts) : maxPosts,
-        light ? "week" : "year"
+        window
       );
-      details.push(fetched.detail);
+      pulled.push(`${rec.name} · ${rec.agency.name} · ${window} · ${fetched.posts.length}`);
       if (fetched.mode === "skipped") {
         const run = await recordSync({
           channel: "recruiter-feed",
@@ -380,22 +419,22 @@ export async function syncRecruiterFeeds(opts?: {
 
     if (Object.keys(checks).length) await saveDeskMeta({ feedChecks: checks });
 
-    const lightCount = batch.filter((r) => known.has(r.linkedinUrl)).length;
+    const firstCount = batch.filter((r) => !known.has(r.linkedinUrl)).length;
     const run = await recordSync({
       channel: "recruiter-feed",
       label: "Recruiter-feeds",
       mode: "apify",
       detail: [
-        lightCount ? `${lightCount} profielen alleen laatste week` : "",
-        unchanged ? `${unchanged} vandaag al gecheckt` : "",
-        details.slice(0, 2).join(" · "),
+        firstCount ? `${firstCount} voor het eerst, posts van het afgelopen jaar` : "",
+        batch.length - firstCount ? `${batch.length - firstCount} alleen posts van de laatste week` : "",
+        unchanged ? `${unchanged} recent al gecheckt, niet opnieuw` : "",
       ]
         .filter(Boolean)
         .join(" · "),
       fetched: scanned,
       kept,
       skipped,
-      searched,
+      searched: pulled,
       hits,
     });
 
@@ -409,7 +448,7 @@ export async function syncRecruiterFeeds(opts?: {
       recruiters: all.length,
       withUrl,
       hits,
-      searched,
+      searched: pulled,
       unchanged,
       run,
     };

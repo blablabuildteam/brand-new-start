@@ -1864,7 +1864,7 @@ export default function RadarApp({
                           aria-current={on ? "true" : undefined}
                           className={`radar-opp flex w-full items-center gap-3.5 rounded-[var(--radius)] border px-3.5 py-3.5 text-left ${
                             on
-                              ? "border-[var(--line)] bg-[var(--surface)] shadow-[inset_3px_0_0_0_var(--ink)]"
+                              ? "border-[var(--line)] bg-[var(--surface-2)]"
                               : "border-transparent hover:border-[var(--line)] hover:bg-[var(--surface)]/80"
                           } radar-opp--${scoreTone(r.kans)}`}
                         >

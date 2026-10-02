@@ -5,9 +5,34 @@ import { loadHuntSettings } from "@/lib/hunt";
 import { listAgencyLeads } from "@/lib/opportunity";
 import { enabledPlatforms } from "@/lib/platforms";
 import { listRadar, listSignals, stats } from "@/lib/store";
+import { pendingFeedRecruiters } from "@/lib/ingest/recruiter-feeds";
 import { channelLabel, lastSyncByChannel, lastSyncOverall, listSyncRuns } from "@/lib/sync-log";
 
 const NO_STORE = { "Cache-Control": "private, no-store" } as const;
+
+function parseFeedPerson(line: string): {
+  name: string;
+  agency?: string;
+  window?: "week" | "year";
+  posts?: number;
+} {
+  const parts = line.split(" · ").map((s) => s.trim()).filter(Boolean);
+  let posts: number | undefined;
+  let window: "week" | "year" | undefined;
+  if (parts.length >= 2 && /^\d+$/.test(parts[parts.length - 1] || "")) {
+    const mark = parts[parts.length - 2];
+    if (mark === "week" || mark === "year") {
+      posts = Number(parts.pop());
+      window = parts.pop() as "week" | "year";
+    }
+  }
+  return {
+    name: parts[0] || line,
+    agency: parts.slice(1).join(" · ") || undefined,
+    window,
+    posts,
+  };
+}
 
 export function deskCacheHeaders() {
   return NO_STORE;
@@ -33,6 +58,22 @@ export async function readLeadsPayload() {
         : null,
       last: last ? { at: last.at, channel: last.channel, label: last.label } : null,
       checkedAt,
+      pending: pendingFeedRecruiters(meta.feedChecks),
+      log: runs
+        .filter((r) => r.channel === "recruiter-feed")
+        .slice(0, 8)
+        .map((r) => ({
+          at: r.at,
+          kept: r.kept,
+          fetched: r.fetched,
+          mode: r.mode,
+          detail: r.detail,
+          people: r.mode === "fresh" ? [] : (r.searched || []).map(parseFeedPerson),
+          posts: (r.hits || [])
+            .filter((h) => h.kept && h.title)
+            .slice(0, 4)
+            .map((h) => h.title),
+        })),
     },
   };
 }
