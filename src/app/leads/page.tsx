@@ -1,18 +1,10 @@
 import LeadsDesk from "./leads-desk";
-import { getSession } from "@/lib/auth";
-import { readLeadsPayload } from "@/lib/desk-payloads";
-import { redirect } from "next/navigation";
-
-export const dynamic = "force-dynamic";
 
 export const metadata = {
   title: "Recruiter feed — Recruitment Scout",
   description: "Recruiter-feed: recruiter-feeds, eindklant bevestigen en review.",
 };
 
-export default async function LeadsPage() {
-  const session = await getSession();
-  if (!session) redirect("/login?next=/leads");
-  const initial = await readLeadsPayload().catch(() => null);
-  return <LeadsDesk initial={initial ?? undefined} />;
+export default function LeadsPage() {
+  return <LeadsDesk />;
 }

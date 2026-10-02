@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
 import { BtnSpinner } from "@/components/btn-spinner";
 import { ScoreChip } from "@/components/score-chip";
@@ -10,6 +10,7 @@ import { CompanyMark } from "@/components/company-mark";
 import type { CrmLane, CrmOpportunity, CrmStage } from "@/lib/crm";
 import { CRM_STAGE_NL } from "@/lib/crm";
 import { radarHref } from "@/lib/desk-links";
+import { cachePeek } from "@/lib/client-cache";
 import { DESK, hmSearchMessage } from "@/lib/desk-labels";
 import { guessCompanyLogo } from "@/lib/company-logo";
 
@@ -95,8 +96,8 @@ type InitialCrm = {
 };
 
 export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
-  const params = useSearchParams();
   const router = useRouter();
+  const [params, setParams] = useState(() => new URLSearchParams());
   const [items, setItems] = useState<CrmOpportunity[]>(initial?.items || []);
   const [counts, setCounts] = useState(
     initial?.counts || { all: 0, bureau: 0, direct: 0, withHm: 0 }
@@ -184,6 +185,20 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
       setHmBusyId(null);
     }
   }
+
+  useLayoutEffect(() => {
+    const next = new URLSearchParams(window.location.search);
+    setParams(next);
+    const id = next.get("id");
+    if (id) setSel(id);
+    const cached = cachePeek<InitialCrm>("crm");
+    if (!cached?.items?.length) return;
+    setItems(cached.items);
+    setCounts(cached.counts);
+    if (cached.backlog) setBacklog(cached.backlog);
+    if (typeof cached.lusha === "boolean") setLushaReady(cached.lusha);
+    setLoading(false);
+  }, []);
 
   useEffect(() => {
     if (initial) setLoading(false);

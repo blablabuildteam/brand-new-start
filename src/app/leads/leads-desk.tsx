@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
@@ -8,6 +8,7 @@ import { BtnSpinner } from "@/components/btn-spinner";
 import { ScoreChip } from "@/components/score-chip";
 import { ResearchMeter } from "@/components/research-meter";
 import { kansenHref, regieHref } from "@/lib/desk-links";
+import { cachePeek } from "@/lib/client-cache";
 import { DESK, hmSearchMessage } from "@/lib/desk-labels";
 import type { AgencyLead, LeadStatus } from "@/lib/opportunity";
 import { huntSignals, type EvidenceOrigin } from "@/lib/end-client";
@@ -140,7 +141,11 @@ function basisOf(lead: AgencyLead): Basis | null {
   if (!g || lead.status === "rejected") return null;
   const has = (o: EvidenceOrigin) => g.evidence.some((e) => e.origin === o);
   if (g.evidence.some((e) => e.origin === "web" && e.url && e.weight >= 80)) {
-    return { label: "bron online", tone: "strong", hint: "Dezelfde opdracht staat online mét de klantnaam" };
+    return {
+      label: "zelfde vacature",
+      tone: "strong",
+      hint: "Deze opdracht staat ook online, en daar staat de klantnaam bij.",
+    };
   }
   if (has("memory")) return { label: "eerder bevestigd", tone: "strong", hint: "Je bevestigde deze klant eerder bij dit bureau" };
   if (g.evidence.some((e) => e.origin === "post" && /letterlijk/i.test(e.label))) {
@@ -705,6 +710,11 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
         });
     });
   }
+
+  useLayoutEffect(() => {
+    const cached = cachePeek<Payload>("leads");
+    if (cached?.live?.length) applyPayload(cached);
+  }, []);
 
   useEffect(() => {
     void load();

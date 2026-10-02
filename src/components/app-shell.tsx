@@ -186,10 +186,11 @@ export function AppShell({
       </p>
       <nav className="mt-2 flex flex-col gap-0.5">
         {PRIMARY.map((l) => (
-          <Link
-            key={l.id}
-            href={l.href}
-            onClick={() => setOpen(false)}
+            <Link
+              key={l.id}
+              href={l.href}
+              prefetch
+              onClick={() => setOpen(false)}
             onMouseEnter={() => {
               if (l.id === "radar") prefetchJson("radar", "/api/radar", 90_000);
               if (l.id === "leads") prefetchJson("leads", "/api/leads", 90_000);
@@ -340,6 +341,7 @@ export function AppShell({
               <Link
                 key={l.id}
                 href={l.href}
+                prefetch
                 className={`nav-link flex flex-col items-center justify-center gap-0.5 px-0.5 py-2 text-[0.62rem] font-semibold leading-tight no-underline transition touch-manipulation ${
                   on ? "text-[var(--accent)]" : "text-[var(--muted)]"
                 }`}

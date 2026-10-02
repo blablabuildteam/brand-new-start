@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { AppShell } from "@/components/app-shell";
 import { ScoreChip } from "@/components/score-chip";
+import { cachePeek } from "@/lib/client-cache";
 import { DESK } from "@/lib/desk-labels";
 import type { PlacementProposal } from "@/lib/placement";
 import type { ApproachTarget } from "@/lib/approach";
@@ -78,6 +79,13 @@ export default function RegieDesk({
   const [lushaBusy, setLushaBusy] = useState("");
   const [mobilePane, setMobilePane] = useState<"list" | "detail">("list");
   const [q, setQ] = useState("");
+
+  useLayoutEffect(() => {
+    const cached = cachePeek<{ items: DeskItem[] }>("placement");
+    if (!cached?.items?.length) return;
+    setItems(cached.items);
+    setLoading(false);
+  }, []);
 
   useEffect(() => {
     import("@/lib/client-cache").then(({ cachedJson }) =>

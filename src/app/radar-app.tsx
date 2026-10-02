@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { SourceLogo, SourceLogos, sourceChannelsFromRow } from "@/components/source-logo";
 import { CompanyMark } from "@/components/company-mark";
 import { ScoreChip, scoreTone } from "@/components/score-chip";
 import { resolveCompanyLogo } from "@/lib/company-logo";
 import { AppShell } from "@/components/app-shell";
+import { cachePeek } from "@/lib/client-cache";
 import { INGEST_POLICY, SYNC_COST_PER_RUN } from "@/lib/costs";
 import { DESK } from "@/lib/desk-labels";
 import { orgContextFromSignals } from "@/lib/org-context";
@@ -720,6 +721,23 @@ export default function RadarApp({
       setLoading(false);
     }
   }
+
+  useLayoutEffect(() => {
+    const cached = cachePeek<RadarBoot>("radar");
+    if (!cached?.radar.length || radarRef.current.length) return;
+    radarRef.current = cached.radar;
+    setRadar(cached.radar);
+    setStats(cached.stats);
+    setSync(cached.sync);
+    if (cached.user?.email) {
+      setUser({
+        email: cached.user.email,
+        role: cached.user.role === "admin" ? "admin" : "recruiter",
+      });
+    }
+    setActiveId((prev) => prev || cached.radar[0]?.id || null);
+    setLoading(false);
+  }, []);
 
   useEffect(() => {
     load();
@@ -1561,7 +1579,7 @@ export default function RadarApp({
         )}
 
         {showPanel && live ? (
-          <section className={`ws-panel mb-0 shrink-0 animate-fade-in ${mobilePane === "detail" ? "max-lg:hidden" : ""}`}>
+          <section className={`ws-panel mb-0 shrink-0 ${mobilePane === "detail" ? "max-lg:hidden" : ""}`}>
             <div className="flex items-start justify-between gap-3 border-b border-[var(--line)]/80 px-4 py-3">
               <div className="min-w-0">
                 <p className="ws-label">
@@ -1829,7 +1847,7 @@ export default function RadarApp({
                 </div>
               ) : (
                 <ul className="space-y-1">
-                  {filtered.map((r, idx) => {
+                  {filtered.map((r) => {
                     const on = active?.id === r.id;
                     const channels = rowChannels(r);
                     const fresh = isFresh(r, freshSince);
@@ -1839,12 +1857,12 @@ export default function RadarApp({
                         ? `${r.openingsAtCompany} openingen`
                         : r.openingTitle || r.roleLabel;
                     return (
-                      <li key={r.id} className="animate-fade-in" style={{ animationDelay: `${Math.min(idx, 12) * 30}ms` }}>
+                      <li key={r.id}>
                         <button
                           type="button"
                           onClick={() => selectRow(r.id)}
                           aria-current={on ? "true" : undefined}
-                          className={`radar-opp flex w-full items-center gap-3.5 rounded-[var(--radius)] border px-3.5 py-3.5 text-left transition ${
+                          className={`radar-opp flex w-full items-center gap-3.5 rounded-[var(--radius)] border px-3.5 py-3.5 text-left ${
                             on
                               ? "border-[var(--line)] bg-[var(--surface)] shadow-[inset_3px_0_0_0_var(--ink)]"
                               : "border-transparent hover:border-[var(--line)] hover:bg-[var(--surface)]/80"
