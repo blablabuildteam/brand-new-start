@@ -1,5 +1,6 @@
-import { matchesRole, matchesContract, detectRoleLabel } from "@/lib/niche";
+import { isExternalPlacementText, looksLikePermanent, matchesRole, detectRoleLabel } from "@/lib/niche";
 import { ingestSignal } from "@/lib/store";
+import { isBlockedEndClientName } from "@/lib/agency";
 import { INGEST_POLICY } from "@/lib/costs";
 import { enabledPlatforms, type PlatformTarget } from "@/lib/platforms";
 import { recordSync, type SyncHit } from "@/lib/sync-log";
@@ -70,7 +71,13 @@ export async function scrapeCareersWithFirecrawl(
 
       if (!res.ok) {
         errors.push(`${url}: HTTP ${res.status}`);
-        hits.push({ company, title: `HTTP ${res.status}`, url, kept: false });
+        hits.push({
+          company,
+          title: `HTTP ${res.status}`,
+          url,
+          kept: false,
+          reason: "pagina niet bereikbaar",
+        });
         continue;
       }
 
@@ -80,17 +87,49 @@ export async function scrapeCareersWithFirecrawl(
       };
       const md = data.data?.markdown || "";
       if (!md) {
-        hits.push({ company, title: "lege pagina", url, kept: false });
+        hits.push({ company, title: "lege pagina", url, kept: false, reason: "lege pagina" });
         continue;
       }
       fetched += 1;
 
       if (!matchesRole(md)) {
-        hits.push({ company, title: "geen rol-match in kader", url, kept: false });
+        hits.push({
+          company,
+          title: "geen rol-match in kader",
+          url,
+          kept: false,
+          reason: "rol buiten Instellingen",
+        });
         continue;
       }
-      if (huntSettings().requireContract && !matchesContract(md)) {
-        hits.push({ company, title: "geen contract/ZZP in tekst", url, kept: false });
+      if (isBlockedEndClientName(company)) {
+        hits.push({
+          company,
+          title: "geen eindklant (bureau/consultancy)",
+          url,
+          kept: false,
+          reason: "bureau/consultancy (geen eindklant)",
+        });
+        continue;
+      }
+      if (looksLikePermanent(md)) {
+        hits.push({
+          company,
+          title: "geen externe plaatsing in tekst",
+          url,
+          kept: false,
+          reason: "vast dienstverband (interne werving)",
+        });
+        continue;
+      }
+      if (huntSettings().requireContract && !isExternalPlacementText(md)) {
+        hits.push({
+          company,
+          title: "geen externe plaatsing in tekst",
+          url,
+          kept: false,
+          reason: "geen externe plaatsing (ZZP/interim/contract)",
+        });
         continue;
       }
 
@@ -117,10 +156,22 @@ export async function scrapeCareersWithFirecrawl(
       });
       const ok = Boolean(result.ok);
       if (ok) kept += 1;
-      hits.push({ company, title: title.slice(0, 80), url, kept: ok });
+      hits.push({
+        company,
+        title: title.slice(0, 80),
+        url,
+        kept: ok,
+        reason: ok
+          ? undefined
+          : result.reason === "no-contract-zzp"
+            ? "geen externe plaatsing (ZZP/interim/contract)"
+            : result.reason === "outside-niche"
+              ? "rol buiten Instellingen"
+              : result.reason || "niet opgenomen",
+      });
     } catch (e) {
       errors.push(`${url}: ${e instanceof Error ? e.message : "error"}`);
-      hits.push({ company, title: "error", url, kept: false });
+      hits.push({ company, title: "error", url, kept: false, reason: "fout bij ophalen" });
     }
   }
 

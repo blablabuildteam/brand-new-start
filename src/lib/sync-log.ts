@@ -22,6 +22,8 @@ export type SyncHit = {
   kept: boolean;
   /** True when newly created this run (not a refresh of existing fingerprint). */
   isNew?: boolean;
+  /** Waarom overgeslagen — bv. bureau/consultancy, vast dienstverband. */
+  reason?: string;
 };
 
 export type SyncRun = {

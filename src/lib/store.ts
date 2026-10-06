@@ -4,12 +4,20 @@ import type { Company, RadarEntry, Signal } from "@/lib/db/schema";
 import { companies, radarEntries, signals } from "@/lib/db/schema";
 import { getDb, hasDatabase } from "@/lib/db/client";
 import { companyKey, fingerprintOf, scoreSignals, type FeedClientMatch } from "@/lib/score";
-import { detectRoleLabel, matchesContract, matchesRole, matchesTender } from "@/lib/niche";
+import {
+  detectRoleLabel,
+  isExternalPlacementText,
+  looksLikePermanent,
+  matchesContract,
+  matchesRole,
+  matchesTender,
+} from "@/lib/niche";
 import { orgContextFromSignals } from "@/lib/org-context";
 import { buildApproach, companyLinkedinFromSignals } from "@/lib/approach";
 import { borrowHiringManager } from "@/lib/hm-hunt";
 import { huntSettings } from "@/lib/hunt";
-import { isAgencyName, looksLikeIntermediary } from "@/lib/agency";
+import { isAgencyName, looksLikeIntermediary, setLearnedIntermediaries } from "@/lib/agency";
+import { loadDeskMeta } from "@/lib/desk-meta";
 
 function slugify(name: string) {
   return name
@@ -248,19 +256,25 @@ function nicheOk(input: IngestInput) {
   return { ok: true as const, blob };
 }
 
-/** Hard gate: alleen contracting / ZZP / interim (niet vaste dienstverband-postings). */
+/** Hard gate: alleen externe plaatsing (ZZP/interim/contract) — geen vast dienstverband. */
 export function isContractish(
   input: Pick<IngestInput, "employmentHint" | "raw">,
   blob: string
 ): boolean {
+  if (looksLikePermanent(blob)) return false;
+
   const hint = (input.employmentHint || "").toLowerCase();
-  if (/contract|interim|zzp|freelance|tijdelijk|temp/.test(hint)) return true;
+  if (/interim|zzp|freelance|tijdelijk|temp|detach/.test(hint)) return true;
+
   const emp =
     typeof input.raw?.employmentType === "string"
       ? String(input.raw.employmentType)
       : "";
-  if (/contract|interim|zzp|freelance|tijdelijk|temp/i.test(emp)) return true;
-  return matchesContract(blob);
+  if (/interim|zzp|freelance|tijdelijk|temp|detach/i.test(emp)) return true;
+  // Board/LinkedIn job type "Contract" (niet Permanent)
+  if (/\bcontract\b/i.test(emp) && !/permanent|vast/i.test(emp)) return true;
+
+  return isExternalPlacementText(blob);
 }
 
 async function ensureCompanyPg(name: string, sector?: string): Promise<Company> {
@@ -493,6 +507,10 @@ function feedClientIndex(all: Signal[], coMap: Map<string, Company>) {
 }
 
 export async function listRadar() {
+  const meta = await loadDeskMeta();
+  const rejected = meta.rejectedCompanies || {};
+  setLearnedIntermediaries(Object.values(rejected).map((r) => r.name));
+
   function buildCompanyRows(
     byCompany: Map<string, Signal[]>,
     coMap: Map<string, Company>,
@@ -505,6 +523,7 @@ export async function listRadar() {
       if (isPlaceholderCompany(company.name)) continue;
       // Bureau/recruiter-feeds horen op Bureaus, niet als directe Radar-eindklant
       if (isAgencyName(company.name) || looksLikeIntermediary(company.name)) continue;
+      if (rejected[companyKey(company.name)]) continue;
       const onlyAgencyFeed = companySignals.every(
         (s) =>
           s.source === "agency-swarm" ||

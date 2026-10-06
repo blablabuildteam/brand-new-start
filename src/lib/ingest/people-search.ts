@@ -1,7 +1,8 @@
 import { hasApifyToken, runApifyActor } from "@/lib/apify";
-import { hmSearchPlan, rankHmCandidates, sameEmployer, type HmCandidate } from "@/lib/hm-hunt";
+import { hmSearchPlan, rankHmCandidates, sameEmployer, type HmCandidate, type HmSearchPlan } from "@/lib/hm-hunt";
 import { linkedinCompanyUrls } from "@/lib/approach";
 import { INGEST_POLICY } from "@/lib/costs";
+import { hasAiKey, aiJsonCompletion } from "@/lib/ai-client";
 
 const PEOPLE_ACTOR =
   process.env.APIFY_PEOPLE_ACTOR || "harvestapi/linkedin-profile-search";
@@ -13,6 +14,8 @@ export type PeopleSearchInput = {
   department?: string | null;
   sector?: string | null;
   companyLinkedinUrl?: string | null;
+  namedPerson?: string | null;
+  vacancyText?: string | null;
 };
 
 function str(v: unknown): string | null {
@@ -102,20 +105,79 @@ function personCurrentCompany(item: Record<string, unknown>, headline: string | 
   return null;
 }
 
+async function suggestHmTitles(opts: {
+  company: string;
+  roleLabel: string;
+  openingTitle?: string;
+  vacancyText?: string | null;
+  overheid?: boolean;
+}): Promise<string[] | null> {
+  if (!hasAiKey()) return null;
+  const blob = `${opts.openingTitle || ""}\n${(opts.vacancyText || "").slice(0, 1200)}`.trim();
+  if (blob.length < 12) return null;
+  const out = await aiJsonCompletion({
+    system: `Je kiest LinkedIn-zoektitels voor de hiring manager van een NL IT-contract/ZZP-opdracht.
+Geen persoonsnamen. Alleen functietitels die bij de EINDklant inhuur tekenen.
+Geen recruiter/TA. Geen kaal "manager" of kaal "lead".
+2 tot 4 titels, NL of EN zoals in NL IT gebruikelijk.`,
+    user: `Bedrijf: ${opts.company}
+Rol: ${opts.roleLabel}
+${opts.overheid ? "Context: overheid/publiek.\n" : ""}Vacature:
+${blob}
+
+JSON: {"titles":["..."]}`,
+    temperature: 0,
+    maxTokens: 200,
+  });
+  if (!out.json || typeof out.json !== "object") return null;
+  const titles = (out.json as { titles?: unknown }).titles;
+  if (!Array.isArray(titles)) return null;
+  const clean = titles
+    .filter((t): t is string => typeof t === "string")
+    .map((t) => t.replace(/^["']|["']$/g, "").trim())
+    .filter((t) => t.length >= 4 && t.length <= 40)
+    .filter((t) => !/^(manager|lead|head)$/i.test(t));
+  return clean.length ? clean.slice(0, 4) : null;
+}
+
 export async function searchHiringManagers(input: PeopleSearchInput): Promise<{
   people: HmCandidate[];
-  plan: ReturnType<typeof hmSearchPlan>;
+  plan: HmSearchPlan;
   fetched: number;
   detail: string;
+  /** Alleen gezet als de vacature een naam noemde en die persoon bij het bedrijf staat. */
+  namedMatch: boolean;
 }> {
-  const plan = hmSearchPlan(input);
+  const named = (input.namedPerson || "").replace(/\s+/g, " ").trim() || null;
+  const extraTitles = named
+    ? null
+    : await suggestHmTitles({
+        company: input.company,
+        roleLabel: input.roleLabel,
+        openingTitle: input.openingTitle,
+        vacancyText: input.vacancyText,
+      });
+
+  const primary = hmSearchPlan({
+    ...input,
+    namedPerson: named,
+    extraTitles,
+  });
+  const titlesPlan = hmSearchPlan({
+    ...input,
+    namedPerson: null,
+    extraTitles,
+    department: named ? input.department : input.department,
+    openingTitle: named ? undefined : input.openingTitle,
+  });
+
   if (!hasApifyToken()) {
-    return { people: [], plan, fetched: 0, detail: "no-apify-token" };
+    return { people: [], plan: primary, fetched: 0, detail: "no-apify-token", namedMatch: false };
   }
 
   const companyUrls = linkedinCompanyUrls(input.company, input.companyLinkedinUrl);
   if (!companyUrls.length) {
-    return { people: [], plan, fetched: 0, detail: "no-company-linkedin" };
+    return { people: [], plan: primary, fetched: 0, detail: "no-company-linkedin", namedMatch: false };
   }
 
   async function runQuery(keywords: string) {
@@ -132,55 +194,82 @@ export async function searchHiringManagers(input: PeopleSearchInput): Promise<{
     });
   }
 
-  let usedPlan = plan;
-  let { items } = await runQuery(plan.keywords);
+  function parseItems(items: Record<string, unknown>[]) {
+    return items
+      .map((item) => {
+        const headline =
+          typeof item.headline === "string"
+            ? item.headline
+            : typeof item.summary === "string"
+              ? item.summary.slice(0, 240)
+              : null;
+        const company = personCurrentCompany(item, headline);
+        const alumni = Boolean(
+          headline && /\b(ex-|former|voorheen|previously|alumni)\b/i.test(headline)
+        );
+        const atCompany = Boolean(company && sameEmployer(company, input.company) && !alumni);
+        return {
+          name: personName(item) || "",
+          title: personTitle(item),
+          url: personUrl(item),
+          headline,
+          company,
+          atCompany,
+        };
+      })
+      .filter((p) => p.name);
+  }
 
-  // Fallback: team-query te smal → zoek op beslisser-titel (engineering manager e.d.)
-  if (!items.length && plan.mode === "department") {
-    const fallbackPlan = hmSearchPlan({
+  const queries: { plan: HmSearchPlan; keywords: string }[] = [{ plan: primary, keywords: primary.keywords }];
+  if (primary.mode === "person") {
+    queries.push({ plan: titlesPlan, keywords: titlesPlan.keywords });
+  } else if (primary.mode === "department") {
+    const fallback = hmSearchPlan({
       company: input.company,
       roleLabel: input.roleLabel,
       openingTitle: undefined,
+      department: null,
       sector: input.sector,
+      extraTitles,
     });
-    if (fallbackPlan.keywords !== plan.keywords) {
-      const fb = await runQuery(fallbackPlan.keywords);
-      if (fb.items.length) {
-        items = fb.items;
-        usedPlan = fallbackPlan;
-      }
+    if (fallback.keywords !== primary.keywords) {
+      queries.push({ plan: fallback, keywords: fallback.keywords });
     }
   }
 
-  const parsed = items
-    .map((item) => {
-      const headline =
-        typeof item.headline === "string"
-          ? item.headline
-          : typeof item.summary === "string"
-            ? item.summary.slice(0, 240)
-            : null;
-      const company = personCurrentCompany(item, headline);
-      const alumni = Boolean(
-        headline && /\b(ex-|former|voorheen|previously|alumni)\b/i.test(headline)
-      );
-      const atCompany = Boolean(company && sameEmployer(company, input.company) && !alumni);
-      return {
-        name: personName(item) || "",
-        title: personTitle(item),
-        url: personUrl(item),
-        headline,
-        company,
-        atCompany,
-      };
-    })
-    .filter((p) => p.name);
+  const merged: ReturnType<typeof parseItems> = [];
+  let fetched = 0;
+  let usedPlan = primary;
+  for (const q of queries) {
+    const { items } = await runQuery(q.keywords);
+    fetched += items.length;
+    const parsed = parseItems(items);
+    merged.push(...parsed);
+    if (!merged.length) usedPlan = q.plan;
+    const rankedSoFar = rankHmCandidates(merged, primary.mode === "person" ? primary : q.plan, input.company);
+    if (primary.mode !== "person" && rankedSoFar.length >= 3) {
+      usedPlan = q.plan;
+      break;
+    }
+  }
+
+  const people = rankHmCandidates(merged, primary, input.company);
+  const matched =
+    named &&
+    people.find(
+      (p) =>
+        p.name.toLowerCase() === named.toLowerCase() ||
+        p.name.toLowerCase().startsWith(`${named.toLowerCase()} `) ||
+        named.toLowerCase().startsWith(p.name.toLowerCase())
+    );
+  const namedMatch = Boolean(matched);
 
   return {
-    people: rankHmCandidates(parsed, usedPlan, input.company),
+    people,
     plan: usedPlan,
-    fetched: items.length,
-    detail: `actor=${PEOPLE_ACTOR} q=${usedPlan.keywords} companies=${companyUrls.join(",")}`,
+    fetched,
+    detail: `actor=${PEOPLE_ACTOR} q=${queries.map((q) => q.keywords).join(" | ")} companies=${companyUrls.join(",")}`,
+    namedMatch,
   };
 }
 

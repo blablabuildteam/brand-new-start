@@ -1,7 +1,7 @@
 import { hasApifyToken, runApifyActor } from "@/lib/apify";
-import { matchesContract, matchesRole, detectRoleLabel } from "@/lib/niche";
+import { detectRoleLabel, isExternalPlacementText, looksLikePermanent, matchesRole } from "@/lib/niche";
 import { ingestSignal, isJunkCompanyName, isJunkJobTitle } from "@/lib/store";
-import { isWatchedAgency, matchAgency } from "@/lib/agency";
+import { isBlockedEndClientName } from "@/lib/agency";
 import { recordSync, type SyncHit } from "@/lib/sync-log";
 import { INGEST_POLICY } from "@/lib/costs";
 import { extractOrgContext, orgContextToRaw } from "@/lib/org-context";
@@ -202,33 +202,73 @@ export async function ingestMarketJobs(
 
   for (const job of jobs) {
     scanned += 1;
-    // Same gate as the board ingest: placeholder/"Confidential" posters and
-    // jobs from agencies we do not follow are filtered out at read time
-    // anyway, so storing them only adds noise and cost.
-    const agency = matchAgency(job.company);
+    // Same gate as board ingest: geen bureaus/consultancies als “eindklant”.
     if (isJunkCompanyName(job.company) || isJunkJobTitle(job.title)) {
       skipped += 1;
-      hits.push({ company: job.company || "?", title: job.title, url: job.url, kept: false, isNew: false });
+      hits.push({
+        company: job.company || "?",
+        title: job.title,
+        url: job.url,
+        kept: false,
+        isNew: false,
+        reason: "ongeldige naam/titel",
+      });
       continue;
     }
-    if (agency && !isWatchedAgency(agency.id)) {
+    if (isBlockedEndClientName(job.company)) {
       skipped += 1;
-      hits.push({ company: job.company, title: job.title, url: job.url, kept: false, isNew: false });
+      hits.push({
+        company: job.company,
+        title: job.title,
+        url: job.url,
+        kept: false,
+        isNew: false,
+        reason: "bureau/consultancy (geen eindklant)",
+      });
       continue;
     }
     const blob = `${job.title} ${job.description || ""} ${job.employmentType || ""}`;
     if (!matchesRole(blob)) {
       skipped += 1;
-      hits.push({ company: job.company, title: job.title, url: job.url, kept: false, isNew: false });
+      hits.push({
+        company: job.company,
+        title: job.title,
+        url: job.url,
+        kept: false,
+        isNew: false,
+        reason: "rol buiten Instellingen",
+      });
       continue;
     }
 
+    if (looksLikePermanent(blob)) {
+      skipped += 1;
+      hits.push({
+        company: job.company,
+        title: job.title,
+        url: job.url,
+        kept: false,
+        isNew: false,
+        reason: "vast dienstverband (interne werving)",
+      });
+      continue;
+    }
+
+    const emp = job.employmentType || "";
     const contractish =
-      matchesContract(blob) ||
-      /contract|interim|zzp|temp|freelance/i.test(job.employmentType || "");
+      isExternalPlacementText(blob) ||
+      (/\bcontract\b/i.test(emp) && !/permanent|vast/i.test(emp)) ||
+      /\b(interim|zzp|freelance|temp)\b/i.test(emp);
     if (huntSettings().requireContract && !contractish) {
       skipped += 1;
-      hits.push({ company: job.company, title: job.title, url: job.url, kept: false, isNew: false });
+      hits.push({
+        company: job.company,
+        title: job.title,
+        url: job.url,
+        kept: false,
+        isNew: false,
+        reason: "geen externe plaatsing (ZZP/interim/contract)",
+      });
       continue;
     }
 
@@ -249,7 +289,7 @@ export async function ingestMarketJobs(
       title: job.title,
       summary: (job.description || job.title).slice(0, 480),
       evidenceUrl: job.url,
-      employmentHint: "contract",
+      employmentHint: contractish ? "contract" : undefined,
       sector: job.location,
       seenAt: new Date(),
       raw: {

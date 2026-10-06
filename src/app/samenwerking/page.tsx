@@ -5,13 +5,15 @@ import { ROI_MODEL, mvpMonthlyTotal } from "@/lib/costs";
 export const metadata = {
   title: "Samenwerkingsvoorstel — Brand New Start × blablabuild",
   description:
-    "Verdienmodel: alleen fee op new business uit de radar, bestaande BNS-omzet blijft onaangeroerd.",
+    "Verdienmodel: gebruikskosten bij BNS, commissie 25% / 15% bij een nieuwe plaatsing via de radar.",
 };
 
 export default function SamenwerkingPage() {
   const midMargin = ROI_MODEL.marginPerPlacement({ marginPerHour: 20, weeks: 20 });
-  const feePct = 0.2;
+  const feePct = 0.25;
+  const tailPct = 0.15;
   const feePerDeal = Math.round(midMargin * feePct);
+  const tailPerDeal = Math.round(midMargin * tailPct);
   const monthly = mvpMonthlyTotal();
   const stackHighYear = monthly.withFirecrawl.high * 12;
 
@@ -46,10 +48,11 @@ export default function SamenwerkingPage() {
 
       <section className="mb-6 overflow-hidden rounded-md border border-[var(--accent)]/30 bg-[var(--accent-soft)]/40 px-4 py-4 sm:px-5">
         <p className="text-sm leading-relaxed text-[var(--ink)]">
-          <strong>In één zin:</strong> wij bouwen en draaien de radar; jullie houden 100% van jullie
-          bestaande klanten en business. Alleen bij een <em>nieuwe organisatie</em> die aantoonbaar
-          via de radar binnenkomt delen we de marge — 20% op de eerste opdracht, 10% bij verlenging.
-          De klantrelatie blijft 100% bij Brand New Start.
+          <strong>In één zin:</strong> wij bouwen de radar en de data daarin is van ons. Jullie
+          gebruiken die om te benaderen en te closen. Gebruikskosten (Apify, hosting) liggen bij
+          jullie, 1:1. Bij een plaatsing via de tool bij een organisatie die jullie nog niet
+          kenden: 25% van de marge op de eerste opdracht, 15% bij verlenging. De klantrelatie voer
+          je zelf.
         </p>
       </section>
 
@@ -58,16 +61,16 @@ export default function SamenwerkingPage() {
         <ul className="grid gap-2 sm:grid-cols-2">
           {[
             {
-              t: "Bestaande omzet onaangeroerd",
-              d: "Geen fee op bestaande BNS-klanten — ook niet bij een nieuwe rol daar via de radar. Alleen écht nieuwe organisaties.",
+              t: "Gebruikskosten bij BNS",
+              d: "Apify, Firecrawl, hosting en AI-research 1:1 doorbelast. Geen aparte softwarehuur daarbovenop.",
             },
             {
-              t: "Alleen attributed new business",
-              d: "Fee alleen als het signaal via de radar naar outreach en deal is te herleiden.",
+              t: "Commissie bij een nieuwe close",
+              d: "25% van de marge op de eerste opdrachtperiode, 15% bij verlenging — alleen als de organisatie nog niet van jullie was.",
             },
             {
-              t: "BNS blijft eigenaar",
-              d: "Klanten, kandidaten en relaties blijven van Brand New Start. Tool-IP bij blablabuild (licentie).",
+              t: "Tool en data bij blablabuild",
+              d: "Code, scores, signalen, gevonden opdrachtgevers: van ons. Jullie licentie is: benaderen en closen. Geen dataset om mee te nemen.",
             },
             {
               t: "Schalen mag, verplicht niet",
@@ -101,27 +104,27 @@ export default function SamenwerkingPage() {
 
         <div className="divide-y divide-[var(--line)]/80 text-sm">
           {[
-            ["Wat telt", "Interim-plaatsing vanuit radar-signaal (hot/warm → outreach → deal)."],
-            ["Wat niet telt", "Bestaande BNS-klanten (ook een nieuwe rol daar via radar), opdrachten die al liepen, of leads zonder radar-link. Fee alleen bij écht nieuwe klant/organisatie via de radar."],
+            ["Wat telt", "Een plaatsing via de tool bij een organisatie die BNS nog niet kende."],
+            ["Wat niet telt", "Bestaande klanten en pipeline (lijst bij start). Deals zonder link met de Desk."],
             [
               "Fee · eerste opdracht",
-              "15–25% van de uurtarief-marge over de eerste opdrachtperiode (voorstel: 20%).",
+              "25% van de uurtarief-marge over de eerste opdrachtperiode.",
             ],
             [
               "Fee · verlenging / doorloop",
-              "Tail 10% op verlengingen of doorlopende weken van díe attributed opdracht, max 12–24 maanden na startdatum.",
+              "Tail 15% op verlengingen van díe opdracht, max 24 maanden na startdatum.",
             ],
             [
               "Wat de tail níet is",
-              "Geen aandeel op andere rollen of andere klanten. Wel opnieuw volle fee als een níeuw radar-signaal tot een andere attributed (nieuwe) organisatie leidt.",
+              "Geen aandeel op andere rollen. Wel opnieuw 25% als een nieuw signaal tot een andere nieuwe organisatie leidt.",
             ],
             [
               "Klantrelatie",
-              "BNS houdt de klant tevreden en ‘owns’ de relatie. Tail beloont alleen het binnenbrengen — niet accountmanagement.",
+              "Jullie sluiten en onderhouden de deal. De data en de tool blijven van blablabuild.",
             ],
             [
               "Toolkosten",
-              "Apify / Firecrawl / hosting: 1:1 doorbelasten óf meenemen in de fee (expliciet kiezen).",
+              "Bij BNS. Apify / Firecrawl / hosting / AI 1:1, zonder opslag.",
             ],
           ].map(([label, value]) => (
             <div key={label} className="grid gap-1 px-4 py-3 sm:grid-cols-[11rem_1fr] sm:gap-4 sm:px-5">
@@ -160,11 +163,11 @@ export default function SamenwerkingPage() {
 
           <div className="px-4 py-3.5 sm:px-5">
             <p className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">
-              2. Eerste opdracht — fee 20%
+              2. Eerste opdracht — fee 25%
             </p>
             <p className="mt-1.5 text-[var(--ink)]">
-              Omdat de radar deze opdracht heeft gesignaleerd, krijgt blablabuild 20% van die marge.
-              BNS houdt de rest.
+              Omdat de radar deze nieuwe opdracht heeft gesignaleerd, krijgt blablabuild 25% van die
+              marge. BNS houdt de rest.
             </p>
             <div className="mt-3 grid gap-2 sm:grid-cols-2">
               <div className="rounded border border-[var(--line)] px-3 py-2.5">
@@ -172,43 +175,42 @@ export default function SamenwerkingPage() {
                 <p className="mt-0.5 text-xl font-bold tabular-nums" style={{ fontFamily: "var(--mono)" }}>
                   €{feePerDeal.toLocaleString("nl-NL")}
                 </p>
-                <p className="text-xs text-[var(--muted)]">20% van €{midMargin.toLocaleString("nl-NL")}</p>
+                <p className="text-xs text-[var(--muted)]">25% van €{midMargin.toLocaleString("nl-NL")}</p>
               </div>
               <div className="rounded border border-[var(--line)] px-3 py-2.5">
                 <p className="text-[0.62rem] uppercase tracking-wide text-[var(--muted)]">BNS houdt</p>
                 <p className="mt-0.5 text-xl font-bold tabular-nums" style={{ fontFamily: "var(--mono)" }}>
                   €{(midMargin - feePerDeal).toLocaleString("nl-NL")}
                 </p>
-                <p className="text-xs text-[var(--muted)]">80% — plus de klantrelatie</p>
+                <p className="text-xs text-[var(--muted)]">75% — plus de klantrelatie</p>
               </div>
             </div>
           </div>
 
           <div className="px-4 py-3.5 sm:px-5">
             <p className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">
-              3. Opdracht wordt verlengd — tail 10%
+              3. Opdracht wordt verlengd — tail 15%
             </p>
             <p className="mt-1.5 text-[var(--ink)]">
-              Blijft dezelfde opdracht lopen (of wordt verlengd)? Dan geen 20% meer, maar een kleinere
-              “bedank-fee” van 10% — omdat jullie die opdracht hebben binnengebracht. BNS blijft de
-              relatie en tevredenheid doen.
+              Blijft dezelfde opdracht lopen? Dan 15% — BNS blijft de relatie doen, de tool heeft de
+              opdracht binnengebracht.
             </p>
             <div className="mt-3 grid gap-2 sm:grid-cols-2">
               <div className="rounded border border-[var(--line)] px-3 py-2.5">
                 <p className="text-[0.62rem] uppercase tracking-wide text-[var(--muted)]">blablabuild (tail)</p>
                 <p className="mt-0.5 text-xl font-bold tabular-nums" style={{ fontFamily: "var(--mono)" }}>
-                  €{Math.round(midMargin * 0.1).toLocaleString("nl-NL")}
+                  €{tailPerDeal.toLocaleString("nl-NL")}
                 </p>
                 <p className="text-xs text-[var(--muted)]">
-                  10% van weer ≈ €{midMargin.toLocaleString("nl-NL")} marge
+                  15% van weer ≈ €{midMargin.toLocaleString("nl-NL")} marge
                 </p>
               </div>
               <div className="rounded border border-[var(--line)] px-3 py-2.5">
                 <p className="text-[0.62rem] uppercase tracking-wide text-[var(--muted)]">BNS houdt</p>
                 <p className="mt-0.5 text-xl font-bold tabular-nums" style={{ fontFamily: "var(--mono)" }}>
-                  €{Math.round(midMargin * 0.9).toLocaleString("nl-NL")}
+                  €{(midMargin - tailPerDeal).toLocaleString("nl-NL")}
                 </p>
-                <p className="text-xs text-[var(--muted)]">90% bij verlenging</p>
+                <p className="text-xs text-[var(--muted)]">85% bij verlenging</p>
               </div>
             </div>
           </div>
@@ -216,13 +218,12 @@ export default function SamenwerkingPage() {
           <div className="bg-[var(--accent-soft)]/30 px-4 py-3.5 sm:px-5">
             <p className="text-xs font-semibold uppercase tracking-wide text-[var(--accent)]">Kortom</p>
             <ul className="mt-1.5 space-y-1 text-sm text-[var(--ink)]">
-              <li>Zonder radar → deze marge bestond voor BNS niet (of was lastiger te vinden).</li>
-              <li>Met radar → BNS krijgt alsnog het grootste deel; jullie een stuk voor het signaal.</li>
+              <li>Alleen bij een nieuwe organisatie. Wat ze al kenden, blijft van hen.</li>
+              <li>BNS houdt 75% / 85% van de marge en de klantrelatie.</li>
               <li>
-                Toolkosten (≈ €{stackHighYear.toLocaleString("nl-NL")}/jaar worst-case) zijn vaak al
-                gedekt door <em>één</em> extra plaatsing.
+                Gebruikskosten (≈ €{stackHighYear.toLocaleString("nl-NL")}/jaar worst-case) liggen bij
+                BNS, 1:1 — vaak gedekt door één extra plaatsing.
               </li>
-              <li>Bestaande opdrachten van BNS: daar betalen ze jullie niets over.</li>
             </ul>
           </div>
         </div>
@@ -233,9 +234,9 @@ export default function SamenwerkingPage() {
         <ol className="space-y-2.5 text-sm text-[var(--ink)]">
           {[
             "Signaal markeren als “Outreach via radar”.",
-            "Bij deal: vink “Radar-sourced” + koppeling aan radar-id.",
-            "Twijfel → default = géén fee (beschermt de BNS-relatie).",
-            "Maandelijks 15 min review: welke deals wel/niet attributed.",
+            "Bij deal: binnen 10 werkdagen melden + koppeling aan het signaal.",
+            "Twijfel in het maandelijkse overleg; een deal via de tool verzwijgen mag niet.",
+            "Maandelijks 15 min: welke deals, welke commissie.",
           ].map((step, i) => (
             <li key={step} className="flex gap-3 rounded-md border border-[var(--line)] bg-[var(--surface)] px-3.5 py-2.5">
               <span
@@ -302,13 +303,20 @@ export default function SamenwerkingPage() {
           </div>
           <div className="px-4 py-3.5 sm:px-5">
             <p className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">
-              Wat we wél even vastleggen (1 pagina)
+              Wat we wél even vastleggen
             </p>
             <ul className="mt-2 space-y-1.5 text-[var(--ink)]">
               <li>Fee % (eerste + tail) + attribution + “bestaande pipeline buiten scope”</li>
               <li>Soft exclusivity niche + duur (pilot → review)</li>
-              <li>IP bij blablabuild; BNS mag inzichten/processen vrij gebruiken</li>
+              <li>IP en data bij blablabuild; BNS mag benaderen en closen</li>
+              <li>Gebruikskosten 1:1 bij BNS; commissie 25% + tail 15% op nieuwe closes</li>
               <li>Opzegtermijn 30 dagen; geen non-compete op hun recruitmentwerk</li>
+              <li>
+                Tekenbaar:{" "}
+                <Link href="/pilot" className="font-medium text-[var(--ink)] underline underline-offset-2">
+                  pilotovereenkomst
+                </Link>
+              </li>
             </ul>
           </div>
         </div>
@@ -363,11 +371,10 @@ export default function SamenwerkingPage() {
         </div>
         <ul className="space-y-2 px-4 py-4 text-sm text-[var(--ink)] sm:px-5">
           {[
-            "Tool live voor het BNS-team.",
-            "Success fee 20% op eerste attributed periode; tail 10% op verlengingen van díe opdracht (max 12–24 mnd).",
-            "Optionele cap per deal zodat niemand schrikt.",
-            "Na 90 dagen: # attributed deals, marge, fee, tevredenheid → verlengen of bijstellen.",
-            "Schriftelijk: bestaande BNS-klanten en pipeline buiten scope.",
+            "Tool live voor het BNS-team. Gebruikskosten 1:1 bij BNS.",
+            "Commissie 25% op de eerste opdrachtperiode bij een nieuwe organisatie via de tool; tail 15% op verlengingen (max 24 mnd).",
+            "Startlijst bestaande klanten/pipeline = geen commissie.",
+            "Na 90 dagen: deals, marge, commissie, tevredenheid → verlengen of stoppen.",
           ].map((item) => (
             <li key={item} className="flex gap-2">
               <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-[var(--green)]" />
@@ -433,8 +440,8 @@ export default function SamenwerkingPage() {
         <div className="rounded-md border border-[var(--line)] bg-[var(--surface)] px-4 py-3.5">
           <p className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">Voor BNS</p>
           <ul className="mt-2 space-y-1.5 text-sm text-[var(--ink)]">
-            <li>Geen vaste software-huur die pijn doet zonder resultaat</li>
-            <li>Alleen betalen bij aantoonbaar extra resultaat</li>
+            <li>Geen softwarehuur — wel 1:1 gebruikskosten</li>
+            <li>Pas commissie bij een nieuwe organisatie via de tool</li>
             <li>Radar als new-business motor, niet als controle op de desk</li>
             <li>Optioneel meeverdienen als we naar andere bureaus schalen</li>
           </ul>
@@ -451,7 +458,11 @@ export default function SamenwerkingPage() {
 
       <p className="mb-6 text-xs text-[var(--muted)]">
         Dit is een werkvoorstel ter bespreking — geen bindende overeenkomst. Cijfers zijn indicatief
-        en volgen het ROI-model op de kostenkant.
+        en volgen het ROI-model op de kostenkant. Wat jullie wél tekenen vóór de pilot staat in de{" "}
+        <Link href="/pilot" className="text-[var(--ink)] underline underline-offset-2">
+          pilotovereenkomst
+        </Link>
+        .
       </p>
 
       <a

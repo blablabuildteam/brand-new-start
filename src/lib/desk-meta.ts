@@ -103,6 +103,13 @@ export type FeedCheck = {
   newestUrl?: string | null;
 };
 
+/** Bedrijven die geen eindklant bleken (bureau/consultancy) — nooit meer op Jobboards. */
+export type RejectedCompany = {
+  name: string;
+  at: string;
+  by?: string;
+};
+
 export type DeskMeta = {
   leadReviews: Record<string, ReviewRow>;
   aiGuesses: Record<string, AiRow>;
@@ -112,6 +119,8 @@ export type DeskMeta = {
   crmStages: Record<string, CrmStage>;
   /** Hiring-manager results keyed by CRM id (crm_bureau_* / crm_direct_*). */
   hmGuesses: Record<string, HmGuessRow>;
+  /** keyed by genormaliseerde bedrijfsnaam */
+  rejectedCompanies: Record<string, RejectedCompany>;
   alerts: DeskAlert[];
 };
 
@@ -122,6 +131,7 @@ const emptyMeta = (): DeskMeta => ({
   feedChecks: {},
   crmStages: {},
   hmGuesses: {},
+  rejectedCompanies: {},
   alerts: [],
 });
 
@@ -145,6 +155,8 @@ export async function loadDeskMeta(): Promise<DeskMeta> {
       feedChecks: raw?.feedChecks && typeof raw.feedChecks === "object" ? raw.feedChecks : {},
       crmStages: raw?.crmStages && typeof raw.crmStages === "object" ? raw.crmStages : {},
       hmGuesses: raw?.hmGuesses && typeof raw.hmGuesses === "object" ? raw.hmGuesses : {},
+      rejectedCompanies:
+        raw?.rejectedCompanies && typeof raw.rejectedCompanies === "object" ? raw.rejectedCompanies : {},
       alerts: Array.isArray(raw?.alerts) ? raw!.alerts.slice(0, 40) : [],
     };
     g.__bnsDeskMeta = next;
@@ -180,6 +192,7 @@ export async function saveDeskMeta(patch: Partial<DeskMeta>, base?: DeskMeta): P
     feedChecks: { ...prev.feedChecks, ...patch.feedChecks },
     crmStages: { ...prev.crmStages, ...patch.crmStages },
     hmGuesses: { ...prev.hmGuesses, ...patch.hmGuesses },
+    rejectedCompanies: { ...prev.rejectedCompanies, ...patch.rejectedCompanies },
     alerts: patch.alerts ?? prev.alerts,
   };
   g.__bnsDeskMeta = next;

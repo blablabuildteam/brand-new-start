@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { isAgencyName } from "@/lib/agency";
+import { isAgencyName, looksLikeIntermediary } from "@/lib/agency";
 import type { ClientGuess, Evidence } from "@/lib/end-client";
 import { leadStatusFromGuess } from "@/lib/end-client";
 import { aiJsonCompletion, hasAiKey, hasOpenAiKey } from "@/lib/ai-client";
@@ -53,7 +53,7 @@ function normalizeAlts(
   for (const a of raw) {
     const n = cleanName(a.name);
     const key = n.toLowerCase();
-    if (n.length < 2 || isAgencyName(n) || key === agencyName.toLowerCase()) continue;
+    if (n.length < 2 || isAgencyName(n) || looksLikeIntermediary(n) || key === agencyName.toLowerCase()) continue;
     if (primary && key === primary.toLowerCase()) continue;
     if (seen.has(key)) continue;
     seen.add(key);
@@ -141,7 +141,7 @@ function buildGuess(
   // Uncertain but has candidates → surface as multi-option review
   if (unknown || !rawName || conf < 20) {
     const pool = [
-      ...(rawName && rawName.length >= 2 && !isAgencyName(rawName)
+      ...(rawName && rawName.length >= 2 && !isAgencyName(rawName) && !looksLikeIntermediary(rawName)
         ? [{ name: rawName, confidence: conf }]
         : []),
       ...alts,
@@ -162,7 +162,7 @@ function buildGuess(
     return { guess, model, detail: `${detail} · meerdere opties` };
   }
 
-  if (rawName.length < 2 || isAgencyName(rawName)) {
+  if (rawName.length < 2 || isAgencyName(rawName) || looksLikeIntermediary(rawName)) {
     if (alts.length) {
       const primary = alts[0]!;
       const guess = makeGuess({

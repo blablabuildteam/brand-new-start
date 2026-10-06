@@ -182,6 +182,22 @@ a:focus-visible {
   text-decoration: none;
 }
 
+@media print {
+  .pilot header,
+  nav,
+  .print\:hidden {
+    display: none !important;
+  }
+  .pilot {
+    color: #111;
+    background: #fff;
+  }
+  .pilot a {
+    text-decoration: none;
+    color: inherit;
+  }
+}
+
 .app-topbar__tools [data-tip]::after {
   display: none;
 }

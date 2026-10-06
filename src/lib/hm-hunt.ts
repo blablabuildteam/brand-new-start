@@ -7,18 +7,52 @@ const PUBLIC_SECTOR =
 const GENERIC_DEPT =
   /^(other|engineering|information technology|it|consulting|business|management|project management|analyst|design|research|other\/unknown)$/i;
 
-/** Wie meestal tekent voor inhuur — zoektermen, geen verzonnen personen. */
-const DECIDERS: Record<RoleFamily, { overheid: string; corporate: string }> = {
-  agile: { overheid: "agile lead", corporate: "delivery manager" },
-  "ba-pm": { overheid: "informatiemanager", corporate: "IT manager" },
-  "cloud-devops": { overheid: "teamleider", corporate: "engineering manager" },
-  software: { overheid: "teamleider", corporate: "engineering manager" },
-  data: { overheid: "data owner", corporate: "head of data" },
-  "frontend-design": { overheid: "product owner", corporate: "head of design" },
-  security: { overheid: "CISO", corporate: "CISO" },
-  test: { overheid: "test manager", corporate: "QA manager" },
-  "architecture-apps": { overheid: "enterprise architect", corporate: "IT architect" },
+/** Wie meestal tekent voor inhuur — meerdere titels, nooit kaal “manager”/“lead”. */
+const TITLE_SETS: Record<RoleFamily, { overheid: string[]; corporate: string[] }> = {
+  agile: {
+    overheid: ["informatiemanager", "product owner", "teamleider"],
+    corporate: ["delivery manager", "product owner", "agile coach"],
+  },
+  "ba-pm": {
+    overheid: ["informatiemanager", "product owner", "teamleider"],
+    corporate: ["IT manager", "product owner", "delivery manager", "informatiemanager"],
+  },
+  "cloud-devops": {
+    overheid: ["teamleider", "informatiemanager", "chapter lead"],
+    corporate: ["engineering manager", "chapter lead", "teamleider"],
+  },
+  software: {
+    overheid: ["teamleider", "informatiemanager"],
+    corporate: ["engineering manager", "engineering lead", "teamleider"],
+  },
+  data: {
+    overheid: ["informatiemanager", "data owner", "teamleider"],
+    corporate: ["head of data", "data owner", "engineering manager"],
+  },
+  "frontend-design": {
+    overheid: ["product owner", "teamleider"],
+    corporate: ["product owner", "head of design", "engineering manager"],
+  },
+  security: {
+    overheid: ["CISO", "informatiemanager", "teamleider"],
+    corporate: ["CISO", "security manager", "engineering manager"],
+  },
+  test: {
+    overheid: ["test manager", "teamleider"],
+    corporate: ["QA manager", "test manager", "engineering manager"],
+  },
+  "architecture-apps": {
+    overheid: ["enterprise architect", "informatiemanager"],
+    corporate: ["IT architect", "engineering manager", "enterprise architect"],
+  },
 };
+
+const GENERIC_TITLES = ["IT manager", "engineering manager", "informatiemanager", "teamleider"];
+
+function titlesQuery(titles: string[]): string {
+  const uniq = [...new Set(titles.map((t) => t.trim()).filter((t) => t.length >= 3))].slice(0, 4);
+  return uniq.map((t) => `"${t}"`).join(" OR ");
+}
 
 export function isPublicSector(company: string, sector?: string | null): boolean {
   return PUBLIC_SECTOR.test(`${company} ${sector || ""}`);
@@ -30,8 +64,10 @@ export type HmSearchPlan = {
   /** LinkedIn-zoekterm. Bedrijfsnaam hoort hier nooit in — dat treft alumni. */
   keywords: string;
   hint: string;
-  mode: "title" | "department";
+  mode: "person" | "department" | "titles";
   department?: string | null;
+  namedPerson?: string | null;
+  titles?: string[];
 };
 
 const ROLE_STOP =
@@ -73,7 +109,7 @@ export function distinctiveTeam(openingTitle?: string, department?: string | nul
 }
 
 /**
- * Zoek in het team + een manager-woord, of een beslisser-titel.
+ * Volgorde: (1) naam uit de vacature (2) herkenbaar team (3) 2–4 inhuur-titels.
  * Nooit de bedrijfsnaam — LinkedIn matcht die op oude werkgevers.
  */
 export function hmSearchPlan(opts: {
@@ -82,32 +118,50 @@ export function hmSearchPlan(opts: {
   openingTitle?: string;
   department?: string | null;
   sector?: string | null;
+  namedPerson?: string | null;
+  extraTitles?: string[] | null;
 }): HmSearchPlan {
+  const named = (opts.namedPerson || "").replace(/\s+/g, " ").trim();
+  if (named.length >= 5 && named.includes(" ")) {
+    return {
+      keywords: `"${named}"`,
+      hint: named,
+      mode: "person",
+      namedPerson: named,
+      department: null,
+    };
+  }
+
   const team = distinctiveTeam(opts.openingTitle, opts.department);
   const family =
     detectFamily(`${opts.openingTitle || ""} ${opts.roleLabel}`) ||
     detectFamily(team || "");
   const overheid = isPublicSector(opts.company, opts.sector);
-  const title = family
-    ? overheid
-      ? DECIDERS[family].overheid
-      : DECIDERS[family].corporate
-    : overheid
-      ? "teamleider"
-      : "manager";
+  const titles =
+    opts.extraTitles?.length
+      ? opts.extraTitles
+      : family
+        ? overheid
+          ? TITLE_SETS[family].overheid
+          : TITLE_SETS[family].corporate
+        : GENERIC_TITLES;
+  const q = titlesQuery(titles);
+
   if (team) {
     return {
-      keywords: `"${team}" (manager OR lead OR head OR chapter OR owner)`,
+      keywords: `"${team}" (${q})`,
       hint: team,
       mode: "department",
       department: team,
+      titles,
     };
   }
   return {
-    keywords: title,
-    hint: title,
-    mode: "title",
+    keywords: q,
+    hint: titles[0] || "IT manager",
+    mode: "titles",
     department: null,
+    titles,
   };
 }
 
@@ -151,8 +205,9 @@ export type HmCandidate = {
   score: number;
 };
 
-const DECIDER_HINT =
-  /\b(manager|lead|director|head|hoofd|opdrachtgever|informatiemanager|owner|ciso|architect|chapter|tribe|delivery)\b/i;
+const STRONG_DECIDER =
+  /\b(hiring manager|engineering manager|informatiemanager|delivery manager|director|head of|hoofd|chapter lead|tribe lead|teamleider|product owner|ciso|engineering lead|qa manager|test manager)\b/i;
+const WEAK_LEAD = /\b(lead|head|owner|manager)\b/i;
 
 const COMPANY_CANON: Record<string, string> = {
   nn: "nn",
@@ -217,8 +272,16 @@ export function rankHmCandidates(
     if (looksLikeAlumni(title, companyName)) continue;
     let score = 1;
     const hay = title.toLowerCase();
+    if (plan.namedPerson && p.name.toLowerCase() === plan.namedPerson.toLowerCase()) score += 48;
+    else if (
+      plan.namedPerson &&
+      p.name.toLowerCase().includes(plan.namedPerson.toLowerCase().split(" ")[0] || "___")
+    ) {
+      score += 12;
+    }
     if (dept && hay.includes(dept)) score += 36;
-    if (DECIDER_HINT.test(title)) score += 18;
+    if (STRONG_DECIDER.test(title)) score += 22;
+    else if (WEAK_LEAD.test(title)) score += 4;
     if (p.url) score += 6;
     ranked.push({
       name: p.name,

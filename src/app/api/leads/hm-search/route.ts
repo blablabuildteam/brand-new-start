@@ -10,6 +10,7 @@ import { patchSignalRaw } from "@/lib/store";
 import { recordSync } from "@/lib/sync-log";
 import { kansenHref } from "@/lib/desk-links";
 import { loadHuntSettings } from "@/lib/hunt";
+import { namedManagerFromVacancy } from "@/lib/org-context";
 
 export const maxDuration = 120;
 export const runtime = "nodejs";
@@ -50,6 +51,7 @@ export async function POST(req: Request) {
   let openingTitle = "";
   let signalId: string | null = null;
   let sector: string | null = null;
+  let vacancyText = "";
 
   if (parsed.data.leadId) {
     const leads = await listAgencyLeads();
@@ -68,6 +70,7 @@ export async function POST(req: Request) {
     if (!company) return NextResponse.json({ error: "geen eindklant" }, { status: 400 });
     roleLabel = lead.roleLabel;
     openingTitle = lead.title;
+    vacancyText = lead.summary || lead.title;
     signalId = lead.signalId || null;
     crmId = `crm_bureau_${lead.id}`;
   } else if (crmId) {
@@ -83,12 +86,14 @@ export async function POST(req: Request) {
     company = item.endClient;
     roleLabel = item.roleLabel;
     openingTitle = item.title;
+    vacancyText = item.extractSummary || item.title;
     sector = item.sector || null;
     if (item.lane === "bureau" && crmId.startsWith("crm_bureau_")) {
       const leadId = crmId.replace("crm_bureau_", "");
       const leads = await listAgencyLeads();
       const lead = [...leads.live, ...leads.demo].find((l) => l.id === leadId);
       signalId = lead?.signalId || null;
+      if (lead?.summary) vacancyText = lead.summary;
     }
   } else {
     return NextResponse.json({ error: "crmId of leadId verplicht" }, { status: 400 });
@@ -111,11 +116,14 @@ export async function POST(req: Request) {
   }
 
   try {
+    const namedPerson = namedManagerFromVacancy({ text: vacancyText });
     const result = await searchHiringManagers({
       company,
       roleLabel,
       openingTitle,
       sector,
+      namedPerson,
+      vacancyText,
     });
 
     await recordSync({
@@ -135,7 +143,14 @@ export async function POST(req: Request) {
       })),
     });
 
-    const top = result.people[0] || null;
+    const top = result.namedMatch
+      ? result.people.find(
+          (p) =>
+            namedPerson &&
+            (p.name.toLowerCase() === namedPerson.toLowerCase() ||
+              p.name.toLowerCase().startsWith(namedPerson.toLowerCase()))
+        ) || result.people[0] || null
+      : null;
     const row = withPreservedContacts(cached, {
       hiringManager: top?.name || null,
       hiringManagerTitle: top?.title || null,
@@ -178,7 +193,9 @@ export async function POST(req: Request) {
       cached: false,
       crmId,
       company,
-      empty: !top,
+      empty: !result.people.length,
+      namedMatch: result.namedMatch,
+      needsPick: Boolean(result.people.length && !top),
       hiringManager: row.hiringManager,
       hiringManagerTitle: row.hiringManagerTitle,
       hits: row.hits,

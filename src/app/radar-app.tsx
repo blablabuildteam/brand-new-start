@@ -84,6 +84,7 @@ type SyncHit = {
   url?: string | null;
   kept: boolean;
   isNew?: boolean;
+  reason?: string;
 };
 type SyncRun = {
   id: string;
@@ -1253,6 +1254,12 @@ export default function RadarApp({
   const keptHits = allHits.filter((h) => h.kept);
   const newHits = keptHits.filter((h) => h.isNew);
   const refreshHits = keptHits.filter((h) => !h.isNew);
+  const skippedHits = allHits.filter((h) => !h.kept);
+  const skipReasonCounts = skippedHits.reduce<Record<string, number>>((acc, h) => {
+    const r = h.reason || "overgeslagen";
+    acc[r] = (acc[r] || 0) + 1;
+    return acc;
+  }, {});
   const totalFetched = (live?.runs || []).reduce((a, r) => a + r.fetched, 0);
   const totalKept = (live?.runs || []).reduce((a, r) => a + r.kept, 0);
   const showPanel = Boolean(live);
@@ -1415,8 +1422,10 @@ export default function RadarApp({
           </summary>
           <div className="ws-fold__body">
             <p className="m-0 text-[0.8rem] leading-relaxed text-[var(--muted)]">
-              Vacatures bij eindklanten van LinkedIn, Indeed en Freelance.nl — niet via een detacheerder.
-              De andere bron is{" "}
+              Vacatures bij eindklanten van LinkedIn, Indeed en Freelance.nl — niet via een
+              detacheerder. Bureaus, consultancies en vaste dienstverbanden worden uitgefilterd;
+              na sync zie je wat er overgeslagen is en waarom. Handmatig verbergen:{" "}
+              <em>Geen eindklant — verberg</em> (terugzetten in Instellingen). De andere bron is{" "}
               <a href={DESK.bureau.href} className="font-semibold text-[var(--ink)] underline underline-offset-2">
                 {DESK.bureau.nav}
               </a>
@@ -1799,6 +1808,41 @@ export default function RadarApp({
                   ) : (
                     <p className="text-xs text-[var(--muted)]">Geen niche-hits in deze run.</p>
                   )}
+
+                  {skippedHits.length ? (
+                    <div className="mt-3">
+                      <p className="mb-1.5 text-[0.62rem] uppercase tracking-wide text-[var(--muted)]">
+                        Uitgefilterd · {skippedHits.length}
+                        <span className="ml-1 font-normal normal-case tracking-normal">
+                          — keuze: alleen eindklanten + externe plaatsing
+                        </span>
+                      </p>
+                      <div className="mb-1.5 flex flex-wrap gap-1.5">
+                        {Object.entries(skipReasonCounts).map(([reason, n]) => (
+                          <span
+                            key={reason}
+                            className="rounded bg-[var(--surface-2)] px-1.5 py-0.5 text-[0.68rem] text-[var(--muted)]"
+                          >
+                            {n}× {reason}
+                          </span>
+                        ))}
+                      </div>
+                      <ul className="max-h-40 divide-y divide-[var(--line)]/70 overflow-y-auto rounded border border-dashed border-[var(--line)]">
+                        {skippedHits.slice(0, 24).map((h, i) => (
+                          <li
+                            key={`skip-${h.company}-${h.title}-${i}`}
+                            className="flex items-center gap-2 px-2.5 py-1.5 text-[0.78rem]"
+                          >
+                            <span className="min-w-0 flex-1 truncate text-[var(--muted)]">
+                              <span className="font-medium text-[var(--ink)]">{h.company}</span>
+                              <span> — {h.title}</span>
+                            </span>
+                            <span className="shrink-0 text-[0.62rem] text-[var(--muted)]">{h.reason}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
                 </div>
               ) : null}
             </div>
@@ -1937,6 +1981,30 @@ export default function RadarApp({
                         {active.company.sector || `${active.openingsAtCompany} openingen`}
                       </p>
                     ) : null}
+                    <button
+                      type="button"
+                      className="mt-2 text-[0.72rem] font-medium text-[var(--muted)] underline underline-offset-2 hover:text-[var(--ink)]"
+                      title="Verberg dit bedrijf: geen eindklant (bureau/consultancy). Komt niet meer terug."
+                      onClick={() => {
+                        const name = active.company.name;
+                        const id = active.id;
+                        void (async () => {
+                          const res = await fetch("/api/radar/reject-company", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ company: name }),
+                          });
+                          if (!res.ok) return;
+                          setRadar((rows) => rows.filter((r) => r.id !== id));
+                          setActiveId((prev) => (prev === id ? null : prev));
+                          const { cacheClear } = await import("@/lib/client-cache");
+                          cacheClear("radar");
+                          cacheClear("crm");
+                        })();
+                      }}
+                    >
+                      Geen eindklant — verberg
+                    </button>
                   </div>
                   {(active.openingsAtCompany || 0) <= 1 ? (
                     <ScoreChip

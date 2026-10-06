@@ -207,29 +207,38 @@ export function buildPlacement(input: PlacementInput): PlacementProposal {
 
   const hmName = hmFirstName(hiring);
   const greet = hmName ? `Hoi ${hmName}` : `Hoi`;
-  const lines = shortlist
-    .map((s, i) => `${i + 1}. ${s.person.name} (${s.person.title}, ${s.person.city}) — ${s.why[0]}`)
-    .join("\n");
-  const hmMessage = `${greet},
+  const named = shortlist.length
+    ? shortlist
+        .map((s, i) => {
+          const bits = [
+            s.person.title,
+            s.person.city,
+            AVAIL_NL[s.person.available],
+            s.person.stack.slice(0, 3).join(", "),
+          ].filter(Boolean);
+          return `${i + 1}. ${s.person.name} — ${bits.join(" · ")}\n   ${s.why[0]}`;
+        })
+        .join("\n\n")
+    : null;
 
-Voor ${input.openingTitle} bij ${input.company} kan ik drie ZZP’ers voorstellen die ${start} kunnen starten:
+  const hmMessage = named
+    ? `${greet},
 
-${lines || "(nog geen match in de huidige bench)"}
+Ik zag jullie opdracht “${input.openingTitle}” bij ${input.company}. Ik heb drie ZZP’ers die hier direct op aansluiten en ${start} kunnen starten:
 
-Past het om 20 minuten te bellen? Ik stuur cv’s na een kort ja.
+${named}
+
+Zij zitten bij ons klaar — ik stuur cv’s na een kort ja. Past een belafspraak van 15 minuten deze week?
+`
+    : `${greet},
+
+Ik zag jullie opdracht “${input.openingTitle}” bij ${input.company}. Wij hebben ZZP’ers in deze hoek (${input.roleLabel}) die ${start} kunnen starten.
+
+Heb je 15 minuten om te kijken of we matchen? Dan stuur ik gerichte cv’s.
 `;
 
-  const candidateMessages = shortlist.map((s) => ({
-    id: s.person.id,
-    name: s.person.name,
-    body: `Hoi ${s.person.name.split(" ")[0]},
-
-${input.company} zoekt ${input.roleLabel} (${input.openingTitle}). ${s.why[0]}.
-Start ${AVAIL_NL[s.person.available]}, ZZP.
-
-Heb je ruimte voor een kort gesprek?
-`,
-  }));
+  // Alleen HM-bericht in de desk — geen kandidaat-pad meer.
+  const candidateMessages: { id: string; name: string; body: string }[] = [];
 
   const roleQ = input.roleLabel;
   const booleanSearch = `("${roleQ}" OR "${input.openingTitle}") AND (ZZP OR freelance OR interim OR contract) AND "${companyShort === input.company ? "Nederland" : companyShort}"`;

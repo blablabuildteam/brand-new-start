@@ -168,14 +168,83 @@ export const CONTRACT_KEYWORDS = [
   "zzp",
   "interim",
   "freelance",
+  "freelancer",
   "contractor",
-  "contract",
+  "contracting",
   "detachering",
   "detacheringsovereenkomst",
-  "tijdelijk",
+  "secondment",
+  "tijdelijke opdracht",
+  "tijdelijke inhuur",
+  "externe inhuur",
+  "inhuur",
+  "uurtarief",
+  "hourly rate",
+  "day rate",
+  "dagprijs",
   "temporary",
+  "temp contract",
   "extern",
 ] as const;
+
+/** Signalen voor interne werving / vast dienstverband — nooit externe plaatsing. */
+export const PERMANENT_HINTS = [
+  "vast dienstverband",
+  "vaste dienst",
+  "vast contract",
+  "vaste aanstelling",
+  "onbepaalde tijd",
+  "permanent contract",
+  "permanent position",
+  "permanent role",
+  "full-time permanent",
+  "fulltime permanent",
+  "in loondienst",
+  "arbeidsovereenkomst voor onbepaalde",
+  "arbeidscontract voor onbepaalde",
+] as const;
+
+export function looksLikePermanent(text: string): boolean {
+  const t = text.toLowerCase();
+  if (PERMANENT_HINTS.some((k) => t.includes(k))) {
+    // Sterke externe signalen winnen (hybride posts)
+    if (CONTRACT_KEYWORDS.some((k) => t.includes(k))) return false;
+    if (/\b(zzp|interim|freelance|detachering|inhuur|uurtarief)\b/.test(t)) return false;
+    return true;
+  }
+  if (
+    /\bvast\b/.test(t) &&
+    /\b(dienstverband|dienst|salaris|fte|loondienst|aanstelling)\b/.test(t) &&
+    !/\b(zzp|interim|freelance|detachering|inhuur|uurtarief)\b/.test(t)
+  ) {
+    return true;
+  }
+  return false;
+}
+
+export function matchesContract(text: string): boolean {
+  const t = text.toLowerCase();
+  if (CONTRACT_KEYWORDS.some((k) => t.includes(k))) return true;
+  // "contract" alleen met externe companion — bare "arbeidscontract" telt niet
+  if (
+    /\b(contract\s*(rol|role|basis|positie|position|assignment|opdracht)|contracting)\b/.test(t)
+  ) {
+    return true;
+  }
+  if (
+    /\bcontract\b/.test(t) &&
+    /\b(zzp|interim|freelance|freelancer|detach|tijdelijk|temp|extern|inhuur|contractor)\b/.test(t)
+  ) {
+    return true;
+  }
+  return false;
+}
+
+/** Externe plaatsing: contract/ZZP/interim — niet vast in dienst. */
+export function isExternalPlacementText(text: string): boolean {
+  if (looksLikePermanent(text)) return false;
+  return matchesContract(text);
+}
 
 export const TENDER_KEYWORDS = [
   "scrum",
@@ -214,11 +283,6 @@ export function matchesRole(text: string): boolean {
     }
   }
   return false;
-}
-
-export function matchesContract(text: string): boolean {
-  const t = text.toLowerCase();
-  return CONTRACT_KEYWORDS.some((k) => t.includes(k));
 }
 
 export function matchesTender(text: string): boolean {

@@ -1,21 +1,19 @@
 import { NextResponse } from "next/server";
-import { getSession, isAdmin } from "@/lib/auth";
+import { getSession } from "@/lib/auth";
 import {
   SOURCE_COST_MODEL,
   PLATFORM_COST,
   mvpMonthlyTotal,
   ROI_MODEL,
   INGEST_POLICY,
+  SYNC_COST_PER_RUN,
 } from "@/lib/costs";
 
-/** Stack-kosten en ROI — alleen admin (interne zichtbaarheid). */
+/** Stack-kosten en ROI — zichtbaar voor iedereen in de desk. */
 export async function GET() {
   const session = await getSession();
   if (!session) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  }
-  if (!isAdmin(session)) {
-    return NextResponse.json({ error: "forbidden" }, { status: 403 });
   }
 
   const monthly = mvpMonthlyTotal();
@@ -42,6 +40,7 @@ export async function GET() {
     sources: SOURCE_COST_MODEL,
     platform: PLATFORM_COST,
     monthly,
+    perRun: SYNC_COST_PER_RUN,
     roi: {
       currency: ROI_MODEL.currency,
       clientRatePerHour: ROI_MODEL.clientRatePerHour,

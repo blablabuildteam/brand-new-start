@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useMemo, useState, type ReactNode } from "react";
 import { AppShell } from "@/components/app-shell";
 import {
   DEFAULT_ROLES,
+  parseRecruiterInput,
   slugAgencyId,
   type EmploymentKind,
   type ManagedAgency,
@@ -77,6 +78,12 @@ export default function SettingsForm() {
   const [found, setFound] = useState<Record<string, FoundPerson[]>>({});
   const [findMsg, setFindMsg] = useState<Record<string, string>>({});
 
+  const [settingsTab, setSettingsTab] = useState<"jobboards" | "feed" | "kansen" | "voorstel" | "algemeen">(
+    "jobboards"
+  );
+  const [newBureauLinkedin, setNewBureauLinkedin] = useState("");
+  const [rejected, setRejected] = useState<{ key: string; name: string; at: string }[]>([]);
+
   useEffect(() => {
     fetch("/api/settings")
       .then((r) => {
@@ -91,19 +98,22 @@ export default function SettingsForm() {
         setHunt(j);
         setRolesText(j.roles.join("\n"));
       });
+    fetch("/api/radar/reject-company")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j: { rejected?: { key: string; name: string; at: string }[] } | null) => {
+        if (j?.rejected) setRejected(j.rejected);
+      })
+      .catch(() => undefined);
   }, []);
 
   useEffect(() => {
     if (!hunt) return;
     if (typeof window === "undefined") return;
-    if (window.location.hash !== "#volgen") return;
-    const el = document.getElementById("volgen");
-    if (!el) return;
-    // Only once — not on every checkbox/setHunt (that caused scroll jumps).
-    window.history.replaceState(null, "", window.location.pathname + window.location.search);
-    requestAnimationFrame(() => {
-      el.scrollIntoView({ behavior: "smooth", block: "start" });
-    });
+    const hash = window.location.hash.replace("#", "");
+    if (hash === "volgen" || hash === "feed") setSettingsTab("feed");
+    if (hash === "voorstel") setSettingsTab("voorstel");
+    if (hash === "jobboards") setSettingsTab("jobboards");
+    if (hash === "kansen") setSettingsTab("kansen");
   }, [hunt ? "ready" : ""]);
 
   const q = query.trim().toLowerCase();
@@ -177,8 +187,23 @@ export default function SettingsForm() {
 
   function addBureau() {
     if (!hunt) return;
-    const name = newBureau.trim();
-    if (name.length < 2) return;
+    const rawName = newBureau.trim();
+    const rawLi = newBureauLinkedin.trim();
+    if (rawName.length < 2 && !rawLi) return;
+
+    let linkedinSlug: string | undefined;
+    let name = rawName;
+    const companyMatch = (rawLi || rawName).match(/linkedin\.com\/company\/([^/?#\s]+)/i);
+    if (companyMatch) {
+      linkedinSlug = decodeURIComponent(companyMatch[1]).replace(/\/+$/, "");
+      if (!name || /linkedin\.com/i.test(name)) {
+        name = linkedinSlug.replace(/[-_]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+      }
+    }
+    if (name.length < 2) {
+      setError("Vul een bureanaam in, of plak een LinkedIn company-URL.");
+      return;
+    }
     if (hunt.agencies.some((a) => a.name.toLowerCase() === name.toLowerCase())) {
       setError("Dit bureau staat er al in");
       return;
@@ -190,64 +215,92 @@ export default function SettingsForm() {
       enabled: true,
       custom: true,
       recruiters: [],
+      ...(linkedinSlug ? { linkedinSlug } : {}),
     };
-    updateAgencies([agency, ...hunt.agencies]);
+    const next = [agency, ...hunt.agencies];
+    updateAgencies(next);
     setNewBureau("");
+    setNewBureauLinkedin("");
     setError("");
+    setSettingsTab("feed");
+    void persistSettings(next);
+  }
+
+  function setAgencyLinkedin(agencyId: string, raw: string) {
+    if (!hunt) return;
+    const match = raw.match(/linkedin\.com\/company\/([^/?#\s]+)/i);
+    const slug = match
+      ? decodeURIComponent(match[1]).replace(/\/+$/, "")
+      : raw.replace(/^https?:\/\/(www\.)?linkedin\.com\/company\//i, "").replace(/\/+$/, "").trim() ||
+        undefined;
+    const next = hunt.agencies.map((a) =>
+      a.id === agencyId ? { ...a, linkedinSlug: slug || undefined } : a
+    );
+    updateAgencies(next);
   }
 
   function addRecruiter(agencyId: string) {
     if (!hunt) return;
     const raw = (newRecruiter[agencyId] || "").trim();
     if (raw.length < 2) return;
-    const linkedinMatch = raw.match(/linkedin\.com\/in\/([^/?#\s]+)/i);
-    const linkedinUrl = linkedinMatch
-      ? `https://www.linkedin.com/in/${decodeURIComponent(linkedinMatch[1]).replace(/\/+$/, "")}`
-      : undefined;
-    const name = linkedinUrl
-      ? decodeURIComponent(linkedinMatch![1]).replace(/[-_]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
-      : raw;
-    if (name.length < 2) return;
-    updateAgencies(
-      hunt.agencies.map((a) => {
-        if (a.id !== agencyId) return a;
-        if (a.recruiters.some((r) => r.name.toLowerCase() === name.toLowerCase())) return a;
-        const rec: ManagedRecruiter = {
-          name,
-          enabled: true,
-          ...(linkedinUrl ? { linkedinUrl } : {}),
-        };
-        return { ...a, recruiters: [...a.recruiters, rec], enabled: true };
-      })
-    );
+    const parsed = parseRecruiterInput(raw);
+    if (!parsed) {
+      setError("Plak de LinkedIn-URL van de recruiter (linkedin.com/in/…). Zonder URL geen feed-sync.");
+      return;
+    }
+    const { name, linkedinUrl } = parsed;
+    const next = hunt.agencies.map((a) => {
+      if (a.id !== agencyId) return a;
+      if (a.recruiters.some((r) => r.linkedinUrl === linkedinUrl || r.name.toLowerCase() === name.toLowerCase()))
+        return a;
+      const rec: ManagedRecruiter = {
+        name,
+        enabled: true,
+        linkedinUrl,
+      };
+      return { ...a, recruiters: [...a.recruiters, rec], enabled: true };
+    });
+    updateAgencies(next);
     setNewRecruiter((prev) => ({ ...prev, [agencyId]: "" }));
+    setError("");
+    void persistSettings(next);
   }
 
   function mergeFound(agencyId: string, people: FoundPerson[]) {
     if (!hunt) return;
-    updateAgencies(
-      hunt.agencies.map((a) => {
-        if (a.id !== agencyId) return a;
-        const existing = new Set(a.recruiters.map((r) => r.name.toLowerCase()));
-        const extra: ManagedRecruiter[] = people
-          .filter((p) => p.name && !existing.has(p.name.toLowerCase()))
-          .map((p) => ({
-            name: p.name,
-            title: p.title || undefined,
-            linkedinUrl: p.url || undefined,
-            enabled: true,
-          }));
-        return {
-          ...a,
+    const next = hunt.agencies.map((a) => {
+      if (a.id !== agencyId) return a;
+      const existing = new Set(a.recruiters.map((r) => r.name.toLowerCase()));
+      const extra: ManagedRecruiter[] = people
+        .filter((p) => p.name && !existing.has(p.name.toLowerCase()))
+        .map((p) => ({
+          name: p.name,
+          title: p.title || undefined,
+          linkedinUrl: p.url || undefined,
           enabled: true,
-          recruiters: [...a.recruiters, ...extra],
-        };
-      })
-    );
+        }));
+      return {
+        ...a,
+        enabled: true,
+        recruiters: [...a.recruiters, ...extra],
+      };
+    });
+    updateAgencies(next);
     setFound((prev) => ({ ...prev, [agencyId]: [] }));
+    void persistSettings(next);
   }
 
   async function findRecruiters(agencyId: string) {
+    if (!hunt) return;
+    const agency = hunt.agencies.find((a) => a.id === agencyId);
+    if (!agency) return;
+    if (!agency.linkedinSlug) {
+      setFindMsg((prev) => ({
+        ...prev,
+        [agencyId]: "Vul eerst de LinkedIn company-URL van dit bureau in.",
+      }));
+      return;
+    }
     setFindBusy(agencyId);
     setFindMsg((prev) => ({ ...prev, [agencyId]: "" }));
     setError("");
@@ -255,15 +308,23 @@ export default function SettingsForm() {
       const res = await fetch("/api/settings/recruiters-search", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ agencyId }),
+        body: JSON.stringify({
+          agencyId,
+          companyName: agency.name,
+          companyLinkedinUrl: `https://www.linkedin.com/company/${agency.linkedinSlug}`,
+        }),
       });
       const j = (await res.json()) as {
         ok?: boolean;
         error?: string;
         people?: FoundPerson[];
+        linkedinBrowse?: string;
       };
       if (!res.ok || j.error) {
-        setFindMsg((prev) => ({ ...prev, [agencyId]: j.error || "Zoeken mislukt" }));
+        setFindMsg((prev) => ({
+          ...prev,
+          [agencyId]: j.error || "Zoeken mislukt",
+        }));
         setFound((prev) => ({ ...prev, [agencyId]: j.people || [] }));
         return;
       }
@@ -272,17 +333,16 @@ export default function SettingsForm() {
       setFindMsg((prev) => ({
         ...prev,
         [agencyId]: people.length
-          ? `${people.length} gevonden — voeg toe wie je wilt.`
-          : "Geen recruiters gevonden bij dit bureau.",
+          ? `${people.length} gevonden — voeg toe wie je wilt, daarna opslaan.`
+          : "Geen recruiters gevonden. Check de company-URL of zoek handmatig op LinkedIn.",
       }));
     } finally {
       setFindBusy(null);
     }
   }
 
-  async function onSubmit(e: FormEvent) {
-    e.preventDefault();
-    if (!hunt) return;
+  async function persistSettings(nextAgencies?: ManagedAgency[]) {
+    if (!hunt) return false;
     setError("");
     setSaved(false);
     setBusy(true);
@@ -290,6 +350,7 @@ export default function SettingsForm() {
       .split(/\n|,/)
       .map((r) => r.trim())
       .filter(Boolean);
+    const agencies = nextAgencies ?? hunt.agencies;
     try {
       const res = await fetch("/api/settings", {
         method: "PUT",
@@ -300,13 +361,13 @@ export default function SettingsForm() {
           roles,
           requireContract: hunt.requireContract,
           employmentKinds: hunt.employmentKinds,
-          agencies: hunt.agencies,
+          agencies,
           bench: hunt.bench || [],
         }),
       });
       if (!res.ok) {
         setError("Opslaan mislukt");
-        return;
+        return false;
       }
       const next = (await res.json()) as SettingsPayload;
       setHunt((prev) =>
@@ -314,103 +375,117 @@ export default function SettingsForm() {
           ? {
               ...prev,
               ...next,
-              agencies: next.agencies || prev.agencies,
+              agencies: next.agencies || agencies,
               bench: next.bench || prev.bench || [],
               catalog: prev.catalog,
               integrations: prev.integrations,
             }
           : prev
       );
-      setRolesText(next.roles.join("\n"));
+      if (next.roles) setRolesText(next.roles.join("\n"));
       setSaved(true);
       const { cacheClear, cacheSet } = await import("@/lib/client-cache");
       cacheClear("settings");
       cacheSet("settings", next);
+      return true;
+    } catch {
+      setError("Opslaan mislukt");
+      return false;
     } finally {
       setBusy(false);
     }
   }
 
+  async function onSubmit(e: FormEvent) {
+    e.preventDefault();
+    await persistSettings();
+  }
+
   return (
-    <AppShell current="instellingen" title="Instellingen" subtitle="Wat je zoekt en wie je volgt">
+    <AppShell current="instellingen" title="Instellingen" subtitle="Per onderdeel van de desk">
       <main className="ws-shell ws-shell--page">
-        <details className="ws-fold">
-          <summary>
-            <span>Wat stel je hier in?</span>
-            <span className="ws-fold__meta">Rollen · bureaus · bench</span>
-          </summary>
-          <div className="ws-fold__body">
-            <p className="m-0 text-[0.8rem] leading-relaxed text-[var(--muted)]">
-              Toolnaam, functies, soort opdracht, de bureaus/recruiters die je volgt, en jullie
-              ZZP-bench voor Voorstel. Recruiter LinkedIn-feeds voeden Recruiter feed; eindklanten bevestig
-              je daarna zelf.
-            </p>
-          </div>
-        </details>
-
-        {hunt?.integrations ? (
-          <section className="ws-panel mb-3 px-4 py-3">
-            <p className="ws-label">Koppelingen</p>
-            <ul className="mt-2 flex flex-wrap gap-2">
-              {(
-                [
-                  ["database", "Database", hunt.integrations.database],
-                  ["anthropic", "AI (Claude)", hunt.integrations.anthropic],
-                  ["apify", "Apify sync/HM", hunt.integrations.apify],
-                  ["lusha", "Lusha mail/tel", hunt.integrations.lusha],
-                  ["firecrawl", "Firecrawl", hunt.integrations.firecrawl],
-                ] as const
-              ).map(([key, label, ok]) => (
-                <li
-                  key={key}
-                  className={`rounded-[calc(var(--radius)-2px)] border px-2.5 py-1 text-[0.72rem] font-medium ${
-                    ok
-                      ? "border-[var(--green)]/30 bg-[var(--green-soft)] text-[var(--green)]"
-                      : "border-[var(--warn)]/30 bg-[var(--warn-soft)] text-[var(--warn)]"
-                  }`}
-                >
-                  {ok ? "✓" : "○"} {label}
-                </li>
-              ))}
-            </ul>
-            {!hunt.integrations.lusha ? (
-              <p className="mt-2 text-[0.75rem] text-[var(--muted)]">
-                Zonder Lusha kun je wel LinkedIn openen; mail/tel-enrichment blijft uit tot{" "}
-                <code className="text-[0.7rem]">LUSHA_API_KEY</code> op Vercel staat.
-              </p>
-            ) : null}
-          </section>
-        ) : null}
-
-        <section className="ws-panel mb-3 px-4 py-3">
-          <p className="ws-label">Meldingen</p>
-          <p className="mt-1.5 text-[0.8rem] leading-relaxed text-[var(--muted)]">
-            Nieuwe hits, bevestigde kansen en gevonden hiring managers landen in de{" "}
-            <strong className="font-semibold text-[var(--ink)]">bel rechtsboven</strong> (in-app).
-            Optioneel ook naar Slack/Discord via <code className="text-[0.7rem]">ALERT_WEBHOOK_URL</code>.
-            Mail-alerts (Resend) staan nog niet aan — zeg het als je dat wilt.
-          </p>
-        </section>
+        <nav className="mb-3 flex flex-wrap gap-1.5" aria-label="Onderdelen">
+          {(
+            [
+              ["jobboards", "Jobboards"],
+              ["feed", "Recruiter feed"],
+              ["kansen", "Kansen"],
+              ["voorstel", "Voorstel"],
+              ["algemeen", "Algemeen"],
+            ] as const
+          ).map(([id, label]) => (
+            <button
+              key={id}
+              type="button"
+              className={`ws-chip ${settingsTab === id ? "ws-chip--on" : ""}`}
+              onClick={() => {
+                setSettingsTab(id);
+                window.history.replaceState(null, "", `#${id}`);
+              }}
+            >
+              {label}
+            </button>
+          ))}
+        </nav>
 
         {!hunt ? (
           <p className="text-sm text-[var(--muted)]">Laden…</p>
         ) : (
           <form onSubmit={onSubmit} className="flex flex-col gap-3 pb-2">
-            <section className="ws-panel flex flex-wrap items-end gap-3 px-4 py-3">
-              <label className="min-w-[12rem] flex-1 text-sm font-medium">
-                Toolnaam
-                <span className="mt-0.5 block text-[0.72rem] font-normal text-[var(--muted)]">
-                  Verschijnt in het menu (nu: {hunt.name || "Recruitment Scout"}).
-                </span>
-                <input
-                  className="ws-input mt-1 max-w-md"
-                  value={hunt.name}
-                  onChange={(e) => setHunt({ ...hunt, name: e.target.value })}
-                />
-              </label>
-            </section>
+            {settingsTab === "algemeen" ? (
+              <>
+                {hunt.integrations ? (
+                  <section className="ws-panel px-4 py-3">
+                    <p className="ws-label">Koppelingen</p>
+                    <ul className="mt-2 flex flex-wrap gap-2">
+                      {(
+                        [
+                          ["database", "Database", hunt.integrations.database],
+                          ["anthropic", "AI (Claude)", hunt.integrations.anthropic],
+                          ["apify", "Apify sync/HM", hunt.integrations.apify],
+                          ["lusha", "Lusha mail/tel", hunt.integrations.lusha],
+                          ["firecrawl", "Firecrawl", hunt.integrations.firecrawl],
+                        ] as const
+                      ).map(([key, label, ok]) => (
+                        <li
+                          key={key}
+                          className={`rounded-[calc(var(--radius)-2px)] border px-2.5 py-1 text-[0.72rem] font-medium ${
+                            ok
+                              ? "border-[var(--green)]/30 bg-[var(--green-soft)] text-[var(--green)]"
+                              : "border-[var(--warn)]/30 bg-[var(--warn-soft)] text-[var(--warn)]"
+                          }`}
+                        >
+                          {ok ? "✓" : "○"} {label}
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                ) : null}
+                <section className="ws-panel px-4 py-3">
+                  <p className="ws-label">Meldingen</p>
+                  <p className="mt-1.5 text-[0.8rem] leading-relaxed text-[var(--muted)]">
+                    Nieuwe hits en hiring managers landen in de bel rechtsboven.
+                  </p>
+                </section>
+                <section className="ws-panel flex flex-wrap items-end gap-3 px-4 py-3">
+                  <label className="min-w-[12rem] flex-1 text-sm font-medium">
+                    Toolnaam
+                    <input
+                      className="ws-input mt-1 max-w-md"
+                      value={hunt.name}
+                      onChange={(e) => setHunt({ ...hunt, name: e.target.value })}
+                    />
+                  </label>
+                </section>
+              </>
+            ) : null}
 
-            <Section title="Wat je zoekt" hint="Functies en soort opdracht. Sync en radar filteren hierop.">
+            {settingsTab === "jobboards" ? (
+            <Section
+              id="jobboards"
+              title="Jobboards"
+              hint="Rollen en soort plaatsing (extern/contract). Alleen eindklanten op de radar — bureaus en consultancies worden gefilterd."
+            >
               <label className="block text-sm font-medium">
                 Functies
                 <span className="mt-0.5 block text-[0.75rem] font-normal text-[var(--muted)]">
@@ -429,7 +504,8 @@ export default function SettingsForm() {
               <div>
                 <p className="text-sm font-medium">Soort opdracht</p>
                 <p className="mt-0.5 text-[0.75rem] text-[var(--muted)]">
-                  Wat mag in Sync/Jobboards? Zet uit wat je niet wilt zien.
+                  Alleen externe plaatsingen (contract/ZZP/interim). Interne werving (vast in dienst) hoort
+                  niet in deze tool.
                 </p>
                 <div className="mt-2 grid gap-2 sm:grid-cols-2">
                   {hunt.catalog.employmentKinds.map((k) => (
@@ -476,7 +552,8 @@ export default function SettingsForm() {
                 <span>
                   <span className="font-medium text-[var(--ink)]">Alleen contracting</span>
                   <span className="mt-0.5 block text-[0.75rem] text-[var(--muted)]">
-                    Filter vaste (permanent) banen eruit — apart van ZZP/interim hierboven.
+                    Filter interne werving (vast dienstverband) eruit — deze desk is voor externe
+                    plaatsingen.
                   </span>
                 </span>
               </label>
@@ -490,27 +567,88 @@ export default function SettingsForm() {
               >
                 Standaardfuncties terugzetten
               </button>
-            </Section>
 
+              <div className="rounded-[var(--radius)] border border-[var(--line)] bg-[var(--surface-2)]/50 px-3 py-3">
+                <p className="text-sm font-medium text-[var(--ink)]">Uitgefilterd · handmatig</p>
+                <p className="mt-0.5 text-[0.75rem] text-[var(--muted)]">
+                  Via <em>Geen eindklant — verberg</em> op Jobboards. Bureaus op de vaste lijst
+                  (Yacht, WIN, Capgemini, …) zie je na sync onder “Uitgefilterd”.
+                </p>
+                {rejected.length ? (
+                  <ul className="mt-2 space-y-1.5">
+                    {rejected.map((r) => (
+                      <li key={r.key} className="flex items-center justify-between gap-2 text-sm">
+                        <span className="min-w-0 truncate font-medium text-[var(--ink)]">{r.name}</span>
+                        <button
+                          type="button"
+                          className="shrink-0 text-[0.72rem] font-semibold text-[var(--accent)] hover:underline"
+                          onClick={() => {
+                            void (async () => {
+                              const res = await fetch("/api/radar/reject-company", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ company: r.name, undo: true }),
+                              });
+                              if (!res.ok) return;
+                              setRejected((prev) => prev.filter((x) => x.key !== r.key));
+                            })();
+                          }}
+                        >
+                          Terugzetten
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="mt-2 text-[0.75rem] text-[var(--muted)]">Nog geen handmatig verborgen bedrijven.</p>
+                )}
+              </div>
+            </Section>
+            ) : null}
+
+            {settingsTab === "kansen" ? (
+              <Section
+                id="kansen"
+                title="Kansen"
+                hint="Kansen komen uit Jobboards (score ≥55) en bevestigde posts uit de Recruiter feed. Hiring manager zoeken ≈ €0,10."
+              >
+                <p className="text-[0.85rem] leading-relaxed text-[var(--muted)]">
+                  Geen aparte filters hier. Rollen en contracting-filter staan onder{" "}
+                  <button type="button" className="font-semibold text-[var(--ink)] underline" onClick={() => setSettingsTab("jobboards")}>
+                    Jobboards
+                  </button>
+                  . Kantoren die je volgt onder{" "}
+                  <button type="button" className="font-semibold text-[var(--ink)] underline" onClick={() => setSettingsTab("feed")}>
+                    Recruiter feed
+                  </button>
+                  .
+                </p>
+                <p className="text-[0.85rem] leading-relaxed text-[var(--muted)]">
+                  Op Jobboards: <em>Geen eindklant — verberg</em> zet een bedrijf op de
+                  verberg-lijst (Instellingen → Jobboards, met terugzetten). Automatische
+                  bureau-filters zie je na sync onder “Uitgefilterd”.
+                </p>
+              </Section>
+            ) : null}
+
+            {settingsTab === "feed" ? (
             <Section
-              id="volgen"
-              title="Kantoren & recruiters"
-              hint="Recruiters met LinkedIn-URL worden gescand op vacature-/kans-posts (Recruiter-feeds → Recruiter feed). Zonder URL geen feed-sync."
+              id="feed"
+              title="Recruiter feed"
+              hint="Volg kantoren en recruiters. Zonder LinkedIn-profiel-URL van de recruiter geen sync."
             >
-              <div className="rounded-[var(--radius)] border border-[var(--accent)]/20 bg-[var(--accent-soft)]/40 px-3.5 py-3 text-[0.8rem] leading-relaxed text-[var(--muted)]">
+              <div className="rounded-[var(--radius)] border border-[var(--line)] bg-[var(--surface-2)] px-3.5 py-3 text-[0.8rem] leading-relaxed text-[var(--muted)]">
                 <p>
-                  <strong className="text-[var(--ink)]">Bureau toevoegen:</strong> typ alleen de
-                  bureanaam (bijv. Yacht) → <em>Bureau toevoegen</em>. Geen website-URL nodig.
+                  <strong className="text-[var(--ink)]">1. Bureau toevoegen:</strong> naam + LinkedIn
+                  company-URL (`linkedin.com/company/…`). Wordt meteen opgeslagen.
                 </p>
                 <p className="mt-2">
-                  <strong className="text-[var(--ink)]">Recruiter toevoegen:</strong> open het bureau
-                  → typ de naam, of plak een LinkedIn-profiel-URL (`linkedin.com/in/…`) →{" "}
-                  <em>+ Recruiter</em>. Of klik <em>Zoek recruiters</em> om automatisch LinkedIn-namen
-                  op te halen.
+                  <strong className="text-[var(--ink)]">2. Recruiter toevoegen:</strong> plak het
+                  LinkedIn-profiel (`linkedin.com/in/…`). Zonder /in/-URL geen feed-sync.
                 </p>
                 <p className="mt-2">
-                  Vink aan wie je volgt. Opslaan onderaan. Bevestigde bureau-kansen landen daarna in
-                  Kansen.
+                  <strong className="text-[var(--ink)]">3. Zoek recruiters:</strong> vul eerst de
+                  company-URL, klik daarna Zoek. Resultaten kun je per stuk of alles toevoegen.
                 </p>
               </div>
 
@@ -557,12 +695,29 @@ export default function SettingsForm() {
                 <p className="text-sm text-[var(--muted)]">Geen recruiters voor “{query}”.</p>
               ) : null}
 
-              <div className="flex flex-col gap-2 sm:flex-row">
+              <div className="flex flex-col gap-2">
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <input
+                    className="ws-input min-w-0 flex-1"
+                    placeholder="Bureanaam, bv. Yacht"
+                    value={newBureau}
+                    onChange={(e) => setNewBureau(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        addBureau();
+                      }
+                    }}
+                  />
+                  <button type="button" className="btn-ink btn-tool shrink-0" onClick={addBureau}>
+                    Bureau toevoegen
+                  </button>
+                </div>
                 <input
-                  className="ws-input min-w-0 flex-1"
-                  placeholder="Bureanaam, bv. Yacht (geen link)"
-                  value={newBureau}
-                  onChange={(e) => setNewBureau(e.target.value)}
+                  className="ws-input"
+                  placeholder="LinkedIn company-URL (aanbevolen) · linkedin.com/company/…"
+                  value={newBureauLinkedin}
+                  onChange={(e) => setNewBureauLinkedin(e.target.value)}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {
                       e.preventDefault();
@@ -570,9 +725,6 @@ export default function SettingsForm() {
                     }
                   }}
                 />
-                <button type="button" className="btn-ink btn-tool shrink-0" onClick={addBureau}>
-                  Bureau toevoegen
-                </button>
               </div>
 
               {!q ? (
@@ -628,6 +780,41 @@ export default function SettingsForm() {
                           ) : null}
                         </div>
                       </div>
+
+                      <label className="mt-2 block text-[0.72rem] font-medium text-[var(--muted)]">
+                        LinkedIn company
+                        <input
+                          className="ws-input mt-0.5"
+                          placeholder="linkedin.com/company/…"
+                          value={
+                            a.linkedinSlug
+                              ? `https://www.linkedin.com/company/${a.linkedinSlug}`
+                              : ""
+                          }
+                          onChange={(e) => setAgencyLinkedin(a.id, e.target.value)}
+                          onBlur={(e) => {
+                            if (!hunt) return;
+                            const raw = e.target.value.trim();
+                            const match = raw.match(/linkedin\.com\/company\/([^/?#\s]+)/i);
+                            const slug = match
+                              ? decodeURIComponent(match[1]).replace(/\/+$/, "")
+                              : raw
+                                  .replace(/^https?:\/\/(www\.)?linkedin\.com\/company\//i, "")
+                                  .replace(/\/+$/, "")
+                                  .trim() || undefined;
+                            const next = hunt.agencies.map((x) =>
+                              x.id === a.id ? { ...x, linkedinSlug: slug || undefined } : x
+                            );
+                            updateAgencies(next);
+                            void persistSettings(next);
+                          }}
+                        />
+                        {!a.linkedinSlug ? (
+                          <span className="mt-0.5 block text-[0.68rem] text-[var(--warn)]">
+                            Nodig voor “Zoek recruiters”
+                          </span>
+                        ) : null}
+                      </label>
 
                       {findMsg[a.id] ? (
                         <p className="mt-2 text-[0.75rem] text-[var(--muted)]">{findMsg[a.id]}</p>
@@ -716,7 +903,7 @@ export default function SettingsForm() {
                           <div className="flex flex-col gap-2 pt-1 sm:flex-row">
                             <input
                               className="ws-input min-w-0 flex-1 bg-[var(--surface-2)]"
-                              placeholder="Naam of LinkedIn-URL (linkedin.com/in/…)"
+                              placeholder="Naam optioneel · plak linkedin.com/in/…"
                               value={newRecruiter[a.id] || ""}
                               onChange={(e) =>
                                 setNewRecruiter((prev) => ({ ...prev, [a.id]: e.target.value }))
@@ -744,11 +931,13 @@ export default function SettingsForm() {
               </div>
               ) : null}
             </Section>
+            ) : null}
 
+            {settingsTab === "voorstel" ? (
             <Section
-              id="bench"
-              title="Bench (ZZP’ers)"
-              hint="Jullie echte mensen voor Voorstel. Geen fictieve namen meer — shortlist komt alleen uit deze lijst."
+              id="voorstel"
+              title="Voorstel · Bench (ZZP’ers)"
+              hint="Namedropping in het HM-bericht komt uit deze lijst. Vul naam, titel, stack en beschikbaarheid."
             >
               <ul className="space-y-3">
                 {(hunt.bench || []).map((p, idx) => (
@@ -963,12 +1152,11 @@ export default function SettingsForm() {
                 + ZZP’er toevoegen
               </button>
             </Section>
+            ) : null}
 
             {error ? <p className="text-sm text-[var(--warn)]">{error}</p> : null}
             {saved ? (
-              <p className="text-sm text-[var(--green)]">
-                Opgeslagen. Recruiter feed volgt wie je hier aanzet.
-              </p>
+              <p className="text-sm text-[var(--green)]">Opgeslagen.</p>
             ) : null}
 
             <div className="sticky bottom-[var(--mobile-nav-pad)] z-10 -mx-5 border-t border-[var(--line)] bg-[var(--bg)]/95 px-5 py-3 backdrop-blur md:static md:bottom-auto md:mx-0 md:border-0 md:bg-transparent md:px-0 md:py-0 md:backdrop-blur-none">

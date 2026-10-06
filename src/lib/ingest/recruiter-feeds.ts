@@ -9,7 +9,7 @@ import { hasApifyToken, runApifyActor } from "@/lib/apify";
 import { INGEST_POLICY } from "@/lib/costs";
 import { loadDeskMeta, saveDeskMeta, type FeedCheck } from "@/lib/desk-meta";
 import { isVacancyPost, type LinkedInPost } from "@/lib/ingest/linkedin";
-import { detectRoleLabel, matchesRole } from "@/lib/niche";
+import { detectRoleLabel, looksLikePermanent, matchesRole } from "@/lib/niche";
 import { ingestSignal, listAgencySignals } from "@/lib/store";
 import { recordSync, type SyncHit } from "@/lib/sync-log";
 
@@ -123,6 +123,7 @@ function postTitle(text: string): string {
 }
 
 function isRecruiterVacancyPost(text: string): boolean {
+  if (looksLikePermanent(text)) return false;
   if (isVacancyPost(text)) return true;
   const t = text.toLowerCase();
   // Typische bureau-recruiter taal
@@ -368,6 +369,9 @@ export async function syncRecruiterFeeds(opts?: {
             url: post.url,
             kept: false,
             isNew: false,
+            reason: looksLikePermanent(post.text)
+              ? "vast dienstverband (interne werving)"
+              : "geen vacature/kans-post",
           });
           continue;
         }
@@ -412,6 +416,12 @@ export async function syncRecruiterFeeds(opts?: {
             url: post.url,
             kept: false,
             isNew: false,
+            reason:
+              result.reason === "no-contract-zzp"
+                ? "geen externe plaatsing (ZZP/interim/contract)"
+                : result.reason === "outside-niche"
+                  ? "rol buiten Instellingen"
+                  : result.reason || "niet opgenomen",
           });
         }
       }

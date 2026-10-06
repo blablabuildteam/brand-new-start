@@ -143,7 +143,7 @@ export function scoreSignals(
 
   if (opts.directClient && hasContract) {
     factors.push({
-      label: "Eindklant zet zelf een contract-rol uit — geen bureau ertussen",
+      label: "Externe contract-rol op jobboard (geen bureau)",
       points: 10,
       source: "job-type",
     });
@@ -367,7 +367,7 @@ export const SCORE_METHOD = {
   ],
   factors: [
     { when: "Vacature noemt contract / interim / ZZP", points: "+35" },
-    { when: "Eindklant zet de contract-rol zelf uit (geen bureau)", points: "+10" },
+    { when: "Externe contract-rol op jobboard (geen bureau)", points: "+10" },
     { when: "Recruiter-feed zoekt dezelfde rol voor dit bedrijf (andere rol: +6)", points: "+14" },
     { when: "Aanbesteding / award", points: "+25–40" },
     { when: "Team-melding (pulse)", points: "+18–35" },

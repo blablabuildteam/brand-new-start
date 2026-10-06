@@ -168,7 +168,9 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
       const j = (await res.json().catch(() => ({}))) as {
         ok?: boolean;
         empty?: boolean;
+        needsPick?: boolean;
         hiringManager?: string | null;
+        hits?: { name: string }[];
         error?: string;
         detail?: string;
       };
@@ -176,7 +178,9 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
         setHmError(j.error || "HM-zoeken mislukt");
         return;
       }
-      if (j.empty || !j.hiringManager) {
+      if (j.needsPick || ((j.hits?.length || 0) > 0 && !j.hiringManager)) {
+        setHmError("Kies hieronder wie de hiring manager is.");
+      } else if (j.empty || !j.hiringManager) {
         setHmError(hmSearchMessage(j.detail));
       }
       await refresh().catch(() => null);
@@ -733,6 +737,34 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
                               ) : null}
                             </div>
                           </dl>
+
+                          {row.hmHits.length && !row.hiringManager ? (
+                            <div className="mt-4 rounded-[var(--radius)] border border-dashed border-[var(--line)] px-3 py-3">
+                              <p className="ws-label">Kies de hiring manager</p>
+                              <p className="mt-1 text-[0.75rem] text-[var(--muted)]">
+                                LinkedIn gaf deze namen bij {row.endClient}. Nummer 1 is geen automatische keuze.
+                              </p>
+                              <ul className="mt-2 space-y-1.5">
+                                {row.hmHits.slice(0, 5).map((h) => (
+                                  <li
+                                    key={`${h.name}-${h.url || ""}`}
+                                    className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[0.8rem]"
+                                  >
+                                    <span className="font-medium text-[var(--ink)]">{h.name}</span>
+                                    {h.title ? <span className="text-[var(--muted)]">{h.title}</span> : null}
+                                    <button
+                                      type="button"
+                                      disabled={contactBusy}
+                                      onClick={() => void fetchContact(row.id, h.url, true)}
+                                      className="font-semibold text-[var(--ink)] underline underline-offset-2 disabled:opacity-50"
+                                    >
+                                      Gebruik deze
+                                    </button>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          ) : null}
 
                           {row.hiringManager ? (
                             <div className="kans-contact">

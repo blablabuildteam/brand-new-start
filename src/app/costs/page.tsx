@@ -23,6 +23,13 @@ type CostsPayload = {
     efficiency: string;
   }>;
   platform: Record<string, { low: number; high: number; note: string }>;
+  perRun?: {
+    disclaimer: string;
+    actions: Record<
+      string,
+      { label: string; tool: string; eur: { low: number; high: number }; what: string }
+    >;
+  };
   roi: {
     clientRatePerHour: { low: number; high: number };
     contractorRatePerHour: { low: number; high: number };
@@ -49,17 +56,13 @@ export default function CostsPage() {
           router.replace("/login");
           return null;
         }
-        if (res.status === 403) {
-          router.replace("/radar");
-          return null;
-        }
         return res.json();
       })
       .then((j) => j && setData(j));
   }, [router]);
 
   return (
-    <AppShell title="Kosten" subtitle="Stack, cadans en ROI">
+    <AppShell current="instellingen" title="Kosten" subtitle="Per maand en per scrape">
     <main className="ws-shell ws-shell--page">
 
       {!data ? (
@@ -68,15 +71,15 @@ export default function CostsPage() {
         <>
           <section className="mb-6 grid gap-3 sm:grid-cols-2">
             <div className="rounded-md border border-[var(--line)] bg-[var(--surface)] p-4">
-              <p className="text-[0.65rem] uppercase tracking-wide text-[var(--muted)]">Kerndrie · handmatig</p>
+              <p className="text-[0.65rem] uppercase tracking-wide text-[var(--muted)]">Per maand · kerndrie</p>
               <p className="mt-1 text-2xl font-bold tabular-nums" style={{ fontFamily: "var(--mono)" }}>
                 €{data.monthly.liveNow.low}–{data.monthly.liveNow.high}
                 <span className="text-sm font-normal text-[var(--muted)]">/m</span>
               </p>
               <p className="mt-1.5 text-xs text-[var(--muted)]">{data.monthly.liveNow.note}</p>
             </div>
-            <div className="rounded-md border border-[var(--accent)]/30 bg-[var(--accent-soft)]/25 p-4">
-              <p className="text-[0.65rem] uppercase tracking-wide text-[var(--accent)]">+ careers / alles</p>
+            <div className="rounded-md border border-[var(--line)] bg-[var(--surface)] p-4">
+              <p className="text-[0.65rem] uppercase tracking-wide text-[var(--muted)]">Per maand · met careers</p>
               <p className="mt-1 text-2xl font-bold tabular-nums" style={{ fontFamily: "var(--mono)" }}>
                 €{data.monthly.withFirecrawl.low}–{data.monthly.withFirecrawl.high}
                 <span className="text-sm font-normal text-[var(--muted)]">/m</span>
@@ -85,95 +88,34 @@ export default function CostsPage() {
             </div>
           </section>
 
-          <section className="mb-6 overflow-hidden rounded-md border border-[var(--line)] bg-[var(--surface)] shadow-[var(--shadow)]">
-            <div className="border-b border-[var(--line)]/80 px-4 py-3 sm:px-5">
-              <p
-                className="text-[0.65rem] font-medium uppercase tracking-[0.08em] text-[var(--muted)]"
-                style={{ fontFamily: "var(--mono)" }}
-              >
-                Verdienste
-              </p>
-              <h2 className="mt-0.5 text-base font-semibold text-[var(--ink)]" style={{ fontFamily: "var(--display)" }}>
-                ROI op uurtarief-marge
-              </h2>
-            </div>
-
-            <div className="grid gap-0 sm:grid-cols-[1.1fr_0.9fr]">
-              <div className="border-b border-[var(--line)]/80 px-4 py-4 sm:border-b-0 sm:border-r sm:px-5">
-                <p className="text-[0.65rem] uppercase tracking-wide text-[var(--muted)]">Marge per plaatsing</p>
-                <p
-                  className="mt-1 text-3xl font-bold tabular-nums tracking-tight text-[var(--ink)]"
-                  style={{ fontFamily: "var(--mono)" }}
-                >
-                  €{data.roi.marginPerPlacement.mid.toLocaleString("nl-NL")}
-                </p>
-                <p className="mt-1 text-xs text-[var(--muted)]">
-                  midden · range €{data.roi.marginPerPlacement.low.toLocaleString("nl-NL")}–€
-                  {data.roi.marginPerPlacement.high.toLocaleString("nl-NL")}
-                </p>
-                <p
-                  className="mt-3 rounded bg-[var(--surface-2)] px-2.5 py-1.5 text-[0.68rem] leading-relaxed text-[var(--muted)]"
-                  style={{ fontFamily: "var(--mono)" }}
-                >
-                  (klant − ZZP) × {data.roi.hoursPerWeek}u × weken
-                </p>
-              </div>
-
-              <div className="flex flex-col justify-center gap-3 bg-[var(--accent-soft)]/35 px-4 py-4 sm:px-5">
-                <div>
-                  <p className="text-[0.65rem] uppercase tracking-wide text-[var(--accent)]">Break-even</p>
-                  <p className="mt-0.5 text-2xl font-bold tabular-nums text-[var(--ink)]" style={{ fontFamily: "var(--mono)" }}>
-                    {data.roi.breakEvenPlacementsAtMidMargin}
-                    <span className="ml-1.5 text-sm font-normal text-[var(--muted)]">plaatsing/jaar</span>
-                  </p>
-                </div>
-                <p className="text-xs leading-relaxed text-[var(--muted)]">
-                  Worst-case stack ≈ €{data.roi.annualCost.high.toLocaleString("nl-NL")}/jaar. Eén extra interim
-                  dekt de signal-kosten typisch al.
-                </p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-px border-t border-[var(--line)]/80 bg-[var(--line)]/80 sm:grid-cols-4">
-              {[
-                {
-                  label: "Klant €/u",
-                  value: `€${data.roi.clientRatePerHour.low}–${data.roi.clientRatePerHour.high}`,
-                },
-                {
-                  label: "ZZP €/u",
-                  value: `€${data.roi.contractorRatePerHour.low}–${data.roi.contractorRatePerHour.high}`,
-                },
-                {
-                  label: "Marge/uur",
-                  value: `€${data.roi.marginPerHour.low}–${data.roi.marginPerHour.high}`,
-                },
-                {
-                  label: "Opdracht",
-                  value: `${data.roi.hoursPerWeek}u × ${data.roi.weeksPerPlacement.low}–${data.roi.weeksPerPlacement.high}w`,
-                },
-              ].map((cell) => (
-                <div key={cell.label} className="bg-[var(--surface)] px-3 py-3 sm:px-4">
-                  <p className="text-[0.62rem] uppercase tracking-wide text-[var(--muted)]">{cell.label}</p>
-                  <p className="mt-0.5 text-sm font-semibold tabular-nums text-[var(--ink)]" style={{ fontFamily: "var(--mono)" }}>
-                    {cell.value}
-                  </p>
-                </div>
-              ))}
-            </div>
-
-            <ul className="space-y-1.5 border-t border-[var(--line)]/80 px-4 py-3 text-xs leading-relaxed text-[var(--muted)] sm:px-5">
-              {data.roi.narrative.map((n) => (
-                <li key={n} className="flex gap-2">
-                  <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-[var(--accent)]/70" />
-                  <span>{n}</span>
-                </li>
-              ))}
-            </ul>
-          </section>
+          {data.perRun ? (
+            <section className="mb-6">
+              <h2 className="mb-1 text-sm font-bold uppercase tracking-wide text-[var(--muted)]">Per scrape / actie</h2>
+              <p className="mb-3 text-[0.78rem] text-[var(--muted)]">{data.perRun.disclaimer}</p>
+              <ul className="space-y-2">
+                {Object.entries(data.perRun.actions)
+                  .filter(([id]) => !["boards", "all"].includes(id))
+                  .map(([id, a]) => (
+                    <li key={id} className="rounded-md border border-[var(--line)] bg-[var(--surface)] px-3 py-2.5">
+                      <div className="flex justify-between gap-3 text-sm">
+                        <strong>{a.label}</strong>
+                        <span className="shrink-0 tabular-nums text-[var(--muted)]" style={{ fontFamily: "var(--mono)" }}>
+                          {a.eur.low === 0 && a.eur.high === 0
+                            ? "€0"
+                            : `€${a.eur.low.toFixed(2).replace(".", ",")}–${a.eur.high.toFixed(2).replace(".", ",")}`}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-xs text-[var(--muted)]">
+                        {a.tool} · {a.what}
+                      </p>
+                    </li>
+                  ))}
+              </ul>
+            </section>
+          ) : null}
 
           <section className="mb-6">
-            <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-[var(--muted)]">Bronnen</h2>
+            <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-[var(--muted)]">Bronnen · per maand</h2>
             <ul className="space-y-2">
               {data.sources.map((s) => (
                 <li key={s.id} className="rounded-md border border-[var(--line)] bg-[var(--surface)] px-3 py-2.5">

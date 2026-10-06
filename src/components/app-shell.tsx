@@ -277,15 +277,24 @@ export function AppShell({
           <SideIcon kind="help" on={false} />
           <span className="rail-label">Hoe het werkt</span>
         </Link>
+        <Link
+          href="/costs"
+          data-rail="Kosten"
+          className="nav-link flex items-center gap-2.5 rounded-[var(--radius)] px-2.5 py-2 text-[0.8rem] text-[var(--muted)] hover:bg-[var(--surface-2)] hover:text-[var(--ink)]"
+          onClick={() => setOpen(false)}
+        >
+          <SideIcon kind="costs" on={false} />
+          <span className="rail-label">Kosten</span>
+        </Link>
         {user?.role === "admin" ? (
           <Link
-            href="/costs"
-            data-rail="Kosten"
+            href="/samenwerking"
+            data-rail="Samenwerking"
             className="nav-link flex items-center gap-2.5 rounded-[var(--radius)] px-2.5 py-2 text-[0.8rem] text-[var(--muted)] hover:bg-[var(--surface-2)] hover:text-[var(--ink)]"
             onClick={() => setOpen(false)}
           >
-            <SideIcon kind="costs" on={false} />
-            <span className="rail-label">Kosten</span>
+            <SideIcon kind="help" on={false} />
+            <span className="rail-label">Samenwerking</span>
           </Link>
         ) : null}
         {user?.email ? (

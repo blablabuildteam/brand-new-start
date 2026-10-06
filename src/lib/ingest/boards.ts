@@ -4,8 +4,13 @@
  */
 
 import { hasApifyToken, runApifyActor } from "@/lib/apify";
-import { isAgencyName } from "@/lib/agency";
-import { detectRoleLabel, matchesContract, matchesRole } from "@/lib/niche";
+import { isBlockedEndClientName } from "@/lib/agency";
+import {
+  detectRoleLabel,
+  isExternalPlacementText,
+  looksLikePermanent,
+  matchesRole,
+} from "@/lib/niche";
 import { ingestSignal, isJunkCompanyName, isJunkJobTitle } from "@/lib/store";
 import { recordSync, type SyncChannel, type SyncHit } from "@/lib/sync-log";
 import { INGEST_POLICY } from "@/lib/costs";
@@ -40,27 +45,68 @@ async function ingestBoardJobs(jobs: BoardJob[]) {
 
   for (const job of jobs) {
     scanned += 1;
-    if (isJunkCompanyName(job.company) || isAgencyName(job.company)) {
+    if (isJunkCompanyName(job.company) || isJunkJobTitle(job.title)) {
       skipped += 1;
-      hits.push({ company: job.company || "?", title: job.title, url: job.url, kept: false, isNew: false });
+      hits.push({
+        company: job.company || "?",
+        title: job.title,
+        url: job.url,
+        kept: false,
+        isNew: false,
+        reason: "ongeldige naam/titel",
+      });
       continue;
     }
-    if (isJunkJobTitle(job.title)) {
+    if (isBlockedEndClientName(job.company)) {
       skipped += 1;
-      hits.push({ company: job.company, title: job.title, url: job.url, kept: false, isNew: false });
+      hits.push({
+        company: job.company,
+        title: job.title,
+        url: job.url,
+        kept: false,
+        isNew: false,
+        reason: "bureau/consultancy (geen eindklant)",
+      });
       continue;
     }
     const blob = `${job.title} ${job.description || ""}`;
     if (!matchesRole(blob)) {
       skipped += 1;
-      hits.push({ company: job.company, title: job.title, url: job.url, kept: false, isNew: false });
+      hits.push({
+        company: job.company,
+        title: job.title,
+        url: job.url,
+        kept: false,
+        isNew: false,
+        reason: "rol buiten Instellingen",
+      });
       continue;
     }
 
-    const contractish = matchesContract(blob) || /contract|interim|zzp|freelance|tijdelijk/i.test(blob);
+    if (looksLikePermanent(blob)) {
+      skipped += 1;
+      hits.push({
+        company: job.company,
+        title: job.title,
+        url: job.url,
+        kept: false,
+        isNew: false,
+        reason: "vast dienstverband (interne werving)",
+      });
+      continue;
+    }
+
+    const contractish = isExternalPlacementText(blob);
     if (huntSettings().requireContract && !contractish) {
       skipped += 1;
-      hits.push({ company: job.company, title: job.title, url: job.url, kept: false, isNew: false });
+      hits.push({
+        company: job.company,
+        title: job.title,
+        url: job.url,
+        kept: false,
+        isNew: false,
+        reason: "geen externe plaatsing (ZZP/interim/contract)",
+      });
       continue;
     }
 
@@ -79,7 +125,7 @@ async function ingestBoardJobs(jobs: BoardJob[]) {
       title: job.title,
       summary: (job.description || job.title).slice(0, 480),
       evidenceUrl: job.url,
-      employmentHint: "contract",
+      employmentHint: contractish ? "contract" : undefined,
       sector: job.location,
       seenAt: new Date(),
       raw: {

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getSession } from "@/lib/auth";
 import { listRadar, patchSignalRaw } from "@/lib/store";
-import { orgContextFromSignals } from "@/lib/org-context";
+import { namedManagerFromVacancy, orgContextFromSignals } from "@/lib/org-context";
 import { buildApproach, companyLinkedinFromSignals } from "@/lib/approach";
 import { searchHiringManagers } from "@/lib/ingest/people-search";
 import { recordSync } from "@/lib/sync-log";
@@ -61,6 +61,16 @@ export async function POST(req: Request) {
     return NextResponse.json(payload(org, true));
   }
 
+  const blob = vacancy.signals.map((s) => s.summary || s.title).join("\n");
+  const poster = vacancy.signals
+    .map((s) => s.raw || {})
+    .find((r) => typeof r.jobPosterName === "string");
+  const namedPerson = namedManagerFromVacancy({
+    text: blob,
+    posterName: typeof poster?.jobPosterName === "string" ? poster.jobPosterName : null,
+    posterTitle: typeof poster?.jobPosterTitle === "string" ? poster.jobPosterTitle : null,
+  });
+
   try {
     const result = await searchHiringManagers({
       company: company.company.name,
@@ -69,6 +79,8 @@ export async function POST(req: Request) {
       department: org.department,
       sector: company.company.sector,
       companyLinkedinUrl: companyUrl,
+      namedPerson,
+      vacancyText: blob,
     });
 
     await recordSync({
@@ -102,11 +114,19 @@ export async function POST(req: Request) {
       url: p.url,
       company: p.company,
     }));
+    const chosen = result.namedMatch
+      ? hmHits.find(
+          (p) =>
+            namedPerson &&
+            (p.name.toLowerCase() === namedPerson.toLowerCase() ||
+              p.name.toLowerCase().startsWith(namedPerson.toLowerCase()))
+        ) || hmHits[0]
+      : null;
     const nextOrg = {
       ...org,
-      hiringManager: hmHits[0]!.name,
-      hiringManagerTitle: hmHits[0]!.title,
-      contactUrl: hmHits[0]!.url,
+      hiringManager: chosen?.name || null,
+      hiringManagerTitle: chosen?.title || org.hiringManagerTitle,
+      contactUrl: chosen?.url || org.contactUrl,
       hmHits,
     };
 

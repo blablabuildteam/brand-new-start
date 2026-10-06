@@ -3,6 +3,7 @@ import {
   agencyCatalog,
   isAgencyName,
   isWatchedAgency,
+  looksLikeIntermediary,
   matchAgency,
   watchedAgencies,
   watchedRecruitersFor,
@@ -576,9 +577,13 @@ export async function reviewLead(
   };
   // The agency is the intermediary, never the end client — confirming it would
   // poison the CRM and send the HM hunt after the wrong company.
-  if (action === "confirmed" && next.clientName && isAgencyName(next.clientName)) {
+  if (
+    action === "confirmed" &&
+    next.clientName &&
+    (isAgencyName(next.clientName) || looksLikeIntermediary(next.clientName))
+  ) {
     throw new Error(
-      `${next.clientName} is een bureau, geen eindklant — vul de opdrachtgever in.`
+      `${next.clientName} is een bureau/consultancy, geen eindklant — vul de opdrachtgever in.`
     );
   }
   // Persist first: writing the in-memory map before the save meant a failed

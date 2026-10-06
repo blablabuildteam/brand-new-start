@@ -10,6 +10,9 @@ export const maxDuration = 120;
 
 const Body = z.object({
   agencyId: z.string().min(1),
+  /** Client mag company-URL meesturen (nog niet opgeslagen / net toegevoegd). */
+  companyLinkedinUrl: z.string().url().optional(),
+  companyName: z.string().min(2).max(120).optional(),
 });
 
 export async function POST(req: Request) {
@@ -21,19 +24,23 @@ export async function POST(req: Request) {
 
   await loadHuntSettings();
   const agency = agencyCatalog().find((a) => a.id === parsed.data.agencyId);
-  if (!agency) return NextResponse.json({ error: "bureau niet gevonden" }, { status: 404 });
+  const company = parsed.data.companyName || agency?.name;
+  if (!company) return NextResponse.json({ error: "bureau niet gevonden" }, { status: 404 });
 
-  const companyLinkedinUrl = agency.linkedinSlug
-    ? `https://www.linkedin.com/company/${agency.linkedinSlug}`
+  const fromClient = parsed.data.companyLinkedinUrl?.includes("linkedin.com/company/")
+    ? parsed.data.companyLinkedinUrl.split("?")[0]
     : null;
+  const companyLinkedinUrl =
+    fromClient ||
+    (agency?.linkedinSlug ? `https://www.linkedin.com/company/${agency.linkedinSlug}` : null);
 
   const result = await searchAgencyRecruiters({
-    company: agency.name,
+    company,
     companyLinkedinUrl,
   });
 
   const linkedinBrowse = linkedinPeopleAtCompany({
-    company: agency.name,
+    company,
     companyLinkedinUrl,
     keywords: "recruiter OR consultant",
   });

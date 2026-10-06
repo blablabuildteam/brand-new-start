@@ -188,6 +188,21 @@ function fromRaw(raw: Record<string, unknown> | null | undefined): OrgContext {
   };
 }
 
+export function namedManagerFromVacancy(opts: {
+  text?: string | null;
+  posterName?: string | null;
+  posterTitle?: string | null;
+}): string | null {
+  const parsed = parseFromText(opts.text || "");
+  if (parsed.hiringManager) return parsed.hiringManager;
+  const poster = str(opts.posterName);
+  const title = str(opts.posterTitle);
+  if (poster && looksLikePerson(poster) && title && MANAGER_TITLE.test(title) && !isRecruiter(title)) {
+    return poster;
+  }
+  return null;
+}
+
 export function extractOrgContext(opts: {
   text?: string | null;
   raw?: Record<string, unknown> | null;

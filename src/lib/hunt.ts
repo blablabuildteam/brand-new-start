@@ -8,10 +8,10 @@ import { PRODUCT } from "@/lib/product-brand";
 export type EmploymentKind = "zzp" | "interim" | "contract" | "detachering";
 
 export const EMPLOYMENT_KINDS: { id: EmploymentKind; label: string; hint: string }[] = [
-  { id: "zzp", label: "ZZP", hint: "Zelfstandige / freelance" },
-  { id: "interim", label: "Interim", hint: "Tijdelijke inhuur" },
-  { id: "contract", label: "Contract", hint: "Contractrollen op boards" },
-  { id: "detachering", label: "Detachering", hint: "Recruiter feed gedetacheerd" },
+  { id: "zzp", label: "ZZP", hint: "Externe plaatsing · zelfstandige / freelance" },
+  { id: "interim", label: "Interim", hint: "Externe plaatsing · tijdelijke inhuur" },
+  { id: "contract", label: "Contract", hint: "Externe plaatsing · contractrol (geen vast dienstverband)" },
+  { id: "detachering", label: "Detachering", hint: "Externe plaatsing via bureau" },
 ];
 
 export type ManagedRecruiter = {
@@ -33,6 +33,30 @@ export type ManagedAgency = {
   custom?: boolean;
   recruiters: ManagedRecruiter[];
 };
+
+export function parseRecruiterInput(raw: string): { name: string; linkedinUrl: string } | null {
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  const linkedinMatch = trimmed.match(/linkedin\.com\/in\/([^/?#\s]+)/i);
+  if (!linkedinMatch) return null;
+  const slug = decodeURIComponent(linkedinMatch[1]).replace(/\/+$/, "");
+  if (!slug) return null;
+  const linkedinUrl = `https://www.linkedin.com/in/${slug}`;
+  const before = trimmed.slice(0, trimmed.search(/https?:\/\/|\blinkedin\.com/i)).trim().replace(/[·|,;]+$/g, "").trim();
+  const name = before.length >= 2 ? before : displayNameFromLinkedInSlug(slug);
+  if (name.length < 2) return null;
+  return { name, linkedinUrl };
+}
+
+function displayNameFromLinkedInSlug(slug: string): string {
+  let s = slug.replace(/\/+$/, "");
+  const stripped = s.replace(/-+[a-z0-9]{6,14}$/i, "");
+  if (stripped.length >= 4 && stripped.includes("-")) s = stripped;
+  return s
+    .replace(/[-_]/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase())
+    .trim();
+}
 
 export type HuntSettings = {
   /** Naam van de desk (sidebar / topbar). */

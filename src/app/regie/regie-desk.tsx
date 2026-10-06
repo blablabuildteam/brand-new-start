@@ -25,8 +25,6 @@ type DeskItem = {
   proposal: PlacementProposal;
 };
 
-const AVAIL = { nu: "Direct", "2w": "2 weken", "1m": "4 weken" } as const;
-
 function initials(name: string) {
   return name
     .split(/\s+/)
@@ -39,10 +37,6 @@ function initials(name: string) {
 function hmKnown(proposal: PlacementProposal | null) {
   const t = proposal?.hiring[0];
   return t?.kind === "person" && t.cta === "bericht";
-}
-
-function defaultTab(): "hm" {
-  return "hm";
 }
 
 function groupRail(items: DeskItem[]) {
@@ -71,7 +65,6 @@ export default function RegieDesk({
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [sel, setSel] = useState({ companyId: initialId, openingId: initialOpening });
-  const [tab, setTab] = useState<"hm" | string>("hm");
   const [draft, setDraft] = useState("");
   const [copied, setCopied] = useState(false);
   const [huntBusy, setHuntBusy] = useState(false);
@@ -131,7 +124,6 @@ export default function RegieDesk({
   const groups = useMemo(() => groupRail(visible), [visible]);
 
   useEffect(() => {
-    setTab(defaultTab());
     setHuntErr("");
   }, [item?.openingId]);
 
@@ -144,8 +136,8 @@ export default function RegieDesk({
 
   useEffect(() => {
     if (!proposal) return;
-    setDraft(tab === "hm" ? proposal.hmMessage : proposal.candidateMessages.find((m) => m.id === tab)?.body || "");
-  }, [proposal, tab]);
+    setDraft(proposal.hmMessage);
+  }, [proposal]);
 
   function select(companyId: string, oid: string) {
     setSel({ companyId, openingId: oid });
@@ -238,7 +230,6 @@ export default function RegieDesk({
             : r
         )
       );
-      setTab("hm");
     } catch (e) {
       setHuntErr(e instanceof Error ? e.message : "zoeken mislukt");
     } finally {
@@ -298,8 +289,7 @@ export default function RegieDesk({
 
   const hm = proposal?.hiring[0];
   const known = hmKnown(proposal);
-  const linkedInUrl =
-    tab === "hm" ? hm?.url : proposal?.shortlist.find((s) => s.person.id === tab)?.linkedinUrl;
+  const linkedInUrl = hm?.url;
 
   return (
     <AppShell current="voorstel" title="Bericht" subtitle={DESK.voorstel.subtitle} fill>
@@ -311,13 +301,12 @@ export default function RegieDesk({
           </summary>
           <div className="ws-fold__body">
             <p className="m-0 text-[0.8rem] leading-relaxed text-[var(--muted)]">
-              Dit is <strong className="font-semibold text-[var(--ink)]">stap 4 van een kans</strong>: het bericht
-              aan de hiring manager. Stap 1 tot 3 (opdrachtgever, manager, contact) doe je op{" "}
+              Dit is <strong className="font-semibold text-[var(--ink)]">stap 4 van een kans</strong>: het
+              bericht aan de hiring manager, met namedropping van jullie ZZP’ers. Stap 1 tot 3 doe je op{" "}
               <Link href="/kansen" className="font-semibold text-[var(--ink)] underline underline-offset-2">
                 Kansen
               </Link>
-              . Niets gaat automatisch — jij kopieert en stuurt via LinkedIn of mail. Berichten naar kandidaten
-              komen later, niet in dit scherm.
+              . Niets gaat automatisch — jij kopieert en stuurt via LinkedIn of mail.
             </p>
             <ol className="ws-fold__steps">
               <li>
@@ -506,13 +495,16 @@ export default function RegieDesk({
                           </button>
                         ) : null}
                         {named && !recruiter ? (
-                          <button
-                            type="button"
-                            onClick={() => setTab("hm")}
-                            className={tab === "hm" ? "btn-ink btn-tool" : "btn-ghost btn-tool"}
+                          <a
+                            href="#hm-bericht"
+                            className="btn-ink btn-tool no-underline"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              document.getElementById("hm-bericht")?.scrollIntoView({ behavior: "smooth" });
+                            }}
                           >
                             Bericht
-                          </button>
+                          </a>
                         ) : null}
                         <a
                           href={t.url}
@@ -555,15 +547,27 @@ export default function RegieDesk({
                 ) : null}
               </section>
 
-              <section className="ws-panel">
+              <section id="hm-bericht" className="ws-panel scroll-mt-4">
                 <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--line)]/80 px-4 py-2.5">
                   <p className="ws-label">Bericht aan de hiring manager</p>
+                  {proposal.shortlist.length ? (
+                    <p className="text-[0.72rem] text-[var(--muted)]">
+                      Namedrop · {proposal.shortlist.map((s) => s.person.name.split(" ")[0]).join(", ")}
+                    </p>
+                  ) : (
+                    <Link
+                      href="/instellingen#voorstel"
+                      className="text-[0.72rem] font-medium text-[var(--ink)] underline underline-offset-2"
+                    >
+                      Bench vullen in Instellingen
+                    </Link>
+                  )}
                 </div>
                 <div className="px-4 py-4">
                   <textarea
                     value={draft}
                     onChange={(e) => setDraft(e.target.value)}
-                    rows={8}
+                    rows={14}
                     className="ws-textarea bg-[var(--surface-2)]"
                   />
                   <div className="mt-3 flex flex-wrap gap-2">
@@ -572,7 +576,7 @@ export default function RegieDesk({
                       onClick={copyDraft}
                       className="btn-ink btn-tool"
                     >
-                      {copied ? "Gekopieerd" : "Kopieer"}
+                      {copied ? "Gekopieerd" : "Kopieer bericht"}
                     </button>
                     {linkedInUrl ? (
                       <a

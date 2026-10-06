@@ -285,10 +285,11 @@ const INTERMEDIARY_HINTS = [
   "vacaturebank",
   "consultancy",
   "consulting",
-  "professionals",
   "talent solutions",
   "it-diensten",
-  // Merken zonder herkenbaar woord in de naam. Vul aan als je er een tegenkomt.
+  "detachering",
+  "detacheer",
+  // Merken zonder herkenbaar woord in de naam
   "jobster",
   "ubique",
   "la fosse",
@@ -305,12 +306,165 @@ const INTERMEDIARY_HINTS = [
   "all about work",
   "oxford global",
   "suited",
+  "overheidzzp",
+  "overheid zzp",
+  // NL contracting / staffing
+  "yacht",
+  "hays",
+  "brunel",
+  "randstad",
+  "tempo team",
+  "headfirst",
+  "head first",
+  "youngcapital",
+  "young capital",
+  "undutchables",
+  "manpower",
+  "adedasco",
+  "computer futures",
+  "michael page",
+  "robert half",
+  "robert walters",
+  "harvey nash",
+  "modis",
+  "akkodis",
+  "experis",
+  "spiie",
+  "spilberg",
+  "seven hills",
+  "the next moove",
+  "elevation partners",
+  "vibe group",
+  "sthree",
+  "yer consulting",
+  "yer group",
+  "unique nederland",
+  "unique netherland",
+  // Big4 / strategy (geen eindklant op jobboards)
+  "deloitte",
+  "pwc",
+  "pricewaterhouse",
+  "kpmg",
+  "ernst & young",
+  "ernst and young",
+  "mckinsey",
+  "bain & company",
+  "bain and company",
+  "boston consulting",
+  // IT consultancies
+  "win consultancy",
+  "win digital",
+  "win group",
+  "win it",
+  "cgi ",
+  "accenture",
+  "capgemini",
+  "ordina",
+  "atos",
+  "sopra steria",
+  "inetum",
+  "ctac",
+  "ilionx",
+  "quintor",
+  "info support",
+  "sogyo",
+  "codecentric",
+  "conclude",
+  "conclusion",
+  "motion10",
+  "motion 10",
+  "delta-n",
+  "delta n",
+  "intravatis",
+  "blinklane",
+  "xebia",
+  "macaw",
+  "luminis",
+  "trifork",
+  "valori",
+  "cegeka",
+  "vx company",
+  "topicus",
+  "incentro",
+  "sogeti",
+  "infosys",
+  "cognizant",
+  "wipro",
+  "tata consultancy",
 ];
+
+/** Runtime-leren via “Geen eindklant — verberg”. */
+let learnedIntermediaries = new Set<string>();
+
+export function setLearnedIntermediaries(names: Iterable<string>) {
+  const next = new Set<string>();
+  for (const raw of names) {
+    const n = norm(raw);
+    if (n.length >= 2) next.add(n);
+  }
+  learnedIntermediaries = next;
+}
 
 export function looksLikeIntermediary(name: string | null | undefined): boolean {
   const n = norm(name || "");
   if (!n) return false;
-  return INTERMEDIARY_HINTS.some((hint) => n.includes(hint));
+  if (SHORT_INTERMEDIARIES.has(n)) return true;
+  if (learnedIntermediaries.has(n)) return true;
+  // Short merknamen: "win" dekt "win group" / "win consultancy"
+  for (const short of SHORT_INTERMEDIARIES) {
+    if (short.length >= 3 && (n === short || n.startsWith(`${short} `))) return true;
+  }
+  return INTERMEDIARY_HINTS.some((hint) => n.includes(hint.trim()));
+}
+
+/** Korte merknamen die bureaus/consultancies zijn (geen eindklant). */
+const SHORT_INTERMEDIARIES = new Set([
+  "win",
+  "ctac",
+  "cgi",
+  "atos",
+  "capgemini",
+  "accenture",
+  "ordina",
+  "sogeti",
+  "infosys",
+  "tcs",
+  "wipro",
+  "hcl",
+  "cognizant",
+  "yacht",
+  "yer",
+  "hays",
+  "brunel",
+  "randstad",
+  "headfirst",
+  "youngcapital",
+  "deloitte",
+  "pwc",
+  "kpmg",
+  "ey",
+  "mckinsey",
+  "bcg",
+  "bain",
+  "conclusion",
+  "valori",
+  "cegeka",
+  "topicus",
+  "incentro",
+  "xebia",
+  "ilionx",
+  "quintor",
+  "sthree",
+  "modis",
+  "akkodis",
+  "experis",
+  "manpower",
+]);
+
+/** Geen eindklant op Jobboards: junk, watchlist-bureau of consultancy/broker. */
+export function isBlockedEndClientName(name: string | null | undefined): boolean {
+  if (!name || !name.trim()) return true;
+  return isAgencyName(name) || looksLikeIntermediary(name);
 }
 
 /** Of dit bureau op jouw volglijst staat. */
