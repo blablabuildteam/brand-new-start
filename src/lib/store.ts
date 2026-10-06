@@ -6,7 +6,7 @@ import { getDb, hasDatabase } from "@/lib/db/client";
 import { companyKey, fingerprintOf, scoreSignals, type FeedClientMatch } from "@/lib/score";
 import {
   detectRoleLabel,
-  isExternalPlacementText,
+  isExternalRole,
   looksLikePermanent,
   matchesContract,
   matchesRole,
@@ -16,7 +16,12 @@ import { orgContextFromSignals } from "@/lib/org-context";
 import { buildApproach, companyLinkedinFromSignals } from "@/lib/approach";
 import { borrowHiringManager } from "@/lib/hm-hunt";
 import { huntSettings } from "@/lib/hunt";
-import { isAgencyName, looksLikeIntermediary, setLearnedIntermediaries } from "@/lib/agency";
+import {
+  isAgencyName,
+  looksLikeIntermediary,
+  setLearnedIntermediaries,
+  watchedAgencies,
+} from "@/lib/agency";
 import { loadDeskMeta } from "@/lib/desk-meta";
 
 function slugify(name: string) {
@@ -115,12 +120,24 @@ type OpeningBundle = {
 };
 
 /**
+ * Vaste banen die onder lossere filters binnenkwamen blijven in de database
+ * staan. Hier vallen ze alsnog van de radar, zonder nieuwe (betaalde) sync.
+ */
+function isPermanentJob(s: Signal): boolean {
+  if (s.source !== "job-type") return false;
+  const raw = s.raw && typeof s.raw === "object" ? (s.raw as Record<string, unknown>) : {};
+  const emp = typeof raw.employmentType === "string" ? raw.employmentType : "";
+  const desc = typeof raw.description === "string" ? raw.description : "";
+  return !isExternalRole({ text: `${s.title} ${s.summary} ${desc}`, employmentType: emp });
+}
+
+/**
  * Eén bundle per unieke vacature-opening bij een bedrijf.
  * Company-brede signalen (pulse/tender/…) hangen aan elke opening mee.
  */
 export function buildOpeningBundles(companySignals: Signal[]): OpeningBundle[] {
   const usable = companySignals.filter(
-    (s) => s.source !== "hm-post" && !isJunkJobTitle(s.title)
+    (s) => s.source !== "hm-post" && !isJunkJobTitle(s.title) && !isPermanentJob(s)
   );
   const jobs = usable.filter((s) => s.source === "job-type");
   const shared = usable.filter((s) => s.source !== "job-type");
@@ -261,20 +278,14 @@ export function isContractish(
   input: Pick<IngestInput, "employmentHint" | "raw">,
   blob: string
 ): boolean {
-  if (looksLikePermanent(blob)) return false;
-
-  const hint = (input.employmentHint || "").toLowerCase();
-  if (/interim|zzp|freelance|tijdelijk|temp|detach/.test(hint)) return true;
-
   const emp =
-    typeof input.raw?.employmentType === "string"
-      ? String(input.raw.employmentType)
-      : "";
-  if (/interim|zzp|freelance|tijdelijk|temp|detach/i.test(emp)) return true;
-  // Board/LinkedIn job type "Contract" (niet Permanent)
-  if (/\bcontract\b/i.test(emp) && !/permanent|vast/i.test(emp)) return true;
+    typeof input.raw?.employmentType === "string" ? String(input.raw.employmentType) : "";
+  if (isExternalRole({ text: blob, employmentType: emp })) return true;
 
-  return isExternalPlacementText(blob);
+  // Alleen een expliciete hint van de bron zelf telt nog mee; de generieke
+  // hint "contract" wordt door onze eigen ingest gezet en is dus geen bewijs.
+  const hint = (input.employmentHint || "").toLowerCase();
+  return /interim|zzp|freelance|detach/.test(hint) && !looksLikePermanent(blob);
 }
 
 async function ensureCompanyPg(name: string, sector?: string): Promise<Company> {
@@ -506,6 +517,105 @@ function feedClientIndex(all: Signal[], coMap: Map<string, Company>) {
   return index;
 }
 
+/**
+ * Vacatures die we als vast dienstverband buiten de radar houden. Zichtbaar
+ * maken telt: zonder dat getal lijkt het alsof er simpelweg weinig in de markt is.
+ */
+export type AgencySuggestion = {
+  id: string;
+  name: string;
+  /** Aantal contract-vacatures van dit bureau op jouw rollen. */
+  openings: number;
+  roles: string[];
+  linkedinUrl: string | null;
+  lastSeen: Date;
+};
+
+/**
+ * Bureaus die we van Jobboards wegfilteren, maar die wél op jouw rollen
+ * sourcen — dus concurrenten op dezelfde opdracht. Hun recruiters zijn de
+ * beste kandidaten voor de feed: via hun posts zie je de eindklant.
+ */
+function buildAgencySuggestions(
+  all: Signal[],
+  coMap: Map<string, Company>
+): AgencySuggestion[] {
+  const watched = new Set(watchedAgencies().map((a) => companyKey(a.name)));
+  const byCompany = new Map<string, AgencySuggestion & { roleSet: Set<string> }>();
+
+  for (const s of all) {
+    if (s.source !== "job-type") continue;
+    const co = coMap.get(s.companyId);
+    if (!co || isPlaceholderCompany(co.name)) continue;
+    if (!isAgencyName(co.name) && !looksLikeIntermediary(co.name)) continue;
+    if (watched.has(companyKey(co.name))) continue;
+    if (isPermanentJob(s)) continue;
+
+    const raw = s.raw && typeof s.raw === "object" ? (s.raw as Record<string, unknown>) : {};
+    const entry =
+      byCompany.get(co.id) ||
+      {
+        id: co.id,
+        name: co.name,
+        openings: 0,
+        roles: [] as string[],
+        roleSet: new Set<string>(),
+        linkedinUrl: null as string | null,
+        lastSeen: s.seenAt,
+      };
+    entry.openings += 1;
+    const role = detectRoleLabel(`${s.title} ${s.summary}`) || s.roleLabel;
+    if (role) entry.roleSet.add(role);
+    if (!entry.linkedinUrl && typeof raw.companyLinkedinUrl === "string") {
+      entry.linkedinUrl = cleanLinkedInCompanyUrl(raw.companyLinkedinUrl);
+    }
+    if (s.seenAt > entry.lastSeen) entry.lastSeen = s.seenAt;
+    byCompany.set(co.id, entry);
+  }
+
+  return [...byCompany.values()]
+    .map(({ roleSet, ...rest }) => ({ ...rest, roles: dedupeRoles([...roleSet]) }))
+    .sort((a, b) => b.openings - a.openings || b.lastSeen.getTime() - a.lastSeen.getTime());
+}
+
+/** "Business Analyst" en "Business Analist" zijn dezelfde rol. */
+function dedupeRoles(roles: string[]): string[] {
+  const seen = new Map<string, string>();
+  for (const r of roles) {
+    const key = r.toLowerCase().replace(/analist/g, "analyst").replace(/[^a-z]/g, "");
+    if (!seen.has(key)) seen.set(key, r);
+  }
+  return [...seen.values()].slice(0, 3);
+}
+
+/** LinkedIn geeft landprefixen en trk-parameters mee; die willen we niet opslaan. */
+function cleanLinkedInCompanyUrl(raw: string): string | null {
+  const m = raw.match(/linkedin\.com\/company\/([^/?#\s]+)/i);
+  if (!m) return null;
+  return `https://www.linkedin.com/company/${m[1].replace(/\/+$/, "")}`;
+}
+
+export async function listAgencySuggestions(): Promise<AgencySuggestion[]> {
+  if (hasDatabase()) {
+    const db = getDb();
+    const [all, cos] = await Promise.all([
+      db.query.signals.findMany(),
+      db.query.companies.findMany(),
+    ]);
+    return buildAgencySuggestions(all, new Map(cos.map((c) => [c.id, c])));
+  }
+  const store = mem();
+  return buildAgencySuggestions([...store.signals.values()], store.companies);
+}
+
+export async function countPermanentJobs(): Promise<number> {
+  if (hasDatabase()) {
+    const all = await getDb().query.signals.findMany();
+    return all.filter(isPermanentJob).length;
+  }
+  return [...mem().signals.values()].filter(isPermanentJob).length;
+}
+
 export async function listRadar() {
   const meta = await loadDeskMeta();
   const rejected = meta.rejectedCompanies || {};
@@ -686,10 +796,15 @@ export async function patchSignalRaw(signalId: string, patch: Record<string, unk
  * leads out of Bureaus and Kansen once the store grew past the limit.
  */
 export async function listAgencySignals() {
-  const isAgencyFeed = (s: Signal & { company?: Company }) =>
-    s.source === "agency-swarm" ||
-    Boolean((s.raw as { recruiterFeed?: boolean } | null)?.recruiterFeed) ||
-    isAgencyName(s.company?.name ?? "");
+  const isAgencyFeed = (s: Signal & { company?: Company }) => {
+    if (s.source === "agency-swarm") return true;
+    if ((s.raw as { recruiterFeed?: boolean } | null)?.recruiterFeed) return true;
+    const name = s.company?.name ?? "";
+    if (isAgencyName(name)) return true;
+    // Contract-vacature van een bemiddelaar: hoort niet op Jobboards als
+    // eindklant, maar de eindklant is er wél uit terug te zoeken.
+    return s.source === "job-type" && looksLikeIntermediary(name) && !isPermanentJob(s);
+  };
 
   if (hasDatabase()) {
     const db = getDb();

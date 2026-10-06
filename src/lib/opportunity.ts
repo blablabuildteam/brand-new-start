@@ -22,6 +22,7 @@ import { detectRoleLabel } from "@/lib/niche";
 import { listAgencySignals, patchSignalRaw } from "@/lib/store";
 import { forgetLeadVerdict, loadDeskMeta, pushAlert, saveDeskMeta } from "@/lib/desk-meta";
 import { isListingPage, type FeedMemory } from "@/lib/feed-detective";
+import { plainLinkedIn } from "@/lib/plain-text";
 
 export type LeadStatus = "suggest" | "review" | "weak" | "confirmed" | "rejected";
 
@@ -29,6 +30,8 @@ export type AgencyLead = {
   id: string;
   demo: boolean;
   employment: "contract";
+  /** feed = LinkedIn-post van een recruiter · jobboard = vacature van een bureau. */
+  source: "feed" | "jobboard";
   title: string;
   roleLabel: string;
   agency: { id: string; name: string };
@@ -110,6 +113,7 @@ function buildLead(opts: {
   signalId?: string;
   storedReview?: Review | null;
   storedAi?: StoredAi | null;
+  source?: "feed" | "jobboard";
 }): AgencyLead {
   const facts = extractVacancyFacts(`${opts.title}\n${opts.text}`);
   const rawGuess = guessEndClient({ title: opts.title, text: opts.text });
@@ -122,7 +126,8 @@ function buildLead(opts: {
     id: opts.id,
     demo: opts.demo,
     employment: "contract",
-    title: opts.title,
+    source: opts.source || "feed",
+    title: plainLinkedIn(opts.title),
     roleLabel: detectRoleLabel(`${opts.title} ${opts.text}`),
     agency: { id: opts.agency.id, name: opts.agency.name },
     recruiter: opts.recruiter,
@@ -293,6 +298,7 @@ export type WatchlistRow = {
   id: string;
   name: string;
   note?: string;
+  linkedinSlug?: string;
   recruiters: { name: string; title?: string; brand?: string; linkedinUrl?: string }[];
 };
 
@@ -323,6 +329,22 @@ function agencyFromSignal(
   return matchAgency(companyName);
 }
 
+/**
+ * Bureau dat niet in de catalogus staat. Nodig voor jobboard-vacatures: je
+ * wil de eindklant kunnen uitzoeken zonder eerst het bureau te volgen.
+ */
+function syntheticAgency(companyName: string | null | undefined): Agency | null {
+  const name = (companyName || "").trim();
+  if (name.length < 2) return null;
+  if (!looksLikeIntermediary(name) && !isAgencyName(name)) return null;
+  return {
+    id: `bureau_${name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`,
+    name,
+    aliases: [name.toLowerCase()],
+    recruiters: [],
+  };
+}
+
 export async function listAgencyLeads(): Promise<{
   watchlist: WatchlistRow[];
   live: AgencyLead[];
@@ -341,12 +363,14 @@ export async function listAgencyLeads(): Promise<{
   const live: AgencyLead[] = [];
   for (const s of rows) {
     const raw = (s.raw && typeof s.raw === "object" ? s.raw : {}) as Record<string, unknown>;
-    const agency = agencyFromSignal(s.company?.name, raw);
-    if (!agency || !isWatchedAgency(agency.id)) continue;
-    // Alleen echte bureau-kansen: recruiter-feed of company=agency (jobboard-hit)
     const isFeed = Boolean(raw.recruiterFeed) || s.source === "agency-swarm";
-    const isAgencyPoster = Boolean(matchAgency(s.company?.name));
-    if (!isFeed && !isAgencyPoster) continue;
+    // Feed-posts kosten geld om op te halen, dus alleen van bureaus die je
+    // volgt. Jobboard-vacatures hebben we al binnen: elk bureau mag mee.
+    const agency = isFeed
+      ? agencyFromSignal(s.company?.name, raw)
+      : agencyFromSignal(s.company?.name, raw) || syntheticAgency(s.company?.name);
+    if (!agency) continue;
+    if (isFeed && !isWatchedAgency(agency.id)) continue;
 
     const text = [
       s.summary,
@@ -374,6 +398,7 @@ export async function listAgencyLeads(): Promise<{
         signalId: s.id,
         storedReview: reviewFromRaw(raw),
         storedAi: aiFromRaw(raw),
+        source: isFeed ? "feed" : "jobboard",
       })
     );
   }
@@ -394,6 +419,7 @@ export async function listAgencyLeads(): Promise<{
       id: a.id,
       name: a.name,
       note: a.note,
+      linkedinSlug: a.linkedinSlug,
       recruiters: watchedRecruitersFor(a).map((r) => ({
         name: r.name,
         title: r.title,
@@ -510,7 +536,7 @@ export async function leadSourceForAi(id: string): Promise<{
   const s = rows.find((r) => r.id === id);
   if (!s) return null;
   const raw = (s.raw && typeof s.raw === "object" ? s.raw : {}) as Record<string, unknown>;
-  const agency = agencyFromSignal(s.company?.name, raw);
+  const agency = agencyFromSignal(s.company?.name, raw) || syntheticAgency(s.company?.name);
   if (!agency) return null;
   const text = [s.summary, typeof raw.description === "string" ? raw.description : ""]
     .filter(Boolean)

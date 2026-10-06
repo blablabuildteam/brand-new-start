@@ -13,6 +13,7 @@ import {
   type ManagedAgency,
 } from "@/lib/hunt";
 import { normalizeBenchPeople, type BenchPerson } from "@/lib/bench";
+import { listAgencySuggestions } from "@/lib/store";
 import { z } from "zod";
 
 const RecruiterZ = z.object({
@@ -54,20 +55,25 @@ export async function GET() {
   if (!session) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const hunt = await loadHuntSettings();
   const agencies = resolveAgencies(hunt);
+  const isAdmin = session.role === "admin";
+  const suggestions = await listAgencySuggestions().catch(() => []);
   return NextResponse.json({
     ...hunt,
     agencies,
+    suggestions,
     bench: hunt.bench || [],
     catalog: {
       employmentKinds: EMPLOYMENT_KINDS,
     },
-    integrations: {
-      database: hasDatabase(),
-      anthropic: hasAiKey(),
-      apify: hasApifyToken(),
-      lusha: hasLushaKey(),
-      firecrawl: Boolean(process.env.FIRECRAWL_API_KEY?.trim()),
-    },
+    integrations: isAdmin
+      ? {
+          database: hasDatabase(),
+          anthropic: hasAiKey(),
+          apify: hasApifyToken(),
+          lusha: hasLushaKey(),
+          firecrawl: Boolean(process.env.FIRECRAWL_API_KEY?.trim()),
+        }
+      : undefined,
     user: { email: session.email, role: session.role },
   });
 }

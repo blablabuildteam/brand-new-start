@@ -1,5 +1,6 @@
 import { createHash } from "crypto";
 import type { Signal } from "@/lib/db/schema";
+import { isExternalRole } from "@/lib/niche";
 
 export type ScoreFactor = { label: string; points: number; source?: string };
 
@@ -37,6 +38,18 @@ function applicantsOf(raw: Record<string, unknown>): number | null {
     if (m) return Number(m[1]);
   }
   return null;
+}
+
+/**
+ * Hard bewijs dat dit een externe plaatsing is. Niet elke jobboard-vacature:
+ * een vacature met "vast contract" in de titel is geen contracting-kans.
+ */
+function signalIsExternalPlacement(s: Signal): boolean {
+  const raw = rawOf(s);
+  const emp = typeof raw.employmentType === "string" ? raw.employmentType : "";
+  const desc = typeof raw.description === "string" ? raw.description : "";
+  // employmentHint is door onze eigen ingest gezet ("contract") en dus geen bewijs.
+  return isExternalRole({ text: `${s.title} ${s.summary} ${desc}`, employmentType: emp });
 }
 
 export type ScoreOptions = {
@@ -82,12 +95,7 @@ export function scoreSignals(
     companySignals[0]?.roleLabel ||
     "IT contracting";
 
-  const hasContract = companySignals.some(
-    (s) =>
-      s.source === "job-type" ||
-      /zzp|interim|contract|freelance/i.test(s.employmentHint || "") ||
-      /zzp|interim|contract|freelance/i.test(s.summary)
-  );
+  const hasContract = companySignals.some(signalIsExternalPlacement);
   if (hasContract) {
     factors.push({
       label: "Vacature/signaal noemt contract · interim · ZZP",

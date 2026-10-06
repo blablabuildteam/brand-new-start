@@ -7,7 +7,9 @@ import {
   ROI_MODEL,
   INGEST_POLICY,
   SYNC_COST_PER_RUN,
+  estimateSpendFromRuns,
 } from "@/lib/costs";
+import { listSyncRuns } from "@/lib/sync-log";
 
 /** Stack-kosten en ROI — zichtbaar voor iedereen in de desk. */
 export async function GET() {
@@ -17,6 +19,8 @@ export async function GET() {
   }
 
   const monthly = mvpMonthlyTotal();
+  const runs = await listSyncRuns(80);
+  const spent = estimateSpendFromRuns(runs);
   const annualHigh = monthly.total.high * 12;
   const annualLow = monthly.total.low * 12;
 
@@ -40,6 +44,7 @@ export async function GET() {
     sources: SOURCE_COST_MODEL,
     platform: PLATFORM_COST,
     monthly,
+    spent,
     perRun: SYNC_COST_PER_RUN,
     roi: {
       currency: ROI_MODEL.currency,

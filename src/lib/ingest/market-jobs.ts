@@ -1,5 +1,5 @@
 import { hasApifyToken, runApifyActor } from "@/lib/apify";
-import { detectRoleLabel, isExternalPlacementText, looksLikePermanent, matchesRole } from "@/lib/niche";
+import { detectRoleLabel, isExternalRole, matchesRole, notExternalReason } from "@/lib/niche";
 import { ingestSignal, isJunkCompanyName, isJunkJobTitle } from "@/lib/store";
 import { isBlockedEndClientName } from "@/lib/agency";
 import { recordSync, type SyncHit } from "@/lib/sync-log";
@@ -173,7 +173,8 @@ export function buildLinkedInJobSearchUrls(maxUrls = 8): { url: string; query: s
 
   const out: { url: string; query: string }[] = [];
   for (const q of rotated) {
-    const jt = contract ? "&f_JT=C" : "";
+    // C = Contract, T = Temporary. Zonder dit filter is ~2/3 van de hits perm.
+    const jt = contract ? "&f_JT=C%2CT" : "";
     out.push({
       query: contract ? `${q.role} · contract NL` : `${q.role} NL`,
       url: `https://www.linkedin.com/jobs/search/?keywords=${encodeURIComponent(q.role)}&location=Netherlands${jt}&f_TPR=r2592000&sortBy=DD`,
@@ -181,6 +182,8 @@ export function buildLinkedInJobSearchUrls(maxUrls = 8): { url: string; query: s
     if (out.length >= maxUrls) break;
 
     if (!contract) continue;
+    // Tweede URL zoekt bewust zonder f_JT: recruiters taggen ZZP-opdrachten
+    // vaak als Full-time, en het trefwoord vangt die alsnog.
     const extra = q.extras[0];
     out.push({
       query: `${q.role} ${extra} NL`,
@@ -241,24 +244,8 @@ export async function ingestMarketJobs(
       continue;
     }
 
-    if (looksLikePermanent(blob)) {
-      skipped += 1;
-      hits.push({
-        company: job.company,
-        title: job.title,
-        url: job.url,
-        kept: false,
-        isNew: false,
-        reason: "vast dienstverband (interne werving)",
-      });
-      continue;
-    }
-
     const emp = job.employmentType || "";
-    const contractish =
-      isExternalPlacementText(blob) ||
-      (/\bcontract\b/i.test(emp) && !/permanent|vast/i.test(emp)) ||
-      /\b(interim|zzp|freelance|temp)\b/i.test(emp);
+    const contractish = isExternalRole({ text: blob, employmentType: emp });
     if (huntSettings().requireContract && !contractish) {
       skipped += 1;
       hits.push({
@@ -267,7 +254,7 @@ export async function ingestMarketJobs(
         url: job.url,
         kept: false,
         isNew: false,
-        reason: "geen externe plaatsing (ZZP/interim/contract)",
+        reason: notExternalReason({ text: blob, employmentType: emp }),
       });
       continue;
     }

@@ -555,12 +555,9 @@ export default function RegieDesk({
                       Namedrop · {proposal.shortlist.map((s) => s.person.name.split(" ")[0]).join(", ")}
                     </p>
                   ) : (
-                    <Link
-                      href="/instellingen#voorstel"
-                      className="text-[0.72rem] font-medium text-[var(--ink)] underline underline-offset-2"
-                    >
-                      Bench vullen in Instellingen
-                    </Link>
+                    <p className="text-[0.72rem] text-[var(--muted)]">
+                      Bericht zonder namedrop uit de bench.
+                    </p>
                   )}
                 </div>
                 <div className="px-4 py-4">

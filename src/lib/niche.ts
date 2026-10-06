@@ -184,8 +184,27 @@ export const CONTRACT_KEYWORDS = [
   "dagprijs",
   "temporary",
   "temp contract",
-  "extern",
+  "externe kracht",
+  "opdrachtbasis",
 ] as const;
+
+/**
+ * Woorden die alléén externe inhuur kunnen betekenen. Bewust zonder "extern"
+ * en "contracting": die staan in de boilerplate van half de vacaturemarkt
+ * ("externe kandidaten", "IT contracting bureau") en lieten vaste banen door.
+ */
+const STRONG_EXTERNAL =
+  /\b(zzp|zzp'?ers?|interim|freelance|freelancers?|contractor|detachering|detacheringsovereenkomst|secondment|uurtarief|dagtarief|dagprijs|hourly rate|day rate|inhuur|opdrachtbasis)\b/i;
+
+export function hasStrongExternalSignal(text: string): boolean {
+  return STRONG_EXTERNAL.test(text);
+}
+
+function escapeRe(s: string) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+const CONTRACT_RE = new RegExp(`\\b(${CONTRACT_KEYWORDS.map(escapeRe).join("|")})\\b`, "i");
 
 /** Signalen voor interne werving / vast dienstverband — nooit externe plaatsing. */
 export const PERMANENT_HINTS = [
@@ -204,27 +223,38 @@ export const PERMANENT_HINTS = [
   "arbeidscontract voor onbepaalde",
 ] as const;
 
+/** "geen vast dienstverband" is juist een ZZP-signaal, geen interne werving. */
+function permanentNegated(t: string): boolean {
+  return /\b(geen|niet|nooit|zonder)\b[^.!?]{0,40}?(vast[a-z]*\s+(dienstverband|dienst|contract|aanstelling)|loondienst|onbepaalde tijd)/.test(
+    t
+  );
+}
+
 export function looksLikePermanent(text: string): boolean {
   const t = text.toLowerCase();
+  if (permanentNegated(t)) return false;
+
+  // Titel en eerste regel komen van de werkgever zelf. Staat daar "vast
+  // contract", dan is het een vaste baan — ook als verderop in de boilerplate
+  // "interim" of "inhuur" valt.
+  const head = t.slice(0, 180);
+  const headPerm =
+    PERMANENT_HINTS.some((k) => head.includes(k)) ||
+    (/\bvast\b/.test(head) && /\b(dienstverband|dienst|aanstelling|loondienst)\b/.test(head));
+  if (headPerm && !hasStrongExternalSignal(head)) return true;
+
   if (PERMANENT_HINTS.some((k) => t.includes(k))) {
-    // Sterke externe signalen winnen (hybride posts)
-    if (CONTRACT_KEYWORDS.some((k) => t.includes(k))) return false;
-    if (/\b(zzp|interim|freelance|detachering|inhuur|uurtarief)\b/.test(t)) return false;
-    return true;
+    return !hasStrongExternalSignal(t);
   }
-  if (
-    /\bvast\b/.test(t) &&
-    /\b(dienstverband|dienst|salaris|fte|loondienst|aanstelling)\b/.test(t) &&
-    !/\b(zzp|interim|freelance|detachering|inhuur|uurtarief)\b/.test(t)
-  ) {
-    return true;
+  if (/\bvast\b/.test(t) && /\b(dienstverband|dienst|salaris|fte|loondienst|aanstelling)\b/.test(t)) {
+    return !hasStrongExternalSignal(t);
   }
   return false;
 }
 
 export function matchesContract(text: string): boolean {
   const t = text.toLowerCase();
-  if (CONTRACT_KEYWORDS.some((k) => t.includes(k))) return true;
+  if (CONTRACT_RE.test(t)) return true;
   // "contract" alleen met externe companion — bare "arbeidscontract" telt niet
   if (
     /\b(contract\s*(rol|role|basis|positie|position|assignment|opdracht)|contracting)\b/.test(t)
@@ -244,6 +274,48 @@ export function matchesContract(text: string): boolean {
 export function isExternalPlacementText(text: string): boolean {
   if (looksLikePermanent(text)) return false;
   return matchesContract(text);
+}
+
+export type EmploymentVerdict = "extern" | "vast" | "onbekend";
+
+/**
+ * Het dienstverband-veld van de jobboard is het hardste signaal dat we hebben.
+ * "Full-time" betekent op LinkedIn een dienstverband, niet een opdracht —
+ * dat veld negeren was de reden dat de radar volliep met perm-rollen.
+ */
+export function employmentTypeVerdict(raw: string | null | undefined): EmploymentVerdict {
+  const t = (raw || "").toLowerCase().trim();
+  if (!t) return "onbekend";
+  if (/contract|interim|zzp|freelance|temporary|tijdelijk|detach|secondment/.test(t)) {
+    return /\bpermanent\b|\bvast\b/.test(t) ? "vast" : "extern";
+  }
+  if (/full[\s-]?time|part[\s-]?time|permanent|vast|loondienst/.test(t)) return "vast";
+  return "onbekend";
+}
+
+/**
+ * Eén beslissing voor "is dit een externe plaatsing?", op basis van het
+ * dienstverband-veld én de tekst. Gebruik dit overal; losse tekstchecks
+ * lieten te veel vaste banen door.
+ */
+export function isExternalRole(opts: { text: string; employmentType?: string | null }): boolean {
+  const verdict = employmentTypeVerdict(opts.employmentType);
+  if (verdict === "extern") return true;
+  if (verdict === "vast") {
+    // Een Full-time post met een uurtarief- of ZZP-passage is alsnog inhuur.
+    return hasStrongExternalSignal(opts.text) && !looksLikePermanent(opts.text);
+  }
+  return isExternalPlacementText(opts.text);
+}
+
+/** Korte uitleg waarom iets niet op de radar hoort. */
+export function notExternalReason(opts: { text: string; employmentType?: string | null }): string {
+  const verdict = employmentTypeVerdict(opts.employmentType);
+  if (verdict === "vast") {
+    return `vast dienstverband (jobboard: ${opts.employmentType})`;
+  }
+  if (looksLikePermanent(opts.text)) return "vast dienstverband (interne werving)";
+  return "geen externe plaatsing (ZZP/interim/contract)";
 }
 
 export const TENDER_KEYWORDS = [

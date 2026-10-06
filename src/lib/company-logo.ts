@@ -99,3 +99,41 @@ export function resolveCompanyLogo(opts: {
     (opts.allowGuess ? guessCompanyLogo(opts.companyName) : null)
   );
 }
+
+const AGENCY_LOGO_HOST: Record<string, string> = {
+  vibegroup: "thevibegroup.com",
+  "vibe-group-global": "thevibegroup.com",
+  sthree: "sthree.com",
+  "sthree-plc": "sthree.com",
+  thenextmoove: "thenextmoove.nl",
+  "elevation-partners-nederland": "elevationpartners.nl",
+};
+
+function favicon(host: string) {
+  return `https://www.google.com/s2/favicons?sz=128&domain=${encodeURIComponent(host)}`;
+}
+
+/** Logo-kandidaten voor een recruitmentkantoor (eerste die laadt wint). */
+export function agencyLogoUrls(opts: {
+  name: string;
+  id?: string;
+  linkedinSlug?: string | null;
+}): string[] {
+  const urls: string[] = [];
+  const host = AGENCY_LOGO_HOST[opts.id || ""] || AGENCY_LOGO_HOST[opts.linkedinSlug || ""];
+  if (host) {
+    urls.push(`https://logo.clearbit.com/${host}`, favicon(host));
+  }
+  const guess = guessCompanyLogo(opts.name);
+  if (guess) urls.push(guess);
+  const com = guess?.replace(/\.nl$/, ".com");
+  if (com && com !== guess) urls.push(com);
+  if (opts.linkedinSlug) {
+    const compact = opts.linkedinSlug.replace(/-nederland|-global|-plc|-groep|-group$/i, "").replace(/-/g, "");
+    if (compact.length >= 3) {
+      urls.push(`https://logo.clearbit.com/${compact}.nl`, `https://logo.clearbit.com/${compact}.com`);
+      urls.push(favicon(`${compact}.nl`), favicon(`${compact}.com`));
+    }
+  }
+  return [...new Set(urls)];
+}

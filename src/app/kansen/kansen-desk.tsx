@@ -12,6 +12,7 @@ import { CRM_STAGE_NL } from "@/lib/crm";
 import { radarHref } from "@/lib/desk-links";
 import { cachePeek } from "@/lib/client-cache";
 import { DESK, hmSearchMessage } from "@/lib/desk-labels";
+import { eurRange, SYNC_COST_PER_RUN } from "@/lib/costs";
 import { guessCompanyLogo } from "@/lib/company-logo";
 
 /** Filters volgen de vier stappen plus de twee bronnen — niet de losse stages. */
@@ -73,8 +74,8 @@ type Step = {
 function stepOf(row: CrmOpportunity): Step {
   if (row.stage === "won") return { n: 4, action: null, label: "Gewonnen" };
   if (row.stage === "lost") return { n: 4, action: null, label: "Afgelegd" };
-  if (!row.hiringManager) return { n: 2, action: "hm", label: "Zoek manager" };
-  if (needsContact(row)) return { n: 3, action: "contact", label: "Haal contact" };
+  if (!row.hiringManager) return { n: 2, action: "hm", label: `Zoek manager · ≈ ${eurRange(SYNC_COST_PER_RUN.actions["hm-search"].eur)}` };
+  if (needsContact(row)) return { n: 3, action: "contact", label: `Haal contact · ≈ ${eurRange(SYNC_COST_PER_RUN.actions.lusha.eur)}` };
   if (row.stage === "outreach") return { n: 4, action: "bericht", label: "Follow-up" };
   return { n: 4, action: "bericht", label: "Bericht" };
 }
@@ -806,7 +807,7 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
                                       onClick={() => void fetchContact(row.id, row.hiringManagerUrl)}
                                       className="btn-ink btn-tool disabled:opacity-50"
                                     >
-                                      {contactBusy ? "Contact…" : "Haal mail en tel"}
+                                      {contactBusy ? "Contact…" : `Haal mail en tel · ≈ ${eurRange(SYNC_COST_PER_RUN.actions.lusha.eur)}`}
                                     </button>
                                   ) : null}
                                 </div>
@@ -960,8 +961,8 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
                                 {hmBusyId === row.id
                                   ? "Zoeken"
                                   : row.hiringManager
-                                    ? "Opnieuw manager zoeken"
-                                    : "Zoek manager"}
+                                    ? `Opnieuw manager zoeken · ≈ ${eurRange(SYNC_COST_PER_RUN.actions["hm-search"].eur)}`
+                                    : `Zoek manager · ≈ ${eurRange(SYNC_COST_PER_RUN.actions["hm-search"].eur)}`}
                               </button>
                               {row.href ? (
                                 <Link

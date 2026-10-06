@@ -4,14 +4,18 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
+import { CompanyMark } from "@/components/company-mark";
+import { agencyLogoUrls } from "@/lib/company-logo";
 import { BtnSpinner } from "@/components/btn-spinner";
 import { ScoreChip } from "@/components/score-chip";
 import { ResearchMeter } from "@/components/research-meter";
 import { kansenHref, regieHref } from "@/lib/desk-links";
 import { cachePeek } from "@/lib/client-cache";
 import { DESK, hmSearchMessage } from "@/lib/desk-labels";
+import { eurRange, SYNC_COST_PER_RUN, syncStillLocked } from "@/lib/costs";
 import type { AgencyLead, LeadStatus } from "@/lib/opportunity";
 import { huntSignals, type EvidenceOrigin } from "@/lib/end-client";
+import { plainLinkedIn } from "@/lib/plain-text";
 import { streamResearch } from "@/lib/research/client";
 import { skipBatchResearch } from "@/lib/research/first-pass";
 import { startingProgress } from "@/lib/research/progress";
@@ -32,6 +36,7 @@ type Payload = {
     id: string;
     name: string;
     note?: string;
+    linkedinSlug?: string;
     recruiters: { name: string; title?: string; brand?: string; linkedinUrl?: string }[];
   }[];
   live: AgencyLead[];
@@ -85,7 +90,8 @@ const STATUS_HINT: Record<LeadStatus, string> = {
 
 function factsLine(l: AgencyLead) {
   return [l.facts.location, l.facts.start, l.facts.duration, l.facts.hours, l.facts.stack.slice(0, 4).join(", ")]
-    .filter(Boolean)
+    .filter((p): p is string => Boolean(p))
+    .map((p) => plainLinkedIn(p))
     .join(" · ");
 }
 
@@ -217,10 +223,10 @@ function WhyBlock({ lead }: { lead: AgencyLead }) {
             {e.origin ? (
               <span className={`lead-why__origin lead-why__origin--${e.origin}`}>{ORIGIN_NL[e.origin]}</span>
             ) : null}
-            <span className="font-medium text-[var(--ink)]">{e.label}</span>
+            <span className="text-[var(--ink)]">{e.label}</span>
             {e.quote ? (
               <span className="lead-why__quote">
-                “{e.quote.replace(/\s+/g, " ").trim()}”
+                “{e.quote.replace(/\s+/g, " ").normalize("NFKC").trim()}”
                 {e.url ? (
                   <>
                     {" "}
@@ -376,7 +382,7 @@ function LeadCard({
               className="btn-ghost btn-row"
               title="AI leest de post en zoekt de opdracht online terug (~2 cent)"
             >
-              {aiBusy ? "Zoekt…" : aiQueued ? "Wacht…" : "AI zoek"}
+              {aiBusy ? "Zoekt…" : aiQueued ? "Wacht…" : `AI · ${eurRange(SYNC_COST_PER_RUN.actions["ai-research"].eur)}`}
             </button>
           ) : null}
         </div>
@@ -385,7 +391,7 @@ function LeadCard({
         <span className="lead-row__arrow" aria-hidden>
           →
         </span>
-        <span className={`min-w-0 truncate ${client ? "font-semibold text-[var(--ink)]" : "text-[var(--muted)]"}`}>
+        <span className={`min-w-0 truncate ${client ? "text-[var(--ink)]" : "text-[var(--muted)]"}`}>
           {client || "Opdrachtgever onbekend"}
         </span>
         <BasisBadge basis={basis} />
@@ -479,7 +485,7 @@ function LeadDetail({
         </p>
       ) : null}
       <div className="mt-3 flex flex-wrap items-center gap-2">
-        <span className={client ? "font-semibold text-[var(--ink)]" : "text-[var(--muted)]"}>
+        <span className={client ? "text-[var(--ink)]" : "text-[var(--muted)]"}>
           {client || "Opdrachtgever onbekend"}
         </span>
         <BasisBadge basis={basis} />
@@ -518,7 +524,7 @@ function LeadDetail({
             {confirming ? "Bevestigen" : "Bevestig"}
           </button>
           <button type="button" disabled={researchLock} onClick={() => onAiGuess(lead.id, "standard")} className="btn-ghost btn-tool">
-            {aiBusy ? "…" : "AI"}
+            {aiBusy ? "…" : `AI · ${eurRange(SYNC_COST_PER_RUN.actions["ai-research"].eur)}`}
           </button>
           <button type="button" disabled={busy || aiBusy} onClick={() => onReview(lead.id, "rejected")} className="btn-ghost btn-tool">
             Weg
@@ -857,9 +863,8 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
   }, [bucket, watchAgency]);
 
   const filteredLive = useMemo(() => (data ? data.live.filter(matches) : []), [data, matches]);
-  const filteredDemo = useMemo(() => (data ? data.demo.filter(matches) : []), [data, matches]);
   const selected =
-    [...(data?.live || []), ...(data?.demo || [])].find((l) => l.id === pickedId) || filteredLive[0] || null;
+    [...(data?.live || [])].find((l) => l.id === pickedId) || filteredLive[0] || null;
 
   function openLead(id: string) {
     setPickedId(id);
@@ -869,7 +874,10 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
   }
   const leadMap = useMemo(() => new Map([...(data?.live || []), ...(data?.demo || [])].map((l) => [l.id, l])), [data]);
 
-  const feedAt = data?.sync?.lastFeed?.at || null;
+  const feedAt = data?.sync?.lastFeed?.at || data?.sync?.checkedAt || null;
+  const feedPending = data?.sync?.pending?.length ?? 0;
+  const feedLocked = feedPending === 0 && syncStillLocked(data?.sync?.checkedAt || data?.sync?.lastFeed?.at);
+  const feedCost = eurRange(SYNC_COST_PER_RUN.actions["recruiter-feeds"].eur);
 
   const feedRoster = useMemo(() => {
     const pending = new Set((data?.sync?.pending || []).map((p) => recruiterKey(p.agency, p.name)));
@@ -885,6 +893,7 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
     return (data?.watchlist || []).map((agency) => ({
       id: agency.id,
       name: agency.name,
+      linkedinSlug: agency.linkedinSlug,
       recruiters: agency.recruiters.map((r) => {
         const key = recruiterKey(agency.name, r.name);
         const found = posts.get(key) || [];
@@ -923,8 +932,8 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
       }
       if (j.mode === "fresh") {
         setSyncNote({
-          title: "Niets opgehaald",
-          body: "Er is geen nieuwe recruiter. De anderen zijn in de afgelopen 20 uur al gecheckt.",
+          title: "Vandaag al opgehaald",
+          body: "Er is deze dag al gesynct. Een extra run kost geld en haalt niets nieuws. Morgen weer.",
         });
       } else {
         const d = j.detective;
@@ -1164,24 +1173,76 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
         <main className="flex min-h-0 flex-1 flex-col gap-3">
           <details className={`ws-fold shrink-0 ${mobilePane === "detail" ? "max-lg:hidden" : ""}`}>
             <summary>
+              <span>{DESK.bureau.foldTitle}</span>
+              <span className="ws-fold__meta">{DESK.bureau.foldMeta}</span>
+            </summary>
+            <div className="ws-fold__body">
+              <p className="m-0 text-[0.8rem] leading-relaxed text-[var(--muted)]">
+                Vacatures uit LinkedIn-feeds van kantoren die je volgt. Jij bevestigt de eindklant — daarna zoek je de
+                hiring manager. De andere bron is{" "}
+                <a href={DESK.direct.href} className="underline underline-offset-2 text-[var(--ink)]">
+                  {DESK.direct.nav}
+                </a>
+                .
+              </p>
+              <ol className="ws-fold__steps">
+                <li>
+                  <span className="ws-fold__n">1</span>
+                  <span>
+                    Review — AI leest de post en zoekt dezelfde opdracht online terug. Jij bevestigt of wijst af.
+                  </span>
+                </li>
+                <li>
+                  <span className="ws-fold__n">2</span>
+                  <span>
+                    Bevestigd — de kans staat meteen op{" "}
+                    <a href="/kansen" className="underline underline-offset-2 text-[var(--ink)]">
+                      Kansen
+                    </a>
+                    , bij stap 2: manager zoeken.
+                  </span>
+                </li>
+                <li>
+                  <span className="ws-fold__n">3</span>
+                  <span>Manager, contact en bericht doe je op Kansen. Hier alleen: wie is de opdrachtgever?</span>
+                </li>
+              </ol>
+            </div>
+          </details>
+
+          <details className={`ws-fold shrink-0 ${mobilePane === "detail" ? "max-lg:hidden" : ""}`}>
+            <summary>
               <span>
                 {data ? `${counts.all} posts` : "Sync"}
                 {data ? ` · ${counts.ready} klaar` : ""}
               </span>
               <span className="ws-fold__meta">
-                {feedAt ? `Feeds ${timeAgoShort(feedAt)}` : "Nog geen sync"}
+                {feedLocked
+                  ? `vandaag al · ${feedAt ? timeAgoShort(feedAt) : "opgehaald"}`
+                  : feedAt
+                    ? `Feeds ${timeAgoShort(feedAt)}`
+                    : "Nog geen sync"}
               </span>
             </summary>
             <div className="ws-fold__body !p-0">
-              <div className="flex items-center justify-end border-b border-[var(--line)] px-3.5 py-2">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--line)] px-3.5 py-2">
+                <p className="text-[0.72rem] text-[var(--muted)]">
+                  {feedLocked
+                    ? "Al opgehaald vandaag. Een extra sync kost geld en haalt niets nieuws."
+                    : `Max 1× per dag. Kost ongeveer ${feedCost}.`}
+                </p>
                 <button
                   type="button"
-                  className="text-[0.72rem] font-semibold text-[var(--ink)] underline decoration-[var(--signal)] underline-offset-2 disabled:opacity-50"
-                  disabled={syncing}
-                  title="Haalt eerst recruiters op die nog nooit zijn gecheckt. De rest alleen als de laatste check ouder is dan 20 uur."
+                  className="text-[0.72rem] text-[var(--ink)] underline decoration-[var(--signal)] underline-offset-2 disabled:cursor-not-allowed disabled:opacity-50 disabled:no-underline"
+                  disabled={syncing || feedLocked}
+                  title={
+                    feedLocked
+                      ? "Vandaag al opgehaald. Morgen weer."
+                      : `Haalt recruiters op die nog nooit zijn gecheckt. De rest alleen als de laatste check ouder is dan 20 uur. Ongeveer ${feedCost}.`
+                  }
                   onClick={() => void syncFeeds()}
                 >
-                  {syncing ? "Sync loopt…" : "Sync nu"}
+                  {syncing ? "Sync loopt…" : feedLocked ? "Vandaag al opgehaald" : `Sync nu · ≈ ${feedCost}`}
                 </button>
               </div>
               {syncNote ? (
@@ -1193,7 +1254,18 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
                 <div className="feed-sync">
                   {feedRoster.map((agency) => (
                     <section key={agency.id}>
-                      <p className="feed-sync__co">{agency.name}</p>
+                      <p className="feed-sync__co flex items-center gap-2">
+                        <CompanyMark
+                          name={agency.name}
+                          logoUrls={agencyLogoUrls({
+                            name: agency.name,
+                            id: agency.id,
+                            linkedinSlug: agency.linkedinSlug,
+                          })}
+                          size="sm"
+                        />
+                        {agency.name}
+                      </p>
                       <ul>
                         {agency.recruiters.map((person) => {
                           const open = openRecruiter === person.key;
@@ -1287,7 +1359,7 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
                 className="btn-ghost btn-tool"
                 title="Leest elke post die nog niet is uitgezocht, zoekt de opdracht één keer online terug en legt per aanwijzing uit waarom. Ongeveer 2 cent per post."
               >
-                AI alle open · {deepOpenCount}
+                AI alle open · {deepOpenCount} · ≈ {eurRange(SYNC_COST_PER_RUN.actions["ai-research"].eur)} p.st.
               </button>
             ) : data ? (
               <span className="text-[0.72rem] text-[var(--muted)]" title="Posts waar de AI al zocht of niets vond worden niet opnieuw betaald; gebruik AI per post om het opnieuw te proberen.">
@@ -1389,8 +1461,7 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
                   </div>
                 ) : (
                   <p className="ws-empty">
-                    Nog geen live hits. Zorg dat recruiters een LinkedIn-URL hebben en sync de feeds. Of test AI op
-                    een voorbeeld hieronder.
+                    Nog geen live hits. Zet in Instellingen een LinkedIn-URL bij de recruiter en sync de feeds (max 1× per dag).
                   </p>
                 )}
                 </div>
@@ -1422,53 +1493,6 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
           )}
 
           <div className={`shrink-0 space-y-2 ${mobilePane === "detail" ? "max-lg:hidden" : ""}`}>
-          <details className="ws-fold">
-            <summary>
-              <span>{DESK.bureau.foldTitle}</span>
-              <span className="ws-fold__meta">{DESK.bureau.foldMeta}</span>
-            </summary>
-            <div className="ws-fold__body">
-              <p className="m-0 text-[0.8rem] leading-relaxed text-[var(--muted)]">
-                Dit is de <strong className="font-semibold text-[var(--ink)]">recruiter-feed</strong>: vacatures uit
-                LinkedIn-feeds van kantoren die je volgt. Jij bevestigt de eindklant — daarna zoek je de hiring
-                manager. De andere radar is{" "}
-                <a href={DESK.direct.href} className="font-semibold text-[var(--ink)] underline underline-offset-2">
-                  {DESK.direct.nav}
-                </a>{" "}
-                (jobboards).
-              </p>
-              <ol className="ws-fold__steps">
-                <li>
-                  <span className="ws-fold__n">1</span>
-                  <span>
-                    <strong className="font-semibold text-[var(--ink)]">Review</strong> — AI leest de post, zoekt
-                    dezelfde opdracht online terug (andere bureaus noemen de klant vaak wél) en kijkt naar klanten die
-                    je eerder bij dit bureau bevestigde. Per aanwijzing zie je waar die vandaan komt: uit de post,
-                    online gevonden, eerder bevestigd of alleen marktkennis. Jij bevestigt of wijst af.
-                  </span>
-                </li>
-                <li>
-                  <span className="ws-fold__n">2</span>
-                  <span>
-                    <strong className="font-semibold text-[var(--ink)]">Bevestigd</strong> — de kans verschijnt
-                    meteen op{" "}
-                    <a href="/kansen" className="font-semibold text-[var(--ink)] underline underline-offset-2">
-                      Kansen
-                    </a>
-                    , bij stap 2: manager zoeken.
-                  </span>
-                </li>
-                <li>
-                  <span className="ws-fold__n">3</span>
-                  <span>
-                    <strong className="font-semibold text-[var(--ink)]">Daar verder</strong> — manager, contact en
-                    bericht doe je op Kansen. Hier gaat het alleen om de vraag: wie is de opdrachtgever?
-                  </span>
-                </li>
-              </ol>
-            </div>
-          </details>
-
           <details className="ws-fold">
             <summary>
               <span>Kantoren die je volgt</span>
@@ -1521,6 +1545,15 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
                       <li key={a.id} className={on ? "bg-[var(--accent-soft)]/40" : ""}>
                         <details className="group">
                           <summary className="flex cursor-pointer list-none items-center gap-2 px-3.5 py-2.5 hover:bg-[var(--surface-2)] sm:px-4 [&::-webkit-details-marker]:hidden">
+                            <CompanyMark
+                              name={a.name}
+                              logoUrls={agencyLogoUrls({
+                                name: a.name,
+                                id: a.id,
+                                linkedinSlug: a.linkedinSlug,
+                              })}
+                              size="sm"
+                            />
                             <span
                               role="button"
                               tabIndex={0}
@@ -1577,39 +1610,6 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
                   })}
                 </ul>
               )}
-            </div>
-          </details>
-
-          <details className="ws-fold">
-            <summary>
-              <span>Voorbeelden</span>
-              <span className="ws-fold__meta">test de AI zonder live posts</span>
-            </summary>
-            <div className="ws-fold__body !p-0">
-              <section>
-                <div className="overflow-hidden">
-                  {filteredDemo.map((l) => (
-                    <LeadCard
-                      key={l.id}
-                      lead={l}
-                      active={selected?.id === l.id}
-                      onOpen={() => openLead(l.id)}
-                      busy={busy}
-                      aiBusy={aiJobs[l.id]?.status === "running"}
-                      aiQueued={aiJobs[l.id]?.status === "queued"}
-                      aiDepth={aiJobs[l.id]?.depth ?? null}
-                      aiProgress={aiJobs[l.id]?.progress ?? null}
-                      aiError={aiJobs[l.id]?.error ?? null}
-                      hmBusy={hmId === l.id}
-                      clientDraft={clientDrafts[l.id] || ""}
-                      onClientDraft={(v) => setClientDrafts((d) => ({ ...d, [l.id]: v }))}
-                      onReview={onReview}
-                      onAiGuess={onAiGuess}
-                      onHmSearch={onHmSearch}
-                    />
-                  ))}
-                </div>
-              </section>
             </div>
           </details>
           </div>

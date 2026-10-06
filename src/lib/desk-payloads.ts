@@ -4,7 +4,13 @@ import { loadDeskMeta } from "@/lib/desk-meta";
 import { loadHuntSettings } from "@/lib/hunt";
 import { listAgencyLeads } from "@/lib/opportunity";
 import { enabledPlatforms } from "@/lib/platforms";
-import { listRadar, listSignals, stats } from "@/lib/store";
+import {
+  countPermanentJobs,
+  listAgencySuggestions,
+  listRadar,
+  listSignals,
+  stats,
+} from "@/lib/store";
 import { pendingFeedRecruiters } from "@/lib/ingest/recruiter-feeds";
 import { channelLabel, lastSyncByChannel, lastSyncOverall, listSyncRuns } from "@/lib/sync-log";
 
@@ -51,6 +57,8 @@ export async function readLeadsPayload() {
       .at(-1) || null;
   return {
     ...data,
+    // Bureau-vacatures van jobboards horen op Jobboards, niet tussen de posts.
+    live: data.live.filter((l) => l.source !== "jobboard"),
     persistence: hasDatabase() ? ("postgres" as const) : ("memory" as const),
     sync: {
       lastFeed: feed
@@ -102,16 +110,43 @@ export async function readRadarPayload(session: SessionUser) {
   const recent = await listSyncRuns(12);
   const last = recent[0] || (await lastSyncOverall());
   const byChannel = await lastSyncByChannel();
+  const [permanentFiltered, agencySuggestions, leadData] = await Promise.all([
+    countPermanentJobs(),
+    listAgencySuggestions().then((s) => s.length),
+    listAgencyLeads(),
+  ]);
+  /**
+   * Contract-vacatures van bureaus: geen eindklant in de tekst, maar wel het
+   * bewijs dat er ergens budget is. Hier kun je de eindklant laten uitzoeken.
+   */
+  const agencyOpenings = leadData.live
+    .filter((l) => l.source === "jobboard" && l.status !== "rejected")
+    .map((l) => ({
+      id: l.id,
+      title: l.title,
+      roleLabel: l.roleLabel,
+      agency: l.agency.name,
+      evidenceUrl: l.evidenceUrl,
+      guess: l.guess,
+      aiGuess: l.aiGuess,
+      status: l.status,
+      confirmedClient: l.confirmedClient,
+      aiMiss: l.aiMiss || null,
+      facts: l.facts,
+    }));
   return {
     user: { email: session.email, role: session.role },
     stats: await stats(radarRows),
     radar,
+    agencyOpenings,
     feed,
     workspace: hunt,
     sync: {
       last,
       byChannel,
       recent,
+      permanentFiltered,
+      agencySuggestions,
       huntQueries: hunt.roles,
       boardQueries: hunt.roles,
       platformsEnabled: enabledPlatforms().length,

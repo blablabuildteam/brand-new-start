@@ -34,18 +34,87 @@ export type ManagedAgency = {
   recruiters: ManagedRecruiter[];
 };
 
-export function parseRecruiterInput(raw: string): { name: string; linkedinUrl: string } | null {
+export type LinkParseOk<T> = { ok: true } & T;
+export type LinkParseFail = { ok: false; reason: string };
+
+/** Alleen linkedin.com/company/… — de pagina van het kantoor. */
+export function parseCompanyInput(raw: string): LinkParseOk<{ slug: string; name: string }> | LinkParseFail {
   const trimmed = raw.trim();
-  if (!trimmed) return null;
+  if (!trimmed) {
+    return { ok: false, reason: "Plak de LinkedIn-pagina van het kantoor: linkedin.com/company/…" };
+  }
+  if (/linkedin\.com\/in\//i.test(trimmed)) {
+    return {
+      ok: false,
+      reason: "Dat is een persoonsprofiel (/in/). Voor een bureau: linkedin.com/company/…",
+    };
+  }
+  if (/linkedin\.com\/(jobs|posts|feed|pulse|school|showcase)\//i.test(trimmed)) {
+    return {
+      ok: false,
+      reason: "Dat is geen kantoorpagina. Open het bedrijf op LinkedIn en kopieer linkedin.com/company/…",
+    };
+  }
+  const m = trimmed.match(/linkedin\.com\/company\/([^/?#\s]+)/i);
+  if (!m) {
+    return {
+      ok: false,
+      reason: "Alleen een LinkedIn company-URL werkt. Voorbeeld: https://www.linkedin.com/company/vibe-group-global",
+    };
+  }
+  const slug = decodeURIComponent(m[1]).replace(/\/+$/, "");
+  if (slug.length < 2) {
+    return { ok: false, reason: "Die company-URL mist de naam van het kantoor." };
+  }
+  const name = slug.replace(/[-_]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+  return { ok: true, slug, name };
+}
+
+/** Alleen linkedin.com/in/… — het profiel van de recruiter. */
+export function parseRecruiterInput(
+  raw: string
+): LinkParseOk<{ name: string; linkedinUrl: string }> | LinkParseFail {
+  const trimmed = raw.trim();
+  if (!trimmed) {
+    return { ok: false, reason: "Plak het LinkedIn-profiel van de recruiter: linkedin.com/in/…" };
+  }
+  if (/linkedin\.com\/company\//i.test(trimmed)) {
+    return {
+      ok: false,
+      reason: "Dat is de pagina van het kantoor. Voor een recruiter: linkedin.com/in/voornaam-achternaam",
+    };
+  }
+  if (/linkedin\.com\/(jobs|posts|feed|pulse|school)\//i.test(trimmed)) {
+    return {
+      ok: false,
+      reason: "Dat is geen profiel. Open de recruiter op LinkedIn en kopieer linkedin.com/in/…",
+    };
+  }
   const linkedinMatch = trimmed.match(/linkedin\.com\/in\/([^/?#\s]+)/i);
-  if (!linkedinMatch) return null;
+  if (!linkedinMatch) {
+    if (/^https?:\/\//i.test(trimmed) || /linkedin\.com/i.test(trimmed)) {
+      return { ok: false, reason: "Die link is geen persoonsprofiel. Het moet linkedin.com/in/naam zijn." };
+    }
+    return {
+      ok: false,
+      reason: "Alleen een naam is niet genoeg. Plak linkedin.com/in/… anders kan de feed niets ophalen.",
+    };
+  }
   const slug = decodeURIComponent(linkedinMatch[1]).replace(/\/+$/, "");
-  if (!slug) return null;
+  if (!slug) {
+    return { ok: false, reason: "Die /in/-URL mist de naam. Kopieer de hele profiellink van LinkedIn." };
+  }
   const linkedinUrl = `https://www.linkedin.com/in/${slug}`;
-  const before = trimmed.slice(0, trimmed.search(/https?:\/\/|\blinkedin\.com/i)).trim().replace(/[·|,;]+$/g, "").trim();
+  const before = trimmed
+    .slice(0, trimmed.search(/https?:\/\/|\blinkedin\.com/i))
+    .trim()
+    .replace(/[·|,;]+$/g, "")
+    .trim();
   const name = before.length >= 2 ? before : displayNameFromLinkedInSlug(slug);
-  if (name.length < 2) return null;
-  return { name, linkedinUrl };
+  if (name.length < 2) {
+    return { ok: false, reason: "Kon geen naam uit die URL halen. Zet de naam er eventueel voor." };
+  }
+  return { ok: true, name, linkedinUrl };
 }
 
 function displayNameFromLinkedInSlug(slug: string): string {

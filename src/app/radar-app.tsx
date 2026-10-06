@@ -8,7 +8,7 @@ import { ScoreChip, scoreTone } from "@/components/score-chip";
 import { resolveCompanyLogo } from "@/lib/company-logo";
 import { AppShell } from "@/components/app-shell";
 import { cachePeek } from "@/lib/client-cache";
-import { INGEST_POLICY, SYNC_COST_PER_RUN } from "@/lib/costs";
+import { INGEST_POLICY, SYNC_COST_PER_RUN, eurRange, syncStillLocked } from "@/lib/costs";
 import { DESK } from "@/lib/desk-labels";
 import { orgContextFromSignals } from "@/lib/org-context";
 import {
@@ -105,7 +105,38 @@ type SyncInfo = {
   huntQueries: string[];
   boardQueries?: string[];
   platformsEnabled: number;
+  /** Vacatures die we buiten de radar houden omdat het vast dienstverband is. */
+  permanentFiltered?: number;
+  /** Bureaus die op dezelfde rollen sourcen — kandidaten voor de feed. */
+  agencySuggestions?: number;
 };
+
+function lastAtForAction(
+  sync: SyncInfo | null,
+  action: "market" | "indeed" | "freelance-nl" | "platforms" | "recruiter-feeds"
+) {
+  const ch =
+    action === "market"
+      ? "linkedin-jobs"
+      : action === "platforms"
+        ? "firecrawl-careers"
+        : action === "recruiter-feeds"
+          ? "recruiter-feed"
+          : action;
+  return sync?.byChannel?.[ch]?.at || sync?.recent?.find((r) => r.channel === ch)?.at || null;
+}
+
+function actionLocked(
+  sync: SyncInfo | null,
+  action: "all" | "market" | "indeed" | "freelance-nl" | "platforms" | "recruiter-feeds"
+) {
+  if (action === "all") {
+    return (["market", "indeed", "freelance-nl"] as const).every((a) =>
+      syncStillLocked(lastAtForAction(sync, a))
+    );
+  }
+  return syncStillLocked(lastAtForAction(sync, action));
+}
 
 type SyncStep = {
   id: string;
@@ -592,8 +623,31 @@ function matchCompanyByQuery(rows: RadarRow[], q: string | null | undefined) {
   );
 }
 
+/**
+ * Contract-vacature van een bureau. De eindklant staat niet in de tekst, maar
+ * is er wel uit terug te zoeken — daar is de AI voor.
+ */
+type AgencyOpening = {
+  id: string;
+  title: string;
+  roleLabel: string;
+  agency: string;
+  evidenceUrl: string | null;
+  guess: {
+    name: string;
+    confidence: number;
+    evidence?: { label: string; quote?: string | null }[];
+    alternatives?: { name: string; confidence: number }[];
+  } | null;
+  aiGuess: boolean;
+  status: string;
+  confirmedClient: string | null;
+  aiMiss: { detail: string; notAssignment: boolean } | null;
+};
+
 type RadarBoot = {
   radar: RadarRow[];
+  agencyOpenings?: AgencyOpening[];
   stats: {
     hot: number;
     warm: number;
@@ -620,6 +674,12 @@ export default function RadarApp({
   const router = useRouter();
   const [radar, setRadar] = useState<RadarRow[]>(initial?.radar ?? []);
   const radarRef = useRef<RadarRow[]>(initial?.radar ?? []);
+  const [agencyOpenings, setAgencyOpenings] = useState<AgencyOpening[]>(
+    initial?.agencyOpenings ?? []
+  );
+  const [bureauBusy, setBureauBusy] = useState<string | null>(null);
+  const [bureauNote, setBureauNote] = useState<Record<string, string>>({});
+  const [bureauOpen, setBureauOpen] = useState(false);
   const [stats, setStats] = useState<{
     hot: number;
     warm: number;
@@ -667,6 +727,7 @@ export default function RadarApp({
         }
         radarRef.current = data.radar;
         setRadar(data.radar);
+        setAgencyOpenings(data.agencyOpenings ?? []);
         setStats(data.stats);
         if (data.user?.email) {
           setUser({
@@ -728,6 +789,7 @@ export default function RadarApp({
     if (!cached?.radar.length || radarRef.current.length) return;
     radarRef.current = cached.radar;
     setRadar(cached.radar);
+    setAgencyOpenings(cached.agencyOpenings ?? []);
     setStats(cached.stats);
     setSync(cached.sync);
     if (cached.user?.email) {
@@ -783,6 +845,35 @@ export default function RadarApp({
     [radar, focusQuery]
   );
   const showFocusMiss = Boolean(focusQuery?.trim()) && !focusMatch && !loading;
+  /** Zoek de eindklant achter een bureau-vacature. Kost geld, dus per klik. */
+  async function findEndClient(id: string) {
+    setBureauBusy(id);
+    setBureauNote((n) => ({ ...n, [id]: "Zoeken…" }));
+    try {
+      const { streamResearch } = await import("@/lib/research/client");
+      const res = await streamResearch<AgencyOpening>(id, "standard", (p) => {
+        if (p.label) setBureauNote((n) => ({ ...n, [id]: p.label }));
+      });
+      if (res.ok && res.lead) {
+        const lead = res.lead;
+        setAgencyOpenings((rows) => rows.map((r) => (r.id === id ? { ...r, ...lead } : r)));
+        setBureauNote((n) => ({ ...n, [id]: "" }));
+      } else {
+        setBureauNote((n) => ({
+          ...n,
+          [id]: res.error || res.detail || "Geen eindklant gevonden",
+        }));
+      }
+    } catch {
+      setBureauNote((n) => ({ ...n, [id]: "Zoeken mislukt" }));
+    } finally {
+      setBureauBusy(null);
+    }
+  }
+
+  const permFiltered = sync?.permanentFiltered ?? 0;
+  const agencySuggestions = sync?.agencySuggestions ?? 0;
+  const aiCost = eurRange(SYNC_COST_PER_RUN.actions["ai-research"].eur);
 
   const focusLinkedIn = useMemo(() => {
     if (!focusQuery?.trim()) return null;
@@ -952,6 +1043,10 @@ export default function RadarApp({
     action: "all" | "market" | "indeed" | "freelance-nl" | "platforms" | "recruiter-feeds"
   ) {
     if (!user) {
+      setMenuOpen(false);
+      return;
+    }
+    if (actionLocked(sync, action)) {
       setMenuOpen(false);
       return;
     }
@@ -1307,14 +1402,14 @@ export default function RadarApp({
                   Sync starten · kost geld
                 </p>
                 <p className="mt-0.5 text-[0.7rem] leading-snug text-[var(--muted)]">
-                  Klik = bronnen ophalen (Apify/Firecrawl). Advies 1×/{INGEST_POLICY.boardsCadenceDays}d · geen auto-cron.
+                  Max 1× per dag per bron. Tweede klik haalt niets nieuws en kost toch geld.
                 </p>
               </div>
               <div className="space-y-1 px-2 py-2">
                 <button
                   type="button"
                   role="menuitem"
-                  disabled={busy}
+                  disabled={busy || actionLocked(sync, "all")}
                   className="flex w-full items-start gap-2 rounded-[var(--radius)] border border-[var(--accent)]/35 bg-[var(--accent-soft)]/40 px-2.5 py-2 text-left text-xs transition hover:bg-[var(--accent-soft)]/80 disabled:opacity-50"
                   onClick={() => {
                     setMenuOpen(false);
@@ -1327,8 +1422,9 @@ export default function RadarApp({
                   <span className="min-w-0">
                     <span className="block font-semibold text-[var(--ink)]">Alles</span>
                     <span className="block text-[0.7rem] text-[var(--muted)]">
-                      LinkedIn + Indeed + Freelance.nl · ≈ €{SYNC_COST_PER_RUN.actions.all.eur.low}–
-                      {SYNC_COST_PER_RUN.actions.all.eur.high}
+                      {actionLocked(sync, "all")
+                        ? "Vandaag al opgehaald"
+                        : `LinkedIn + Indeed + Freelance.nl · ≈ ${eurRange(SYNC_COST_PER_RUN.actions.all.eur)}`}
                     </span>
                   </span>
                 </button>
@@ -1344,12 +1440,14 @@ export default function RadarApp({
                     ["freelance-nl", "Freelance.nl", SYNC_COST_PER_RUN.actions["freelance-nl"]] as const,
                     ["platforms", "Careers / platforms", SYNC_COST_PER_RUN.actions.platforms] as const,
                   ] as const
-                ).map(([id, label, cost]) => (
+                ).map(([id, label, cost]) => {
+                  const off = actionLocked(sync, id);
+                  return (
                   <button
                     key={id}
                     type="button"
                     role="menuitem"
-                    disabled={busy}
+                    disabled={busy || off}
                     className="flex w-full items-start gap-2 rounded-[var(--radius)] border border-[var(--line)] bg-[var(--surface)] px-2.5 py-2 text-left text-xs transition hover:border-[var(--accent)]/40 hover:bg-[var(--surface-2)] disabled:opacity-50"
                     onClick={() => {
                       setMenuOpen(false);
@@ -1362,11 +1460,12 @@ export default function RadarApp({
                     <span className="min-w-0">
                       <span className="block font-semibold text-[var(--ink)]">{label}</span>
                       <span className="block text-[0.7rem] text-[var(--muted)]">
-                        ≈ €{cost.eur.low}–{cost.eur.high} / run
+                        {off ? "Vandaag al opgehaald" : `≈ ${eurRange(cost.eur)} / run`}
                       </span>
                     </span>
                   </button>
-                ))}
+                  );
+                })}
               </div>
             </>
           ) : (
@@ -1460,6 +1559,36 @@ export default function RadarApp({
             </ol>
           </div>
         </details>
+
+        {permFiltered > 0 || agencySuggestions > 0 ? (
+          <p
+            className={`mb-3 flex flex-wrap items-baseline gap-x-2 gap-y-1 text-[0.78rem] leading-snug text-[var(--muted)] ${mobilePane === "detail" ? "max-lg:hidden" : ""}`}
+          >
+            {permFiltered > 0 ? (
+              <>
+                <span className="font-semibold text-[var(--ink)]">
+                  {permFiltered} vacatures weggefilterd
+                </span>
+                <span>
+                  — vast dienstverband. Jobboards staan vol perm; alleen ZZP, interim en contract
+                  blijven hier staan.
+                </span>
+              </>
+            ) : null}
+            {agencySuggestions > 0 ? (
+              <span>
+                {agencySuggestions} bureaus zoeken dezelfde rollen —{" "}
+                <a
+                  href="/instellingen#feed"
+                  className="font-semibold text-[var(--ink)] underline underline-offset-2"
+                >
+                  volg ze in de feed
+                </a>
+                , dan zie je voor welke eindklant.
+              </span>
+            ) : null}
+          </p>
+        ) : null}
 
         {showFocusMiss && focusQuery ? (
           <div className={`mb-3 rounded-[var(--radius)] border border-[var(--accent)]/30 bg-[var(--accent-soft)]/40 px-4 py-3 ${mobilePane === "detail" ? "max-lg:hidden" : ""}`}>
@@ -1939,6 +2068,101 @@ export default function RadarApp({
                   })}
                 </ul>
               )}
+
+              {agencyOpenings.length ? (
+                <div className="mt-3 border-t border-[var(--line)]/70 pt-3">
+                  <button
+                    type="button"
+                    className="flex w-full items-baseline justify-between gap-3 px-1 text-left"
+                    onClick={() => setBureauOpen((v) => !v)}
+                    aria-expanded={bureauOpen}
+                  >
+                    <span className="text-[0.8rem] font-semibold text-[var(--ink)]">
+                      Via een bureau · eindklant onbekend
+                    </span>
+                    <span className="shrink-0 text-[0.72rem] text-[var(--muted)]">
+                      {agencyOpenings.length} {bureauOpen ? "▲" : "▼"}
+                    </span>
+                  </button>
+                  {bureauOpen ? (
+                    <>
+                      <p className="mt-1.5 px-1 text-[0.72rem] leading-relaxed text-[var(--muted)]">
+                        Een detacheerder zoekt hier iemand voor een klant die niet genoemd wordt.
+                        Dat is juist goed nieuws: er is al budget. Laat de eindklant terugzoeken uit
+                        locatie, sector en stack — ≈ {aiCost} per vacature.
+                      </p>
+                      <ul className="mt-2 space-y-1">
+                        {agencyOpenings.map((o) => {
+                          const note = bureauNote[o.id];
+                          const name = o.confirmedClient || o.guess?.name || null;
+                          return (
+                            <li
+                              key={o.id}
+                              className="rounded-[var(--radius)] border border-[var(--line)] bg-[var(--surface)]/60 px-3 py-2.5"
+                            >
+                              <p className="m-0 truncate text-[0.85rem] font-medium text-[var(--ink)]">
+                                {o.title}
+                              </p>
+                              <p className="m-0 mt-0.5 truncate text-[0.72rem] text-[var(--muted)]">
+                                via {o.agency}
+                                {o.roleLabel ? ` · ${o.roleLabel}` : ""}
+                              </p>
+                              {name ? (
+                                <p className="m-0 mt-1.5 text-[0.78rem] text-[var(--ink)]">
+                                  <span className="text-[var(--muted)]">Eindklant: </span>
+                                  <span className="font-semibold">{name}</span>
+                                  {o.guess && !o.confirmedClient ? (
+                                    <span className="text-[var(--muted)]">
+                                      {" "}
+                                      · {o.guess.confidence}% zeker
+                                    </span>
+                                  ) : null}
+                                </p>
+                              ) : null}
+                              {o.guess?.evidence?.length ? (
+                                <p className="m-0 mt-0.5 text-[0.7rem] leading-snug text-[var(--muted)]">
+                                  {o.guess.evidence[0]!.label}
+                                </p>
+                              ) : null}
+                              <div className="mt-2 flex flex-wrap items-center gap-2">
+                                <button
+                                  type="button"
+                                  className="btn-ink btn-tool"
+                                  disabled={bureauBusy === o.id}
+                                  onClick={() => void findEndClient(o.id)}
+                                >
+                                  {bureauBusy === o.id
+                                    ? "Zoeken…"
+                                    : name
+                                      ? `Opnieuw zoeken · ≈ ${aiCost}`
+                                      : `Zoek eindklant · ≈ ${aiCost}`}
+                                </button>
+                                {o.evidenceUrl ? (
+                                  <a
+                                    href={o.evidenceUrl}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="text-[0.72rem] text-[var(--muted)] underline underline-offset-2 hover:text-[var(--ink)]"
+                                  >
+                                    Vacature
+                                  </a>
+                                ) : null}
+                                {note ? (
+                                  <span className="text-[0.72rem] text-[var(--muted)]">{note}</span>
+                                ) : o.aiMiss ? (
+                                  <span className="text-[0.72rem] text-[var(--muted)]">
+                                    {o.aiMiss.detail}
+                                  </span>
+                                ) : null}
+                              </div>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
             <div className="radar-scroll-pane__fade" aria-hidden />
           </section>

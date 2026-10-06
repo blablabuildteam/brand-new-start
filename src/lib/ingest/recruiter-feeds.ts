@@ -12,6 +12,7 @@ import { isVacancyPost, type LinkedInPost } from "@/lib/ingest/linkedin";
 import { detectRoleLabel, looksLikePermanent, matchesRole } from "@/lib/niche";
 import { ingestSignal, listAgencySignals } from "@/lib/store";
 import { recordSync, type SyncHit } from "@/lib/sync-log";
+import { plainLinkedIn } from "@/lib/plain-text";
 
 const POSTS_ACTOR = process.env.APIFY_LINKEDIN_ACTOR || "harvestapi/linkedin-profile-posts";
 
@@ -113,8 +114,9 @@ function normalizeApifyItem(item: Record<string, unknown>): LinkedInPost | null 
 }
 
 function postTitle(text: string): string {
-  const role = detectRoleLabel(text);
-  const line = text.split(/\n/).map((l) => l.trim()).find((l) => l.length > 12) || text;
+  const plain = plainLinkedIn(text);
+  const role = detectRoleLabel(plain);
+  const line = plain.split(/\n/).map((l) => l.trim()).find((l) => l.length > 12) || plain;
   const snippet = line.replace(/\s+/g, " ").slice(0, 90);
   if (role && !snippet.toLowerCase().includes(role.toLowerCase().slice(0, 8))) {
     return `${role} — ${snippet}`;

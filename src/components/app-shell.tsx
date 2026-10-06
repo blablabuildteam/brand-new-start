@@ -9,7 +9,7 @@ import { CommandPalette } from "@/components/command-palette";
 import { cacheClear, cacheGet, cachedJson, prefetchJson } from "@/lib/client-cache";
 import { partnerForEmail } from "@/lib/partner-brand";
 
-export type AppNavId = "radar" | "leads" | "kansen" | "voorstel" | "instellingen";
+export type AppNavId = "radar" | "leads" | "kansen" | "voorstel" | "instellingen" | "kosten";
 
 const PRIMARY: { href: string; id: AppNavId; label: string; icon: "radar" | "bureaus" | "kansen" | "voorstel" }[] = [
   { href: "/radar", id: "radar", label: "Jobboards", icon: "radar" },
@@ -265,6 +265,15 @@ export function AppShell({
           <SideIcon kind="settings" on={current === "instellingen"} />
           <span className="rail-label">Instellingen</span>
         </Link>
+        <Link
+          href="/costs"
+          data-rail="Kosten"
+          onClick={() => setOpen(false)}
+          className={navClass(current === "kosten")}
+        >
+          <SideIcon kind="costs" on={current === "kosten"} />
+          <span className="rail-label">Kosten</span>
+        </Link>
       </nav>
 
       <div className="mt-auto border-t border-[var(--line)] pt-3">
@@ -276,15 +285,6 @@ export function AppShell({
         >
           <SideIcon kind="help" on={false} />
           <span className="rail-label">Hoe het werkt</span>
-        </Link>
-        <Link
-          href="/costs"
-          data-rail="Kosten"
-          className="nav-link flex items-center gap-2.5 rounded-[var(--radius)] px-2.5 py-2 text-[0.8rem] text-[var(--muted)] hover:bg-[var(--surface-2)] hover:text-[var(--ink)]"
-          onClick={() => setOpen(false)}
-        >
-          <SideIcon kind="costs" on={false} />
-          <span className="rail-label">Kosten</span>
         </Link>
         {user?.role === "admin" ? (
           <Link

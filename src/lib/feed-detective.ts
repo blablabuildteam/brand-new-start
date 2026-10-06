@@ -4,6 +4,8 @@ import type { ClientGuess, Evidence, EvidenceOrigin } from "@/lib/end-client";
 import { hasWeb, makeBudget, multiSearch } from "@/lib/research/web";
 import type { SearchHit } from "@/lib/research/types";
 
+export { plainLinkedIn } from "@/lib/plain-text";
+
 /**
  * Recruiter-feed speurder: wie is de opdrachtgever achter een anonieme post?
  *

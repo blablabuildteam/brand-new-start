@@ -7,9 +7,9 @@ import { hasApifyToken, runApifyActor } from "@/lib/apify";
 import { isBlockedEndClientName } from "@/lib/agency";
 import {
   detectRoleLabel,
-  isExternalPlacementText,
-  looksLikePermanent,
+  isExternalRole,
   matchesRole,
+  notExternalReason,
 } from "@/lib/niche";
 import { ingestSignal, isJunkCompanyName, isJunkJobTitle } from "@/lib/store";
 import { recordSync, type SyncChannel, type SyncHit } from "@/lib/sync-log";
@@ -29,6 +29,8 @@ type BoardJob = {
   url?: string;
   location?: string;
   channel: SyncChannel;
+  /** Dienstverband zoals de board het zelf meegeeft ("Fulltime", "Freelance/zzp"). */
+  employmentType?: string | null;
   postedAt?: string;
   applicants?: number | null;
   companyLogo?: string | null;
@@ -83,20 +85,7 @@ async function ingestBoardJobs(jobs: BoardJob[]) {
       continue;
     }
 
-    if (looksLikePermanent(blob)) {
-      skipped += 1;
-      hits.push({
-        company: job.company,
-        title: job.title,
-        url: job.url,
-        kept: false,
-        isNew: false,
-        reason: "vast dienstverband (interne werving)",
-      });
-      continue;
-    }
-
-    const contractish = isExternalPlacementText(blob);
+    const contractish = isExternalRole({ text: blob, employmentType: job.employmentType });
     if (huntSettings().requireContract && !contractish) {
       skipped += 1;
       hits.push({
@@ -105,7 +94,7 @@ async function ingestBoardJobs(jobs: BoardJob[]) {
         url: job.url,
         kept: false,
         isNew: false,
-        reason: "geen externe plaatsing (ZZP/interim/contract)",
+        reason: notExternalReason({ text: blob, employmentType: job.employmentType }),
       });
       continue;
     }
@@ -135,6 +124,7 @@ async function ingestBoardJobs(jobs: BoardJob[]) {
         postedAt: job.postedAt || null,
         applicants: job.applicants ?? null,
         companyLogo: job.companyLogo || null,
+        employmentType: job.employmentType || null,
         description: (job.description || "").slice(0, 2500) || null,
         jobPosterName: job.jobPosterName || null,
         jobPosterTitle: job.jobPosterTitle || null,
@@ -205,6 +195,7 @@ function normalizeIndeedItem(item: Record<string, unknown>): BoardJob | null {
     url: String(item.url || item.jobUrl || item.externalApplyLink || "") || undefined,
     location: String(item.location || item.jobLocation || "") || undefined,
     channel: "indeed",
+    employmentType: jobType || null,
     postedAt: String(item.postedAt || item.postingDateParsed || item.pubDate || "") || undefined,
     applicants,
     companyLogo: logo.startsWith("http") ? logo : null,

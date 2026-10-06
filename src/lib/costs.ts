@@ -310,3 +310,73 @@ export const SYNC_COST_PER_RUN = {
     },
   },
 } as const;
+
+/** Tweede sync binnen deze tijd haalt niets nieuws en kost toch geld. */
+export const SYNC_LOCK_HOURS = 20;
+
+export function eurRange(r: { low: number; high: number }) {
+  const f = (n: number) => {
+    if (Math.abs(n - Math.round(n)) < 1e-9) return String(Math.round(n));
+    return n.toFixed(2).replace(".", ",");
+  };
+  if (r.low === 0 && r.high === 0) return "€0";
+  if (r.low === r.high) return `€${f(r.low)}`;
+  return `€${f(r.low)}–${f(r.high)}`;
+}
+
+const CHANNEL_ACTION: Record<string, keyof typeof SYNC_COST_PER_RUN.actions> = {
+  "linkedin-jobs": "market",
+  indeed: "indeed",
+  "freelance-nl": "freelance-nl",
+  "firecrawl-careers": "platforms",
+  "recruiter-feed": "recruiter-feeds",
+  "hm-search": "hm-search",
+  lusha: "lusha",
+};
+
+export function hoursSince(iso: string | null | undefined) {
+  if (!iso) return Infinity;
+  const t = new Date(iso).getTime();
+  if (Number.isNaN(t)) return Infinity;
+  return (Date.now() - t) / 3_600_000;
+}
+
+export function syncStillLocked(iso: string | null | undefined, hours = SYNC_LOCK_HOURS) {
+  return hoursSince(iso) < hours;
+}
+
+export function estimateSpendFromRuns(
+  runs: { at: string; channel: string; mode?: string; fetched?: number }[]
+) {
+  const monthStart = new Date();
+  monthStart.setDate(1);
+  monthStart.setHours(0, 0, 0, 0);
+  const from = monthStart.getTime();
+  const byId: Record<string, { label: string; count: number; eur: { low: number; high: number } }> = {};
+  let low = 0;
+  let high = 0;
+  let count = 0;
+  for (const run of runs) {
+    if (new Date(run.at).getTime() < from) continue;
+    if (run.mode === "fresh" || run.mode === "skipped") continue;
+    if ((run.fetched ?? 1) <= 0) continue;
+    const actionId = CHANNEL_ACTION[run.channel];
+    if (!actionId) continue;
+    const action = SYNC_COST_PER_RUN.actions[actionId];
+    if (action.eur.low === 0 && action.eur.high === 0) continue;
+    count += 1;
+    low += action.eur.low;
+    high += action.eur.high;
+    const row = byId[actionId] || { label: action.label, count: 0, eur: { low: 0, high: 0 } };
+    row.count += 1;
+    row.eur.low += action.eur.low;
+    row.eur.high += action.eur.high;
+    byId[actionId] = row;
+  }
+  return {
+    monthLabel: monthStart.toLocaleDateString("nl-NL", { month: "long", year: "numeric" }),
+    count,
+    eur: { low: Math.round(low * 100) / 100, high: Math.round(high * 100) / 100 },
+    lines: Object.values(byId).sort((a, b) => b.eur.high - a.eur.high),
+  };
+}
