@@ -149,6 +149,21 @@ export const AGENCY_WATCHLIST: Agency[] = [
       },
     ],
   },
+  {
+    id: "kando",
+    name: "Kando Solutions",
+    aliases: ["kando", "kando solutions", "kando-solutions", "kando solutions recruitment"],
+    linkedinSlug: "kando-solutions-recruitment",
+    note: "Solo DevOps/cloud/data freelance-recruitment (Amsterdam). Founder: David Arkinstall.",
+    recruiters: [
+      {
+        name: "David Arkinstall",
+        title: "Founder & DevOps Recruiter",
+        brand: "Kando",
+        linkedinUrl: "https://www.linkedin.com/in/daveatkando",
+      },
+    ],
+  },
 ];
 
 function norm(s: string) {
@@ -308,6 +323,8 @@ const INTERMEDIARY_HINTS = [
   "suited",
   "overheidzzp",
   "overheid zzp",
+  "kando",
+  "kando solutions",
   // NL contracting / staffing
   "yacht",
   "hays",

@@ -107,6 +107,8 @@ const AGENCY_LOGO_HOST: Record<string, string> = {
   "sthree-plc": "sthree.com",
   thenextmoove: "thenextmoove.nl",
   "elevation-partners-nederland": "elevationpartners.nl",
+  kando: "kando-solutions.com",
+  "kando-solutions-recruitment": "kando-solutions.com",
 };
 
 function favicon(host: string) {
