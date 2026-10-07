@@ -12,7 +12,7 @@ import { ResearchMeter } from "@/components/research-meter";
 import { kansenHref, regieHref } from "@/lib/desk-links";
 import { cachePeek } from "@/lib/client-cache";
 import { DESK, hmSearchMessage } from "@/lib/desk-labels";
-import { eurRange, SYNC_COST_PER_RUN, syncStillLocked } from "@/lib/costs";
+import { eurApprox, eurRange, SYNC_COST_PER_RUN, syncStillLocked } from "@/lib/costs";
 import type { AgencyLead, LeadStatus } from "@/lib/opportunity";
 import { huntSignals, type EvidenceOrigin } from "@/lib/end-client";
 import { plainLinkedIn } from "@/lib/plain-text";
@@ -99,7 +99,7 @@ const ORIGIN_NL: Record<EvidenceOrigin, string> = {
   post: "uit de post",
   web: "online gevonden",
   memory: "eerder bevestigd",
-  history: "zelfde recruiter",
+  history: "eerdere opdracht van deze recruiter",
   knowledge: "marktkennis",
 };
 
@@ -150,33 +150,6 @@ function clientExplain(lead: AgencyLead): { kind: "ok" | "thin" | "hunt"; why: s
       : "Nog niet uitgezocht. De post noemt geen naam; AI zoekt de opdracht online terug en kijkt naar eerdere klanten van dit bureau.",
     short: clues.length ? `Nog niet uitgezocht · ${clues.slice(0, 3).join(", ")}` : "Nog niet uitgezocht",
   };
-}
-
-type Basis = { label: string; tone: "strong" | "mid" | "weak"; hint: string };
-
-/** One word on where the name comes from, so the row doesn't need the whole story. */
-function basisOf(lead: AgencyLead): Basis | null {
-  if (lead.status === "confirmed") return { label: "bevestigd", tone: "strong", hint: "Door jou bevestigd" };
-  const g = lead.guess;
-  if (!g || lead.status === "rejected") return null;
-  const has = (o: EvidenceOrigin) => g.evidence.some((e) => e.origin === o);
-  if (has("memory")) return { label: "eerder bevestigd", tone: "strong", hint: "Je bevestigde deze klant eerder bij dit bureau" };
-  if (g.evidence.some((e) => e.origin === "post" && /letterlijk/i.test(e.label))) {
-    return { label: "naam in post", tone: "strong", hint: "De naam staat letterlijk in de post" };
-  }
-  if (has("history")) return { label: "zelfde recruiter", tone: "mid", hint: "Deze recruiter had eerder een online bewezen opdracht bij deze klant" };
-  if (g.source === "serp") return { label: "zoekresultaten", tone: "mid", hint: "De naam kwam terug in passende zoekresultaten" };
-  if (has("post")) return { label: "aanwijzingen", tone: "mid", hint: "Losse aanwijzingen in de post, de naam zelf staat er niet" };
-  return { label: "hypothese", tone: "weak", hint: "Alleen marktkennis van de AI — niet nagetrokken" };
-}
-
-function BasisBadge({ basis }: { basis: Basis | null }) {
-  if (!basis) return null;
-  return (
-    <span className={`lead-basis lead-basis--${basis.tone}`} title={basis.hint}>
-      {basis.label}
-    </span>
-  );
 }
 
 function linkHost(url: string) {
@@ -318,10 +291,8 @@ function LeadCard({
   const guessed = lead.confirmedClient || lead.guess?.name || "";
   const client = (clientDraft || guessed).trim();
   const actionable = lead.status !== "confirmed" && lead.status !== "rejected";
-  const why = clientExplain(lead);
   const conf = lead.guess?.confidence ?? null;
 
-  const basis = basisOf(lead);
   const quickConfirm = actionable && Boolean(lead.guess?.name) && (lead.guess?.confidence ?? 0) >= 45;
   const quickAi = actionable && !lead.guess && !lead.aiMiss;
 
@@ -375,7 +346,7 @@ function LeadCard({
               className="btn-ghost btn-row"
               title="AI leest de post en zoekt de opdracht online terug (~2 cent)"
             >
-              {aiBusy ? "Zoekt…" : aiQueued ? "Wacht…" : `AI · ${eurRange(SYNC_COST_PER_RUN.actions["ai-research"].eur)}`}
+              {aiBusy ? "Zoekt…" : aiQueued ? "Wacht…" : `AI · ${eurApprox(SYNC_COST_PER_RUN.actions["ai-research"].eur)}`}
             </button>
           ) : null}
         </div>
@@ -387,10 +358,7 @@ function LeadCard({
         <span className={`min-w-0 truncate ${client ? "text-[var(--ink)]" : "text-[var(--muted)]"}`}>
           {client || "Opdrachtgever onbekend"}
         </span>
-        <BasisBadge basis={basis} />
-        {why.short ? <span className={`lead-row__why ${why.kind === "thin" ? "lead-row__why--thin" : ""}`}>{why.short}</span> : null}
       </div>
-
     </article>
   );
 }
@@ -454,7 +422,6 @@ function LeadDetail({
   const client = (clientDraft || guessed).trim();
   const actionable = lead.status !== "confirmed" && lead.status !== "rejected";
   const researchLock = busy || aiBusy || Boolean(aiQueued);
-  const basis = basisOf(lead);
   const conf = lead.guess?.confidence ?? null;
 
   return (
@@ -472,10 +439,9 @@ function LeadDetail({
       <h2 className="lead-detail__title">{lead.title}</h2>
       <VacancyLinks lead={lead} />
       <div className="mt-3 flex flex-wrap items-center gap-2">
-        <span className={client ? "text-[var(--ink)]" : "text-[var(--muted)]"}>
+        <span className={`text-sm font-semibold ${client ? "text-[var(--ink)]" : "text-[var(--muted)]"}`}>
           {client || "Opdrachtgever onbekend"}
         </span>
-        <BasisBadge basis={basis} />
         {conf != null ? (
           <ScoreChip
             kans={conf}
@@ -670,7 +636,6 @@ function QuickReview({
                 aria-label="Eindklant"
               />
               {lead.guess ? <span className="quick-review__conf">{lead.guess.confidence}%</span> : null}
-              <BasisBadge basis={basisOf(lead)} />
             </div>
             <WhyBlock lead={lead} />
             {lead.evidenceUrl ? (
@@ -1297,37 +1262,38 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
             ))}
           </div>
           <div className={`flex flex-wrap items-center gap-2 ${mobilePane === "detail" ? "max-lg:hidden" : ""}`}>
-            {readyRows().length ? (
+            {bucket === "ready" && readyRows().length ? (
               <button
                 type="button"
                 onClick={() => void confirmReady()}
                 disabled={busy}
                 className={`btn-ink btn-tool ${bulk ? "is-busy" : ""}`}
                 aria-busy={Boolean(bulk) || undefined}
-                title="Bevestigt elke post waar de AI 80% of zekerder is. Ze komen meteen op Kansen."
+                title="Zet alle sterke AI-voorstellen (80%+) in één keer op Kansen."
               >
                 {bulk ? <BtnSpinner /> : null}
                 {bulk ? `Bevestigen ${bulk.done} van ${bulk.total}` : `Bevestig alle ${readyRows().length}`}
               </button>
             ) : null}
-            {reviewable ? (
-              <button type="button" onClick={startReview} className="btn-ghost btn-tool" title="Eén post tegelijk: bevestig, weg of volgende">
-                Snel beoordelen · {reviewable}
+            {(bucket === "ready" || bucket === "open") && reviewable ? (
+              <button
+                type="button"
+                onClick={startReview}
+                className="btn-ghost btn-tool"
+                title="Open één post tegelijk: Bevestig, Weg, of Volgende. Handig om de klaar-stapel snel door te lopen."
+              >
+                Eén voor één · {reviewable}
               </button>
             ) : null}
-            {deepOpenCount ? (
+            {(bucket === "open" || bucket === "all") && deepOpenCount ? (
               <button
                 type="button"
                 onClick={deepAllOpen}
                 className="btn-ghost btn-tool"
-                title="Leest elke post die nog niet is uitgezocht, zoekt de opdracht één keer online terug en legt per aanwijzing uit waarom. Ongeveer 2 cent per post."
+                title={`Laat AI voor ${deepOpenCount} posts de opdrachtgever zoeken. Schatting ${eurApprox(SYNC_COST_PER_RUN.actions["ai-research"].eur)} per post.`}
               >
-                AI alle open · {deepOpenCount} · ≈ {eurRange(SYNC_COST_PER_RUN.actions["ai-research"].eur)} p.st.
+                Zoek opdrachtgevers · {deepOpenCount} · {eurApprox(SYNC_COST_PER_RUN.actions["ai-research"].eur)}/st
               </button>
-            ) : data ? (
-              <span className="text-[0.72rem] text-[var(--muted)]" title="Posts waar de AI al zocht of niets vond worden niet opnieuw betaald; gebruik AI per post om het opnieuw te proberen.">
-                Alle posts zijn al door de AI gelezen
-              </span>
             ) : null}
           </div>
           {watchAgency ? (
