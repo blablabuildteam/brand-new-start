@@ -234,7 +234,7 @@ export const INGEST_POLICY = {
 export const SYNC_COST_PER_RUN = {
   currency: "EUR",
   disclaimer:
-    "Schatting per sync. Echte rekening = Apify-usage + Firecrawl-credits. Geen bron draait automatisch — alles handmatig.",
+    "Bedragen zijn schattingen op basis van jullie sync-caps (geen Apify-factuur in de app). Echte rekening = Apify/Firecrawl. Geen bron draait automatisch.",
   meaning: [
     "Je betaalt providers per scrape/run — niet per ‘mooie hit’.",
     "Filteren (niche) is gratis in onze app: we gooien noise weg ná het ophalen.",
@@ -245,14 +245,16 @@ export const SYNC_COST_PER_RUN = {
     market: {
       label: "LinkedIn Jobs",
       tool: "Apify",
-      eur: { low: 0.4, high: 2.5 },
-      what: `tot ${INGEST_POLICY.syncMarketUrls} zoek-URL’s · ~${INGEST_POLICY.syncMarketJobs} jobs · advies 1×/${INGEST_POLICY.boardsCadenceDays}d`,
+      /** Typisch bij ~30 zoek-URL’s / ~80 jobs */
+      eur: { low: 0.9, high: 1.5 },
+      what: `tot ${INGEST_POLICY.syncMarketUrls} zoek-URL’s · ~${INGEST_POLICY.syncMarketJobs} jobs`,
     },
     indeed: {
       label: "Indeed NL",
       tool: "Apify",
-      eur: { low: 0.8, high: 4.5 },
-      what: `${INGEST_POLICY.syncIndeedQueries} rollen · ~${INGEST_POLICY.syncIndeedMax} items · advies 1×/${INGEST_POLICY.boardsCadenceDays}d`,
+      /** Typisch bij ~12 rollen / ~80 items */
+      eur: { low: 1.4, high: 2.4 },
+      what: `${INGEST_POLICY.syncIndeedQueries} rollen · ~${INGEST_POLICY.syncIndeedMax} items`,
     },
     "freelance-nl": {
       label: "Freelance.nl",
@@ -263,49 +265,50 @@ export const SYNC_COST_PER_RUN = {
     boards: {
       label: "Indeed + Freelance.nl (legacy bundel)",
       tool: "Apify + Firecrawl",
-      eur: { low: 1.1, high: 6.5 },
+      eur: { low: 1.4, high: 2.4 },
       what: `Liever apart syncen — Indeed of Freelance.nl los`,
     },
     platforms: {
       label: "Careers-platforms",
       tool: "Firecrawl",
-      eur: { low: 0.2, high: 1.2 },
+      eur: { low: 0.3, high: 0.8 },
       what: `tot ${INGEST_POLICY.careersMaxUrlsPerRun} careers-pagina’s`,
     },
     all: {
       label: "Sync alles",
       tool: "Apify + Firecrawl",
-      eur: { low: 1.5, high: 9.0 },
-      what: "LinkedIn + Indeed + Freelance.nl (careers apart)",
+      eur: { low: 2.3, high: 3.9 },
+      what: "LinkedIn + Indeed + Freelance.nl",
     },
     "hm-search": {
       label: "Zoek 3 managers",
       tool: "Apify",
-      eur: { low: 0.1, high: 0.4 },
+      eur: { low: 0.12, high: 0.25 },
       what: "1 LinkedIn people-pagina · top 3 hiring managers om te berichten",
     },
     "recruiter-feeds": {
       label: "Recruiter-feeds",
       tool: "Apify",
-      eur: { low: 0.5, high: 3.5 },
-      what: `eerste keer vol, daarna alleen de laatste week · een tweede klik binnen 20 uur haalt niets op`,
+      /** Typisch 8 profielen × recente posts */
+      eur: { low: 0.9, high: 1.8 },
+      what: `tot ${INGEST_POLICY.recruiterFeedMaxProfiles} recruiters · recente posts`,
     },
     lusha: {
       label: "Lusha mail/tel",
       tool: "Lusha",
-      eur: { low: 0.1, high: 0.35 },
+      eur: { low: 0.15, high: 0.3 },
       what: "1 persoon · werkmail + telefoon · alleen na een LinkedIn-naam",
     },
     "ai-research": {
       label: "AI eindklant (eerste hit)",
       tool: "Firecrawl · Claude alleen bij twijfel",
-      eur: { low: 0.0, high: 0.15 },
-      what: "Naamlek €0 · SERP-bevestiging ~€0,02–0,08 · Claude alleen als snippets niet genoeg zijn",
+      eur: { low: 0.02, high: 0.1 },
+      what: "Naamlek €0 · SERP-bevestiging · Claude alleen bij twijfel",
     },
     "ai-research-deep": {
       label: "AI eindklant (Deep)",
       tool: "Claude + Firecrawl",
-      eur: { low: 0.08, high: 0.45 },
+      eur: { low: 0.12, high: 0.35 },
       what: "1 hit · 6 zoek + 1 pagina · alleen als eerste hit te dun is",
     },
   },
@@ -314,14 +317,26 @@ export const SYNC_COST_PER_RUN = {
 /** Tweede sync binnen deze tijd haalt niets nieuws en kost toch geld. */
 export const SYNC_LOCK_HOURS = 20;
 
+export function eurFormat(n: number) {
+  if (Math.abs(n - Math.round(n)) < 1e-9) return String(Math.round(n));
+  return n.toFixed(2).replace(".", ",");
+}
+
 export function eurRange(r: { low: number; high: number }) {
-  const f = (n: number) => {
-    if (Math.abs(n - Math.round(n)) < 1e-9) return String(Math.round(n));
-    return n.toFixed(2).replace(".", ",");
-  };
   if (r.low === 0 && r.high === 0) return "€0";
-  if (r.low === r.high) return `€${f(r.low)}`;
-  return `€${f(r.low)}–${f(r.high)}`;
+  if (r.low === r.high) return `€${eurFormat(r.low)}`;
+  return `€${eurFormat(r.low)}–${eurFormat(r.high)}`;
+}
+
+/** Eén leesbaar bedrag voor knoppen (midden van de schatting). */
+export function eurApprox(r: { low: number; high: number }) {
+  if (r.low === 0 && r.high === 0) return "gratis";
+  const mid = Math.round(((r.low + r.high) / 2) * 100) / 100;
+  return `ca. €${eurFormat(mid)}`;
+}
+
+export function eurMid(r: { low: number; high: number }) {
+  return Math.round(((r.low + r.high) / 2) * 100) / 100;
 }
 
 export const CHANNEL_ACTION: Record<string, keyof typeof SYNC_COST_PER_RUN.actions> = {

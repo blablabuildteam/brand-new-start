@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
 import { BlablaLogo } from "@/components/blabla-logo";
 import { SourceLogo } from "@/components/source-logo";
-import { eurRange } from "@/lib/costs";
+import { eurApprox, eurFormat, eurMid, eurRange } from "@/lib/costs";
 import type { SyncDeskAction, SyncDeskRecent, SyncDeskSource } from "@/lib/sync-desk";
 
 type Range = { low: number; high: number };
@@ -124,11 +124,11 @@ export default function SyncDesk() {
                 className="mt-1 text-2xl tabular-nums text-[var(--ink)]"
                 style={{ fontFamily: "var(--mono)" }}
               >
-                {eurRange(data.spent.eur)}
+                {data.spent.count ? `ca. €${eurFormat(eurMid(data.spent.eur))}` : "€0"}
               </p>
               <p className="mt-1.5 text-[0.78rem] text-[var(--muted)]">
                 {data.spent.count
-                  ? `${data.spent.count} betaalde runs in ${data.spent.monthLabel}. Geen factuur — Apify/Firecrawl rekenen zelf af.`
+                  ? `${data.spent.count} betaalde runs in ${data.spent.monthLabel} · band ${eurRange(data.spent.eur)}. Geen Apify-factuur in de app.`
                   : `Nog geen betaalde runs in ${data.spent.monthLabel}.`}
               </p>
               {data.spent.lines.length ? (
@@ -146,7 +146,7 @@ export default function SyncDesk() {
                         className="tabular-nums text-[var(--muted)]"
                         style={{ fontFamily: "var(--mono)" }}
                       >
-                        {eurRange(line.eur)}
+                        {eurApprox(line.eur)}
                       </span>
                     </li>
                   ))}
@@ -165,7 +165,7 @@ export default function SyncDesk() {
                 Bronnen
               </h2>
               <p className="mb-3 text-[0.78rem] text-[var(--muted)]">
-                Max 1× per bron per ~{data.lockHours} uur. Tweede klik haalt meestal niets nieuws en kost wel geld.
+                Max 1× per bron per ~{data.lockHours} uur. Grijs = vandaag al gedaan; morgen kun je weer.
               </p>
               <ul className="overflow-hidden rounded-[var(--radius)] border border-[var(--line)] bg-[var(--surface)]">
                 {data.sources.map((s) => (
@@ -212,7 +212,7 @@ export default function SyncDesk() {
                         className="text-right text-[0.72rem] tabular-nums text-[var(--muted)]"
                         style={{ fontFamily: "var(--mono)" }}
                       >
-                        {r.costEur ? `≈ ${eurRange(r.costEur)}` : "€0"}
+                        {r.costEur ? eurApprox(r.costEur) : "gratis"}
                       </span>
                     </li>
                   ))}
@@ -250,6 +250,7 @@ function SourceRow({
   onRun: () => void;
 }) {
   const again = availableLabel(source.lockedUntil);
+  const price = eurApprox(source.costEur);
   return (
     <li className="flex flex-col gap-2 border-b border-[var(--line)] px-4 py-3 last:border-b-0 sm:flex-row sm:items-center sm:gap-4">
       <div className="min-w-0 flex-1">
@@ -260,30 +261,40 @@ function SourceRow({
         <p className="mt-1 text-[0.78rem] text-[var(--muted)]">
           {source.lastAt ? (
             <>
-              Laatst {timeAgo(source.lastAt)}
+              Laatste sync {timeAgo(source.lastAt)}
               {source.fetched != null
-                ? ` · ${source.kept ?? 0} bewaard · ${source.fetched} opgehaald`
+                ? ` · ${source.kept ?? 0} bewaard van ${source.fetched}`
                 : null}
             </>
           ) : (
-            "Nog nooit opgehaald"
+            "Nog nooit gesynct"
           )}
         </p>
-        <p className="mt-0.5 text-[0.72rem] text-[var(--muted)]" style={{ fontFamily: "var(--mono)" }}>
-          ≈ {eurRange(source.costEur)} / run
-        </p>
-        {source.locked && again ? (
-          <p className="mt-1 text-[0.72rem] text-[var(--warn)]">{again}</p>
+        {!source.locked ? (
+          <p className="mt-0.5 text-[0.72rem] text-[var(--muted)]" style={{ fontFamily: "var(--mono)" }}>
+            Volgende run {price}
+            {source.costEur.low !== source.costEur.high
+              ? ` · band ${eurRange(source.costEur)}`
+              : null}
+          </p>
         ) : null}
       </div>
-      <button
-        type="button"
-        className="btn-ink btn-tool shrink-0 self-start sm:self-center disabled:cursor-not-allowed disabled:opacity-50"
-        disabled={disabled || source.locked}
-        onClick={onRun}
-      >
-        {busy ? "Bezig…" : source.locked ? "Al opgehaald" : "Ophalen"}
-      </button>
+      {source.locked ? (
+        <p className="shrink-0 self-start text-right text-[0.78rem] leading-snug text-[var(--muted)] sm:max-w-[11rem] sm:self-center">
+          <span className="block font-medium text-[var(--ink)]">Vandaag al gedaan</span>
+          <span className="block text-[0.72rem]">{again || "Morgen weer ophalen"}</span>
+        </p>
+      ) : (
+        <button
+          type="button"
+          className="btn-ink btn-tool shrink-0 self-start sm:self-center disabled:cursor-not-allowed disabled:opacity-50"
+          disabled={disabled}
+          onClick={onRun}
+          title={`Start sync · schatting ${price}`}
+        >
+          {busy ? "Bezig…" : `Ophalen · ${price}`}
+        </button>
+      )}
     </li>
   );
 }
