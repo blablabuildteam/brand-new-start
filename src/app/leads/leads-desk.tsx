@@ -17,7 +17,6 @@ import type { AgencyLead, LeadStatus } from "@/lib/opportunity";
 import { huntSignals, type EvidenceOrigin } from "@/lib/end-client";
 import { plainLinkedIn } from "@/lib/plain-text";
 import { streamResearch } from "@/lib/research/client";
-import { skipBatchResearch } from "@/lib/research/first-pass";
 import { startingProgress } from "@/lib/research/progress";
 import type { ResearchDepth, ResearchProgress } from "@/lib/research/types";
 
@@ -517,183 +516,12 @@ function LeadDetail({
   );
 }
 
-/** One post at a time: read why, then Bevestig / Weg / Volgende. Keys: B or Enter, W, → or spatie, ←, Esc. */
-function QuickReview({
-  ids,
-  leads,
-  busy,
-  drafts,
-  onDraft,
-  onReview,
-  onClose,
-}: {
-  ids: string[];
-  leads: Map<string, AgencyLead>;
-  busy: boolean;
-  drafts: Record<string, string>;
-  onDraft: (id: string, v: string) => void;
-  onReview: (id: string, action: "confirmed" | "rejected", clientName?: string) => Promise<void>;
-  onClose: () => void;
-}) {
-  const [at, setAt] = useState(0);
-  const [done, setDone] = useState({ confirmed: 0, rejected: 0 });
-  const lead = ids[at] ? leads.get(ids[at]) : undefined;
-  const client = lead ? (drafts[lead.id] || lead.confirmedClient || lead.guess?.name || "").trim() : "";
-  const decided = lead ? lead.status === "confirmed" || lead.status === "rejected" : false;
-  const finished = at >= ids.length;
-
-  const act = useRef<(k: "confirm" | "reject" | "next" | "prev" | "close") => void>(() => undefined);
-  useEffect(() => {
-    act.current = (k) => {
-      if (k === "close") return onClose();
-      if (k === "prev") return setAt((i) => Math.max(0, i - 1));
-      if (k === "next") return setAt((i) => Math.min(ids.length, i + 1));
-      if (!lead || busy || decided) return;
-      if (k === "confirm" && client.length < 2) return;
-      const action = k === "confirm" ? "confirmed" : "rejected";
-      void onReview(lead.id, action, action === "confirmed" ? client : undefined).then(() => {
-        setDone((d) => ({ ...d, [action]: d[action] + 1 }));
-        setAt((i) => i + 1);
-      });
-    };
-  });
-
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      const typing = e.target instanceof HTMLInputElement;
-      if (e.key === "Escape") return act.current("close");
-      if (typing) {
-        if (e.key === "Enter") act.current("confirm");
-        return;
-      }
-      const map: Record<string, "confirm" | "reject" | "next" | "prev"> = {
-        b: "confirm",
-        Enter: "confirm",
-        w: "reject",
-        ArrowRight: "next",
-        " ": "next",
-        ArrowLeft: "prev",
-      };
-      const k = map[e.key];
-      if (k) {
-        e.preventDefault();
-        act.current(k);
-      }
-    }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, []);
-
-  return (
-    <div className="quick-review" role="dialog" aria-modal="true" aria-label="Snel beoordelen">
-      <div className="quick-review__card">
-        <div className="quick-review__bar">
-          <span className="ws-label">
-            Snel beoordelen · {Math.min(at + 1, ids.length)}/{ids.length}
-          </span>
-          <button type="button" className="btn-ghost btn-tool" onClick={onClose}>
-            Sluiten
-          </button>
-        </div>
-        <div className="quick-review__progress" aria-hidden>
-          <span style={{ width: `${(Math.min(at, ids.length) / Math.max(ids.length, 1)) * 100}%` }} />
-        </div>
-
-        {finished || !lead ? (
-          <div className="quick-review__body">
-            <p className="text-base font-semibold text-[var(--ink)]">Klaar.</p>
-            <p className="text-sm text-[var(--muted)]">
-              {done.confirmed} bevestigd · {done.rejected} weggezet. Bevestigde kansen staan nu op{" "}
-              <Link href="/kansen" className="font-semibold text-[var(--ink)] underline underline-offset-2">
-                Kansen
-              </Link>
-              , klaar voor stap 2: manager zoeken.
-            </p>
-            <div className="mt-3 flex gap-2">
-              <Link href="/kansen" className="btn-ink btn-tool no-underline">
-                Naar Kansen
-              </Link>
-              <button type="button" className="btn-ghost btn-tool" onClick={onClose}>
-                Terug naar de lijst
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div className="quick-review__body">
-            <p className="lead-row__title">{lead.title}</p>
-            <p className="lead-row__meta">
-              {lead.agency.name}
-              {lead.recruiter.name ? ` · ${lead.recruiter.name}` : ""}
-              {factsLine(lead) ? ` · ${factsLine(lead)}` : ""}
-            </p>
-            <div className="quick-review__client">
-              <input
-                type="text"
-                value={drafts[lead.id] ?? lead.guess?.name ?? ""}
-                onChange={(e) => onDraft(lead.id, e.target.value)}
-                placeholder="Eindklant"
-                className="lead-row__input"
-                aria-label="Eindklant"
-              />
-              {lead.guess ? <span className="quick-review__conf">{lead.guess.confidence}%</span> : null}
-            </div>
-            <WhyBlock lead={lead} />
-            {lead.evidenceUrl ? (
-              <a href={lead.evidenceUrl} target="_blank" rel="noopener noreferrer" className="lead-row__vac">
-                Open de post
-              </a>
-            ) : null}
-            {decided ? (
-              <p className="mt-2 text-[0.78rem] text-[var(--muted)]">
-                Al {lead.status === "confirmed" ? "bevestigd" : "weggezet"}.
-              </p>
-            ) : null}
-          </div>
-        )}
-
-        {!finished && lead ? (
-          <div className="quick-review__actions">
-            <button type="button" className="btn-ghost btn-tool" onClick={() => act.current("prev")} disabled={at === 0}>
-              ←
-            </button>
-            <button
-              type="button"
-              className="btn-ghost btn-tool"
-              disabled={busy || decided}
-              onClick={() => act.current("reject")}
-              title="Geen opdracht of niet voor ons (W)"
-            >
-              Weg
-            </button>
-            <button type="button" className="btn-ghost btn-tool" onClick={() => act.current("next")} title="Later (→)">
-              Volgende
-            </button>
-            <button
-              type="button"
-              className={`btn-ink btn-tool quick-review__confirm ${busy ? "is-busy" : ""}`}
-              disabled={busy || decided || client.length < 2}
-              aria-busy={busy || undefined}
-              onClick={() => act.current("confirm")}
-              title="Bevestig opdrachtgever (B of Enter)"
-            >
-              {busy ? <BtnSpinner /> : null}
-              {busy ? "Bevestigen" : `Bevestig ${client || ""}`.trim()}
-            </button>
-          </div>
-        ) : null}
-        <p className="quick-review__keys">B/Enter bevestig · W weg · → volgende · ← terug · Esc sluit</p>
-      </div>
-    </div>
-  );
-}
-
 export default function LeadsDesk({ initial }: { initial?: Payload }) {
   const router = useRouter();
   const [data, setData] = useState<Payload | null>(initial || null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [confirmId, setConfirmId] = useState<string | null>(null);
-  const [bulk, setBulk] = useState<{ done: number; total: number } | null>(null);
   const [aiJobs, setAiJobs] = useState<Record<string, AiJob>>({});
   const aiJobsRef = useRef<Record<string, AiJob>>({});
   const runningRef = useRef(new Set<string>());
@@ -703,7 +531,6 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
   const [pickedId, setPickedId] = useState<string | null>(null);
   const [mobilePane, setMobilePane] = useState<"list" | "detail">("list");
   const [bucketPick, setBucketPick] = useState<Bucket | null>(null);
-  const [reviewIds, setReviewIds] = useState<string[] | null>(null);
   const [watchAgency, setWatchAgency] = useState<string | null>(null);
   const [openRecruiter, setOpenRecruiter] = useState<string | null>(null);
   /** Kantoren in de sync-lijst: standaard dicht, anders vreet Vibe de hele pagina. */
@@ -824,8 +651,6 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
       setMobilePane("detail");
     }
   }
-  const leadMap = useMemo(() => new Map([...(data?.live || []), ...(data?.demo || [])].map((l) => [l.id, l])), [data]);
-
   const feedAt = data?.sync?.lastFeed?.at || data?.sync?.checkedAt || null;
   const feedPending = data?.sync?.pending?.length ?? 0;
   const feedLocked = feedPending === 0 && syncStillLocked(data?.sync?.checkedAt || data?.sync?.lastFeed?.at);
@@ -858,20 +683,6 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
       }),
     }));
   }, [data]);
-
-  function startReview() {
-    const pool = (data?.live || []).filter((l) => bucketOf(l) === "ready" || bucketOf(l) === "open");
-    const ids = (bucket === "ready" || bucket === "open" ? pool.filter((l) => bucketOf(l) === bucket) : pool)
-      .filter((l) => l.guess?.name)
-      .map((l) => l.id);
-    if (ids.length) setReviewIds(ids);
-  }
-
-  const batchable = (l: AgencyLead) => !skipBatchResearch(l) && !l.aiMiss && !l.aiGuess;
-  const deepOpenCount = data?.live.filter(batchable).length ?? 0;
-  const reviewable = (data?.live || []).filter(
-    (l) => (bucket === "all" || bucket === bucketOf(l)) && (bucketOf(l) === "ready" || bucketOf(l) === "open") && l.guess?.name
-  ).length;
 
   const researchStrip = useMemo(() => {
     const jobs = Object.values(aiJobs);
@@ -913,38 +724,6 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
       setConfirmId(null);
       setBusy(false);
     }
-  }
-
-  function readyRows() {
-    return (data?.live || []).filter((l) => {
-      if (bucketOf(l) !== "ready") return false;
-      const name = (clientDrafts[l.id] || l.confirmedClient || l.guess?.name || "").trim();
-      return name.length >= 2;
-    });
-  }
-
-  async function confirmReady() {
-    const rows = readyRows();
-    if (!rows.length || busy) return;
-    setBulk({ done: 0, total: rows.length });
-    setBusy(true);
-    setError(null);
-    let failed = 0;
-    for (let i = 0; i < rows.length; i++) {
-      const l = rows[i]!;
-      const name = (clientDrafts[l.id] || l.confirmedClient || l.guess?.name || "").trim();
-      setConfirmId(l.id);
-      setBulk({ done: i, total: rows.length });
-      try {
-        await postReview(l.id, "confirmed", name);
-      } catch {
-        failed += 1;
-      }
-    }
-    setConfirmId(null);
-    setBusy(false);
-    setBulk(null);
-    if (failed) setError(`${failed} van ${rows.length} posts niet bevestigd. De rest staat op Kansen.`);
   }
 
   function patchJob(id: string, patch: Partial<AiJob> | null) {
@@ -1002,12 +781,6 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
     runningRef.current.add(id);
     patchJob(id, { depth, progress: startingProgress(depth), status: "running" });
     void runResearchJob(id, depth);
-  }
-
-  function deepAllOpen() {
-    if (!data) return;
-    // Alles wat nog niet door AI is gelezen; missers en al-sterke leads kosten niets extra.
-    for (const l of data.live.filter(batchable)) onAiGuess(l.id, "standard");
   }
 
   async function onHmSearch(id: string) {
@@ -1261,41 +1034,6 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
               </button>
             ))}
           </div>
-          <div className={`flex flex-wrap items-center gap-2 ${mobilePane === "detail" ? "max-lg:hidden" : ""}`}>
-            {bucket === "ready" && readyRows().length ? (
-              <button
-                type="button"
-                onClick={() => void confirmReady()}
-                disabled={busy}
-                className={`btn-ink btn-tool ${bulk ? "is-busy" : ""}`}
-                aria-busy={Boolean(bulk) || undefined}
-                title="Zet alle sterke AI-voorstellen (80%+) in één keer op Kansen."
-              >
-                {bulk ? <BtnSpinner /> : null}
-                {bulk ? `Bevestigen ${bulk.done} van ${bulk.total}` : `Bevestig alle ${readyRows().length}`}
-              </button>
-            ) : null}
-            {(bucket === "ready" || bucket === "open") && reviewable ? (
-              <button
-                type="button"
-                onClick={startReview}
-                className="btn-ghost btn-tool"
-                title="Open één post tegelijk: Bevestig, Weg, of Volgende. Handig om de klaar-stapel snel door te lopen."
-              >
-                Eén voor één · {reviewable}
-              </button>
-            ) : null}
-            {(bucket === "open" || bucket === "all") && deepOpenCount ? (
-              <button
-                type="button"
-                onClick={deepAllOpen}
-                className="btn-ghost btn-tool"
-                title={`Laat AI voor ${deepOpenCount} posts de opdrachtgever zoeken. Schatting ${eurApprox(SYNC_COST_PER_RUN.actions["ai-research"].eur)} per post.`}
-              >
-                Zoek opdrachtgevers · {deepOpenCount} · {eurApprox(SYNC_COST_PER_RUN.actions["ai-research"].eur)}/st
-              </button>
-            ) : null}
-          </div>
           {watchAgency ? (
             <p className="mb-3 text-[0.78rem] text-[var(--muted)]">
               Alleen <strong className="text-[var(--ink)]">{watchAgency}</strong> ·{" "}
@@ -1313,17 +1051,6 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
             </p>
           ) : null}
 
-          {bulk ? (
-            <div className="lead-bulk" role="status" aria-live="polite">
-              <BtnSpinner />
-              <span>
-                Bevestigen {Math.min(bulk.done + 1, bulk.total)} van {bulk.total}
-              </span>
-              <span className="lead-bulk__bar" aria-hidden>
-                <span style={{ width: `${Math.round((bulk.done / bulk.total) * 100)}%` }} />
-              </span>
-            </div>
-          ) : null}
           {error ? <p className="mb-3 text-sm text-[var(--warn)]">{error}</p> : null}
           {hmNote ? <p className="mb-3 text-sm text-[var(--accent)]">{hmNote}</p> : null}
 
@@ -1544,17 +1271,6 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
           </div>
         </main>
       </div>
-      {reviewIds ? (
-        <QuickReview
-          ids={reviewIds}
-          leads={leadMap}
-          busy={busy}
-          drafts={clientDrafts}
-          onDraft={(id, v) => setClientDrafts((d) => ({ ...d, [id]: v }))}
-          onReview={(id, action, name) => onReview(id, action, name)}
-          onClose={() => setReviewIds(null)}
-        />
-      ) : null}
     </AppShell>
   );
 }
