@@ -22,6 +22,8 @@ export type HmHitStored = {
   title: string | null;
   url: string | null;
   score?: number;
+  /** Summiere redenatie waarom deze kandidaat hoog scoort. */
+  why?: string;
   email?: string | null;
   phone?: string | null;
   lushaAt?: string | null;

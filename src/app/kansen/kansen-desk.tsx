@@ -44,6 +44,22 @@ function contactLine(row: CrmOpportunity) {
   return `${row.hiringManager} · mail/tel nog ophalen`;
 }
 
+/** Summiere hover-uitleg: waarom deze HM (of kandidaat) gekozen/hoog scoort. */
+function hmWhyTip(
+  row: CrmOpportunity,
+  hit?: { name: string; title?: string | null; score?: number; why?: string } | null
+): string | undefined {
+  const name = hit?.name || row.hiringManager;
+  const stored = (name && row.hmHits.find((h) => h.name === name)) || hit || null;
+  if (stored?.why) return stored.why;
+  const bits: string[] = [];
+  if (stored?.title) bits.push(stored.title);
+  else if (!hit && row.hiringManagerTitle) bits.push(row.hiringManagerTitle);
+  if (typeof stored?.score === "number") bits.push(`score ${stored.score}`);
+  if (row.endClient) bits.push(`bij ${row.endClient}`);
+  return bits.length ? bits.join(" · ") : undefined;
+}
+
 function originOf(row: CrmOpportunity) {
   if (row.lane === "bureau") {
     return {
@@ -69,11 +85,14 @@ type Step = {
 function stepOf(row: CrmOpportunity): Step {
   if (row.stage === "won") return { n: 4, action: null, label: "Gewonnen" };
   if (row.stage === "lost") return { n: 4, action: null, label: "Afgelegd" };
-  if (!row.hiringManager) return { n: 2, action: "hm", label: `Zoek manager · ≈ ${eurRange(SYNC_COST_PER_RUN.actions["hm-search"].eur)}` };
-  if (needsContact(row)) return { n: 3, action: "contact", label: `Haal mail/tel · ≈ ${eurRange(SYNC_COST_PER_RUN.actions.lusha.eur)}` };
+  if (!row.hiringManager) return { n: 2, action: "hm", label: "Zoek manager" };
+  if (needsContact(row)) return { n: 3, action: "contact", label: "Haal mail/tel" };
   if (row.stage === "outreach") return { n: 4, action: "bericht", label: "Follow-up" };
   return { n: 4, action: "bericht", label: "Bericht" };
 }
+
+const HM_COST = eurRange(SYNC_COST_PER_RUN.actions["hm-search"].eur);
+const LUSHA_COST = eurRange(SYNC_COST_PER_RUN.actions.lusha.eur);
 
 type ActionItem = CrmOpportunity & { nextAction: string; nextHref: string };
 
@@ -247,7 +266,9 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- one-shot from deep link
   }, [params, items, loading, hmAutoRan]);
 
+  /** Alleen jobboards: feed-bevestigingen horen altijd in de lijst (drempel 55 geldt niet). */
   const isWeak = (r: CrmOpportunity) =>
+    r.lane === "direct" &&
     r.stage !== "won" &&
     r.stage !== "lost" &&
     r.kans != null &&
@@ -456,14 +477,14 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
                 <span className="ws-fold__n">2</span>
                 <span>
                   <strong className="font-semibold text-[var(--ink)]">Manager</strong> — Zoek manager haalt namen van
-                  LinkedIn (≈ €0,10).
+                  LinkedIn.
                 </span>
               </li>
               <li>
                 <span className="ws-fold__n">3</span>
                 <span>
-                  <strong className="font-semibold text-[var(--ink)]">Mail/tel</strong> — Haal mail/tel zet
-                  mail en telefoon op de kans.
+                  <strong className="font-semibold text-[var(--ink)]">Mail/tel</strong> — Haal mail/tel zet mail en
+                  telefoon op de kans.
                 </span>
               </li>
               <li>
@@ -510,7 +531,7 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
               type="button"
               onClick={() => setShowWeak((v) => !v)}
               className={`ws-chip shrink-0 ${showWeak ? "ws-chip--on" : ""}`}
-              title="Kansen met score onder 55 — meestal via Recruiter feed bevestigd, maar met weinig bewijs voor contracting."
+              title="Jobboard-kansen met score onder 55. Recruiter-feed bevestigingen blijven altijd zichtbaar."
             >
               {showWeak ? "Zwak tonen" : "Zwak verbergen"}
               {weakHidden > 0 && !showWeak ? (
@@ -565,9 +586,13 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
               />
               <p className="ws-label">Lijst</p>
             </div>
-            <p className="tabular-nums text-[0.68rem] text-[var(--muted)]" style={{ fontFamily: "var(--mono)" }}>
+            <p className="kans-costnote tabular-nums" style={{ fontFamily: "var(--mono)" }}>
               {filtered.length} {filtered.length === 1 ? "kans" : "kansen"}
               {needsHm ? ` · ${needsHm} zonder manager` : ""}
+              <span className="kans-costnote__sep">·</span>
+              manager ≈ {HM_COST}
+              <span className="kans-costnote__sep">·</span>
+              mail/tel ≈ {LUSHA_COST}
             </p>
           </div>
           {needsHm || (backlog && (backlog.feedReady || backlog.feedPending || backlog.boardBelow)) ? (
@@ -689,7 +714,10 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
                         </span>
 
                         <span className="kans-row__hm">
-                          <span className={`block truncate ${row.hiringManager ? "font-medium text-[var(--ink)]" : "text-[var(--muted)]"}`}>
+                          <span
+                            className={`block truncate ${row.hiringManager ? "font-medium text-[var(--ink)]" : "text-[var(--muted)]"}`}
+                            title={row.hiringManager ? hmWhyTip(row) : undefined}
+                          >
                             {row.hiringManager || "Geen hiring manager"}
                           </span>
                           {row.hiringManager ? (
@@ -719,8 +747,15 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
                             <button
                               type="button"
                               disabled={stepBusy}
-                              className={`btn-ink btn-row w-full justify-center ${stepBusy ? "is-busy" : ""}`}
+                              className={`btn-ink btn-row kans-row__cta ${stepBusy ? "is-busy" : ""}`}
                               aria-busy={stepBusy || undefined}
+                              title={
+                                step.action === "hm"
+                                  ? `Manager zoeken · ≈ ${HM_COST}`
+                                  : step.action === "contact"
+                                    ? `Mail/tel ophalen · ≈ ${LUSHA_COST}`
+                                    : undefined
+                              }
                               onClick={(e) => {
                                 e.stopPropagation();
                                 void runPrimary(row);
@@ -733,7 +768,7 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
                             <span className="kans-row__next">{step.label}</span>
                           )}
                           <span className="kans-row__step">
-                            Stap {step.n} van 4 · {STEPS[step.n - 1]}
+                            Stap {step.n} · {STEPS[step.n - 1]}
                           </span>
                         </span>
                       </div>
@@ -772,7 +807,9 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
                               <dt className="ws-label">Hiring manager</dt>
                               <dd className="mt-1 text-[var(--ink)]">
                                 {row.hiringManager ? (
-                                  <span className="font-semibold">{contactLine(row)}</span>
+                                  <span className="font-semibold" title={hmWhyTip(row)}>
+                                    {contactLine(row)}
+                                  </span>
                                 ) : (
                                   <span className="text-[var(--muted)]">Nog niet gevonden</span>
                                 )}
@@ -805,7 +842,9 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
                                     key={`${h.name}-${h.url || ""}`}
                                     className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[0.8rem]"
                                   >
-                                    <span className="font-medium text-[var(--ink)]">{h.name}</span>
+                                    <span className="font-medium text-[var(--ink)]" title={hmWhyTip(row, h)}>
+                                      {h.name}
+                                    </span>
                                     {h.title ? <span className="text-[var(--muted)]">{h.title}</span> : null}
                                     <button
                                       type="button"
@@ -826,7 +865,10 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
                               <div className="flex flex-wrap items-start justify-between gap-3">
                                 <div className="min-w-0">
                                   <p className="ws-label">Benaderen</p>
-                                  <p className="mt-1 text-[0.95rem] font-semibold text-[var(--ink)]">
+                                  <p
+                                    className="mt-1 text-[0.95rem] font-semibold text-[var(--ink)]"
+                                    title={hmWhyTip(row)}
+                                  >
                                     {row.hiringManager}
                                   </p>
                                   {row.hiringManagerTitle ? (
@@ -861,7 +903,7 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
                                       onClick={() => void fetchContact(row.id, row.hiringManagerUrl)}
                                       className="btn-ink btn-tool disabled:opacity-50"
                                     >
-                                      {contactBusy ? "Mail/tel…" : `Haal mail en tel · ≈ ${eurRange(SYNC_COST_PER_RUN.actions.lusha.eur)}`}
+                                      {contactBusy ? "Mail/tel…" : "Haal mail en tel"}
                                     </button>
                                   ) : null}
                                 </div>
@@ -890,9 +932,11 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
                                   {row.hmHits
                                     .filter((h) => h.name !== row.hiringManager)
                                     .slice(0, 4)
-                                    .map((h) => (
+                                      .map((h) => (
                                       <li key={`${h.name}-${h.url || ""}`} className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[0.75rem]">
-                                        <span className="font-medium text-[var(--ink)]">{h.name}</span>
+                                        <span className="font-medium text-[var(--ink)]" title={hmWhyTip(row, h)}>
+                                          {h.name}
+                                        </span>
                                         {h.title ? <span className="text-[var(--muted)]">{h.title}</span> : null}
                                         {h.email ? <span className="text-[var(--muted)]">{h.email}</span> : null}
                                         <button
@@ -1015,8 +1059,8 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
                                 {hmBusyId === row.id
                                   ? "Zoeken"
                                   : row.hiringManager
-                                    ? `Opnieuw manager zoeken · ≈ ${eurRange(SYNC_COST_PER_RUN.actions["hm-search"].eur)}`
-                                    : `Zoek manager · ≈ ${eurRange(SYNC_COST_PER_RUN.actions["hm-search"].eur)}`}
+                                    ? "Opnieuw manager zoeken"
+                                    : "Zoek manager"}
                               </button>
                               {row.href ? (
                                 <Link

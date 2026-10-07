@@ -8,6 +8,8 @@ export type HmHit = {
   title: string | null;
   url: string | null;
   company?: string | null;
+  score?: number;
+  why?: string;
   email?: string | null;
   phone?: string | null;
   lushaAt?: string | null;

@@ -367,12 +367,15 @@ export function syncStillLocked(iso: string | null | undefined, hours = SYNC_LOC
   return hoursSince(iso) < hours;
 }
 
+function roundEur(n: number) {
+  return Math.round(n * 100) / 100;
+}
+
 export function estimateSpendFromRuns(
   runs: { at: string; channel: string; mode?: string; fetched?: number }[]
 ) {
-  const monthStart = new Date();
-  monthStart.setDate(1);
-  monthStart.setHours(0, 0, 0, 0);
+  const now = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
   const from = monthStart.getTime();
   const byId: Record<string, { label: string; count: number; eur: { low: number; high: number } }> = {};
   let low = 0;
@@ -395,10 +398,22 @@ export function estimateSpendFromRuns(
     row.eur.high += action.eur.high;
     byId[actionId] = row;
   }
+  const dayOfMonth = now.getDate();
+  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const daysElapsed = Math.max(dayOfMonth, 1);
+  const scale = daysInMonth / daysElapsed;
   return {
     monthLabel: monthStart.toLocaleDateString("nl-NL", { month: "long", year: "numeric" }),
     count,
-    eur: { low: Math.round(low * 100) / 100, high: Math.round(high * 100) / 100 },
+    eur: { low: roundEur(low), high: roundEur(high) },
     lines: Object.values(byId).sort((a, b) => b.eur.high - a.eur.high),
+    /** Lineair tempo tot eind van de maand (sync-runs; AI apart). */
+    forecast: {
+      dayOfMonth,
+      daysInMonth,
+      daysLeft: Math.max(0, daysInMonth - dayOfMonth),
+      perDay: { low: roundEur(low / daysElapsed), high: roundEur(high / daysElapsed) },
+      eur: { low: roundEur(low * scale), high: roundEur(high * scale) },
+    },
   };
 }

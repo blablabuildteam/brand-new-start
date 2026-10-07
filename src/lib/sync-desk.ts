@@ -66,7 +66,7 @@ function costForChannel(channel: string): { low: number; high: number } | null {
 export async function buildSyncDeskPayload() {
   const [byChannel, recentRuns] = await Promise.all([
     lastSyncByChannel(),
-    listSyncRuns(40),
+    listSyncRuns(120),
   ]);
   const spent = estimateSpendFromRuns(recentRuns);
 

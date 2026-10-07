@@ -113,6 +113,8 @@ export async function POST(req: Request) {
       title: p.title,
       url: p.url,
       company: p.company,
+      score: p.score,
+      why: p.why?.length ? p.why.join(" · ") : undefined,
     }));
     const chosen = result.namedMatch
       ? hmHits.find(

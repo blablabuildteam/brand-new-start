@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
 import { BlablaLogo } from "@/components/blabla-logo";
 import { SourceLogo } from "@/components/source-logo";
-import { eurApprox, eurFormat, eurMid, eurRange } from "@/lib/costs";
+import { eurApprox, eurFormat, eurMid, eurRange, INGEST_POLICY } from "@/lib/costs";
 import type { SyncDeskAction, SyncDeskRecent, SyncDeskSource } from "@/lib/sync-desk";
 
 type Range = { low: number; high: number };
@@ -19,6 +19,13 @@ type SyncPayload = {
     count: number;
     eur: Range;
     lines: { label: string; count: number; eur: Range }[];
+    forecast?: {
+      dayOfMonth: number;
+      daysInMonth: number;
+      daysLeft: number;
+      perDay: Range;
+      eur: Range;
+    };
   };
   recent: SyncDeskRecent[];
 };
@@ -124,18 +131,39 @@ export default function SyncDesk() {
         ) : (
           <>
             <section className="mb-5 ws-panel px-4 py-4">
-              <p className="ws-label">Deze maand · schatting</p>
-              <p
-                className="mt-1 text-2xl tabular-nums text-[var(--ink)]"
-                style={{ fontFamily: "var(--mono)" }}
-              >
-                {data.spent.count ? `ca. €${eurFormat(eurMid(data.spent.eur))}` : "€0"}
-              </p>
-              <p className="mt-1.5 text-[0.78rem] text-[var(--muted)]">
-                {data.spent.count
-                  ? `${data.spent.count} betaalde runs in ${data.spent.monthLabel} · band ${eurRange(data.spent.eur)}. Geen Apify-factuur in de app.`
-                  : `Nog geen betaalde runs in ${data.spent.monthLabel}.`}
-              </p>
+              <div className="grid gap-4 sm:grid-cols-2 sm:gap-6">
+                <div>
+                  <p className="ws-label">Deze maand · schatting</p>
+                  <p
+                    className="mt-1 text-2xl tabular-nums text-[var(--ink)]"
+                    style={{ fontFamily: "var(--mono)" }}
+                  >
+                    {data.spent.count ? `ca. €${eurFormat(eurMid(data.spent.eur))}` : "€0"}
+                  </p>
+                  <p className="mt-1.5 text-[0.78rem] text-[var(--muted)]">
+                    {data.spent.count
+                      ? `${data.spent.count} betaalde runs in ${data.spent.monthLabel} · band ${eurRange(data.spent.eur)}.`
+                      : `Nog geen betaalde runs in ${data.spent.monthLabel}.`}
+                  </p>
+                </div>
+                {data.spent.count && data.spent.forecast ? (
+                  <div>
+                    <p className="ws-label">Op dit tempo · eind maand</p>
+                    <p
+                      className="mt-1 text-2xl tabular-nums text-[var(--ink)]"
+                      style={{ fontFamily: "var(--mono)" }}
+                    >
+                      ca. €{eurFormat(eurMid(data.spent.forecast.eur))}
+                    </p>
+                    <p className="mt-1.5 text-[0.78rem] text-[var(--muted)]">
+                      ≈ {eurApprox(data.spent.forecast.perDay)}/dag · dag{" "}
+                      {data.spent.forecast.dayOfMonth}/{data.spent.forecast.daysInMonth} · band{" "}
+                      {eurRange(data.spent.forecast.eur)}. Lineair; AI-posts apart (max ≈ €
+                      {INGEST_POLICY.feedAutoAiDailyEurMax}/dag).
+                    </p>
+                  </div>
+                ) : null}
+              </div>
               {data.spent.lines.length ? (
                 <ul className="mt-3 divide-y divide-[var(--line)] border-t border-[var(--line)]">
                   {data.spent.lines.map((line) => (
@@ -170,7 +198,8 @@ export default function SyncDesk() {
                 Bronnen
               </h2>
               <p className="mb-3 text-[0.78rem] text-[var(--muted)]">
-                Max 1× per bron per ~{data.lockHours} uur. Grijs = vandaag al gedaan; morgen kun je weer.
+                Advies: max 1× per bron per ~{data.lockHours} uur. Na een run kun je met “Toch ophalen”
+                alsnog opnieuw syncen (kost weer).
               </p>
               <ul className="overflow-hidden rounded-[var(--radius)] border border-[var(--line)] bg-[var(--surface)]">
                 {data.sources.map((s) => (
@@ -287,22 +316,27 @@ function SourceRow({
           <p className="mt-1 text-[0.72rem] leading-snug text-[var(--muted)]">{source.note}</p>
         ) : null}
       </div>
-      {source.locked ? (
-        <p className="shrink-0 self-start text-right text-[0.78rem] leading-snug text-[var(--muted)] sm:max-w-[11rem] sm:self-center">
-          <span className="block font-medium text-[var(--ink)]">Vandaag al gedaan</span>
-          <span className="block text-[0.72rem]">{again || "Morgen weer ophalen"}</span>
-        </p>
-      ) : (
+      <div className="flex shrink-0 flex-col items-stretch gap-1.5 self-start sm:max-w-[12.5rem] sm:items-end sm:self-center">
+        {source.locked ? (
+          <p className="text-right text-[0.72rem] leading-snug text-[var(--muted)]">
+            <span className="block font-medium text-[var(--ink)]">Vandaag al gedaan</span>
+            <span className="block">{again || "Morgen weer gratis in de lock"}</span>
+          </p>
+        ) : null}
         <button
           type="button"
-          className="btn-ink btn-tool shrink-0 self-start sm:self-center disabled:cursor-not-allowed disabled:opacity-50"
+          className={`${source.locked ? "btn-ghost" : "btn-ink"} btn-tool disabled:cursor-not-allowed disabled:opacity-50`}
           disabled={disabled}
           onClick={onRun}
-          title={`Start sync · schatting ${price}`}
+          title={
+            source.locked
+              ? `Toch opnieuw ophalen · kost weer ${price} (lock is advies, geen harde blokkade)`
+              : `Start sync · schatting ${price}`
+          }
         >
-          {busy ? "Bezig…" : `Ophalen · ${price}`}
+          {busy ? "Bezig…" : source.locked ? `Toch ophalen · ${price}` : `Ophalen · ${price}`}
         </button>
-      )}
+      </div>
     </li>
   );
 }

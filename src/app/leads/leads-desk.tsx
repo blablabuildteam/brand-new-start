@@ -235,13 +235,32 @@ const BUCKET_NL: Record<Bucket, string> = {
   all: "Alles",
 };
 
-const BUCKET_TIP: Record<Bucket, string> = {
-  confirm: "Sterk genoeg — jij bevestigt de opdrachtgever, daarna naar Kansen.",
-  needAi: "Nog geen AI-voorstel. Selecteer posts en start AI, of per rij.",
-  doubt: "AI heeft gezocht of een zwakke gok — check Waarom, bevestig of zet weg.",
-  confirmed: "Al bevestigd — horen op Kansen (manager / bericht).",
-  rejected: "Afgewezen of geen opdracht. Prullenbak.",
-  all: "Alle posts, ongeacht status.",
+/** Korte titel + zin voor de vaste hint onder de filterbalk (geen zwevende tip). */
+const BUCKET_HINT: Record<Bucket, { title: string; body: string }> = {
+  confirm: {
+    title: "Bevestigen",
+    body: "Sterk genoeg (≥80%). Jij checkt de naam, bevestigt, en de post gaat naar Kansen voor manager en bericht.",
+  },
+  needAi: {
+    title: "AI nodig",
+    body: "Nog geen voorstel. Selecteer rijen en start AI (of per rij). Daarna landen ze bij Bevestigen of Twijfel.",
+  },
+  doubt: {
+    title: "Twijfel",
+    body: "AI heeft gezocht maar het is dun, of een miss. Open Waarom, bevestig handmatig, of zet weg.",
+  },
+  confirmed: {
+    title: "Bevestigd",
+    body: "Al door jou bevestigd — horen op Kansen (manager / bericht). Hier alleen terugkijken.",
+  },
+  rejected: {
+    title: "Weg",
+    body: "Afgewezen of geen opdracht. Prullenbak; niet meer in de werkbakken.",
+  },
+  all: {
+    title: "Alles",
+    body: "Alle posts door elkaar — handig om te zoeken, niet om af te werken.",
+  },
 };
 
 function hasAiSignal(l: AgencyLead) {
@@ -613,6 +632,8 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
   const [pickedId, setPickedId] = useState<string | null>(null);
   const [mobilePane, setMobilePane] = useState<"list" | "detail">("list");
   const [bucketPick, setBucketPick] = useState<Bucket | null>(null);
+  /** Hover/focus op een bak → hint toont die uitleg; anders de actieve bak. */
+  const [hintBucket, setHintBucket] = useState<Bucket | null>(null);
   const [picked, setPicked] = useState<Set<string>>(() => new Set());
   const [watchAgency, setWatchAgency] = useState<string | null>(null);
   const [openRecruiter, setOpenRecruiter] = useState<string | null>(null);
@@ -724,6 +745,7 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
   const bucket: Bucket =
     bucketPick ??
     (counts.confirm ? "confirm" : counts.needAi ? "needAi" : counts.doubt ? "doubt" : "confirm");
+  const bucketHint = BUCKET_HINT[hintBucket ?? bucket];
 
   const matches = useMemo(() => {
     return (l: AgencyLead) => {
@@ -1212,41 +1234,64 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
             </div>
           </details>
 
-          <div className={`flex flex-wrap items-center gap-1.5 ${mobilePane === "detail" ? "max-lg:hidden" : ""}`}>
-            {WORK_BUCKETS.map((b) => (
-              <button
-                key={b}
-                type="button"
-                onClick={() => setBucketPick(b)}
-                className={`ws-chip ${bucket === b ? "ws-chip--on" : ""}`}
-                data-tip={BUCKET_TIP[b]}
-              >
-                {BUCKET_NL[b]}
-                <span className="ws-chip__n">{data ? counts[b] : "…"}</span>
-              </button>
-            ))}
-            <details className="lead-donefold">
-              <summary className="lead-donefold__sum">
-                Afgehandeld
-                <span className="ws-chip__n">
-                  {data ? counts.confirmed + counts.rejected : "…"}
-                </span>
-              </summary>
-              <div className="lead-donefold__body">
-                {DONE_BUCKETS.map((b) => (
+          <div className={`lead-buckets ${mobilePane === "detail" ? "max-lg:hidden" : ""}`}>
+            <div className="lead-buckets__row">
+              <div className="lead-seg" role="tablist" aria-label="Werkbakken">
+                {WORK_BUCKETS.map((b) => (
                   <button
                     key={b}
                     type="button"
+                    role="tab"
+                    aria-selected={bucket === b}
                     onClick={() => setBucketPick(b)}
-                    className={`ws-chip ${bucket === b ? "ws-chip--on" : ""}`}
-                    data-tip={BUCKET_TIP[b]}
+                    onMouseEnter={() => setHintBucket(b)}
+                    onMouseLeave={() => setHintBucket(null)}
+                    onFocus={() => setHintBucket(b)}
+                    onBlur={() => setHintBucket(null)}
+                    className={`lead-seg__btn ${bucket === b ? "lead-seg__btn--on" : ""}`}
                   >
                     {BUCKET_NL[b]}
-                    <span className="ws-chip__n">{data ? counts[b] : "…"}</span>
+                    <span className="lead-seg__n">{data ? counts[b] : "…"}</span>
                   </button>
                 ))}
               </div>
-            </details>
+              <details
+                className={`lead-donefold ${(DONE_BUCKETS as readonly string[]).includes(bucket) ? "lead-donefold--on" : ""}`}
+              >
+                <summary className="lead-donefold__sum">
+                  Afgehandeld
+                  <span className="lead-seg__n">
+                    {data ? counts.confirmed + counts.rejected : "…"}
+                  </span>
+                </summary>
+                <div className="lead-donefold__body">
+                  {DONE_BUCKETS.map((b) => (
+                    <button
+                      key={b}
+                      type="button"
+                      onClick={(e) => {
+                        setBucketPick(b);
+                        const root = (e.currentTarget as HTMLElement).closest("details");
+                        if (root) root.open = false;
+                      }}
+                      onMouseEnter={() => setHintBucket(b)}
+                      onMouseLeave={() => setHintBucket(null)}
+                      onFocus={() => setHintBucket(b)}
+                      onBlur={() => setHintBucket(null)}
+                      className={`lead-donefold__item ${bucket === b ? "lead-donefold__item--on" : ""}`}
+                    >
+                      <span>{BUCKET_NL[b]}</span>
+                      <span className="lead-seg__n">{data ? counts[b] : "…"}</span>
+                    </button>
+                  ))}
+                </div>
+              </details>
+            </div>
+            <p className="lead-buckets__hint" aria-live="polite">
+              <strong>{bucketHint.title}</strong>
+              <span aria-hidden="true"> · </span>
+              {bucketHint.body}
+            </p>
           </div>
           {picked.size > 0 ? (
             <div className={`lead-bulkbar ${mobilePane === "detail" ? "max-lg:hidden" : ""}`} role="region" aria-label="Selectie">

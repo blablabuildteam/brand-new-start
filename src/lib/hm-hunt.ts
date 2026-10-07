@@ -203,6 +203,8 @@ export type HmCandidate = {
   url: string | null;
   company: string | null;
   score: number;
+  /** Korte NL-redenen voor hover/UI. */
+  why: string[];
 };
 
 const STRONG_DECIDER =
@@ -271,24 +273,40 @@ export function rankHmCandidates(
     if (!p.name || !p.name.includes(" ")) continue;
     if (looksLikeAlumni(title, companyName)) continue;
     let score = 1;
+    const why: string[] = ["Werkt bij eindklant"];
     const hay = title.toLowerCase();
-    if (plan.namedPerson && p.name.toLowerCase() === plan.namedPerson.toLowerCase()) score += 48;
-    else if (
+    if (plan.namedPerson && p.name.toLowerCase() === plan.namedPerson.toLowerCase()) {
+      score += 48;
+      why.push("Naam genoemd in vacature");
+    } else if (
       plan.namedPerson &&
       p.name.toLowerCase().includes(plan.namedPerson.toLowerCase().split(" ")[0] || "___")
     ) {
       score += 12;
+      why.push("Naam lijkt op vacature-contact");
     }
-    if (dept && hay.includes(dept)) score += 36;
-    if (STRONG_DECIDER.test(title)) score += 22;
-    else if (WEAK_LEAD.test(title)) score += 4;
-    if (p.url) score += 6;
+    if (dept && hay.includes(dept)) {
+      score += 36;
+      why.push(`Afdeling “${plan.department}” in titel`);
+    }
+    if (STRONG_DECIDER.test(title)) {
+      score += 22;
+      why.push("Beslistitel (manager/head/director)");
+    } else if (WEAK_LEAD.test(title)) {
+      score += 4;
+      why.push("Lead/manager-achtige titel");
+    }
+    if (p.url) {
+      score += 6;
+      why.push("LinkedIn-profiel");
+    }
     ranked.push({
       name: p.name,
       title: p.title,
       url: p.url,
       company: p.company || null,
       score,
+      why,
     });
   }
   ranked.sort((a, b) => b.score - a.score);

@@ -160,6 +160,7 @@ export async function POST(req: Request) {
         title: p.title,
         url: p.url,
         score: p.score,
+        why: p.why?.length ? p.why.join(" · ") : undefined,
       })),
       planKeywords: result.plan.keywords,
       detail: result.detail,
