@@ -1,4 +1,6 @@
 import { researchEndClient } from "@/lib/end-client-research";
+import { INGEST_POLICY, SYNC_COST_PER_RUN } from "@/lib/costs";
+import { aiDaySlotsLeft, bumpAiDaySpend } from "@/lib/desk-meta";
 import { hasWebProof, leadSourceForAi, listAgencyLeads, reviewLead, saveAiGuess, saveAiMiss, type AgencyLead } from "@/lib/opportunity";
 import { skipBatchResearch } from "@/lib/research/first-pass";
 import type { ResearchDepth, ResearchProgress } from "@/lib/research/types";
@@ -36,6 +38,9 @@ export async function identifyLead(
     brand: src.brand,
   });
 
+  // Telt mee voor het dagplafond — ook als de hit leeg is (zoekkosten).
+  await bumpAiDaySpend(1).catch(() => undefined);
+
   // Search results differ per run: never let a weaker rerun erase a find we already proved online.
   const prior = src.lead.aiGuess ? src.lead.guess : null;
   if (prior && hasWebProof(prior) && (!result.guess || result.guess.confidence < prior.confidence)) {
@@ -72,22 +77,51 @@ export function needsAi(l: AgencyLead) {
 }
 
 /**
- * After a feed sync: identify the client of fresh posts so the desk opens with
- * names instead of "onbekend". Bounded by count and wall-clock so the sync
- * request stays inside its function limit.
+ * After a feed sync (or catch-up): identify clients on open posts.
+ * Caps: per-run max, daily € budget (conservative), wall-clock deadline.
  */
 export async function autoIdentifyOpenLeads(opts: { max: number; deadline: number; parallel?: number }) {
+  const slots = await aiDaySlotsLeft({
+    maxEur: INGEST_POLICY.feedAutoAiDailyEurMax,
+    eurPerRunHigh: SYNC_COST_PER_RUN.actions["ai-research"].eur.high,
+  });
   const { live } = await listAgencyLeads();
-  // Eerst posts zonder enige gok (pure "AI nodig"), daarna de rest die nog mag.
-  // listAgencyLeads sorteert binnen een band al op versheid → nieuwste eerst.
   const open = live.filter(needsAi);
+  const max = Math.min(opts.max, slots.left);
   const queue = [
     ...open.filter((l) => !l.guess),
     ...open.filter((l) => l.guess),
-  ].slice(0, opts.max);
-  const out = { tried: 0, found: 0, left: Math.max(0, open.length - queue.length), max: opts.max };
+  ].slice(0, max);
+  const out: {
+    tried: number;
+    found: number;
+    left: number;
+    max: number;
+    dayUsed: number;
+    dayCap: number;
+    stopped: "daily-budget" | "deadline" | null;
+  } = {
+    tried: 0,
+    found: 0,
+    left: Math.max(0, open.length - queue.length),
+    max,
+    dayUsed: slots.used,
+    dayCap: slots.cap,
+    stopped: max === 0 ? "daily-budget" : null,
+  };
+  if (!queue.length) return out;
+
   const worker = async () => {
     while (queue.length && Date.now() < opts.deadline) {
+      const slotsNow = await aiDaySlotsLeft({
+        maxEur: INGEST_POLICY.feedAutoAiDailyEurMax,
+        eurPerRunHigh: SYNC_COST_PER_RUN.actions["ai-research"].eur.high,
+      });
+      if (slotsNow.left <= 0) {
+        out.stopped = "daily-budget";
+        queue.length = 0;
+        break;
+      }
       const lead = queue.shift()!;
       out.tried += 1;
       const r = await identifyLead(lead.id, "standard").catch(() => null);
@@ -96,5 +130,6 @@ export async function autoIdentifyOpenLeads(opts: { max: number; deadline: numbe
   };
   await Promise.all(Array.from({ length: opts.parallel ?? 3 }, worker));
   out.left += queue.length;
+  if (!out.stopped && queue.length && Date.now() >= opts.deadline) out.stopped = "deadline";
   return out;
 }

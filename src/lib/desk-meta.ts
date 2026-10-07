@@ -110,6 +110,13 @@ export type RejectedCompany = {
   by?: string;
 };
 
+/** Teller AI-research vandaag — voor dagplafond (geschatte €). */
+export type AiDaySpend = {
+  /** YYYY-MM-DD (UTC) */
+  day: string;
+  count: number;
+};
+
 export type DeskMeta = {
   leadReviews: Record<string, ReviewRow>;
   aiGuesses: Record<string, AiRow>;
@@ -122,6 +129,7 @@ export type DeskMeta = {
   /** keyed by genormaliseerde bedrijfsnaam */
   rejectedCompanies: Record<string, RejectedCompany>;
   alerts: DeskAlert[];
+  aiDaySpend: AiDaySpend | null;
 };
 
 const emptyMeta = (): DeskMeta => ({
@@ -133,6 +141,7 @@ const emptyMeta = (): DeskMeta => ({
   hmGuesses: {},
   rejectedCompanies: {},
   alerts: [],
+  aiDaySpend: null,
 });
 
 const g = globalThis as unknown as { __bnsDeskMeta?: DeskMeta; __bnsDeskMetaStale?: boolean };
@@ -158,6 +167,13 @@ export async function loadDeskMeta(): Promise<DeskMeta> {
       rejectedCompanies:
         raw?.rejectedCompanies && typeof raw.rejectedCompanies === "object" ? raw.rejectedCompanies : {},
       alerts: Array.isArray(raw?.alerts) ? raw!.alerts.slice(0, 40) : [],
+      aiDaySpend:
+        raw?.aiDaySpend &&
+        typeof raw.aiDaySpend === "object" &&
+        typeof raw.aiDaySpend.day === "string" &&
+        typeof raw.aiDaySpend.count === "number"
+          ? { day: raw.aiDaySpend.day, count: raw.aiDaySpend.count }
+          : null,
     };
     g.__bnsDeskMeta = next;
     g.__bnsDeskMetaStale = false;
@@ -194,6 +210,7 @@ export async function saveDeskMeta(patch: Partial<DeskMeta>, base?: DeskMeta): P
     hmGuesses: { ...prev.hmGuesses, ...patch.hmGuesses },
     rejectedCompanies: { ...prev.rejectedCompanies, ...patch.rejectedCompanies },
     alerts: patch.alerts ?? prev.alerts,
+    aiDaySpend: patch.aiDaySpend !== undefined ? patch.aiDaySpend : prev.aiDaySpend,
   };
   g.__bnsDeskMeta = next;
   if (!hasDatabase()) return next;
@@ -243,6 +260,27 @@ export async function markAlertsRead(ids?: string[]): Promise<DeskMeta> {
     !ids || ids.includes(a.id) ? { ...a, read: true } : a
   );
   return saveDeskMeta({ alerts });
+}
+
+function aiDayKey(d = new Date()) {
+  return d.toISOString().slice(0, 10);
+}
+
+/** Hoeveel AI-research-runs nog mogen vandaag (conservatief × high €/st). */
+export async function aiDaySlotsLeft(opts: { maxEur: number; eurPerRunHigh: number }) {
+  const meta = await loadDeskMeta();
+  const day = aiDayKey();
+  const used = meta.aiDaySpend?.day === day ? meta.aiDaySpend.count : 0;
+  const unit = Math.max(opts.eurPerRunHigh, 0.01);
+  const cap = Math.floor(opts.maxEur / unit);
+  return { day, used, left: Math.max(0, cap - used), cap };
+}
+
+export async function bumpAiDaySpend(n = 1) {
+  const meta = await loadDeskMeta();
+  const day = aiDayKey();
+  const prev = meta.aiDaySpend?.day === day ? meta.aiDaySpend.count : 0;
+  return saveDeskMeta({ aiDaySpend: { day, count: prev + n } }, meta);
 }
 
 export const CRM_STAGE_NL: Record<CrmStage, string> = {

@@ -241,6 +241,19 @@ export async function POST(req: Request) {
     });
   }
 
+  /** Inhaal-AI op open posts — zelfde caps als na feed-sync (N + €/dag). */
+  if (action === "ai-catchup") {
+    if (!hasAiKey()) {
+      return NextResponse.json({ error: "ANTHROPIC_API_KEY ontbreekt", detail: "no-anthropic-key" }, { status: 503 });
+    }
+    const detective = await autoIdentifyOpenLeads({
+      max: INGEST_POLICY.feedAutoAiMax,
+      deadline: startedAt + 280_000,
+      parallel: 3,
+    });
+    return NextResponse.json({ ok: true, kind: "ai-catchup", detective, stats: await stats() });
+  }
+
   if (action === "linkedin-paste") {
     const schema = z.object({
       posts: z.array(

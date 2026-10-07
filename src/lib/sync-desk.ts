@@ -86,7 +86,7 @@ export async function buildSyncDeskPayload() {
       costEur: cost,
       note:
         s.id === "recruiter-feeds"
-          ? `Na ophalen: AI op max ${INGEST_POLICY.feedAutoAiMax} posts zonder voorstel (sterke regel-goks slaan we over).`
+          ? `Na ophalen: AI op max ${INGEST_POLICY.feedAutoAiMax} posts zonder voorstel · plafond ca. €${INGEST_POLICY.feedAutoAiDailyEurMax}/dag.`
           : null,
     };
   });
