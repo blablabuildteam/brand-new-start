@@ -1373,115 +1373,31 @@ export default function RadarApp({
   const runningStep = live?.steps.find((s) => s.status === "running");
   const doneSteps = live?.steps.filter((s) => s.status === "done").length ?? 0;
   const totalSteps = live?.steps.length ?? 0;
-  const canSync = Boolean(user);
-  const menuLabel = canSync ? "Sync & meer" : "Meer";
-
   const syncToolbar = (
     <div className="relative flex items-center gap-2" ref={menuRef}>
-      {busy ? (
-        <span className="inline-flex items-center gap-1.5 text-xs font-medium text-[var(--accent)]">
-          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[var(--accent)]" />
-          <span className="hidden xs:inline sm:inline">Syncen…</span>
-        </span>
-      ) : null}
-      <button
-        type="button"
-        aria-expanded={menuOpen}
-        aria-haspopup="menu"
-        data-tip="Bronnen ophalen"
-        onClick={() => setMenuOpen((v) => !v)}
-        className="btn-ghost btn-tool"
-      >
-        <span className="sm:hidden">{canSync ? "Sync" : "Meer"}</span>
-        <span className="hidden sm:inline">{menuLabel}</span>
-      </button>
-      {menuOpen ? (
-        <div
-          role="menu"
-          className="absolute right-0 top-full z-50 mt-1.5 w-[min(16.5rem,calc(100vw-1.5rem))] rounded-[var(--radius)] border border-[var(--line)] bg-[var(--surface)] py-1 shadow-[var(--shadow)]"
-        >
-          {canSync ? (
-            <>
-              <div className="border-b border-[var(--line)]/80 px-3 py-2">
-                <p className="text-[0.65rem] font-medium uppercase tracking-wide text-[var(--warn)]" style={{ fontFamily: "var(--mono)" }}>
-                  Sync starten · kost geld
-                </p>
-                <p className="mt-0.5 text-[0.7rem] leading-snug text-[var(--muted)]">
-                  Max 1× per dag per bron. Tweede klik haalt niets nieuws en kost toch geld.
-                </p>
-              </div>
-              <div className="space-y-1 px-2 py-2">
-                <button
-                  type="button"
-                  role="menuitem"
-                  disabled={busy || actionLocked(sync, "all")}
-                  className="flex w-full items-start gap-2 rounded-[var(--radius)] border border-[var(--accent)]/35 bg-[var(--accent-soft)]/40 px-2.5 py-2 text-left text-xs transition hover:bg-[var(--accent-soft)]/80 disabled:opacity-50"
-                  onClick={() => {
-                    setMenuOpen(false);
-                    run("all");
-                  }}
-                >
-                  <span className="mt-0.5 shrink-0 rounded bg-[var(--accent)] px-1.5 py-0.5 text-[0.6rem] font-bold uppercase tracking-wide text-white">
-                    Sync
-                  </span>
-                  <span className="min-w-0">
-                    <span className="block font-semibold text-[var(--ink)]">Alles</span>
-                    <span className="block text-[0.7rem] text-[var(--muted)]">
-                      {actionLocked(sync, "all")
-                        ? "Vandaag al opgehaald"
-                        : `LinkedIn + Indeed + Freelance.nl · ≈ ${eurRange(SYNC_COST_PER_RUN.actions.all.eur)}`}
-                    </span>
-                  </span>
-                </button>
-                {(
-                  [
-                    ["market", "LinkedIn Jobs", SYNC_COST_PER_RUN.actions.market] as const,
-                    [
-                      "recruiter-feeds",
-                      "Recruiter-feeds → Recruiter feed",
-                      SYNC_COST_PER_RUN.actions["recruiter-feeds"],
-                    ] as const,
-                    ["indeed", "Indeed NL", SYNC_COST_PER_RUN.actions.indeed] as const,
-                    ["freelance-nl", "Freelance.nl", SYNC_COST_PER_RUN.actions["freelance-nl"]] as const,
-                    ["platforms", "Careers / platforms", SYNC_COST_PER_RUN.actions.platforms] as const,
-                  ] as const
-                ).map(([id, label, cost]) => {
-                  const off = actionLocked(sync, id);
-                  return (
-                  <button
-                    key={id}
-                    type="button"
-                    role="menuitem"
-                    disabled={busy || off}
-                    className="flex w-full items-start gap-2 rounded-[var(--radius)] border border-[var(--line)] bg-[var(--surface)] px-2.5 py-2 text-left text-xs transition hover:border-[var(--accent)]/40 hover:bg-[var(--surface-2)] disabled:opacity-50"
-                    onClick={() => {
-                      setMenuOpen(false);
-                      run(id);
-                    }}
-                  >
-                    <span className="mt-0.5 shrink-0 rounded border border-[var(--accent)]/30 bg-[var(--accent-soft)]/50 px-1.5 py-0.5 text-[0.6rem] font-bold uppercase tracking-wide text-[var(--accent)]">
-                      Sync
-                    </span>
-                    <span className="min-w-0">
-                      <span className="block font-semibold text-[var(--ink)]">{label}</span>
-                      <span className="block text-[0.7rem] text-[var(--muted)]">
-                        {off ? "Vandaag al opgehaald" : `≈ ${eurRange(cost.eur)} / run`}
-                      </span>
-                    </span>
-                  </button>
-                  );
-                })}
-              </div>
-            </>
-          ) : (
-            <p className="px-3 py-2 text-[0.75rem] text-[var(--muted)]">Laden…</p>
-          )}
-          {user?.role === "admin" ? (
-            <>
+      <a href="/sync" className="btn-ghost btn-tool no-underline" data-tip="Ophalen · kosten · wanneer weer">
+        Sync
+      </a>
+      {user?.role === "admin" ? (
+        <>
+          <button
+            type="button"
+            aria-expanded={menuOpen}
+            aria-haspopup="menu"
+            className="btn-ghost btn-tool"
+            onClick={() => setMenuOpen((v) => !v)}
+          >
+            Meer
+          </button>
+          {menuOpen ? (
+            <div
+              role="menu"
+              className="absolute right-0 top-full z-50 mt-1.5 w-[min(14rem,calc(100vw-1.5rem))] rounded-[var(--radius)] border border-[var(--line)] bg-[var(--surface)] py-1 shadow-[var(--shadow)]"
+            >
               <button
                 type="button"
                 role="menuitem"
-                className="block w-full border-t border-[var(--line)]/80 px-3 py-2 text-left text-xs font-semibold text-[var(--ink)] hover:bg-[var(--surface-2)]"
+                className="block w-full px-3 py-2 text-left text-xs font-semibold text-[var(--ink)] hover:bg-[var(--surface-2)]"
                 onClick={() => {
                   setMenuOpen(false);
                   void (async () => {
@@ -1509,9 +1425,9 @@ export default function RadarApp({
               >
                 Samenwerkingsvoorstel →
               </a>
-            </>
+            </div>
           ) : null}
-        </div>
+        </>
       ) : null}
     </div>
   );
@@ -1717,7 +1633,17 @@ export default function RadarApp({
                 : "Laden…"}
             </p>
             <p className="text-[0.7rem]">
-              {canSync ? "Nog geen sync — via Sync (max 1×/dag)." : "Nog geen sync-historie."}
+              {user ? (
+                <>
+                  Nog geen sync —{" "}
+                  <a href="/sync" className="font-semibold text-[var(--ink)] underline underline-offset-2">
+                    Sync
+                  </a>
+                  .
+                </>
+              ) : (
+                "Nog geen sync-historie."
+              )}
             </p>
           </div>
         )}

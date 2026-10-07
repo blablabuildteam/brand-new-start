@@ -739,8 +739,6 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
   const [mobilePane, setMobilePane] = useState<"list" | "detail">("list");
   const [bucketPick, setBucketPick] = useState<Bucket | null>(null);
   const [reviewIds, setReviewIds] = useState<string[] | null>(null);
-  const [syncing, setSyncing] = useState(false);
-  const [syncNote, setSyncNote] = useState<{ title: string; body: string } | null>(null);
   const [watchAgency, setWatchAgency] = useState<string | null>(null);
   const [openRecruiter, setOpenRecruiter] = useState<string | null>(null);
   /** Kantoren in de sync-lijst: standaard dicht, anders vreet Vibe de hele pagina. */
@@ -895,62 +893,6 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
       }),
     }));
   }, [data]);
-
-  async function syncFeeds() {
-    setSyncing(true);
-    setSyncNote(null);
-    try {
-      const res = await fetch("/api/ingest", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "recruiter-feeds" }),
-      });
-      const j = (await res.json().catch(() => ({}))) as {
-        kept?: number;
-        fetched?: number;
-        mode?: string;
-        detail?: string;
-        unchanged?: number;
-        message?: string;
-        error?: string;
-        detective?: { tried: number; found: number; left: number } | null;
-      };
-      if (!res.ok) {
-        setSyncNote({ title: "Sync mislukt", body: j.message || j.error || "Probeer het later nog eens." });
-        return;
-      }
-      if (j.mode === "fresh") {
-        setSyncNote({
-          title: "Vandaag al opgehaald",
-          body: "Er is deze dag al gesynct. Een extra run kost geld en haalt niets nieuws. Morgen weer.",
-        });
-      } else {
-        const d = j.detective;
-        const extra = d?.tried
-          ? ` De AI heeft ${d.tried} nieuwe posts gelezen en bij ${d.found} een opdrachtgever gevonden.`
-          : "";
-        if ((j.kept ?? 0) > 0) {
-          setSyncNote({
-            title: "Nieuwe posts binnen",
-            body: `${j.kept} vacature-posts staan nu in de lijst hieronder.${extra}`,
-          });
-        } else {
-          setSyncNote({
-            title: "Alles staat er nog",
-            body: "Geen nieuwe vacatures. Er is niets weggehaald. Je hoeft niets te doen.",
-          });
-        }
-      }
-      const { cacheClear } = await import("@/lib/client-cache");
-      cacheClear("leads");
-      cacheClear("crm");
-      await load();
-    } catch (e) {
-      setSyncNote({ title: "Sync mislukt", body: e instanceof Error ? e.message : "Probeer het later nog eens." });
-    } finally {
-      setSyncing(false);
-    }
-  }
 
   function startReview() {
     const pool = (data?.live || []).filter((l) => bucketOf(l) === "ready" || bucketOf(l) === "open");
@@ -1217,36 +1159,18 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
               <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--line)] px-3.5 py-2">
                 <p className="text-[0.72rem] text-[var(--muted)]">
                   {feedLocked
-                    ? "Al opgehaald vandaag. Een extra sync kost geld en haalt niets nieuws."
+                    ? "Al opgehaald vandaag. Opnieuw ophalen kan via Sync."
                     : feedPending > 0
-                      ? `${feedPending} nieuwe recruiters nog niet opgehaald · ≈ ${feedCost} per run (max 8).`
-                      : `Max 1× per dag. Kost ongeveer ${feedCost}.`}
+                      ? `${feedPending} nieuwe recruiters nog niet opgehaald · ≈ ${feedCost} per run.`
+                      : `Ophalen en kosten staan op Sync · ≈ ${feedCost}.`}
                 </p>
-                <button
-                  type="button"
-                  className="text-[0.72rem] text-[var(--ink)] underline decoration-[var(--signal)] underline-offset-2 disabled:cursor-not-allowed disabled:opacity-50 disabled:no-underline"
-                  disabled={syncing || feedLocked}
-                  title={
-                    feedLocked
-                      ? "Vandaag al opgehaald. Morgen weer."
-                      : `Haalt recruiters op die nog nooit zijn gecheckt. De rest alleen als de laatste check ouder is dan 20 uur. Ongeveer ${feedCost}.`
-                  }
-                  onClick={() => void syncFeeds()}
+                <a
+                  href="/sync"
+                  className="text-[0.72rem] font-semibold text-[var(--ink)] underline decoration-[var(--signal)] underline-offset-2"
                 >
-                  {syncing
-                    ? "Sync loopt…"
-                    : feedLocked
-                      ? "Vandaag al opgehaald"
-                      : feedPending > 0
-                        ? `Haal ${Math.min(feedPending, 8)} nieuw op · ≈ ${feedCost}`
-                        : `Sync nu · ≈ ${feedCost}`}
-                </button>
+                  Naar Sync →
+                </a>
               </div>
-              {syncNote ? (
-                <p className="border-b border-[var(--line)] px-3.5 py-2 text-[0.78rem] text-[var(--ink)]">
-                  <span className="font-semibold">{syncNote.title}.</span> {syncNote.body}
-                </p>
-              ) : null}
               {feedRoster.length ? (
                 <div className="feed-sync">
                   {feedRoster.map((agency) => {

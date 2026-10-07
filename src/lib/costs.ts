@@ -324,7 +324,7 @@ export function eurRange(r: { low: number; high: number }) {
   return `€${f(r.low)}–${f(r.high)}`;
 }
 
-const CHANNEL_ACTION: Record<string, keyof typeof SYNC_COST_PER_RUN.actions> = {
+export const CHANNEL_ACTION: Record<string, keyof typeof SYNC_COST_PER_RUN.actions> = {
   "linkedin-jobs": "market",
   indeed: "indeed",
   "freelance-nl": "freelance-nl",

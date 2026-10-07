@@ -9,7 +9,7 @@ import { CommandPalette } from "@/components/command-palette";
 import { cacheClear, cacheGet, cachedJson, prefetchJson } from "@/lib/client-cache";
 import { partnerForEmail } from "@/lib/partner-brand";
 
-export type AppNavId = "radar" | "leads" | "kansen" | "voorstel" | "instellingen" | "kosten";
+export type AppNavId = "radar" | "leads" | "kansen" | "voorstel" | "instellingen" | "sync";
 
 const PRIMARY: { href: string; id: AppNavId; label: string; icon: "radar" | "bureaus" | "kansen" | "voorstel" }[] = [
   { href: "/radar", id: "radar", label: "Jobboards", icon: "radar" },
@@ -24,7 +24,7 @@ function SideIcon({
   kind,
   on,
 }: {
-  kind: "radar" | "bureaus" | "kansen" | "voorstel" | "settings" | "help" | "costs" | "logout";
+  kind: "radar" | "bureaus" | "kansen" | "voorstel" | "settings" | "help" | "sync" | "logout";
   on: boolean;
 }) {
   const stroke = on ? "var(--ink)" : "currentColor";
@@ -70,11 +70,16 @@ function SideIcon({
       </svg>
     );
   }
-  if (kind === "costs") {
+  if (kind === "sync") {
     return (
       <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden className="shrink-0">
-        <rect x="3" y="2.5" width="10" height="11" rx="1.4" stroke={stroke} strokeWidth="1.4" />
-        <path d="M6 6h4M6 8.5h4M6 11h2.5" stroke={stroke} strokeWidth="1.3" strokeLinecap="round" />
+        <path
+          d="M3.5 8a4.5 4.5 0 0 1 7.6-3.3M12.5 8a4.5 4.5 0 0 1-7.6 3.3"
+          stroke={stroke}
+          strokeWidth="1.4"
+          strokeLinecap="round"
+        />
+        <path d="M11.2 2.8v2.4H8.8M4.8 13.2v-2.4h2.4" stroke={stroke} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
     );
   }
@@ -164,6 +169,7 @@ export function AppShell({
       router.prefetch("/leads");
       router.prefetch("/kansen");
       router.prefetch("/regie");
+      router.prefetch("/sync");
     }, 250);
     return () => window.clearTimeout(id);
   }, [router]);
@@ -266,13 +272,13 @@ export function AppShell({
           <span className="rail-label">Instellingen</span>
         </Link>
         <Link
-          href="/costs"
-          data-rail="Kosten"
+          href="/sync"
+          data-rail="Sync"
           onClick={() => setOpen(false)}
-          className={navClass(current === "kosten")}
+          className={navClass(current === "sync")}
         >
-          <SideIcon kind="costs" on={current === "kosten"} />
-          <span className="rail-label">Kosten</span>
+          <SideIcon kind="sync" on={current === "sync"} />
+          <span className="rail-label">Sync</span>
         </Link>
       </nav>
 

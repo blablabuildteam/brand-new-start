@@ -40,8 +40,8 @@ export default function SamenwerkingPage() {
           <Link href="/" className="font-medium text-[var(--accent)]">
             ← Desk
           </Link>
-          <Link href="/costs" className="text-[var(--muted)] hover:text-[var(--ink)]">
-            Kosten / ROI
+          <Link href="/sync" className="text-[var(--muted)] hover:text-[var(--ink)]">
+            Sync
           </Link>
         </div>
       </div>
