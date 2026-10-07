@@ -1663,7 +1663,7 @@ export default function RadarApp({
                   <li key={r.id}>
                     <button
                       type="button"
-                      data-tip={`${channelLabelUi(r.channel)} · ${r.kept} gehouden van ${r.fetched} opgehaald`}
+                      data-tip={`${channelLabelUi(r.channel)}: ${r.kept} bewaard van de ${r.fetched} vacatures die we bij de bron ophaalden. De rest viel af (verkeerde rol, vast dienstverband, dubbel).`}
                       className="flex w-full items-center gap-2 px-3.5 py-2 text-left transition hover:bg-[var(--surface-2)] sm:py-1.5"
                       onClick={() => setLive(openSyncRuns([r]))}
                     >
@@ -1672,10 +1672,13 @@ export default function RadarApp({
                         {channelLabelUi(r.channel) || r.label}
                       </span>
                       <span
-                        className="shrink-0 tabular-nums text-[0.7rem] text-[var(--muted)]"
+                        className="shrink-0 text-right text-[0.68rem] leading-tight text-[var(--muted)]"
                         style={{ fontFamily: "var(--mono)" }}
+                        title={`${r.kept} bewaard · ${r.fetched} opgehaald`}
                       >
-                        {r.kept}/{r.fetched}
+                        {r.fetched
+                          ? `${r.kept} bewaard · ${r.fetched} opgehaald`
+                          : "niets opgehaald"}
                       </span>
                       <span className="w-16 shrink-0 text-right text-[0.65rem] text-[var(--muted)]">
                         {timeAgo(r.at)}

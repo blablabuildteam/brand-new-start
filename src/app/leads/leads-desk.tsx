@@ -1229,7 +1229,9 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
                 <p className="text-[0.72rem] text-[var(--muted)]">
                   {feedLocked
                     ? "Al opgehaald vandaag. Een extra sync kost geld en haalt niets nieuws."
-                    : `Max 1× per dag. Kost ongeveer ${feedCost}.`}
+                    : feedPending > 0
+                      ? `${feedPending} nieuwe recruiters nog niet opgehaald · ≈ ${feedCost} per run (max 8).`
+                      : `Max 1× per dag. Kost ongeveer ${feedCost}.`}
                 </p>
                 <button
                   type="button"
@@ -1242,7 +1244,13 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
                   }
                   onClick={() => void syncFeeds()}
                 >
-                  {syncing ? "Sync loopt…" : feedLocked ? "Vandaag al opgehaald" : `Sync nu · ≈ ${feedCost}`}
+                  {syncing
+                    ? "Sync loopt…"
+                    : feedLocked
+                      ? "Vandaag al opgehaald"
+                      : feedPending > 0
+                        ? `Haal ${Math.min(feedPending, 8)} nieuw op · ≈ ${feedCost}`
+                        : `Sync nu · ≈ ${feedCost}`}
                 </button>
               </div>
               {syncNote ? (
