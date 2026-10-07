@@ -13,7 +13,7 @@ import { ResearchMeter } from "@/components/research-meter";
 import { kansenHref, regieHref } from "@/lib/desk-links";
 import { cachePeek } from "@/lib/client-cache";
 import { DESK, hmSearchMessage } from "@/lib/desk-labels";
-import { eurApprox, eurRange, SYNC_COST_PER_RUN, syncStillLocked } from "@/lib/costs";
+import { eurApprox, eurFormat, eurRange, SYNC_COST_PER_RUN, syncStillLocked } from "@/lib/costs";
 import type { AgencyLead, LeadStatus } from "@/lib/opportunity";
 import { huntSignals, type EvidenceOrigin } from "@/lib/end-client";
 import { plainLinkedIn } from "@/lib/plain-text";
@@ -253,6 +253,22 @@ function statusShort(status: LeadStatus) {
   return "Weg";
 }
 
+function clientNameOf(lead: AgencyLead, draft?: string) {
+  return (draft || lead.confirmedClient || lead.guess?.name || "").trim();
+}
+
+function canBulkConfirm(lead: AgencyLead, draft?: string) {
+  if (lead.status === "confirmed" || lead.status === "rejected") return false;
+  return clientNameOf(lead, draft).length >= 2 && (lead.guess?.confidence ?? 0) >= 45;
+}
+
+function canBulkAi(lead: AgencyLead) {
+  if (lead.status === "confirmed" || lead.status === "rejected") return false;
+  // Sterke AI-hits overslaan — die horen bij Bevestig, niet opnieuw betalen.
+  if (lead.aiGuess && lead.guess && (lead.guess.confidence ?? 0) >= 80) return false;
+  return true;
+}
+
 function LeadCard({
   lead,
   busy,
@@ -269,6 +285,8 @@ function LeadCard({
   hmBusy,
   confirming,
   active,
+  selected,
+  onToggleSelect,
   onOpen,
 }: {
   lead: AgencyLead;
@@ -282,10 +300,12 @@ function LeadCard({
   confirming?: boolean;
   clientDraft: string;
   onClientDraft: (v: string) => void;
-  onReview: (id: string, action: "confirmed" | "rejected" | "reopen", clientName?: string) => void;
+  onReview: (id: string, action: "confirmed" | "rejected" | "reopen", clientName?: string, opts?: { stay?: boolean }) => void;
   onAiGuess: (id: string, depth?: ResearchDepth) => void;
   onHmSearch?: (id: string) => void;
   active?: boolean;
+  selected?: boolean;
+  onToggleSelect?: () => void;
   onOpen?: () => void;
 }) {
   const guessed = lead.confirmedClient || lead.guess?.name || "";
@@ -298,7 +318,18 @@ function LeadCard({
 
   const rowBusy = Boolean(confirming || hmBusy);
   return (
-    <article className={`lead-row ${active ? "lead-row--on" : ""} ${rowBusy ? "lead-row--busy" : ""}`}>
+    <article
+      className={`lead-row ${active ? "lead-row--on" : ""} ${selected ? "lead-row--picked" : ""} ${rowBusy ? "lead-row--busy" : ""}`}
+    >
+      <label className="lead-row__check">
+        <input
+          type="checkbox"
+          checked={Boolean(selected)}
+          onChange={() => onToggleSelect?.()}
+          onClick={(e) => e.stopPropagation()}
+          aria-label={`Selecteer ${lead.title}`}
+        />
+      </label>
       <div className="lead-row__head">
         <button type="button" className="lead-row__hit" onClick={onOpen} aria-current={active ? "true" : undefined}>
           <span className="lead-row__title truncate">{lead.title}</span>
@@ -334,7 +365,7 @@ function LeadCard({
               className={`lead-row__confirm ${confirming ? "is-busy" : ""}`}
               aria-busy={confirming || undefined}
               aria-label={`Bevestig ${client} — naar Kansen om hiring manager te zoeken`}
-              title={`Bevestig ${client} → naar Kansen, daar kun je de hiring manager zoeken`}
+              data-tip={`Bevestig ${client} → naar Kansen, daar kun je de hiring manager zoeken`}
             >
               {confirming ? (
                 <BtnSpinner />
@@ -541,6 +572,7 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
   const [mobilePane, setMobilePane] = useState<"list" | "detail">("list");
   const [bucketPick, setBucketPick] = useState<Bucket | null>(null);
   const [aiPick, setAiPick] = useState<"all" | "with" | "without">("all");
+  const [picked, setPicked] = useState<Set<string>>(() => new Set());
   const [watchAgency, setWatchAgency] = useState<string | null>(null);
   const [openRecruiter, setOpenRecruiter] = useState<string | null>(null);
   /** Kantoren in de sync-lijst: standaard dicht, anders vreet Vibe de hele pagina. */
@@ -735,13 +767,18 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
     if (action === "confirmed") prefetchJson("crm", "/api/crm", 90_000);
   }
 
-  async function onReview(id: string, action: "confirmed" | "rejected" | "reopen", clientName?: string): Promise<void> {
+  async function onReview(
+    id: string,
+    action: "confirmed" | "rejected" | "reopen",
+    clientName?: string,
+    opts?: { stay?: boolean }
+  ): Promise<void> {
     setConfirmId(id);
     setBusy(true);
     setError(null);
     try {
       await postReview(id, action, clientName);
-      if (action === "confirmed") {
+      if (action === "confirmed" && !opts?.stay) {
         router.push(kansenHref(`crm_bureau_${id}`, { hm: true }));
       }
     } catch (e) {
@@ -751,6 +788,93 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
       setBusy(false);
     }
   }
+
+  function togglePick(id: string) {
+    setPicked((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function clearPick() {
+    setPicked(new Set());
+  }
+
+  function selectVisible() {
+    setPicked(new Set(filteredLive.map((l) => l.id)));
+  }
+
+  const selectedLeads = useMemo(
+    () => filteredLive.filter((l) => picked.has(l.id)),
+    [filteredLive, picked]
+  );
+  const bulkAiIds = useMemo(() => selectedLeads.filter(canBulkAi).map((l) => l.id), [selectedLeads]);
+  const bulkConfirmRows = useMemo(
+    () => selectedLeads.filter((l) => canBulkConfirm(l, clientDrafts[l.id])),
+    [selectedLeads, clientDrafts]
+  );
+  const bulkRejectIds = useMemo(
+    () => selectedLeads.filter((l) => l.status !== "confirmed" && l.status !== "rejected").map((l) => l.id),
+    [selectedLeads]
+  );
+  const aiUnit = SYNC_COST_PER_RUN.actions["ai-research"].eur;
+  const bulkAiCost =
+    bulkAiIds.length > 0
+      ? `ca. €${eurFormat(Math.round(aiUnit.low * bulkAiIds.length * 100) / 100)}–${eurFormat(Math.round(aiUnit.high * bulkAiIds.length * 100) / 100)}`
+      : null;
+
+  async function runBulkConfirm() {
+    if (!bulkConfirmRows.length || busy) return;
+    setBusy(true);
+    setError(null);
+    let failed = 0;
+    for (const l of bulkConfirmRows) {
+      const name = clientNameOf(l, clientDrafts[l.id]);
+      setConfirmId(l.id);
+      try {
+        await postReview(l.id, "confirmed", name);
+      } catch {
+        failed += 1;
+      }
+    }
+    setConfirmId(null);
+    setBusy(false);
+    clearPick();
+    if (failed) setError(`${failed} van ${bulkConfirmRows.length} niet bevestigd.`);
+  }
+
+  async function runBulkReject() {
+    if (!bulkRejectIds.length || busy) return;
+    setBusy(true);
+    setError(null);
+    let failed = 0;
+    for (const id of bulkRejectIds) {
+      setConfirmId(id);
+      try {
+        await postReview(id, "rejected");
+      } catch {
+        failed += 1;
+      }
+    }
+    setConfirmId(null);
+    setBusy(false);
+    clearPick();
+    if (failed) setError(`${failed} van ${bulkRejectIds.length} niet weggezet.`);
+  }
+
+  function runBulkAi() {
+    if (!bulkAiIds.length) return;
+    for (const id of bulkAiIds) onAiGuess(id, "standard");
+    clearPick();
+  }
+
+  // Selectie volgt de zichtbare bak — anders blijven “spoken” id’s hangen.
+  useEffect(() => {
+    clearPick();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reset when filters change
+  }, [bucket, aiPick, watchAgency]);
 
   function patchJob(id: string, patch: Partial<AiJob> | null) {
     setAiJobs((prev) => {
@@ -1094,6 +1218,51 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
               ))}
             </div>
           ) : null}
+          {picked.size > 0 ? (
+            <div className={`lead-bulkbar ${mobilePane === "detail" ? "max-lg:hidden" : ""}`} role="region" aria-label="Selectie">
+              <span className="lead-bulkbar__n">{picked.size} geselecteerd</span>
+              <button type="button" className="btn-ghost btn-tool" onClick={selectVisible}>
+                Alles zichtbaar
+              </button>
+              <button type="button" className="btn-ghost btn-tool" onClick={clearPick}>
+                Wissen
+              </button>
+              <div className="lead-bulkbar__actions">
+                {bulkAiIds.length ? (
+                  <button
+                    type="button"
+                    className="btn-ink btn-tool"
+                    onClick={runBulkAi}
+                    title={`AI op ${bulkAiIds.length} posts · schatting ${bulkAiCost} · ~${eurApprox(aiUnit)}/st`}
+                  >
+                    AI · {bulkAiIds.length}
+                    {bulkAiCost ? <span className="font-normal opacity-70"> · {bulkAiCost}</span> : null}
+                  </button>
+                ) : null}
+                {bulkConfirmRows.length ? (
+                  <button
+                    type="button"
+                    className="btn-ghost btn-tool"
+                    disabled={busy}
+                    onClick={() => void runBulkConfirm()}
+                    title="Bevestig geselecteerde opdrachtgevers — blijven in de lijst (geen sprong naar Kansen)"
+                  >
+                    Bevestig · {bulkConfirmRows.length}
+                  </button>
+                ) : null}
+                {bulkRejectIds.length ? (
+                  <button
+                    type="button"
+                    className="btn-ghost btn-tool"
+                    disabled={busy}
+                    onClick={() => void runBulkReject()}
+                  >
+                    Weg · {bulkRejectIds.length}
+                  </button>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
           {watchAgency ? (
             <p className="mb-3 text-[0.78rem] text-[var(--muted)]">
               Alleen <strong className="text-[var(--ink)]">{watchAgency}</strong> ·{" "}
@@ -1127,6 +1296,17 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
                       <span className="font-normal text-[var(--muted)]"> posts</span>
                     </p>
                   </div>
+                  {filteredLive.length ? (
+                    <label className="flex items-center gap-1.5 text-[0.72rem] text-[var(--muted)]">
+                      <input
+                        type="checkbox"
+                        checked={filteredLive.length > 0 && filteredLive.every((l) => picked.has(l.id))}
+                        onChange={(e) => (e.target.checked ? selectVisible() : clearPick())}
+                        aria-label="Selecteer alle zichtbare posts"
+                      />
+                      Alles
+                    </label>
+                  ) : null}
                 </div>
                 <div className="radar-scroll-pane__body">
                 {filteredLive.length ? (
@@ -1136,6 +1316,8 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
                         key={l.id}
                         lead={l}
                         active={selected?.id === l.id}
+                        selected={picked.has(l.id)}
+                        onToggleSelect={() => togglePick(l.id)}
                         onOpen={() => openLead(l.id)}
                         busy={busy}
                         aiBusy={aiJobs[l.id]?.status === "running"}
