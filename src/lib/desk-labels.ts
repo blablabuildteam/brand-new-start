@@ -37,7 +37,7 @@ export const DESK = {
     id: "kansen" as const,
     nav: "Kansen",
     title: "Kansen",
-    subtitle: "Opdrachtgever → manager → contact → bericht",
+    subtitle: "Opdrachtgever → manager → mail/tel → bericht",
     href: "/kansen",
   },
   voorstel: {

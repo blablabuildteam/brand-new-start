@@ -3,7 +3,7 @@ import { getSession } from "@/lib/auth";
 import { listRadar } from "@/lib/store";
 import { buildPlacement } from "@/lib/placement";
 import type { PlacementProposal } from "@/lib/placement";
-import { listCrmOpportunities, type CrmOpportunity } from "@/lib/crm";
+import { listCrmOpportunities, readyToMessage } from "@/lib/crm";
 import { companyLinkedinFromSignals } from "@/lib/approach";
 import { loadHuntSettings } from "@/lib/hunt";
 
@@ -33,21 +33,6 @@ export type DeskItem = {
   bureauLane?: boolean;
   proposal: PlacementProposal;
 };
-
-/**
- * Kans is klaar voor Bericht als Kansen hem op stap 4 zet:
- *   HM bekend (met profiel) én mail/tel binnen (of Lusha leeg/beperkt),
- *   en nog niet gewonnen/afgelegd.
- * Houd dit gelijk aan kansen-desk.tsx:stepOf — anders raakt pijpleiding scheef.
- */
-function readyToMessage(c: CrmOpportunity): boolean {
-  if (c.demo) return false;
-  if (c.stage === "won" || c.stage === "lost") return false;
-  if (!c.hiringManager || !c.hiringManagerUrl) return false;
-  const hasChannel = Boolean(c.hiringManagerEmail || c.hiringManagerPhone);
-  const lushaExhausted = c.lushaStatus === "empty" || c.lushaStatus === "restricted";
-  return hasChannel || lushaExhausted;
-}
 
 export async function GET() {
   const session = await getSession();

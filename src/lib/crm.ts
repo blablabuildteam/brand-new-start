@@ -128,11 +128,20 @@ function contactFrom(row: HmGuessRow | null | undefined, extraHits?: HmHitStored
   };
 }
 
-function needsContact(item: Pick<CrmOpportunity, "hiringManager" | "hiringManagerUrl" | "hiringManagerEmail" | "hiringManagerPhone" | "lushaStatus">) {
+/** Stap 3 (mail/tel) nog open? Zelfde regel als Kansen/`/api/placement` — niet uit elkaar laten lopen. */
+export function needsContact(item: Pick<CrmOpportunity, "hiringManager" | "hiringManagerUrl" | "hiringManagerEmail" | "hiringManagerPhone" | "lushaStatus">) {
   if (!item.hiringManager || !item.hiringManagerUrl) return false;
   if (item.hiringManagerEmail || item.hiringManagerPhone) return false;
   if (item.lushaStatus === "empty" || item.lushaStatus === "restricted") return false;
   return true;
+}
+
+/** Stap 4 Bericht — HM bekend en mail/tel niet meer nodig (of Lusha uitgeput). */
+export function readyToMessage(item: Pick<CrmOpportunity, "hiringManager" | "hiringManagerUrl" | "hiringManagerEmail" | "hiringManagerPhone" | "lushaStatus" | "stage" | "demo">) {
+  if (item.demo) return false;
+  if (item.stage === "won" || item.stage === "lost") return false;
+  if (!item.hiringManager) return false;
+  return !needsContact(item);
 }
 
 function inferStage(opts: {

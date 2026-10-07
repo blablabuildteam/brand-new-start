@@ -100,27 +100,28 @@ export default function RegieDesk({
     );
   }, []);
 
+  const realItems = useMemo(() => items.filter((i) => !i.demoOpening), [items]);
   const item =
-    items.find((i) => i.companyId === sel.companyId && i.openingId === sel.openingId) ||
-    items.find((i) => i.companyId === sel.companyId) ||
-    items[0] ||
+    realItems.find((i) => i.companyId === sel.companyId && i.openingId === sel.openingId) ||
+    realItems.find((i) => i.companyId === sel.companyId) ||
+    realItems[0] ||
     null;
 
   useEffect(() => {
     if (!item) return;
     if (sel.companyId === item.companyId && sel.openingId === item.openingId) return;
     setSel({ companyId: item.companyId, openingId: item.openingId });
-    if (item.companyId !== "demo") writeUrl(item.companyId, item.openingId);
+    writeUrl(item.companyId, item.openingId);
   }, [item, sel.companyId, sel.openingId]);
 
   const proposal = item?.proposal ?? null;
   const visible = useMemo(() => {
     const n = q.trim().toLowerCase();
-    if (!n) return items;
-    return items.filter((i) =>
+    if (!n) return realItems;
+    return realItems.filter((i) =>
       `${i.company} ${i.title} ${i.roleLabel}`.toLowerCase().includes(n)
     );
-  }, [items, q]);
+  }, [realItems, q]);
   const groups = useMemo(() => groupRail(visible), [visible]);
 
   useEffect(() => {
@@ -402,7 +403,7 @@ export default function RegieDesk({
 
         <main className={`ws-main ${mobilePane === "list" ? "max-lg:hidden" : ""}`}>
           {error ? <p className="text-sm text-[var(--warn)]">{error}</p> : null}
-          {!loading && !items.length ? (
+          {!loading && !realItems.length ? (
             <div className="ws-panel px-4 py-5">
               <p className="text-sm font-semibold text-[var(--ink)]">Nog niets om te versturen</p>
               <p className="mt-1.5 text-[0.78rem] leading-relaxed text-[var(--muted)]">

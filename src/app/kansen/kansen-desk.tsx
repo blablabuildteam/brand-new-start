@@ -9,7 +9,7 @@ import { BtnSpinner } from "@/components/btn-spinner";
 import { ScoreChip } from "@/components/score-chip";
 import { CompanyMark } from "@/components/company-mark";
 import type { CrmLane, CrmOpportunity, CrmStage } from "@/lib/crm";
-import { CRM_STAGE_NL } from "@/lib/crm";
+import { CRM_STAGE_NL, needsContact } from "@/lib/crm";
 import { radarHref } from "@/lib/desk-links";
 import { cachePeek } from "@/lib/client-cache";
 import { DESK, hmSearchMessage } from "@/lib/desk-labels";
@@ -29,13 +29,6 @@ function formatDay(isoStr: string | null) {
   } catch {
     return "—";
   }
-}
-
-function needsContact(row: CrmOpportunity) {
-  if (!row.hiringManager || !row.hiringManagerUrl) return false;
-  if (row.hiringManagerEmail || row.hiringManagerPhone) return false;
-  if (row.lushaStatus === "empty" || row.lushaStatus === "restricted") return false;
-  return true;
 }
 
 function contactLine(row: CrmOpportunity) {
