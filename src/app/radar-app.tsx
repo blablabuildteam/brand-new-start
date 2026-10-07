@@ -304,29 +304,32 @@ function openSyncRuns(runs: SyncRun[]): LiveSync {
   };
 }
 
-/** Nieuwste run per bron — voorkomt dubbele Indeed-regels in het overzicht. */
-function latestRunsByChannel(sync: SyncInfo | null): SyncRun[] {
+/** Alleen jobboard-bronnen — geen recruiter-feeds / HM / Lusha op dit scherm. */
+const JOBBOARD_CHANNELS = [
+  "linkedin-jobs",
+  "indeed",
+  "freelance-nl",
+  "firecrawl-careers",
+] as const;
+
+/** Nieuwste run per jobboard — voorkomt dubbele Indeed-regels in het overzicht. */
+function latestBoardRuns(sync: SyncInfo | null): SyncRun[] {
   if (!sync) return [];
-  const order = ["linkedin-jobs", "indeed", "freelance-nl", "firecrawl-careers"] as const;
   const fromBy = sync.byChannel || {};
   const picked: SyncRun[] = [];
-  const seen = new Set<string>();
-
-  for (const ch of order) {
+  for (const ch of JOBBOARD_CHANNELS) {
     const run = fromBy[ch] || sync.recent?.find((r) => r.channel === ch) || null;
-    if (run) {
-      picked.push(run);
-      seen.add(ch);
-    }
+    if (run) picked.push(run);
   }
-  for (const r of sync.recent || []) {
-    if (!seen.has(r.channel)) {
-      picked.push(r);
-      seen.add(r.channel);
-    }
-  }
-  if (!picked.length && sync.last) return [sync.last];
   return picked;
+}
+
+function lastBoardSyncAt(sync: SyncInfo | null): string | null {
+  const runs = latestBoardRuns(sync);
+  if (!runs.length) return null;
+  return runs.reduce((newest, r) =>
+    new Date(r.at).getTime() > new Date(newest).getTime() ? r.at : newest
+  , runs[0]!.at);
 }
 
 function rowMeta(r: RadarRow) {
@@ -1358,6 +1361,8 @@ export default function RadarApp({
   const totalFetched = (live?.runs || []).reduce((a, r) => a + r.fetched, 0);
   const totalKept = (live?.runs || []).reduce((a, r) => a + r.kept, 0);
   const showPanel = Boolean(live);
+  const boardRuns = latestBoardRuns(sync);
+  const boardSyncAt = lastBoardSyncAt(sync);
   const syncPct = live
     ? Math.min(
         live.phase === "done" ? 100 : 97,
@@ -1626,7 +1631,7 @@ export default function RadarApp({
           </div>
         ) : null}
 
-        {!live && sync?.last ? (
+        {!live && boardSyncAt ? (
           <details className={`ws-fold ${mobilePane === "detail" ? "max-lg:hidden" : ""}`}>
             <summary>
               <span>
@@ -1639,27 +1644,25 @@ export default function RadarApp({
                 )}
               </span>
               <span className="ws-fold__meta">
-                Sync {timeAgo(sync.last.at)}
-                {(Date.now() - new Date(sync.last.at).getTime()) / 3600000 < 18
+                Sync {timeAgo(boardSyncAt)}
+                {(Date.now() - new Date(boardSyncAt).getTime()) / 3600000 < 18
                   ? " · max 1×/dag"
                   : ""}
               </span>
             </summary>
             <div className="ws-fold__body !p-0">
               <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1.5 border-b border-[var(--line)] px-3.5 py-2">
-                <p className="text-[0.72rem] text-[var(--muted)]">Laatste sync per bron</p>
+                <p className="text-[0.72rem] text-[var(--muted)]">Laatste sync per jobboard</p>
                 <button
                   type="button"
                   className="text-[0.72rem] font-semibold text-[var(--ink)] underline decoration-[var(--signal)] underline-offset-2"
-                  onClick={() =>
-                    setLive(openSyncRuns(sync.recent?.length ? sync.recent : [sync.last!]))
-                  }
+                  onClick={() => setLive(openSyncRuns(boardRuns))}
                 >
                   Batch →
                 </button>
               </div>
               <ul className="divide-y divide-[var(--line)]">
-                {latestRunsByChannel(sync).map((r) => (
+                {boardRuns.map((r) => (
                   <li key={r.id}>
                     <button
                       type="button"
