@@ -179,9 +179,9 @@ function asAgency(m: ManagedAgency): Agency {
   return {
     id: m.id,
     name: m.name,
-    aliases: m.aliases.length ? m.aliases : [m.name.toLowerCase()],
+    aliases: m.aliases?.length ? m.aliases : [m.name.toLowerCase()],
     note: m.note,
-    recruiters: m.recruiters.map((r) => ({
+    recruiters: (m.recruiters || []).map((r) => ({
       name: r.name,
       title: r.title,
       brand: r.brand,
@@ -236,7 +236,9 @@ export function allRecruiterIds() {
 
 /** Bureaus die je volgt (aan). */
 export function watchedAgencies(): Agency[] {
-  return agencyCatalog().filter((a) => a.enabled).map(asAgency);
+  return agencyCatalog()
+    .filter((a): a is ManagedAgency => Boolean(a?.id && a.enabled))
+    .map(asAgency);
 }
 
 /** Recruiters die je volgt binnen een bureau. */

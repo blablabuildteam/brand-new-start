@@ -312,19 +312,24 @@ function agencyFromSignal(
 ): Agency | null {
   if (typeof raw.agencyId === "string") {
     const byId = agencyCatalog().find((a) => a.id === raw.agencyId);
-    if (byId) return matchAgency(byId.name) || matchAgency(String(raw.agencyName || "")) || {
-      id: byId.id,
-      name: byId.name,
-      aliases: byId.aliases || [],
-      linkedinSlug: byId.linkedinSlug,
-      note: byId.note,
-      recruiters: byId.recruiters.map((r) => ({
-        name: r.name,
-        title: r.title,
-        brand: r.brand,
-        linkedinUrl: r.linkedinUrl,
-      })),
-    };
+    if (byId?.id) {
+      return (
+        matchAgency(byId.name) ||
+        matchAgency(String(raw.agencyName || "")) || {
+          id: byId.id,
+          name: byId.name,
+          aliases: byId.aliases || [],
+          linkedinSlug: byId.linkedinSlug,
+          note: byId.note,
+          recruiters: (byId.recruiters || []).map((r) => ({
+            name: r.name,
+            title: r.title,
+            brand: r.brand,
+            linkedinUrl: r.linkedinUrl,
+          })),
+        }
+      );
+    }
   }
   if (typeof raw.agencyName === "string") {
     const byName = matchAgency(raw.agencyName);
@@ -559,7 +564,8 @@ export async function leadSourceForAi(id: string): Promise<{
   const lead = data.live.find((l) => l.id === id);
   if (!lead) return null;
   const rec = (lead.recruiter.name || "").toLowerCase().trim();
-  const brand = agency.recruiters.find((r) => r.name.toLowerCase().trim() === rec)?.brand || null;
+  const brand =
+    (agency.recruiters || []).find((r) => r.name.toLowerCase().trim() === rec)?.brand || null;
   return { lead, title: s.title, text, agencyName: agency.name, memory: feedMemoryFor(lead, data.live), brand };
 }
 

@@ -241,17 +241,30 @@ export async function POST(req: Request) {
     });
   }
 
-  /** Inhaal-AI op open posts — zelfde caps als na feed-sync (N + €/dag). */
+  /** Inhaal-AI op open posts — zelfde caps als na feed-sync (N + €/dag · ≤15d). */
   if (action === "ai-catchup") {
     if (!hasAiKey()) {
       return NextResponse.json({ error: "ANTHROPIC_API_KEY ontbreekt", detail: "no-anthropic-key" }, { status: 503 });
     }
-    const detective = await autoIdentifyOpenLeads({
-      max: INGEST_POLICY.feedAutoAiMax,
-      deadline: startedAt + 280_000,
-      parallel: 3,
-    });
-    return NextResponse.json({ ok: true, kind: "ai-catchup", detective, stats: await stats() });
+    try {
+      const detective = await autoIdentifyOpenLeads({
+        max: INGEST_POLICY.feedAutoAiMax,
+        deadline: startedAt + 280_000,
+        parallel: 3,
+      });
+      let storeStats = null;
+      try {
+        storeStats = await stats();
+      } catch (e) {
+        storeStats = { error: e instanceof Error ? e.message : "stats-failed" };
+      }
+      return NextResponse.json({ ok: true, kind: "ai-catchup", detective, stats: storeStats });
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "ai-catchup-failed";
+      const stack = e instanceof Error ? e.stack?.split("\n").slice(0, 6) : undefined;
+      console.error("ai-catchup failed", message, stack);
+      return NextResponse.json({ ok: false, error: message, stack }, { status: 500 });
+    }
   }
 
   if (action === "linkedin-paste") {
