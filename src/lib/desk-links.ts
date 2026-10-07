@@ -25,6 +25,9 @@ export function regieHref(opts: {
   return `/regie?${p.toString()}`;
 }
 
-export function kansenHref(id: string) {
-  return `/kansen?id=${encodeURIComponent(id)}`;
+export function kansenHref(id: string, opts?: { hm?: boolean }) {
+  const p = new URLSearchParams();
+  p.set("id", id);
+  if (opts?.hm) p.set("hm", "1");
+  return `/kansen?${p.toString()}`;
 }

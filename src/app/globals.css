@@ -1572,34 +1572,51 @@ button.radar-opp[aria-current="true"]:hover:not(:disabled) {
   color: var(--muted);
   font-weight: 600;
 }
-.lead-row__ready {
+/* Zelfde formaat als .ws-score, maar plain (geen groen) — bevestig-opdrachtgever. */
+.lead-row__confirm {
   display: inline-flex;
   min-width: 0;
-  max-width: min(20rem, 60vw);
+  max-width: 11rem;
   align-items: center;
-  gap: 0.45rem;
-  padding: 0.1rem 0.1rem 0.1rem 0.5rem;
-  border: 1px solid color-mix(in srgb, var(--green) 30%, var(--line));
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--green-soft) 55%, var(--surface));
+  gap: 0.35rem;
+  height: 1.75rem;
+  padding: 0 0.5rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--ink);
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease;
 }
-.lead-row__ready-label {
+.lead-row__confirm:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--ink) 35%, var(--line));
+  background: var(--surface-2);
+}
+.lead-row__confirm:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+.lead-row__confirm-check {
   flex-shrink: 0;
-  font-size: 0.6rem;
+  font-size: 0.78rem;
   font-weight: 650;
-  letter-spacing: 0.08em;
+  color: var(--muted);
+  line-height: 1;
+}
+.lead-row__confirm:hover:not(:disabled) .lead-row__confirm-check {
+  color: var(--ink);
+}
+.lead-row__confirm-name {
+  min-width: 0;
+  font-size: 0.62rem;
+  font-weight: 650;
+  letter-spacing: 0.02em;
   text-transform: uppercase;
   color: var(--muted);
 }
-.lead-row__ready-name {
-  min-width: 0;
-  max-width: 11rem;
-  font-size: 0.78rem;
-  font-weight: 650;
+.lead-row__confirm:hover:not(:disabled) .lead-row__confirm-name {
   color: var(--ink);
-}
-.lead-row__ready-btn {
-  flex-shrink: 0;
 }
 .lead-row__why {
   display: block;

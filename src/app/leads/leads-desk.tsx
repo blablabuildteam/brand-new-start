@@ -327,23 +327,24 @@ function LeadCard({
             </span>
           )}
           {quickConfirm ? (
-            <span className="lead-row__ready">
-              <span className="lead-row__ready-label">Opdrachtgever</span>
-              <span className="lead-row__ready-name truncate" title={client}>
-                {client}
-              </span>
-              <button
-                type="button"
-                disabled={busy || aiBusy || client.length < 2}
-                onClick={() => onReview(lead.id, "confirmed", client)}
-                className={`btn-ink btn-row lead-row__ready-btn ${confirming ? "is-busy" : ""}`}
-                aria-busy={confirming || undefined}
-                title={`Bevestig ${client} als opdrachtgever — daarna staat de kans op Kansen`}
-              >
-                {confirming ? <BtnSpinner /> : null}
-                {confirming ? "Bevestigen" : "Bevestig"}
-              </button>
-            </span>
+            <button
+              type="button"
+              disabled={busy || aiBusy || client.length < 2}
+              onClick={() => onReview(lead.id, "confirmed", client)}
+              className={`lead-row__confirm ${confirming ? "is-busy" : ""}`}
+              aria-busy={confirming || undefined}
+              aria-label={`Bevestig ${client} — naar Kansen om hiring manager te zoeken`}
+              title={`Bevestig ${client} → naar Kansen, daar kun je de hiring manager zoeken`}
+            >
+              {confirming ? (
+                <BtnSpinner />
+              ) : (
+                <span className="lead-row__confirm-check" aria-hidden>
+                  ✓
+                </span>
+              )}
+              <span className="lead-row__confirm-name truncate">{client}</span>
+            </button>
           ) : quickAi ? (
             <button
               type="button"
@@ -478,9 +479,10 @@ function LeadDetail({
             onClick={() => onReview(lead.id, "confirmed", client)}
             className={`btn-ink btn-tool ${confirming ? "is-busy" : ""}`}
             aria-busy={confirming || undefined}
+            title={`Bevestig ${client} → naar Kansen, daar kun je de hiring manager zoeken`}
           >
             {confirming ? <BtnSpinner /> : null}
-            {confirming ? "Bevestigen" : "Bevestig"}
+            {confirming ? "Bevestigen" : "Bevestig → Kansen"}
           </button>
           <button type="button" disabled={researchLock} onClick={() => onAiGuess(lead.id, "standard")} className="btn-ghost btn-tool">
             {aiBusy ? "…" : `AI · ${eurRange(SYNC_COST_PER_RUN.actions["ai-research"].eur)}`}
@@ -739,6 +741,9 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
     setError(null);
     try {
       await postReview(id, action, clientName);
+      if (action === "confirmed") {
+        router.push(kansenHref(`crm_bureau_${id}`, { hm: true }));
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "opslaan mislukt");
     } finally {
