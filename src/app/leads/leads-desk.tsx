@@ -160,13 +160,6 @@ function basisOf(lead: AgencyLead): Basis | null {
   const g = lead.guess;
   if (!g || lead.status === "rejected") return null;
   const has = (o: EvidenceOrigin) => g.evidence.some((e) => e.origin === o);
-  if (g.evidence.some((e) => e.origin === "web" && e.url && e.weight >= 80)) {
-    return {
-      label: "zelfde vacature",
-      tone: "strong",
-      hint: "Deze opdracht staat ook online, en daar staat de klantnaam bij.",
-    };
-  }
   if (has("memory")) return { label: "eerder bevestigd", tone: "strong", hint: "Je bevestigde deze klant eerder bij dit bureau" };
   if (g.evidence.some((e) => e.origin === "post" && /letterlijk/i.test(e.label))) {
     return { label: "naam in post", tone: "strong", hint: "De naam staat letterlijk in de post" };
@@ -478,12 +471,6 @@ function LeadDetail({
       </p>
       <h2 className="lead-detail__title">{lead.title}</h2>
       <VacancyLinks lead={lead} />
-      {basis?.label === "zelfde vacature" ? (
-        <p className="lead-detail__explain">
-          Zelfde vacature betekent dat we deze opdracht ook op een andere site vonden. Daar staat{" "}
-          {client || "de klantnaam"} als opdrachtgever. De naam komt daar vandaan.
-        </p>
-      ) : null}
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <span className={client ? "text-[var(--ink)]" : "text-[var(--muted)]"}>
           {client || "Opdrachtgever onbekend"}
