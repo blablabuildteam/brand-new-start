@@ -743,6 +743,8 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
   const [syncNote, setSyncNote] = useState<{ title: string; body: string } | null>(null);
   const [watchAgency, setWatchAgency] = useState<string | null>(null);
   const [openRecruiter, setOpenRecruiter] = useState<string | null>(null);
+  /** Kantoren in de sync-lijst: standaard dicht, anders vreet Vibe de hele pagina. */
+  const [openAgency, setOpenAgency] = useState<string | null>(null);
   const [clientDrafts, setClientDrafts] = useState<Record<string, string>>(() => {
     const drafts: Record<string, string> = {};
     if (initial) {
@@ -1247,66 +1249,108 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
               ) : null}
               {feedRoster.length ? (
                 <div className="feed-sync">
-                  {feedRoster.map((agency) => (
-                    <section key={agency.id}>
-                      <p className="feed-sync__co flex items-center gap-2">
-                        <CompanyMark
-                          name={agency.name}
-                          logoUrls={agencyLogoUrls({
-                            name: agency.name,
-                            id: agency.id,
-                            linkedinSlug: agency.linkedinSlug,
-                          })}
-                          size="sm"
-                        />
-                        {agency.name}
-                      </p>
-                      <ul>
-                        {agency.recruiters.map((person) => {
-                          const open = openRecruiter === person.key;
-                          return (
-                            <li key={person.key}>
-                              <button
-                                type="button"
-                                className="feed-sync__row"
-                                aria-expanded={open}
-                                onClick={() => setOpenRecruiter(open ? null : person.key)}
-                              >
-                                <span className={`feed-sync__tick${person.checked ? " feed-sync__tick--on" : ""}`} aria-hidden>
-                                  {person.checked ? (
-                                    <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-                                      <path d="M2 5.2 4 7.2 8 2.8" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
-                                    </svg>
+                  {feedRoster.map((agency) => {
+                    const agencyOpen = openAgency === agency.id;
+                    const postsTotal = agency.recruiters.reduce((n, r) => n + r.posts.length, 0);
+                    const checkedN = agency.recruiters.filter((r) => r.checked).length;
+                    return (
+                      <section key={agency.id}>
+                        <button
+                          type="button"
+                          className="feed-sync__co"
+                          aria-expanded={agencyOpen}
+                          onClick={() => {
+                            setOpenAgency(agencyOpen ? null : agency.id);
+                            if (agencyOpen) setOpenRecruiter(null);
+                          }}
+                        >
+                          <span className="flex min-w-0 flex-1 items-center gap-2">
+                            <CompanyMark
+                              name={agency.name}
+                              logoUrls={agencyLogoUrls({
+                                name: agency.name,
+                                id: agency.id,
+                                linkedinSlug: agency.linkedinSlug,
+                              })}
+                              size="sm"
+                            />
+                            <span className="truncate">{agency.name}</span>
+                          </span>
+                          <span className="feed-sync__co-meta">
+                            {agency.recruiters.length} recruiters
+                            {postsTotal ? ` · ${postsTotal} posts` : ""}
+                            {checkedN < agency.recruiters.length
+                              ? ` · ${agency.recruiters.length - checkedN} nieuw`
+                              : ""}
+                          </span>
+                          <span className="feed-sync__chev" aria-hidden>
+                            {agencyOpen ? "▴" : "▾"}
+                          </span>
+                        </button>
+                        {agencyOpen ? (
+                          <ul>
+                            {agency.recruiters.map((person) => {
+                              const open = openRecruiter === person.key;
+                              return (
+                                <li key={person.key}>
+                                  <button
+                                    type="button"
+                                    className="feed-sync__row"
+                                    aria-expanded={open}
+                                    onClick={() => setOpenRecruiter(open ? null : person.key)}
+                                  >
+                                    <span
+                                      className={`feed-sync__tick${person.checked ? " feed-sync__tick--on" : ""}`}
+                                      aria-hidden
+                                    >
+                                      {person.checked ? (
+                                        <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                                          <path
+                                            d="M2 5.2 4 7.2 8 2.8"
+                                            stroke="currentColor"
+                                            strokeWidth="1.4"
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                          />
+                                        </svg>
+                                      ) : null}
+                                    </span>
+                                    <span className="truncate">{person.name}</span>
+                                    {person.posts.length ? (
+                                      <span className="feed-sync__n">{person.posts.length}</span>
+                                    ) : null}
+                                  </button>
+                                  {open ? (
+                                    person.posts.length ? (
+                                      <ul className="feed-sync__posts">
+                                        {person.posts.map((post) => (
+                                          <li key={post.id}>
+                                            <button
+                                              type="button"
+                                              className="feed-sync__post"
+                                              onClick={() => openLead(post.id)}
+                                            >
+                                              {post.title}
+                                            </button>
+                                          </li>
+                                        ))}
+                                      </ul>
+                                    ) : (
+                                      <p className="feed-sync__empty">
+                                        {person.checked
+                                          ? "Opgehaald, geen vacature-posts."
+                                          : "Nog niet opgehaald."}
+                                      </p>
+                                    )
                                   ) : null}
-                                </span>
-                                <span className="truncate">{person.name}</span>
-                                {person.posts.length ? (
-                                  <span className="feed-sync__n">{person.posts.length}</span>
-                                ) : null}
-                              </button>
-                              {open ? (
-                                person.posts.length ? (
-                                  <ul className="feed-sync__posts">
-                                    {person.posts.map((post) => (
-                                      <li key={post.id}>
-                                        <button type="button" className="feed-sync__post" onClick={() => openLead(post.id)}>
-                                          {post.title}
-                                        </button>
-                                      </li>
-                                    ))}
-                                  </ul>
-                                ) : (
-                                  <p className="feed-sync__empty">
-                                    {person.checked ? "Opgehaald, geen vacature-posts." : "Nog niet opgehaald."}
-                                  </p>
-                                )
-                              ) : null}
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    </section>
-                  ))}
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        ) : null}
+                      </section>
+                    );
+                  })}
                 </div>
               ) : (
                 <p className="px-3.5 py-3 text-[0.78rem] text-[var(--muted)]">Nog geen recruiters op de lijst.</p>
