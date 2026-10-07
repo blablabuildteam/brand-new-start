@@ -74,7 +74,7 @@ export default function PilotPage() {
       <Art n="1" title="Wat dit is">
         <p>
           Leverancier geeft Bureau tijdens de pilot toegang tot Recruitment Scout (de Desk: Jobboards,
-          Recruiter feed, Kansen, Contact — hierna: de <strong>Tool</strong>), zodat Bureau
+          Recruiter feed, Kansen, Bericht — hierna: de <strong>Tool</strong>), zodat Bureau
           opdrachtkansen kan signaleren en opvolgen.
         </p>
         <p>

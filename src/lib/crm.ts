@@ -466,7 +466,7 @@ export function listActionQueue(items: CrmOpportunity[]) {
         next = "Zoek manager";
         href = `/kansen?id=${encodeURIComponent(i.id)}&hm=1`;
       } else if (needsContact(i)) {
-        next = "Haal contact";
+        next = "Haal mail/tel";
         href = `/kansen?id=${encodeURIComponent(i.id)}`;
       } else if (i.stage === "hm" || i.stage === "bevestigd" || i.stage === "nieuw") {
         next = "Bericht";

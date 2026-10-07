@@ -69,8 +69,8 @@ export default function LoginForm() {
           </h1>
           <p className="mt-2 mb-6 text-sm leading-relaxed text-[var(--muted)]">
             {partner
-              ? `Open de ${partner.name}-workspace: Jobboards, Recruiter feed, Kansen en Contact.`
-              : `Open ${PRODUCT.name}: Jobboards, Recruiter feed, Kansen en Contact.`}
+              ? `Open de ${partner.name}-workspace: Jobboards, Recruiter feed, Kansen en Bericht.`
+              : `Open ${PRODUCT.name}: Jobboards, Recruiter feed, Kansen en Bericht.`}
           </p>
           <label className="mb-3 block text-sm font-medium">
             E-mail

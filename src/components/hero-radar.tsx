@@ -11,7 +11,7 @@ const ROWS = [
 const NAV: { id: number; label: string; icon: "radar" | "bureaus" | "contact" }[] = [
   { id: 0, label: "Jobboards", icon: "radar" },
   { id: 1, label: "Recruiter feed", icon: "bureaus" },
-  { id: 2, label: "Contact", icon: "contact" },
+  { id: 2, label: "Bericht", icon: "contact" },
 ];
 
 function NavIcon({ kind, on }: { kind: "radar" | "bureaus" | "contact"; on: boolean }) {

@@ -41,10 +41,12 @@ export const DESK = {
     href: "/kansen",
   },
   voorstel: {
+    // id stays "contact" because it is the AppNavId key, not user-facing copy;
+    // the label was "Contact" and collided with Kansen stap 3 "Haal contact".
     id: "contact" as const,
-    nav: "Contact",
-    title: "Contact",
-    subtitle: "Hier stuur je het bericht — manager, mail/tel en tekst klaar",
+    nav: "Bericht",
+    title: "Bericht",
+    subtitle: "Tekst klaar — kopieer en stuur zelf (LinkedIn of mail)",
     href: "/regie",
   },
 } as const;

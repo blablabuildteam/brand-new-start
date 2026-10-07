@@ -1,11 +1,10 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { listRadar } from "@/lib/store";
-import { orgContextFromSignals } from "@/lib/org-context";
-import { buildPlacement, placementFromSignals } from "@/lib/placement";
+import { buildPlacement } from "@/lib/placement";
 import type { PlacementProposal } from "@/lib/placement";
-import { listCrmOpportunities } from "@/lib/crm";
-import { loadDeskMeta } from "@/lib/desk-meta";
+import { listCrmOpportunities, type CrmOpportunity } from "@/lib/crm";
+import { companyLinkedinFromSignals } from "@/lib/approach";
 import { loadHuntSettings } from "@/lib/hunt";
 
 const DEMO = {
@@ -35,92 +34,69 @@ export type DeskItem = {
   proposal: PlacementProposal;
 };
 
+/**
+ * Kans is klaar voor Bericht als Kansen hem op stap 4 zet:
+ *   HM bekend (met profiel) én mail/tel binnen (of Lusha leeg/beperkt),
+ *   en nog niet gewonnen/afgelegd.
+ * Houd dit gelijk aan kansen-desk.tsx:stepOf — anders raakt pijpleiding scheef.
+ */
+function readyToMessage(c: CrmOpportunity): boolean {
+  if (c.demo) return false;
+  if (c.stage === "won" || c.stage === "lost") return false;
+  if (!c.hiringManager || !c.hiringManagerUrl) return false;
+  const hasChannel = Boolean(c.hiringManagerEmail || c.hiringManagerPhone);
+  const lushaExhausted = c.lushaStatus === "empty" || c.lushaStatus === "restricted";
+  return hasChannel || lushaExhausted;
+}
+
 export async function GET() {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
   await loadHuntSettings();
 
-  const [rows, crm, meta] = await Promise.all([
-    listRadar(),
-    listCrmOpportunities(),
-    loadDeskMeta(),
-  ]);
+  const [rows, crm] = await Promise.all([listRadar(), listCrmOpportunities()]);
 
+  // Elke Bericht-rij komt rechtstreeks uit een Kansen-rij op stap 4. Zo laat de
+  // sidebar precies dezelfde kansen zien als de "Bericht"-knop op Kansen.
+  const radarById = new Map(rows.map((r) => [r.id, r] as const));
   const items: DeskItem[] = [];
-  const seenCompanies = new Set<string>();
 
-  for (const r of rows) {
-    const openings = r.openings?.length
-      ? r.openings
-      : [
-          {
-            id: r.id,
-            roleLabel: r.roleLabel,
-            openingTitle: r.openingTitle || r.roleLabel,
-            kans: r.kans,
-            signals: r.signals,
-            org: orgContextFromSignals(r.signals),
-          },
-        ];
-    for (const opening of openings) {
-      const org = opening.org || orgContextFromSignals(opening.signals);
-      seenCompanies.add(r.company.name.toLowerCase());
-      items.push({
-        companyId: r.id,
-        openingId: opening.id,
-        company: r.company.name,
-        sector: r.company.sector,
-        title: opening.openingTitle || opening.roleLabel,
-        roleLabel: opening.roleLabel,
-        kans: opening.kans,
-        hmSearched: Boolean(org.hmHits?.length),
-        sampleBench: false,
-        proposal: placementFromSignals({
-          company: r.company.name,
-          openingTitle: opening.openingTitle || opening.roleLabel,
-          roleLabel: opening.roleLabel,
-          org,
-          sector: r.company.sector,
-          signals: opening.signals,
-        }),
-      });
-    }
-  }
-
-  // Bureau-confirmed eindklanten without a Radar row still need a Voorstel.
   for (const c of crm) {
-    if (c.lane !== "bureau") continue;
-    if (c.demo) continue;
-    if (seenCompanies.has(c.endClient.toLowerCase())) continue;
-    seenCompanies.add(c.endClient.toLowerCase());
+    if (!readyToMessage(c)) continue;
 
-    const hm = meta.hmGuesses[c.id];
-    items.unshift({
-      companyId: c.id,
-      openingId: c.id,
+    const radar = c.companyId ? radarById.get(c.companyId) : undefined;
+    const opening = radar && c.openingId
+      ? (radar.openings || []).find((o) => o.id === c.openingId)
+      : undefined;
+
+    const proposal = buildPlacement({
       company: c.endClient,
-      sector: null,
+      openingTitle: c.title,
+      roleLabel: c.roleLabel,
+      // Lead data over wat er in signals stond — Lusha/handmatig vullen op Kansen
+      // hoort hier bindend te zijn, anders mist Bericht de mail/tel die net binnenkwam.
+      hiringManager: c.hiringManager,
+      hiringManagerTitle: c.hiringManagerTitle || undefined,
+      contactUrl: c.hiringManagerUrl || undefined,
+      hmHits: c.hmHits,
+      summary: c.extractSummary || c.title,
+      sector: c.sector || radar?.company.sector || null,
+      companyLinkedinUrl: opening ? companyLinkedinFromSignals(opening.signals) : null,
+    });
+
+    items.push({
+      companyId: c.companyId || c.id,
+      openingId: c.openingId || c.id,
+      company: c.endClient,
+      sector: c.sector || radar?.company.sector || null,
       title: c.title,
       roleLabel: c.roleLabel,
       kans: c.kans ?? 40,
-      hmSearched: Boolean(c.hiringManager || hm?.hits?.length),
+      hmSearched: true,
       sampleBench: false,
-      bureauLane: true,
-      proposal: buildPlacement({
-        company: c.endClient,
-        openingTitle: c.title,
-        roleLabel: c.roleLabel,
-        hiringManager: c.hiringManager || hm?.hiringManager || undefined,
-        hiringManagerTitle: c.hiringManagerTitle || hm?.hiringManagerTitle || undefined,
-        contactUrl: c.hiringManagerUrl || hm?.hiringManagerUrl || undefined,
-        hmHits: (c.hmHits?.length ? c.hmHits : hm?.hits || []).map((h) => ({
-          name: h.name,
-          title: h.title,
-          url: h.url,
-        })),
-        summary: c.extractSummary || c.title,
-      }),
+      bureauLane: c.lane === "bureau" && !radar,
+      proposal,
     });
   }
 

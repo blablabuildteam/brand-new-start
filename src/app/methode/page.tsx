@@ -21,7 +21,7 @@ const STEPS = [
     d: "Bevestigde en warme kansen op één lijst — met de volgende stap per rij.",
   },
   {
-    t: "Contact",
+    t: "Bericht",
     d: "Manager, mail/tel en bericht klaarzetten. Jij stuurt zelf.",
   },
 ] as const;

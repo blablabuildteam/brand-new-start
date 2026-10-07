@@ -305,8 +305,8 @@ export default function RegieDesk({
               <Link href="/kansen" className="font-semibold text-[var(--ink)] underline underline-offset-2">
                 Kansen
               </Link>{" "}
-              zoek je de manager en mail/tel. <strong className="text-[var(--ink)]">Contact</strong> is alleen
-              om het bericht te kopiëren en zelf te versturen (LinkedIn of mail). Er gaat niets automatisch de
+              zoek je de manager en mail/tel. <strong className="text-[var(--ink)]">Bericht</strong> is alleen
+              om de tekst te kopiëren en zelf te versturen (LinkedIn of mail). Er gaat niets automatisch de
               deur uit.
             </p>
             <ol className="ws-fold__steps mt-2">
@@ -407,7 +407,7 @@ export default function RegieDesk({
               <p className="text-sm font-semibold text-[var(--ink)]">Nog niets om te versturen</p>
               <p className="mt-1.5 text-[0.78rem] leading-relaxed text-[var(--muted)]">
                 Deze pagina vult zich vanuit Kansen: eerst opdrachtgever → manager → mail/tel → dan het
-                bericht hier. Zonder die stappen blijft Contact leeg.
+                bericht hier. Zonder die stappen blijft Bericht leeg.
               </p>
               <Link href="/kansen" className="btn-ink btn-tool mt-3 inline-flex no-underline">
                 Naar Kansen →
