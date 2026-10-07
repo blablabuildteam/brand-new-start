@@ -111,9 +111,6 @@ export default function SyncDesk() {
     }
   }
 
-  const primary = data?.sources.filter((s) => !s.secondary) ?? [];
-  const secondary = data?.sources.filter((s) => s.secondary) ?? [];
-
   return (
     <AppShell current="sync" title="Sync" subtitle="Ophalen · wat het kost · wanneer weer">
       <main className="ws-shell ws-shell--page">
@@ -171,7 +168,7 @@ export default function SyncDesk() {
                 Max 1× per bron per ~{data.lockHours} uur. Tweede klik haalt meestal niets nieuws en kost wel geld.
               </p>
               <ul className="overflow-hidden rounded-[var(--radius)] border border-[var(--line)] bg-[var(--surface)]">
-                {primary.map((s) => (
+                {data.sources.map((s) => (
                   <SourceRow
                     key={s.id}
                     source={s}
@@ -182,26 +179,6 @@ export default function SyncDesk() {
                 ))}
               </ul>
             </section>
-
-            {secondary.length ? (
-              <section className="mb-6">
-                <h2 className="mb-1 text-sm text-[var(--muted)]">Optioneel</h2>
-                <p className="mb-3 text-[0.72rem] text-[var(--muted)]">
-                  Careers-watchlist — alleen als jullie die echt gebruiken.
-                </p>
-                <ul className="overflow-hidden rounded-[var(--radius)] border border-[var(--line)]/80 bg-[var(--surface)]">
-                  {secondary.map((s) => (
-                    <SourceRow
-                      key={s.id}
-                      source={s}
-                      busy={busyId === s.id}
-                      disabled={Boolean(busyId)}
-                      onRun={() => void runSource(s.id)}
-                    />
-                  ))}
-                </ul>
-              </section>
-            ) : null}
 
             <section className="mb-8">
               <h2 className="mb-2 text-sm font-semibold text-[var(--ink)]" style={{ fontFamily: "var(--display)" }}>

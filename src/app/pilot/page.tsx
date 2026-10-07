@@ -42,7 +42,7 @@ export default function PilotPage() {
         </div>
         <div className="flex flex-col items-end gap-1.5 text-sm">
           <Link href="/samenwerking" className="font-medium text-[var(--accent)]">
-            ← Voorstel
+            ← Samenwerking
           </Link>
           <PrintPilotButton />
         </div>
@@ -74,7 +74,7 @@ export default function PilotPage() {
       <Art n="1" title="Wat dit is">
         <p>
           Leverancier geeft Bureau tijdens de pilot toegang tot Recruitment Scout (de Desk: Jobboards,
-          Recruiter feed, Kansen, Voorstel — hierna: de <strong>Tool</strong>), zodat Bureau
+          Recruiter feed, Kansen, Contact — hierna: de <strong>Tool</strong>), zodat Bureau
           opdrachtkansen kan signaleren en opvolgen.
         </p>
         <p>

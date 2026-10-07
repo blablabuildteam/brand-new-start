@@ -305,12 +305,7 @@ function openSyncRuns(runs: SyncRun[]): LiveSync {
 }
 
 /** Alleen jobboard-bronnen — geen recruiter-feeds / HM / Lusha op dit scherm. */
-const JOBBOARD_CHANNELS = [
-  "linkedin-jobs",
-  "indeed",
-  "freelance-nl",
-  "firecrawl-careers",
-] as const;
+const JOBBOARD_CHANNELS = ["linkedin-jobs", "indeed", "freelance-nl"] as const;
 
 /** Nieuwste run per jobboard — voorkomt dubbele Indeed-regels in het overzicht. */
 function latestBoardRuns(sync: SyncInfo | null): SyncRun[] {
@@ -2271,7 +2266,7 @@ export default function RadarApp({
                           href={`/regie?id=${encodeURIComponent(active.id)}&opening=${encodeURIComponent(o.id)}`}
                           className="text-[var(--accent)] no-underline hover:text-[var(--ink)] hover:underline"
                         >
-                          Voorstel
+                          Contact
                         </a>
                       </p>
                     </article>

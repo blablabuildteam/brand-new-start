@@ -17,7 +17,7 @@ const DESKS: Hit[] = [
   { id: "d-radar", title: DESK.direct.nav, subtitle: DESK.direct.subtitle, href: DESK.direct.href, kind: "desk" },
   { id: "d-leads", title: DESK.bureau.nav, subtitle: DESK.bureau.subtitle, href: DESK.bureau.href, kind: "desk" },
   { id: "d-kansen", title: DESK.kansen.nav, subtitle: "Pipeline · HM · volgende actie", href: DESK.kansen.href, kind: "desk" },
-  { id: "d-regie", title: DESK.voorstel.nav, subtitle: "Bericht + shortlist klaarzetten", href: DESK.voorstel.href, kind: "desk" },
+  { id: "d-regie", title: DESK.voorstel.nav, subtitle: "Manager · mail/tel · bericht", href: DESK.voorstel.href, kind: "desk" },
   { id: "d-set", title: "Instellingen", subtitle: "Rollen, kantoren, sync", href: "/instellingen", kind: "desk" },
   { id: "d-sync", title: "Sync", subtitle: "Ophalen · kosten · wanneer weer", href: "/sync", kind: "desk" },
 ];

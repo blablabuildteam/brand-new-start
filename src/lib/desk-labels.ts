@@ -41,10 +41,10 @@ export const DESK = {
     href: "/kansen",
   },
   voorstel: {
-    id: "voorstel" as const,
-    nav: "Voorstel",
-    title: "Voorstel",
-    subtitle: "Stap 4 · bericht aan de hiring manager",
+    id: "contact" as const,
+    nav: "Contact",
+    title: "Contact",
+    subtitle: "Manager · mail/tel · bericht klaarzetten",
     href: "/regie",
   },
 } as const;

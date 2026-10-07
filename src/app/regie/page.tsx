@@ -1,8 +1,8 @@
 import RegieDesk from "./regie-desk";
 
 export const metadata = {
-  title: "Voorstel — Recruitment Scout",
-  description: "Hiring manager + drie namen + bericht. Jij verstuurt.",
+  title: "Contact — Recruitment Scout",
+  description: "Hiring manager, mail/tel en bericht klaarzetten. Jij verstuurt.",
 };
 
 export default async function RegiePage({

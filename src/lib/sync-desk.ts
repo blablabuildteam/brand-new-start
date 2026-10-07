@@ -13,18 +13,12 @@ import {
   type SyncRun,
 } from "@/lib/sync-log";
 
-export type SyncDeskAction =
-  | "market"
-  | "indeed"
-  | "freelance-nl"
-  | "recruiter-feeds"
-  | "platforms";
+export type SyncDeskAction = "market" | "indeed" | "freelance-nl" | "recruiter-feeds";
 
 export type SyncDeskSource = {
   id: SyncDeskAction;
   channel: SyncChannel;
   label: string;
-  secondary: boolean;
   lastAt: string | null;
   kept: number | null;
   fetched: number | null;
@@ -47,18 +41,11 @@ const DESK_SOURCES: {
   id: SyncDeskAction;
   channel: SyncChannel;
   label: string;
-  secondary?: boolean;
 }[] = [
   { id: "market", channel: "linkedin-jobs", label: "LinkedIn Jobs" },
   { id: "indeed", channel: "indeed", label: "Indeed NL" },
   { id: "freelance-nl", channel: "freelance-nl", label: "Freelance.nl" },
   { id: "recruiter-feeds", channel: "recruiter-feed", label: "Recruiter-feeds" },
-  {
-    id: "platforms",
-    channel: "firecrawl-careers",
-    label: "Careers / platforms",
-    secondary: true,
-  },
 ];
 
 function lockedUntilIso(lastAt: string | null): string | null {
@@ -88,7 +75,6 @@ export async function buildSyncDeskPayload() {
       id: s.id,
       channel: s.channel,
       label: s.label,
-      secondary: Boolean(s.secondary),
       lastAt,
       kept: run ? run.kept : null,
       fetched: run ? run.fetched : null,
@@ -98,15 +84,18 @@ export async function buildSyncDeskPayload() {
     };
   });
 
-  const recent: SyncDeskRecent[] = recentRuns.slice(0, 15).map((r: SyncRun) => ({
-    id: r.id,
-    at: r.at,
-    channel: r.channel,
-    label: channelLabel(r.channel) || r.label,
-    kept: r.kept,
-    fetched: r.fetched,
-    costEur: costForChannel(r.channel),
-  }));
+  const recent: SyncDeskRecent[] = recentRuns
+    .filter((r) => r.channel !== "firecrawl-careers")
+    .slice(0, 15)
+    .map((r: SyncRun) => ({
+      id: r.id,
+      at: r.at,
+      channel: r.channel,
+      label: channelLabel(r.channel) || r.label,
+      kept: r.kept,
+      fetched: r.fetched,
+      costEur: costForChannel(r.channel),
+    }));
 
   return {
     lockHours: SYNC_LOCK_HOURS,

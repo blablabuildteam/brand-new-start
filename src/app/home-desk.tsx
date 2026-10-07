@@ -27,8 +27,8 @@ const STEPS = [
   },
   {
     n: "04",
-    title: "Voorstel",
-    text: "Het bericht naar die manager ligt klaar. Jij verstuurt.",
+    title: "Contact",
+    text: "Manager, mail/tel en bericht klaar. Jij verstuurt.",
   },
 ] as const;
 

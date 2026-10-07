@@ -9,13 +9,13 @@ import { CommandPalette } from "@/components/command-palette";
 import { cacheClear, cacheGet, cachedJson, prefetchJson } from "@/lib/client-cache";
 import { partnerForEmail } from "@/lib/partner-brand";
 
-export type AppNavId = "radar" | "leads" | "kansen" | "voorstel" | "instellingen" | "sync";
+export type AppNavId = "radar" | "leads" | "kansen" | "contact" | "instellingen" | "sync";
 
-const PRIMARY: { href: string; id: AppNavId; label: string; icon: "radar" | "bureaus" | "kansen" | "voorstel" }[] = [
+const PRIMARY: { href: string; id: AppNavId; label: string; icon: "radar" | "bureaus" | "kansen" | "contact" }[] = [
   { href: "/radar", id: "radar", label: "Jobboards", icon: "radar" },
   { href: "/leads", id: "leads", label: "Recruiter feed", icon: "bureaus" },
   { href: "/kansen", id: "kansen", label: "Kansen", icon: "kansen" },
-  { href: "/regie", id: "voorstel", label: "Voorstel", icon: "voorstel" },
+  { href: "/regie", id: "contact", label: "Contact", icon: "contact" },
 ];
 
 type ShellUser = { email: string; role?: string };
@@ -24,7 +24,7 @@ function SideIcon({
   kind,
   on,
 }: {
-  kind: "radar" | "bureaus" | "kansen" | "voorstel" | "settings" | "help" | "sync" | "logout";
+  kind: "radar" | "bureaus" | "kansen" | "contact" | "settings" | "help" | "sync" | "logout";
   on: boolean;
 }) {
   const stroke = on ? "var(--ink)" : "currentColor";
@@ -53,11 +53,16 @@ function SideIcon({
       </svg>
     );
   }
-  if (kind === "voorstel") {
+  if (kind === "contact") {
     return (
       <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden className="shrink-0">
-        <path d="M3 4.5h10v8H5.5L3 14.5V4.5Z" stroke={stroke} strokeWidth="1.4" strokeLinejoin="round" />
-        <path d="M6 7.5h4M6 10h3" stroke={stroke} strokeWidth="1.3" strokeLinecap="round" />
+        <circle cx="8" cy="5.5" r="2.2" stroke={stroke} strokeWidth="1.4" />
+        <path
+          d="M3.5 13c.6-2.2 2.3-3.5 4.5-3.5s3.9 1.3 4.5 3.5"
+          stroke={stroke}
+          strokeWidth="1.4"
+          strokeLinecap="round"
+        />
       </svg>
     );
   }
@@ -248,7 +253,7 @@ export function AppShell({
               if (l.id === "radar") prefetchJson("radar", "/api/radar", 90_000);
               if (l.id === "leads") prefetchJson("leads", "/api/leads", 90_000);
               if (l.id === "kansen") prefetchJson("crm", "/api/crm", 90_000);
-              if (l.id === "voorstel") prefetchJson("placement", "/api/placement", 90_000);
+              if (l.id === "contact") prefetchJson("placement", "/api/placement", 90_000);
             }}
             className={navClass(current === l.id)}
           >

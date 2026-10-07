@@ -292,52 +292,29 @@ export default function RegieDesk({
   const linkedInUrl = hm?.url;
 
   return (
-    <AppShell current="voorstel" title="Bericht" subtitle={DESK.voorstel.subtitle} fill>
+    <AppShell current="contact" title={DESK.voorstel.title} subtitle={DESK.voorstel.subtitle} fill>
       <div className="ws-shell ws-shell--split ws-shell--split-wide">
         <details className={`ws-fold lg:col-span-2 ${mobilePane === "detail" ? "max-lg:hidden" : ""}`}>
           <summary>
-            <span>Wat is dit?</span>
-            <span className="ws-fold__meta">Laatste stap van een kans</span>
+            <span>Wat is Contact?</span>
+            <span className="ws-fold__meta">Manager · bericht · jij stuurt</span>
           </summary>
           <div className="ws-fold__body">
             <p className="m-0 text-[0.8rem] leading-relaxed text-[var(--muted)]">
-              Dit is <strong className="font-semibold text-[var(--ink)]">stap 4 van een kans</strong>: het
-              bericht aan de hiring manager, met namedropping van jullie ZZP’ers. Stap 1 tot 3 doe je op{" "}
+              Hier zet je de hiring manager en het bericht klaar. Niets gaat de deur uit — jij kopieert en
+              stuurt. Pipeline en status houd je bij op{" "}
               <Link href="/kansen" className="font-semibold text-[var(--ink)] underline underline-offset-2">
                 Kansen
               </Link>
-              . Niets gaat automatisch — jij kopieert en stuurt via LinkedIn of mail.
+              .
             </p>
-            <ol className="ws-fold__steps">
-              <li>
-                <span className="ws-fold__n">1</span>
-                <span>
-                  <strong className="font-semibold text-[var(--ink)]">Kies de kans</strong> — links staan de
-                  openingen; via Kansen kom je direct op de juiste.
-                </span>
-              </li>
-              <li>
-                <span className="ws-fold__n">2</span>
-                <span>
-                  <strong className="font-semibold text-[var(--ink)]">Check de manager</strong> — naam, mail en
-                  LinkedIn staan hier. Ontbreken ze, zoek ze dan eerst op Kansen.
-                </span>
-              </li>
-              <li>
-                <span className="ws-fold__n">3</span>
-                <span>
-                  <strong className="font-semibold text-[var(--ink)]">Kopieer & stuur</strong> — daarna zet je op
-                  Kansen de uitkomst: bericht verstuurd, gewonnen of afgelegd.
-                </span>
-              </li>
-            </ol>
           </div>
         </details>
         <aside
           className={`radar-scroll-pane min-h-0 max-lg:flex-1 ${mobilePane === "detail" ? "max-lg:hidden" : ""}`}
         >
           <div className="radar-scroll-pane__head">
-            <p className="ws-label">Openingen</p>
+            <p className="ws-label">Te benaderen</p>
             <p className="tabular-nums text-[0.68rem] text-[var(--muted)]" style={{ fontFamily: "var(--mono)" }}>
               {visible.length || 0}
             </p>
@@ -349,10 +326,19 @@ export default function RegieDesk({
               onChange={(e) => setQ(e.target.value)}
               placeholder="Filter bedrijf of rol…"
               className="w-full rounded-[calc(var(--radius)-2px)] border border-[var(--line)] bg-[var(--surface)] px-2 py-1.5 text-[0.78rem] outline-none focus:border-[var(--accent)]"
-              aria-label="Filter openingen"
+              aria-label="Filter te benaderen"
             />
           </div>
           <div className="radar-scroll-pane__body !px-1.5">
+            {!loading && !groups.length ? (
+              <p className="px-2 py-3 text-[0.78rem] leading-relaxed text-[var(--muted)]">
+                Nog niets om te benaderen. Bevestig eerst een opdrachtgever op{" "}
+                <Link href="/kansen" className="font-semibold text-[var(--ink)] underline underline-offset-2">
+                  Kansen
+                </Link>
+                .
+              </p>
+            ) : null}
             {groups.map((g) => {
               const companyActive = item?.companyId === g.companyId;
               return (
@@ -404,7 +390,17 @@ export default function RegieDesk({
 
         <main className={`ws-main ${mobilePane === "list" ? "max-lg:hidden" : ""}`}>
           {error ? <p className="text-sm text-[var(--warn)]">{error}</p> : null}
-          {loading || !item || !proposal ? (
+          {!loading && !items.length ? (
+            <div className="ws-panel px-4 py-5">
+              <p className="text-sm text-[var(--ink)]">Nog geen contact klaar om te benaderen.</p>
+              <p className="mt-1.5 text-[0.78rem] text-[var(--muted)]">
+                Werk eerst een kans af tot er een manager of bericht nodig is.
+              </p>
+              <Link href="/kansen" className="btn-ink btn-tool mt-3 inline-flex no-underline">
+                Naar Kansen →
+              </Link>
+            </div>
+          ) : loading || !item || !proposal ? (
             <p className="text-sm text-[var(--muted)]">Laden…</p>
           ) : (
             <div className="flex flex-col gap-4">
@@ -413,7 +409,7 @@ export default function RegieDesk({
                 className="btn-ghost btn-tool self-start lg:hidden"
                 onClick={() => setMobilePane("list")}
               >
-                ← Openingen
+                ← Lijst
               </button>
               <section className="ws-panel px-4 py-4">
                 <p className="ws-label">{item.company}</p>
@@ -434,7 +430,7 @@ export default function RegieDesk({
 
               <section className="ws-panel">
                 <div className="border-b border-[var(--line)]/80 px-4 py-2.5">
-                  <p className="ws-label">Hiring manager</p>
+                  <p className="ws-label">Wie benaderen</p>
                 </div>
                 {proposal.hiring.slice(0, 3).map((t) => {
                   const named = t.kind === "person" && t.cta === "bericht";
@@ -549,15 +545,13 @@ export default function RegieDesk({
 
               <section id="hm-bericht" className="ws-panel scroll-mt-4">
                 <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--line)]/80 px-4 py-2.5">
-                  <p className="ws-label">Bericht aan de hiring manager</p>
+                  <p className="ws-label">Bericht</p>
                   {proposal.shortlist.length ? (
                     <p className="text-[0.72rem] text-[var(--muted)]">
-                      Namedrop · {proposal.shortlist.map((s) => s.person.name.split(" ")[0]).join(", ")}
+                      Met {proposal.shortlist.map((s) => s.person.name.split(" ")[0]).join(", ")}
                     </p>
                   ) : (
-                    <p className="text-[0.72rem] text-[var(--muted)]">
-                      Bericht zonder namedrop uit de bench.
-                    </p>
+                    <p className="text-[0.72rem] text-[var(--muted)]">Zonder namen uit de bench</p>
                   )}
                 </div>
                 <div className="px-4 py-4">
@@ -566,13 +560,10 @@ export default function RegieDesk({
                     onChange={(e) => setDraft(e.target.value)}
                     rows={14}
                     className="ws-textarea bg-[var(--surface-2)]"
+                    aria-label="Bericht aan hiring manager"
                   />
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      onClick={copyDraft}
-                      className="btn-ink btn-tool"
-                    >
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <button type="button" onClick={copyDraft} className="btn-ink btn-tool">
                       {copied ? "Gekopieerd" : "Kopieer bericht"}
                     </button>
                     {linkedInUrl ? (
@@ -585,7 +576,18 @@ export default function RegieDesk({
                         Open LinkedIn
                       </a>
                     ) : null}
+                    <Link
+                      href="/kansen"
+                      className="btn-ghost btn-tool no-underline text-[var(--muted)]"
+                    >
+                      Status op Kansen →
+                    </Link>
                   </div>
+                  {copied ? (
+                    <p className="mt-2 text-[0.72rem] text-[var(--muted)]">
+                      Plak in LinkedIn of mail. Zet daarna op Kansen dat je hebt gestuurd.
+                    </p>
+                  ) : null}
                 </div>
               </section>
             </div>

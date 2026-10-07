@@ -8,13 +8,13 @@ const ROWS = [
   { co: "Booking.com", role: "Platform Engineer", score: 64 },
 ] as const;
 
-const NAV: { id: number; label: string; icon: "radar" | "bureaus" | "voorstel" }[] = [
+const NAV: { id: number; label: string; icon: "radar" | "bureaus" | "contact" }[] = [
   { id: 0, label: "Jobboards", icon: "radar" },
   { id: 1, label: "Recruiter feed", icon: "bureaus" },
-  { id: 2, label: "Voorstel", icon: "voorstel" },
+  { id: 2, label: "Contact", icon: "contact" },
 ];
 
-function NavIcon({ kind, on }: { kind: "radar" | "bureaus" | "voorstel"; on: boolean }) {
+function NavIcon({ kind, on }: { kind: "radar" | "bureaus" | "contact"; on: boolean }) {
   const stroke = on ? "var(--accent)" : "currentColor";
   if (kind === "radar") {
     return (
@@ -35,8 +35,13 @@ function NavIcon({ kind, on }: { kind: "radar" | "bureaus" | "voorstel"; on: boo
   }
   return (
     <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden>
-      <path d="M3 4.5h10v8H5.5L3 14.5V4.5Z" stroke={stroke} strokeWidth="1.4" strokeLinejoin="round" />
-      <path d="M6 7.5h4M6 10h3" stroke={stroke} strokeWidth="1.3" strokeLinecap="round" />
+      <circle cx="8" cy="5.5" r="2.2" stroke={stroke} strokeWidth="1.4" />
+      <path
+        d="M3.5 13c.6-2.2 2.3-3.5 4.5-3.5s3.9 1.3 4.5 3.5"
+        stroke={stroke}
+        strokeWidth="1.4"
+        strokeLinecap="round"
+      />
     </svg>
   );
 }
