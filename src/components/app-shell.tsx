@@ -15,7 +15,7 @@ const PRIMARY: { href: string; id: AppNavId; label: string; icon: "radar" | "bur
   { href: "/radar", id: "radar", label: "Jobboards", icon: "radar" },
   { href: "/leads", id: "leads", label: "Recruiter feed", icon: "bureaus" },
   { href: "/kansen", id: "kansen", label: "Kansen", icon: "kansen" },
-  { href: "/regie", id: "contact", label: "Contact", icon: "contact" },
+  { href: "/regie", id: "contact", label: "Bericht", icon: "contact" },
 ];
 
 type ShellUser = { email: string; role?: string };
@@ -204,14 +204,12 @@ export function AppShell({
   const brandName = partner?.name ?? name;
   const brandTag = partner?.tagline ?? "Contracting";
 
-  useEffect(() => {
-    if (!partner) return;
-    const prev = document.title;
-    document.title = `${partner.name} · Desk`;
-    return () => {
-      document.title = prev;
-    };
-  }, [partner]);
+  /**
+   * Partner-branding staat in de sidebar en meta-tag — niet in document.title.
+   * De oude useEffect overschreef de per-pagina metadata-titel bij elke navigatie,
+   * waardoor je zag flashen tussen "Jobboards — Contracting" en "Brand New Start · Desk".
+   * De page-level `metadata.title` is nu de enige bron van waarheid.
+   */
 
   const nav = (
     <>

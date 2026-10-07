@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 
 type Alert = {
@@ -13,10 +13,46 @@ type Alert = {
   read: boolean;
 };
 
+/** Sync-digest alerts die ouder zijn dan dit worden stilletjes doorgestreept — ze zijn geen actie meer. */
+const SYNC_STALE_H = 18;
+
+function isSync(a: Alert) {
+  return a.kind === "sync";
+}
+
+/** Actionable (confirm/hm) zijn de alerts waar jij nog iets mee moet; sync-digests zijn nieuws. */
+function priority(a: Alert) {
+  if (a.kind === "confirm") return 0;
+  if (a.kind === "hm") return 1;
+  if (a.kind === "info") return 2;
+  if (a.kind === "sync") return 3;
+  return 4;
+}
+
 export function AlertsBell() {
   const [open, setOpen] = useState(false);
   const [alerts, setAlerts] = useState<Alert[]>([]);
+  const [showSync, setShowSync] = useState(false);
   const box = useRef<HTMLDivElement>(null);
+
+  const sorted = useMemo(
+    () =>
+      [...alerts].sort((a, b) => {
+        const dp = priority(a) - priority(b);
+        if (dp !== 0) return dp;
+        return b.at.localeCompare(a.at);
+      }),
+    [alerts]
+  );
+
+  const actionable = sorted.filter((a) => !isSync(a));
+  const syncs = sorted.filter(isSync);
+  const unreadSyncs = syncs.filter((a) => !a.read).length;
+  /**
+   * De badge telt alle ongelezen alerts; oude sync-digests worden door de
+   * sweep-effect hieronder stilletjes op gelezen gezet, dus deze teller zakt
+   * vanzelf terug naar de echt-nieuwe + actionable.
+   */
   const unread = alerts.filter((a) => !a.read).length;
 
   function load() {
@@ -33,6 +69,28 @@ export function AlertsBell() {
     const t = window.setInterval(load, 60_000);
     return () => window.clearInterval(t);
   }, []);
+
+  /** Stilletjes oude sync-digests opruimen zodat de bel niet dagen op 20+ staat. */
+  const sweptRef = useRef(false);
+  useEffect(() => {
+    if (sweptRef.current || !alerts.length) return;
+    const cutoff = Date.now() - SYNC_STALE_H * 3600_000;
+    const stale = alerts.filter(
+      (a) => !a.read && isSync(a) && new Date(a.at).getTime() < cutoff
+    );
+    if (!stale.length) return;
+    sweptRef.current = true;
+    fetch("/api/alerts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids: stale.map((a) => a.id) }),
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j: { alerts?: Alert[] } | null) => {
+        if (j?.alerts) setAlerts(j.alerts);
+      })
+      .catch(() => null);
+  }, [alerts]);
 
   useEffect(() => {
     if (!open) return;
@@ -60,6 +118,38 @@ export function AlertsBell() {
       const j = (await res.json()) as { alerts?: Alert[] };
       if (j.alerts) setAlerts(j.alerts);
     }
+  }
+
+  async function markSyncRead() {
+    const ids = syncs.filter((a) => !a.read).map((a) => a.id);
+    if (!ids.length) return;
+    const res = await fetch("/api/alerts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids }),
+    });
+    if (res.ok) {
+      const j = (await res.json()) as { alerts?: Alert[] };
+      if (j.alerts) setAlerts(j.alerts);
+    }
+  }
+
+  function renderAlert(a: Alert) {
+    return (
+      <li key={a.id} className={`border-b border-[var(--line)]/70 px-3 py-2.5 ${a.read ? "opacity-70" : ""}`}>
+        {a.href ? (
+          <Link href={a.href} className="block no-underline" onClick={() => setOpen(false)}>
+            <p className="text-sm font-semibold text-[var(--ink)]">{a.title}</p>
+            <p className="mt-0.5 text-[0.75rem] text-[var(--muted)]">{a.body}</p>
+          </Link>
+        ) : (
+          <>
+            <p className="text-sm font-semibold text-[var(--ink)]">{a.title}</p>
+            <p className="mt-0.5 text-[0.75rem] text-[var(--muted)]">{a.body}</p>
+          </>
+        )}
+      </li>
+    );
   }
 
   return (
@@ -101,25 +191,44 @@ export function AlertsBell() {
               </button>
             ) : null}
           </div>
-          <ul className="max-h-72 overflow-y-auto">
+          <ul className="max-h-80 overflow-y-auto">
             {!alerts.length ? (
               <li className="px-3 py-4 text-sm text-[var(--muted)]">Nog geen alerts. Bevestig een kans of draai extract.</li>
             ) : (
-              alerts.slice(0, 12).map((a) => (
-                <li key={a.id} className={`border-b border-[var(--line)]/70 px-3 py-2.5 ${a.read ? "opacity-70" : ""}`}>
-                  {a.href ? (
-                    <Link href={a.href} className="block no-underline" onClick={() => setOpen(false)}>
-                      <p className="text-sm font-semibold text-[var(--ink)]">{a.title}</p>
-                      <p className="mt-0.5 text-[0.75rem] text-[var(--muted)]">{a.body}</p>
-                    </Link>
-                  ) : (
-                    <>
-                      <p className="text-sm font-semibold text-[var(--ink)]">{a.title}</p>
-                      <p className="mt-0.5 text-[0.75rem] text-[var(--muted)]">{a.body}</p>
-                    </>
-                  )}
-                </li>
-              ))
+              <>
+                {actionable.slice(0, 10).map(renderAlert)}
+                {syncs.length ? (
+                  <li className="flex items-center gap-2 border-b border-[var(--line)]/70 bg-[var(--surface-2)]/50 px-3 py-2">
+                    <button
+                      type="button"
+                      className="flex min-w-0 flex-1 items-center justify-between gap-2 text-left"
+                      onClick={() => setShowSync((v) => !v)}
+                      aria-expanded={showSync}
+                    >
+                      <span className="text-[0.72rem] font-semibold uppercase tracking-wide text-[var(--muted)]">
+                        Sync-digests · {syncs.length}
+                        {unreadSyncs ? ` · ${unreadSyncs} nieuw` : ""}
+                      </span>
+                      <span className="text-[0.7rem] text-[var(--muted)]" aria-hidden>
+                        {showSync ? "▴" : "▾"}
+                      </span>
+                    </button>
+                    {unreadSyncs ? (
+                      <button
+                        type="button"
+                        className="shrink-0 text-[0.7rem] font-semibold text-[var(--accent)] hover:underline"
+                        onClick={() => void markSyncRead()}
+                      >
+                        Markeer gelezen
+                      </button>
+                    ) : null}
+                  </li>
+                ) : null}
+                {showSync ? syncs.slice(0, 10).map(renderAlert) : null}
+                {!actionable.length && !syncs.length ? (
+                  <li className="px-3 py-4 text-sm text-[var(--muted)]">Niets dat je aandacht vraagt.</li>
+                ) : null}
+              </>
             )}
           </ul>
         </div>

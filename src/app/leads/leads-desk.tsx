@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
 import { CompanyMark } from "@/components/company-mark";
+import { RememberedFold } from "@/components/remembered-fold";
 import { agencyLogoUrls } from "@/lib/company-logo";
 import { BtnSpinner } from "@/components/btn-spinner";
 import { ScoreChip } from "@/components/score-chip";
@@ -326,17 +327,23 @@ function LeadCard({
             </span>
           )}
           {quickConfirm ? (
-            <button
-              type="button"
-              disabled={busy || aiBusy || client.length < 2}
-              onClick={() => onReview(lead.id, "confirmed", client)}
-              className={`btn-ink btn-row ${confirming ? "is-busy" : ""}`}
-              aria-busy={confirming || undefined}
-              title={`Bevestig ${client} als opdrachtgever — daarna staat de kans op Kansen`}
-            >
-              {confirming ? <BtnSpinner /> : null}
-              {confirming ? "Bevestigen" : "Bevestig"}
-            </button>
+            <span className="lead-row__ready">
+              <span className="lead-row__ready-label">Opdrachtgever</span>
+              <span className="lead-row__ready-name truncate" title={client}>
+                {client}
+              </span>
+              <button
+                type="button"
+                disabled={busy || aiBusy || client.length < 2}
+                onClick={() => onReview(lead.id, "confirmed", client)}
+                className={`btn-ink btn-row lead-row__ready-btn ${confirming ? "is-busy" : ""}`}
+                aria-busy={confirming || undefined}
+                title={`Bevestig ${client} als opdrachtgever — daarna staat de kans op Kansen`}
+              >
+                {confirming ? <BtnSpinner /> : null}
+                {confirming ? "Bevestigen" : "Bevestig"}
+              </button>
+            </span>
           ) : quickAi ? (
             <button
               type="button"
@@ -531,6 +538,7 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
   const [pickedId, setPickedId] = useState<string | null>(null);
   const [mobilePane, setMobilePane] = useState<"list" | "detail">("list");
   const [bucketPick, setBucketPick] = useState<Bucket | null>(null);
+  const [aiPick, setAiPick] = useState<"all" | "with" | "without">("all");
   const [watchAgency, setWatchAgency] = useState<string | null>(null);
   const [openRecruiter, setOpenRecruiter] = useState<string | null>(null);
   /** Kantoren in de sync-lijst: standaard dicht, anders vreet Vibe de hele pagina. */
@@ -637,9 +645,22 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
     return (l: AgencyLead) => {
       if (bucket !== "all" && bucketOf(l) !== bucket) return false;
       if (watchAgency && l.agency.name.toLowerCase() !== watchAgency.toLowerCase()) return false;
+      // AI sub-filter — alleen zinvol binnen Te reviewen / Alles waar nog beslist moet worden.
+      if (aiPick !== "all" && (bucket === "open" || bucket === "all")) {
+        const hasAi = Boolean(l.guess || l.aiMiss);
+        if (aiPick === "with" && !hasAi) return false;
+        if (aiPick === "without" && hasAi) return false;
+      }
       return true;
     };
-  }, [bucket, watchAgency]);
+  }, [bucket, watchAgency, aiPick]);
+
+  const openAiCounts = useMemo(() => {
+    const live = data?.live || [];
+    const openLive = live.filter((l) => bucketOf(l) === "open");
+    const withAi = openLive.filter((l) => Boolean(l.guess || l.aiMiss)).length;
+    return { with: withAi, without: openLive.length - withAi };
+  }, [data]);
 
   const filteredLive = useMemo(() => (data ? data.live.filter(matches) : []), [data, matches]);
   const selected =
@@ -840,11 +861,16 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
     <AppShell current="leads" title={DESK.bureau.title} subtitle={DESK.bureau.subtitle} fill>
       <div className="ws-shell flex min-h-0 flex-1 flex-col gap-3">
         <main className="flex min-h-0 flex-1 flex-col gap-3">
-          <details className={`ws-fold shrink-0 ${mobilePane === "detail" ? "max-lg:hidden" : ""}`}>
-            <summary>
-              <span>{DESK.bureau.foldTitle}</span>
-              <span className="ws-fold__meta">{DESK.bureau.foldMeta}</span>
-            </summary>
+          <RememberedFold
+            storageKey="leads-what"
+            className={`ws-fold shrink-0 ${mobilePane === "detail" ? "max-lg:hidden" : ""}`}
+            summary={
+              <summary>
+                <span>{DESK.bureau.foldTitle}</span>
+                <span className="ws-fold__meta">{DESK.bureau.foldMeta}</span>
+              </summary>
+            }
+          >
             <div className="ws-fold__body">
               <p className="m-0 text-[0.8rem] leading-relaxed text-[var(--muted)]">
                 Vacatures uit LinkedIn-feeds van kantoren die je volgt. Jij bevestigt de eindklant — daarna zoek je de
@@ -877,7 +903,7 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
                 </li>
               </ol>
             </div>
-          </details>
+          </RememberedFold>
 
           <details className={`ws-fold shrink-0 ${mobilePane === "detail" ? "max-lg:hidden" : ""}`}>
             <summary>
@@ -1034,6 +1060,35 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
               </button>
             ))}
           </div>
+          {(bucket === "open" || bucket === "all") && (openAiCounts.with > 0 || openAiCounts.without > 0) ? (
+            <div className={`flex flex-wrap items-center gap-1.5 ${mobilePane === "detail" ? "max-lg:hidden" : ""}`}>
+              <span className="text-[0.68rem] uppercase tracking-wide text-[var(--muted)]">AI-voorstel</span>
+              {(
+                [
+                  { id: "all" as const, label: "Alles", n: openAiCounts.with + openAiCounts.without },
+                  { id: "with" as const, label: "Met AI", n: openAiCounts.with },
+                  { id: "without" as const, label: "Nog geen AI", n: openAiCounts.without },
+                ]
+              ).map((f) => (
+                <button
+                  key={f.id}
+                  type="button"
+                  onClick={() => setAiPick(f.id)}
+                  className={`ws-chip ${aiPick === f.id ? "ws-chip--on" : ""}`}
+                  title={
+                    f.id === "with"
+                      ? "AI heeft een voorstel of al gezocht — meestal binnen een klik te bevestigen."
+                      : f.id === "without"
+                        ? "Nog niet geprobeerd door AI — jij start de research of vult zelf in."
+                        : "Alle posts in deze bak"
+                  }
+                >
+                  {f.label}
+                  <span className="ws-chip__n">{data ? f.n : "…"}</span>
+                </button>
+              ))}
+            </div>
+          ) : null}
           {watchAgency ? (
             <p className="mb-3 text-[0.78rem] text-[var(--muted)]">
               Alleen <strong className="text-[var(--ink)]">{watchAgency}</strong> ·{" "}

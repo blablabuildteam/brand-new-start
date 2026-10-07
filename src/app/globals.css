@@ -1056,6 +1056,17 @@ button.radar-opp[aria-current="true"]:hover:not(:disabled) {
   background: transparent;
 }
 
+/* Zwakke kansen (score < 55) blijven in de rij, maar vragen geen aandacht. */
+.kans-row--weak {
+  opacity: 0.68;
+}
+.kans-row--weak:hover {
+  opacity: 1;
+}
+.kans-row--weak.kans-row--on {
+  opacity: 1;
+}
+
 .kans-row__check {
   display: flex;
   align-items: center;
@@ -1208,6 +1219,14 @@ button.radar-opp[aria-current="true"]:hover:not(:disabled) {
 
 .kans-backlog__link:hover {
   border-bottom-color: var(--ink);
+}
+
+/* Lokale filter-knop (geen navigatie) binnen de Vandaag-strip. */
+.kans-backlog__link--local {
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  border-bottom-color: color-mix(in srgb, var(--accent) 55%, var(--line));
 }
 
 .kans-row__score {
@@ -1552,6 +1571,35 @@ button.radar-opp[aria-current="true"]:hover:not(:disabled) {
 .lead-row__arrow {
   color: var(--muted);
   font-weight: 600;
+}
+.lead-row__ready {
+  display: inline-flex;
+  min-width: 0;
+  max-width: min(20rem, 60vw);
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.1rem 0.1rem 0.1rem 0.5rem;
+  border: 1px solid color-mix(in srgb, var(--green) 30%, var(--line));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--green-soft) 55%, var(--surface));
+}
+.lead-row__ready-label {
+  flex-shrink: 0;
+  font-size: 0.6rem;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.lead-row__ready-name {
+  min-width: 0;
+  max-width: 11rem;
+  font-size: 0.78rem;
+  font-weight: 650;
+  color: var(--ink);
+}
+.lead-row__ready-btn {
+  flex-shrink: 0;
 }
 .lead-row__why {
   display: block;

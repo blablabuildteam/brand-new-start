@@ -7,6 +7,7 @@ import { CompanyMark } from "@/components/company-mark";
 import { ScoreChip, scoreTone } from "@/components/score-chip";
 import { resolveCompanyLogo } from "@/lib/company-logo";
 import { AppShell } from "@/components/app-shell";
+import { RememberedFold } from "@/components/remembered-fold";
 import { cachePeek } from "@/lib/client-cache";
 import { INGEST_POLICY, SYNC_COST_PER_RUN, eurRange, syncStillLocked } from "@/lib/costs";
 import { DESK } from "@/lib/desk-labels";
@@ -1430,11 +1431,16 @@ export default function RadarApp({
   return (
     <AppShell current="radar" title={DESK.direct.title} subtitle={DESK.direct.subtitle} fill toolbar={syncToolbar}>
       <main className="ws-shell radar-shell">
-        <details className={`ws-fold ${mobilePane === "detail" ? "max-lg:hidden" : ""}`}>
-          <summary>
-            <span>{DESK.direct.foldTitle}</span>
-            <span className="ws-fold__meta">{DESK.direct.foldMeta}</span>
-          </summary>
+        <RememberedFold
+          storageKey="radar-what"
+          className={`ws-fold ${mobilePane === "detail" ? "max-lg:hidden" : ""}`}
+          summary={
+            <summary>
+              <span>{DESK.direct.foldTitle}</span>
+              <span className="ws-fold__meta">{DESK.direct.foldMeta}</span>
+            </summary>
+          }
+        >
           <div className="ws-fold__body">
             <p className="m-0 text-[0.8rem] leading-relaxed text-[var(--muted)]">
               Vacatures bij eindklanten van LinkedIn, Indeed en Freelance.nl — niet via een
@@ -1474,7 +1480,7 @@ export default function RadarApp({
               </li>
             </ol>
           </div>
-        </details>
+        </RememberedFold>
 
         {permFiltered > 0 || agencySuggestions > 0 ? (
           <p
@@ -1569,7 +1575,7 @@ export default function RadarApp({
                   className="text-[0.72rem] font-semibold text-[var(--ink)] underline decoration-[var(--signal)] underline-offset-2"
                   onClick={() => setLive(openSyncRuns(boardRuns))}
                 >
-                  Batch →
+                  Bekijk sync →
                 </button>
               </div>
               <ul className="divide-y divide-[var(--line)]">
@@ -2262,12 +2268,26 @@ export default function RadarApp({
                             Vacature
                           </a>
                         ) : null}
-                        <a
-                          href={`/regie?id=${encodeURIComponent(active.id)}&opening=${encodeURIComponent(o.id)}`}
-                          className="text-[var(--accent)] no-underline hover:text-[var(--ink)] hover:underline"
-                        >
-                          Contact
-                        </a>
+                        {/*
+                         * Zonder HM is Bericht leeg; stuur dan naar Kansen (manager-zoek),
+                         * zodat je niet via /regie heen-en-weer stuitert. Alleen warm/hot
+                         * verschijnt op Kansen — onder die drempel geen Kansen-link.
+                         */}
+                        {org.hiringManager ? (
+                          <a
+                            href={`/regie?id=${encodeURIComponent(active.id)}&opening=${encodeURIComponent(o.id)}`}
+                            className="text-[var(--accent)] no-underline hover:text-[var(--ink)] hover:underline"
+                          >
+                            Bericht →
+                          </a>
+                        ) : o.status === "hot" || o.status === "warm" ? (
+                          <a
+                            href={`/kansen?id=${encodeURIComponent(`crm_direct_${o.id}`)}&hm=1`}
+                            className="text-[var(--accent)] no-underline hover:text-[var(--ink)] hover:underline"
+                          >
+                            Zoek manager op Kansen →
+                          </a>
+                        ) : null}
                       </p>
                     </article>
                   );

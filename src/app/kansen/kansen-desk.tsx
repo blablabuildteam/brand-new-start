@@ -4,6 +4,7 @@ import { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
+import { RememberedFold } from "@/components/remembered-fold";
 import { BtnSpinner } from "@/components/btn-spinner";
 import { ScoreChip } from "@/components/score-chip";
 import { CompanyMark } from "@/components/company-mark";
@@ -61,8 +62,9 @@ function originOf(row: CrmOpportunity) {
   return { label: "Jobboards", detail };
 }
 
-/** Vaste route: opdrachtgever → manager → contact → bericht. */
-const STEPS = ["Opdrachtgever", "Manager", "Contact", "Bericht"] as const;
+/** Vaste route: opdrachtgever → manager → mail/tel → bericht.
+ * "Mail/tel" (niet "Contact") omdat "Contact" eerder botste met de nav-tab Bericht. */
+const STEPS = ["Opdrachtgever", "Manager", "Mail/tel", "Bericht"] as const;
 
 type Step = {
   /** 1-based positie in STEPS: de stap die nu open staat. */
@@ -75,7 +77,7 @@ function stepOf(row: CrmOpportunity): Step {
   if (row.stage === "won") return { n: 4, action: null, label: "Gewonnen" };
   if (row.stage === "lost") return { n: 4, action: null, label: "Afgelegd" };
   if (!row.hiringManager) return { n: 2, action: "hm", label: `Zoek manager · ≈ ${eurRange(SYNC_COST_PER_RUN.actions["hm-search"].eur)}` };
-  if (needsContact(row)) return { n: 3, action: "contact", label: `Haal contact · ≈ ${eurRange(SYNC_COST_PER_RUN.actions.lusha.eur)}` };
+  if (needsContact(row)) return { n: 3, action: "contact", label: `Haal mail/tel · ≈ ${eurRange(SYNC_COST_PER_RUN.actions.lusha.eur)}` };
   if (row.stage === "outreach") return { n: 4, action: "bericht", label: "Follow-up" };
   return { n: 4, action: "bericht", label: "Bericht" };
 }
@@ -118,6 +120,8 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
   const [hmAutoRan, setHmAutoRan] = useState(false);
   const [q, setQ] = useState("");
   const [bulkNote, setBulkNote] = useState<string | null>(null);
+  /** Zwak (kans-score < 55) staat standaard uit: anders staan DUO 51 of Booking 16/98 bovenaan Zoek manager. */
+  const [showWeak, setShowWeak] = useState(false);
 
   function refresh() {
     return import("@/lib/client-cache").then(({ cachedJson, cacheClear }) => {
@@ -146,7 +150,7 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
         setHmError(
           j.detail === "no-lusha-key"
             ? "Lusha-key ontbreekt nog. Naam en LinkedIn staan er wel — mail en tel komen zodra de key op Vercel staat."
-            : j.error || "Contact ophalen mislukt"
+            : j.error || "Mail/tel ophalen mislukt"
         );
         return;
       }
@@ -250,6 +254,12 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- one-shot from deep link
   }, [params, items, loading, hmAutoRan]);
 
+  const isWeak = (r: CrmOpportunity) =>
+    r.stage !== "won" &&
+    r.stage !== "lost" &&
+    r.kans != null &&
+    r.kans < 55;
+
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
     const rows = items.filter((r) => {
@@ -258,6 +268,7 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
       } else if (filter !== "all") {
         if (stepOf(r).n !== Number(filter.slice(4))) return false;
       }
+      if (!showWeak && isWeak(r)) return false;
       if (!needle) return true;
       const hay = [
         r.endClient,
@@ -274,6 +285,10 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
       return hay.includes(needle);
     });
     return rows.slice().sort((a, b) => {
+      // Zwakke kansen (nog zonder HM, score < 55) achteraan — ook als showWeak aan staat.
+      const aw = isWeak(a) ? 1 : 0;
+      const bw = isWeak(b) ? 1 : 0;
+      if (aw !== bw) return aw - bw;
       const ah = a.hiringManager ? 1 : 0;
       const bh = b.hiringManager ? 1 : 0;
       if (ah !== bh) return ah - bh;
@@ -282,7 +297,19 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
       if (bk !== ak) return bk - ak;
       return (b.foundAt || "").localeCompare(a.foundAt || "");
     });
-  }, [items, filter, q]);
+  }, [items, filter, q, showWeak]);
+
+  const weakHidden = useMemo(() => {
+    if (showWeak) return 0;
+    return items.filter((r) => {
+      if (filter === "bureau" || filter === "direct") {
+        if (r.lane !== filter) return false;
+      } else if (filter !== "all") {
+        if (stepOf(r).n !== Number(filter.slice(4))) return false;
+      }
+      return isWeak(r);
+    }).length;
+  }, [items, filter, showWeak]);
 
   async function setStage(id: string, stage: CrmStage) {
     setStageBusy(true);
@@ -389,7 +416,7 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
   const filters: { id: Filter; label: string; n: number }[] = [
     { id: "all", label: "Alles", n: counts.all },
     { id: "step2", label: "Zoek manager", n: perStep(2) },
-    { id: "step3", label: "Haal contact", n: perStep(3) },
+    { id: "step3", label: "Haal mail/tel", n: perStep(3) },
     { id: "step4", label: "Bericht", n: perStep(4) },
     { id: "direct", label: "Jobboards", n: counts.direct },
     { id: "bureau", label: "Recruiter feed", n: counts.bureau },
@@ -401,11 +428,16 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
   return (
     <AppShell current="kansen" title={DESK.kansen.title} subtitle={DESK.kansen.subtitle} fill>
       <div className="ws-shell">
-        <details className="ws-fold shrink-0">
-          <summary>
-            <span>Wat is Kansen?</span>
-            <span className="ws-fold__meta">Vier stappen per kans</span>
-          </summary>
+        <RememberedFold
+          storageKey="kansen-what"
+          className="ws-fold shrink-0"
+          summary={
+            <summary>
+              <span>Wat is Kansen?</span>
+              <span className="ws-fold__meta">Vier stappen per kans</span>
+            </summary>
+          }
+        >
           <div className="ws-fold__body">
             <p className="m-0 text-[0.8rem] leading-relaxed text-[var(--muted)]">
               Een kans komt hier binnen op twee manieren: je bevestigt de opdrachtgever van een post op{" "}
@@ -437,8 +469,8 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
               <li>
                 <span className="ws-fold__n">3</span>
                 <span>
-                  <strong className="font-semibold text-[var(--ink)]">Contact</strong> — Haal contact zet mail en
-                  telefoon op de kans.
+                  <strong className="font-semibold text-[var(--ink)]">Mail/tel</strong> — Haal mail/tel zet
+                  mail en telefoon op de kans.
                 </span>
               </li>
               <li>
@@ -456,7 +488,7 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
               ziet precies welke punten er in zitten.
             </p>
           </div>
-        </details>
+        </RememberedFold>
 
         <div className="flex shrink-0 flex-wrap items-center gap-2">
           <input
@@ -480,6 +512,21 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
               </span>
             </button>
           ))}
+          {(weakHidden > 0 || showWeak) ? (
+            <button
+              type="button"
+              onClick={() => setShowWeak((v) => !v)}
+              className={`ws-chip shrink-0 ${showWeak ? "ws-chip--on" : ""}`}
+              title="Kansen met score onder 55 — meestal via Recruiter feed bevestigd, maar met weinig bewijs voor contracting."
+            >
+              {showWeak ? "Zwak tonen" : "Zwak verbergen"}
+              {weakHidden > 0 && !showWeak ? (
+                <span className="tabular-nums opacity-80" style={{ fontFamily: "var(--mono)" }}>
+                  {weakHidden}
+                </span>
+              ) : null}
+            </button>
+          ) : null}
         </div>
 
         {picked.size > 0 ? (
@@ -530,20 +577,30 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
               {needsHm ? ` · ${needsHm} zonder manager` : ""}
             </p>
           </div>
-          {backlog && (backlog.feedReady || backlog.feedPending || backlog.boardBelow) ? (
+          {needsHm || (backlog && (backlog.feedReady || backlog.feedPending || backlog.boardBelow)) ? (
             <p className="kans-backlog">
-              <span className="kans-backlog__label">Nog niet hier</span>
-              {backlog.feedReady ? (
+              <span className="kans-backlog__label">Vandaag</span>
+              {needsHm ? (
+                <button
+                  type="button"
+                  className="kans-backlog__link kans-backlog__link--local"
+                  onClick={() => setFilterSafe("step2")}
+                  title="Toon alleen kansen die nog een hiring manager zoeken"
+                >
+                  {needsHm} zoeken nog een manager
+                </button>
+              ) : null}
+              {backlog?.feedReady ? (
                 <Link href="/leads" className="kans-backlog__link">
                   {backlog.feedReady} posts klaar om te bevestigen
                 </Link>
               ) : null}
-              {backlog.feedPending ? (
+              {backlog?.feedPending ? (
                 <Link href="/leads" className="kans-backlog__link">
                   {backlog.feedPending} posts nog te reviewen
                 </Link>
               ) : null}
-              {backlog.boardBelow ? (
+              {backlog?.boardBelow ? (
                 <Link href="/radar" className="kans-backlog__link">
                   {backlog.boardBelow} vacatures onder score {backlog.boardThreshold}
                 </Link>
@@ -585,9 +642,13 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
                   const stepBusy =
                     (hmBusyId === row.id && step.action === "hm") ||
                     (contactBusy && step.action === "contact" && on);
+                  const rowWeak = isWeak(row);
                   return (
                     <li key={row.id} className={on ? "bg-[var(--surface-2)]" : ""}>
-                      <div className={`kans-row ${on ? "kans-row--on" : ""}`}>
+                      <div
+                        className={`kans-row ${on ? "kans-row--on" : ""} ${rowWeak ? "kans-row--weak" : ""}`}
+                        title={rowWeak ? "Zwak signaal (score < 55) — lagere prioriteit." : undefined}
+                      >
                         <label
                           className="kans-row__check"
                           onClick={(e) => e.stopPropagation()}
@@ -807,7 +868,7 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
                                       onClick={() => void fetchContact(row.id, row.hiringManagerUrl)}
                                       className="btn-ink btn-tool disabled:opacity-50"
                                     >
-                                      {contactBusy ? "Contact…" : `Haal mail en tel · ≈ ${eurRange(SYNC_COST_PER_RUN.actions.lusha.eur)}`}
+                                      {contactBusy ? "Mail/tel…" : `Haal mail en tel · ≈ ${eurRange(SYNC_COST_PER_RUN.actions.lusha.eur)}`}
                                     </button>
                                   ) : null}
                                 </div>
