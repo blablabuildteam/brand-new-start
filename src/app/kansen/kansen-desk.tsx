@@ -134,6 +134,8 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
   const [bulkNote, setBulkNote] = useState<string | null>(null);
   /** Zwak (kans-score < 55) staat standaard uit: anders staan DUO 51 of Booking 16/98 bovenaan Zoek manager. */
   const [showWeak, setShowWeak] = useState(false);
+  /** pipeline = volgende stap eerst · fresh = nieuwste eerst. */
+  const [sortBy, setSortBy] = useState<"pipeline" | "fresh">("pipeline");
 
   function refresh() {
     return import("@/lib/client-cache").then(({ cachedJson, cacheClear }) => {
@@ -299,16 +301,22 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
       return hay.includes(needle);
     });
     return rows.slice().sort((a, b) => {
-      // Pipeline eerst (stap 2 vóór 4), daarna versheid — niet kans-score (feed ≠ jobboards).
       const aw = isWeak(a) ? 1 : 0;
       const bw = isWeak(b) ? 1 : 0;
       if (aw !== bw) return aw - bw;
+      // Actualiteit = eerst gezien (foundAt), niet lastSeen — anders springt oud weer omhoog na sync.
+      const fresh = (r: CrmOpportunity) => r.foundAt || r.lastSeenAt || "";
+      if (sortBy === "fresh") {
+        const fc = fresh(b).localeCompare(fresh(a));
+        if (fc !== 0) return fc;
+        return stepOf(a).n - stepOf(b).n;
+      }
       const as = stepOf(a).n;
       const bs = stepOf(b).n;
       if (as !== bs) return as - bs;
-      return (b.foundAt || b.lastSeenAt || "").localeCompare(a.foundAt || a.lastSeenAt || "");
+      return fresh(b).localeCompare(fresh(a));
     });
-  }, [items, filter, q, showWeak]);
+  }, [items, filter, q, showWeak, sortBy]);
 
   const weakHidden = useMemo(() => {
     if (showWeak) return 0;
@@ -633,12 +641,27 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
             ) : null}
 
             {!loading && filtered.length ? (
-              <div className="kans-head" aria-hidden>
+              <div className="kans-head">
                 <span />
                 <span>Opdrachtgever</span>
                 <span>Bron</span>
+                <button
+                  type="button"
+                  className={`kans-head__sort ${sortBy === "fresh" ? "kans-head__sort--on" : ""}`}
+                  onClick={() => setSortBy("fresh")}
+                  title="Sorteer op actualiteit (nieuwste eerst)"
+                >
+                  Actualiteit
+                </button>
                 <span>Hiring manager</span>
-                <span className="text-right">Volgende stap</span>
+                <button
+                  type="button"
+                  className={`kans-head__sort kans-head__sort--end ${sortBy === "pipeline" ? "kans-head__sort--on" : ""}`}
+                  onClick={() => setSortBy("pipeline")}
+                  title="Sorteer op volgende stap"
+                >
+                  Volgende stap
+                </button>
               </div>
             ) : null}
 
@@ -693,7 +716,6 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
                               {row.openingCount && row.openingCount > 1
                                 ? ` · ${row.openingCount} vacatures`
                                 : ""}
-                              {row.freshnessLabel ? ` · ${row.freshnessLabel}` : ""}
                             </span>
                           </span>
                         </button>
@@ -703,6 +725,25 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
                             {originOf(row).label}
                           </span>
                         </span>
+
+                        <button
+                          type="button"
+                          className="kans-row__when"
+                          title={
+                            row.foundAt
+                              ? `Gevonden ${formatDay(row.foundAt)}${row.lastSeenAt && row.lastSeenAt !== row.foundAt ? ` · laatst gezien ${formatDay(row.lastSeenAt)}` : ""}`
+                              : "Sorteer op actualiteit"
+                          }
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSortBy("fresh");
+                          }}
+                        >
+                          <span className="kans-row__when-main">{row.freshnessLabel || "—"}</span>
+                          {row.foundAt ? (
+                            <span className="kans-row__when-sub">{formatDay(row.foundAt)}</span>
+                          ) : null}
+                        </button>
 
                         <span className="kans-row__hm">
                           <span
@@ -755,84 +796,72 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
 
                       {on ? (
                         <div className="kans-row__detail">
-                          <p className="text-sm text-[var(--muted)]">{row.title}</p>
-                          <ol className="kans-track">
-                            {STEPS.map((name, i) => (
-                              <li
-                                key={name}
-                                className={`kans-track__item ${
-                                  i + 1 < step.n
-                                    ? "kans-track__item--done"
-                                    : i + 1 === step.n
-                                      ? "kans-track__item--now"
-                                      : ""
-                                }`}
-                              >
-                                <span className="kans-track__n">{i + 1}</span>
-                                {name}
-                              </li>
-                            ))}
-                          </ol>
-                          <dl className="mt-3 grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-3">
-                            <div>
-                              <dt className="ws-label">Hoe binnengekomen</dt>
-                              <dd className="mt-1 font-medium text-[var(--ink)]">{originOf(row).label}</dd>
-                              <dd className="mt-0.5 text-[0.78rem] text-[var(--muted)]">
+                          <div className="kans-detail__top">
+                            <div className="min-w-0">
+                              <p className="kans-detail__title">{row.title}</p>
+                              <p className="kans-detail__meta">
+                                <span className={`kans-origin ${row.lane === "bureau" ? "kans-origin--feed" : "kans-origin--board"}`}>
+                                  {originOf(row).label}
+                                </span>
                                 {row.lane === "bureau"
-                                  ? `Post van ${[row.agencyName, row.recruiterName].filter(Boolean).join(" · ")} — jij bevestigde ${row.endClient} als opdrachtgever`
-                                  : `Vacature bij ${row.endClient} zelf${originOf(row).detail ? ` · ${originOf(row).detail}` : ""}`}
-                              </dd>
+                                  ? [row.agencyName, row.recruiterName].filter(Boolean).map((t) => (
+                                      <span key={t}>{t}</span>
+                                    ))
+                                  : originOf(row).detail
+                                    ? <span>{originOf(row).detail}</span>
+                                    : null}
+                                {row.foundAt ? <span>gevonden {formatDay(row.foundAt)}</span> : null}
+                                {row.lastSeenAt && row.lastSeenAt !== row.foundAt ? (
+                                  <span>gezien {formatDay(row.lastSeenAt)}</span>
+                                ) : null}
+                                {row.confirmedAt ? <span>bevestigd {formatDay(row.confirmedAt)}</span> : null}
+                              </p>
                             </div>
-                            <div>
-                              <dt className="ws-label">Hiring manager</dt>
-                              <dd className="mt-1 text-[var(--ink)]">
-                                {row.hiringManager ? (
-                                  <span className="font-semibold" title={hmWhyTip(row)}>
-                                    {contactLine(row)}
-                                  </span>
-                                ) : (
-                                  <span className="text-[var(--muted)]">Nog niet gevonden</span>
-                                )}
-                              </dd>
-                            </div>
-                            <div>
-                              <dt className="ws-label">Tijdlijn</dt>
-                              <dd className="mt-1 text-[var(--ink)]">
-                                Gevonden {formatDay(row.foundAt)}
-                                {row.lastSeenAt ? ` · gezien ${formatDay(row.lastSeenAt)}` : ""}
-                                {row.confirmedAt ? ` · bevestigd ${formatDay(row.confirmedAt)}` : ""}
-                              </dd>
-                              {row.sources.length > 1 ? (
-                                <dd className="mt-1 text-[0.75rem] text-[var(--muted)]">
-                                  {row.sources.join(" · ")}
-                                </dd>
-                              ) : null}
-                            </div>
-                          </dl>
+                            <ol className="kans-track" aria-label="Pipeline">
+                              {STEPS.map((name, i) => (
+                                <li
+                                  key={name}
+                                  className={`kans-track__item ${
+                                    i + 1 < step.n
+                                      ? "kans-track__item--done"
+                                      : i + 1 === step.n
+                                        ? "kans-track__item--now"
+                                        : ""
+                                  }`}
+                                >
+                                  <span className="kans-track__n">{i + 1}</span>
+                                  {name}
+                                </li>
+                              ))}
+                            </ol>
+                          </div>
 
                           {row.hmHits.length && !row.hiringManager ? (
-                            <div className="mt-4 rounded-[var(--radius)] border border-dashed border-[var(--line)] px-3 py-3">
-                              <p className="ws-label">Kies de hiring manager</p>
-                              <p className="mt-1 text-[0.75rem] text-[var(--muted)]">
-                                LinkedIn gaf deze namen bij {row.endClient}. Nummer 1 is geen automatische keuze.
-                              </p>
-                              <ul className="mt-2 space-y-1.5">
+                            <div className="kans-pick">
+                              <div className="kans-pick__head">
+                                <p className="ws-label">Kies hiring manager</p>
+                                <p className="kans-pick__hint">
+                                  LinkedIn bij {row.endClient} — #1 is geen automatische keuze.
+                                </p>
+                              </div>
+                              <ul>
                                 {row.hmHits.slice(0, 5).map((h) => (
-                                  <li
-                                    key={`${h.name}-${h.url || ""}`}
-                                    className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[0.8rem]"
-                                  >
-                                    <span className="font-medium text-[var(--ink)]" title={hmWhyTip(row, h)}>
-                                      {h.name}
+                                  <li key={`${h.name}-${h.url || ""}`} className="kans-pick__row">
+                                    <span className="min-w-0 truncate">
+                                      <span className="font-medium text-[var(--ink)]" title={hmWhyTip(row, h)}>
+                                        {h.name}
+                                      </span>
+                                      {h.title ? (
+                                        <span className="text-[var(--muted)]"> · {h.title}</span>
+                                      ) : null}
                                     </span>
-                                    {h.title ? <span className="text-[var(--muted)]">{h.title}</span> : null}
                                     <button
                                       type="button"
                                       disabled={contactBusy}
                                       onClick={() => void fetchContact(row.id, h.url, true)}
-                                      className="font-semibold text-[var(--ink)] underline underline-offset-2 disabled:opacity-50"
+                                      className="kans-pick__use"
                                     >
-                                      Gebruik deze
+                                      Gebruik
                                     </button>
                                   </li>
                                 ))}
@@ -842,20 +871,27 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
 
                           {row.hiringManager ? (
                             <div className="kans-contact">
-                              <div className="flex flex-wrap items-start justify-between gap-3">
+                              <div className="kans-contact__main">
                                 <div className="min-w-0">
-                                  <p className="ws-label">Benaderen</p>
-                                  <p
-                                    className="mt-1 text-[0.95rem] font-semibold text-[var(--ink)]"
-                                    title={hmWhyTip(row)}
-                                  >
+                                  <p className="ws-label">Hiring manager</p>
+                                  <p className="kans-contact__name" title={hmWhyTip(row)}>
                                     {row.hiringManager}
+                                    {row.hiringManagerTitle ? (
+                                      <span className="kans-contact__title"> · {row.hiringManagerTitle}</span>
+                                    ) : null}
                                   </p>
-                                  {row.hiringManagerTitle ? (
-                                    <p className="text-[0.8rem] text-[var(--muted)]">{row.hiringManagerTitle}</p>
+                                  <p className="kans-contact__coords">
+                                    {row.hiringManagerEmail || (row.lushaStatus ? "geen mail" : "mail nog ophalen")}
+                                    {" · "}
+                                    {row.hiringManagerPhone || (row.lushaStatus ? "geen tel" : "tel nog ophalen")}
+                                  </p>
+                                  {!lushaReady && needsContact(row) ? (
+                                    <p className="kans-contact__note">
+                                      Lusha-key ontbreekt — naam/LinkedIn kun je al gebruiken.
+                                    </p>
                                   ) : null}
                                 </div>
-                                <div className="flex flex-wrap gap-2">
+                                <div className="kans-contact__btns">
                                   {row.hiringManagerEmail ? (
                                     <a href={`mailto:${row.hiringManagerEmail}`} className="btn-ink btn-tool no-underline">
                                       Mail
@@ -883,49 +919,31 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
                                       onClick={() => void fetchContact(row.id, row.hiringManagerUrl)}
                                       className="btn-ink btn-tool disabled:opacity-50"
                                     >
-                                      {contactBusy ? "Mail/tel…" : "Haal mail en tel"}
+                                      {contactBusy ? "Mail/tel…" : "Haal mail/tel"}
                                     </button>
                                   ) : null}
                                 </div>
                               </div>
-                              <dl className="mt-3 grid gap-2 text-[0.8rem] sm:grid-cols-2">
-                                <div>
-                                  <dt className="ws-label">Mail</dt>
-                                  <dd className="mt-0.5 break-all text-[var(--ink)]">
-                                    {row.hiringManagerEmail || (row.lushaStatus ? "Niet gevonden" : "Nog niet opgehaald")}
-                                  </dd>
-                                </div>
-                                <div>
-                                  <dt className="ws-label">Telefoon</dt>
-                                  <dd className="mt-0.5 text-[var(--ink)]">
-                                    {row.hiringManagerPhone || (row.lushaStatus ? "Niet gevonden" : "Nog niet opgehaald")}
-                                  </dd>
-                                </div>
-                              </dl>
-                              {!lushaReady && needsContact(row) ? (
-                                <p className="mt-2 text-[0.72rem] text-[var(--muted)]">
-                                  Lusha-key ontbreekt nog. Naam en LinkedIn kun je al gebruiken.
-                                </p>
-                              ) : null}
                               {row.hmHits.filter((h) => h.name !== row.hiringManager).length ? (
-                                <ul className="mt-3 space-y-1 border-t border-[var(--line)] pt-2">
+                                <ul className="kans-contact__alts">
                                   {row.hmHits
                                     .filter((h) => h.name !== row.hiringManager)
-                                    .slice(0, 4)
-                                      .map((h) => (
-                                      <li key={`${h.name}-${h.url || ""}`} className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[0.75rem]">
-                                        <span className="font-medium text-[var(--ink)]" title={hmWhyTip(row, h)}>
-                                          {h.name}
+                                    .slice(0, 3)
+                                    .map((h) => (
+                                      <li key={`${h.name}-${h.url || ""}`} className="kans-pick__row">
+                                        <span className="min-w-0 truncate">
+                                          <span className="font-medium text-[var(--ink)]" title={hmWhyTip(row, h)}>
+                                            {h.name}
+                                          </span>
+                                          {h.title ? <span className="text-[var(--muted)]"> · {h.title}</span> : null}
                                         </span>
-                                        {h.title ? <span className="text-[var(--muted)]">{h.title}</span> : null}
-                                        {h.email ? <span className="text-[var(--muted)]">{h.email}</span> : null}
                                         <button
                                           type="button"
                                           disabled={contactBusy}
                                           onClick={() => void fetchContact(row.id, h.url, true)}
-                                          className="font-semibold text-[var(--ink)] underline underline-offset-2 disabled:opacity-50"
+                                          className="kans-pick__use"
                                         >
-                                          Gebruik deze
+                                          Gebruik
                                         </button>
                                       </li>
                                     ))}
@@ -935,99 +953,78 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
                           ) : null}
 
                           {hmError && active?.id === row.id ? (
-                            <p className="mt-3 text-[0.75rem] text-[var(--warn)]">{hmError}</p>
+                            <p className="mt-2 text-[0.75rem] text-[var(--warn)]">{hmError}</p>
                           ) : null}
 
-                          <div className="mt-5 grid gap-5 border-t border-[var(--line)] pt-4 lg:grid-cols-2">
-                            <div>
-                              <p className="ws-label">Kans-score</p>
-                              <div className="mt-1.5 flex items-center gap-3">
-                                {row.kans != null ? (
-                                  <ScoreChip
-                                    kans={row.kans}
-                                    large
-                                    parts={(row.kansFactors || []).map((f) => ({ label: f.label, points: f.points }))}
-                                  />
-                                ) : (
-                                  <span className="text-sm text-[var(--muted)]">Geen bewijs geteld</span>
-                                )}
-                                <span className="text-[0.75rem] leading-snug text-[var(--muted)]">
-                                  Som van het bewijs dat hier nú een contracting-opdracht ligt. Max 98.
-                                </span>
-                              </div>
-                              {row.kansFactors.length ? (
-                                <ul className="mt-2 space-y-1">
-                                  {row.kansFactors.map((f) => (
-                                    <li
-                                      key={f.label}
-                                      className="flex items-baseline gap-2 text-[0.78rem] text-[var(--muted)]"
-                                    >
-                                      <span
-                                        className="shrink-0 font-semibold tabular-nums text-[var(--ink)]"
-                                        style={{ fontFamily: "var(--mono)" }}
-                                      >
-                                        {f.points > 0 ? `+${f.points}` : f.points}
-                                      </span>
-                                      <span>{f.label}</span>
-                                    </li>
-                                  ))}
-                                </ul>
+                          <div className="kans-detail__foot">
+                            <div className="kans-detail__foot-main">
+                              {row.lane === "direct" && row.kans != null ? (
+                                <div className="kans-detail__score">
+                                  <p className="ws-label">Jobboard-score</p>
+                                  <div className="kans-detail__score-row">
+                                    <ScoreChip
+                                      kans={row.kans}
+                                      parts={(row.kansFactors || []).map((f) => ({
+                                        label: f.label,
+                                        points: f.points,
+                                      }))}
+                                    />
+                                    <span className="kans-detail__score-hint">
+                                      Contracting-bewijs · drempel 55
+                                    </span>
+                                  </div>
+                                </div>
+                              ) : row.lane === "bureau" ? (
+                                <p className="kans-detail__feednote">
+                                  Recruiter feed · jij bevestigde de opdrachtgever — staat hier zonder
+                                  jobboard-score.
+                                </p>
                               ) : null}
-                              <p className="mt-2 text-[0.75rem] leading-snug text-[var(--muted)]">
-                                {row.lane === "bureau"
-                                  ? "Deze kans staat hier omdat jij de opdrachtgever bevestigde. De drempel van 55 geldt alleen voor vacatures van jobboards."
-                                  : `Vanaf 55 zetten we een jobboard-vacature automatisch op Kansen.`}
-                              </p>
-                            </div>
 
-                            <div>
-                              <p className="ws-label">Uitkomst</p>
-                              <p className="mt-1 text-[0.75rem] text-[var(--muted)]">
-                                De stappen volgen automatisch uit wat er bekend is. Wat er daarna gebeurt, weet
-                                alleen jij:{" "}
-                                <strong className="font-semibold text-[var(--ink)]">
-                                  {row.stage === "outreach" || row.stage === "won" || row.stage === "lost"
-                                    ? CRM_STAGE_NL[row.stage]
-                                    : "nog niets gezet"}
-                                </strong>
-                                .
-                              </p>
-                              <div className="mt-2 flex flex-wrap gap-2">
-                                {(
-                                  [
-                                    ["outreach", "Bericht verstuurd"],
-                                    ["won", "Opdracht gewonnen"],
-                                    ["lost", "Afgelegd"],
-                                  ] as [CrmStage, string][]
-                                ).map(([st, label]) => (
-                                  <button
-                                    key={st}
-                                    type="button"
-                                    disabled={stageBusy}
-                                    onClick={() => void setStage(row.id, st)}
-                                    className={`ws-chip ${row.stage === st ? "ws-chip--on" : ""}`}
-                                  >
-                                    {label}
-                                  </button>
-                                ))}
-                                {row.stage === "outreach" || row.stage === "won" || row.stage === "lost" ? (
-                                  <button
-                                    type="button"
-                                    disabled={stageBusy}
-                                    onClick={() =>
-                                      void setStage(row.id, row.hiringManager ? "hm" : "bevestigd")
-                                    }
-                                    className="ws-chip"
-                                  >
-                                    Terug naar open
-                                  </button>
-                                ) : null}
+                              <div className="kans-detail__outcome">
+                                <p className="ws-label">
+                                  Uitkomst
+                                  <span className="kans-detail__outcome-state">
+                                    {row.stage === "outreach" || row.stage === "won" || row.stage === "lost"
+                                      ? CRM_STAGE_NL[row.stage]
+                                      : "nog open"}
+                                  </span>
+                                </p>
+                                <div className="kans-detail__chips">
+                                  {(
+                                    [
+                                      ["outreach", "Bericht verstuurd"],
+                                      ["won", "Gewonnen"],
+                                      ["lost", "Afgelegd"],
+                                    ] as [CrmStage, string][]
+                                  ).map(([st, label]) => (
+                                    <button
+                                      key={st}
+                                      type="button"
+                                      disabled={stageBusy}
+                                      onClick={() => void setStage(row.id, st)}
+                                      className={`ws-chip ${row.stage === st ? "ws-chip--on" : ""}`}
+                                    >
+                                      {label}
+                                    </button>
+                                  ))}
+                                  {row.stage === "outreach" || row.stage === "won" || row.stage === "lost" ? (
+                                    <button
+                                      type="button"
+                                      disabled={stageBusy}
+                                      onClick={() =>
+                                        void setStage(row.id, row.hiringManager ? "hm" : "bevestigd")
+                                      }
+                                      className="ws-chip"
+                                    >
+                                      Terug
+                                    </button>
+                                  ) : null}
+                                </div>
                               </div>
                             </div>
-                          </div>
 
-                          <div className="mt-4 border-t border-[var(--line)] pt-4">
-                            <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                            <div className="kans-detail__actions">
                               <button
                                 type="button"
                                 disabled={hmBusy && hmBusyId === row.id}
@@ -1039,15 +1036,12 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
                                 {hmBusyId === row.id
                                   ? "Zoeken"
                                   : row.hiringManager
-                                    ? "Opnieuw manager zoeken"
+                                    ? "Opnieuw manager"
                                     : "Zoek manager"}
                               </button>
                               {row.href ? (
-                                <Link
-                                  href={row.href}
-                                  className="text-[0.8rem] font-semibold text-[var(--ink)] no-underline hover:underline"
-                                >
-                                Open bericht
+                                <Link href={row.href} className="kans-detail__link">
+                                  Bericht
                                 </Link>
                               ) : null}
                               {row.evidenceUrl ? (
@@ -1055,9 +1049,9 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
                                   href={row.evidenceUrl}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="text-[0.8rem] font-medium text-[var(--muted)] no-underline hover:text-[var(--ink)] hover:underline"
+                                  className="kans-detail__link"
                                 >
-                                  Vacature
+                                  Bron
                                 </a>
                               ) : null}
                               {row.companyId ? (
@@ -1066,9 +1060,9 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
                                     companyId: row.companyId,
                                     openingId: row.openingId,
                                   })}
-                                  className="text-[0.8rem] font-medium text-[var(--muted)] no-underline hover:text-[var(--ink)] hover:underline"
+                                  className="kans-detail__link"
                                 >
-                                  Op Jobboards
+                                  Jobboards
                                 </Link>
                               ) : null}
                             </div>
