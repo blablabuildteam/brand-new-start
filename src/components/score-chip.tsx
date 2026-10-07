@@ -121,13 +121,9 @@ export function ScoreChip({
                   ))}
                 </ul>
               ) : null}
-              <span className="ws-score__pop-foot">
-                {percent
-                  ? "Het metertje loopt van 0 tot 100."
-                  : rows.length
-                    ? "Het metertje is de som van deze punten, maximaal 98."
-                    : "Het metertje loopt tot 98."}
-              </span>
+              {!percent && rows.length ? (
+                <span className="ws-score__pop-foot">Som van deze punten, max {SCORE_MAX}.</span>
+              ) : null}
             </span>,
             document.body,
           )
