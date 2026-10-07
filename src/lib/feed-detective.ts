@@ -227,6 +227,39 @@ export function hitMentions(hit: SearchHit, name: string) {
   return core.length > 0 && core.every((w) => hay.includes(w));
 }
 
+/**
+ * Hard proof that this page is *about* the client as employer — not a partner
+ * named in body copy. Title or careers-host only (description is too noisy).
+ */
+export function hitNamesClient(hit: SearchHit, name: string) {
+  const n = fold(name);
+  if (!n) return false;
+  const titleHay = ` ${fold(hit.title)} `;
+  const core = n
+    .split(" ")
+    .filter((w) => w.length >= 4 && !/^(gemeente|provincie|bank|groep|group|nederland|holding)$/.test(w));
+  if (n.length <= 3) {
+    if (titleHay.includes(` ${n} `)) return true;
+  } else {
+    if (titleHay.includes(` ${n} `) || titleHay.includes(n.replace(/ /g, ""))) return true;
+    if (core.length > 0 && core.every((w) => titleHay.includes(w))) return true;
+  }
+  try {
+    const host = new URL(hit.url).hostname.replace(/^www\./, "");
+    const hostFold = fold(host.replace(/[.-]/g, " "));
+    if (n.length <= 3) {
+      return host.split(".").some((part) => {
+        const p = fold(part);
+        return p === n || p === `werkenbij${n}` || p.endsWith(n);
+      });
+    }
+    if (hostFold.includes(n.replace(/ /g, ""))) return true;
+    return core.length > 0 && core.every((w) => hostFold.includes(w));
+  } catch {
+    return false;
+  }
+}
+
 function memoryBlock(memory: FeedMemory[]) {
   if (!memory.length) return "(nog geen bekende klanten voor dit bureau)";
   return memory
@@ -304,10 +337,11 @@ export function calibrate(opts: {
   const post = fold(opts.post);
   const nameInPost = fold(name).length >= 3 && post.includes(fold(name));
 
+  // Hard web proof = client in title/host (not partner-in-body) + same role in title.
   const proves = (hit: SearchHit) =>
     !NOT_USEFUL_URL.test(hit.url) &&
     !isListingPage(hit) &&
-    hitMentions(hit, name) &&
+    hitNamesClient(hit, name) &&
     (!opts.role || sameRole(hit, opts.role.title, opts.role.stack, opts.role.city));
   let webProof = false;
   let citedWebProof = false;
@@ -503,7 +537,9 @@ ${webBlock(hits)}`,
     const check = (await multiSearch([q], budget, { perQuery: 6 })).filter(
       (h) => !NOT_USEFUL_URL.test(h.url) && !isListingPage(h)
     );
-    const hit = check.find((h) => hitMentions(h, cal.name) && sameRole(h, opts.title, opts.stack, opts.city));
+    const hit = check.find(
+      (h) => hitNamesClient(h, cal.name) && sameRole(h, opts.title, opts.stack, opts.city)
+    );
     if (hit) {
       cal.confidence = Math.min(CAP.web, Math.max(cal.confidence + 12, 85));
       cal.basis = "nagetrokken: dezelfde soort opdracht staat online bij deze klant";
