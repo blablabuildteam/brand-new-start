@@ -95,6 +95,13 @@ function factsLine(l: AgencyLead) {
     .join(" · ");
 }
 
+function postedLabel(l: AgencyLead) {
+  if (!l.postedAt) return null;
+  const t = new Date(l.postedAt).getTime();
+  if (Number.isNaN(t)) return null;
+  return `Geplaatst ${timeAgoShort(l.postedAt)}`;
+}
+
 const ORIGIN_NL: Record<EvidenceOrigin, string> = {
   post: "uit de post",
   web: "online gevonden",
@@ -239,27 +246,27 @@ const BUCKET_NL: Record<Bucket, string> = {
 const BUCKET_HINT: Record<Bucket, { title: string; body: string }> = {
   confirm: {
     title: "Bevestigen",
-    body: "Sterk genoeg (≥80%). Jij checkt de naam, bevestigt, en de post gaat naar Kansen voor manager en bericht.",
+    body: "Sterk genoeg (≥80%) — check de naam en bevestig → Kansen.",
   },
   needAi: {
     title: "AI nodig",
-    body: "Nog geen voorstel. Selecteer rijen en start AI (of per rij). Daarna landen ze bij Bevestigen of Twijfel.",
+    body: "Nog geen AI-gok — auto op posts ≤15 dagen; oudere sla je over of start handmatig.",
   },
   doubt: {
     title: "Twijfel",
-    body: "AI heeft gezocht maar het is dun, of een miss. Open Waarom, bevestig handmatig, of zet weg.",
+    body: "AI was onzeker — check Waarom, bevestig zelf of zet weg.",
   },
   confirmed: {
     title: "Bevestigd",
-    body: "Al door jou bevestigd — horen op Kansen (manager / bericht). Hier alleen terugkijken.",
+    body: "Al bevestigd — staan op Kansen.",
   },
   rejected: {
     title: "Weg",
-    body: "Afgewezen of geen opdracht. Prullenbak; niet meer in de werkbakken.",
+    body: "Afgewezen of geen opdracht.",
   },
   all: {
     title: "Alles",
-    body: "Alle posts door elkaar — handig om te zoeken, niet om af te werken.",
+    body: "Alle posts door elkaar.",
   },
 };
 
@@ -381,6 +388,7 @@ function LeadCard({
         <button type="button" className="lead-row__hit" onClick={onOpen} aria-current={active ? "true" : undefined}>
           <span className="lead-row__title truncate">{lead.title}</span>
           <span className="lead-row__meta truncate">
+            {postedLabel(lead) ? `${postedLabel(lead)} · ` : ""}
             {lead.agency.name}
             {lead.recruiter.name ? ` · ${lead.recruiter.name}` : ""}
             {factsLine(lead) ? ` · ${factsLine(lead)}` : ""}
@@ -522,6 +530,7 @@ function LeadDetail({
         </button>
       ) : null}
       <p className="lead-detail__meta">
+        {postedLabel(lead) ? `${postedLabel(lead)} · ` : ""}
         {lead.agency.name}
         {lead.recruiter.name ? ` · ${lead.recruiter.name}` : ""}
         {factsLine(lead) ? ` · ${factsLine(lead)}` : ""}
@@ -1296,11 +1305,19 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
           {picked.size > 0 ? (
             <div className={`lead-bulkbar ${mobilePane === "detail" ? "max-lg:hidden" : ""}`} role="region" aria-label="Selectie">
               <span className="lead-bulkbar__n">{picked.size} geselecteerd</span>
-              <button type="button" className="btn-ghost btn-tool" onClick={selectVisible}>
-                Alles zichtbaar
-              </button>
-              <button type="button" className="btn-ghost btn-tool" onClick={clearPick}>
-                Wissen
+              <button
+                type="button"
+                className="btn-ghost btn-tool"
+                onClick={() => {
+                  const allOn =
+                    filteredLive.length > 0 && filteredLive.every((l) => picked.has(l.id));
+                  if (allOn) clearPick();
+                  else selectVisible();
+                }}
+              >
+                {filteredLive.length > 0 && filteredLive.every((l) => picked.has(l.id))
+                  ? "Niets selecteren"
+                  : "Alles selecteren"}
               </button>
               <div className="lead-bulkbar__actions">
                 {bulkAiIds.length ? (

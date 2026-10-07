@@ -44,6 +44,8 @@ export type AgencyLead = {
   confirmedClient: string | null;
   evidenceUrl: string | null;
   summary: string;
+  /** Wanneer de post/vacature geplaatst is (ISO); anders first/seen. */
+  postedAt: string | null;
   signalId?: string;
   hiringManager?: string | null;
   hiringManagerTitle?: string | null;
@@ -114,6 +116,7 @@ function buildLead(opts: {
   storedReview?: Review | null;
   storedAi?: StoredAi | null;
   source?: "feed" | "jobboard";
+  postedAt?: string | null;
 }): AgencyLead {
   const facts = extractVacancyFacts(`${opts.title}\n${opts.text}`);
   const rawGuess = guessEndClient({ title: opts.title, text: opts.text });
@@ -126,6 +129,7 @@ function buildLead(opts: {
     id: opts.id,
     demo: opts.demo,
     employment: "contract",
+    postedAt: opts.postedAt || null,
     source: opts.source || "feed",
     title: plainLinkedIn(opts.title),
     roleLabel: detectRoleLabel(`${opts.title} ${opts.text}`),
@@ -382,6 +386,15 @@ export async function listAgencyLeads(): Promise<{
       (typeof raw.jobPosterName === "string" && raw.jobPosterName) ||
       (typeof raw.contactName === "string" && raw.contactName) ||
       null;
+    const postedRaw = typeof raw.postedAt === "string" ? raw.postedAt : null;
+    const postedAt =
+      postedRaw && !Number.isNaN(new Date(postedRaw).getTime())
+        ? new Date(postedRaw).toISOString()
+        : s.firstSeenAt instanceof Date
+          ? s.firstSeenAt.toISOString()
+          : s.seenAt instanceof Date
+            ? s.seenAt.toISOString()
+            : null;
     live.push(
       buildLead({
         id: s.id,
@@ -399,6 +412,7 @@ export async function listAgencyLeads(): Promise<{
         storedReview: reviewFromRaw(raw),
         storedAi: aiFromRaw(raw),
         source: isFeed ? "feed" : "jobboard",
+        postedAt,
       })
     );
   }

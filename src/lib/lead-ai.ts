@@ -76,17 +76,33 @@ export function needsAi(l: AgencyLead) {
   return !skipBatchResearch(l) && !l.aiMiss && !l.aiGuess;
 }
 
+/** Posts ouder dan dit slaan we over bij auto-AI (te duur, te koud). */
+export const AI_MAX_AGE_DAYS = 15;
+
+export function isFreshForAi(l: AgencyLead, maxDays = AI_MAX_AGE_DAYS) {
+  if (!l.postedAt) return false;
+  const t = new Date(l.postedAt).getTime();
+  if (Number.isNaN(t)) return false;
+  return Date.now() - t <= maxDays * 86_400_000;
+}
+
 /**
  * After a feed sync (or catch-up): identify clients on open posts.
- * Caps: per-run max, daily € budget (conservative), wall-clock deadline.
+ * Caps: per-run max, daily € budget (conservative), wall-clock deadline, max age.
  */
-export async function autoIdentifyOpenLeads(opts: { max: number; deadline: number; parallel?: number }) {
+export async function autoIdentifyOpenLeads(opts: {
+  max: number;
+  deadline: number;
+  parallel?: number;
+  maxAgeDays?: number;
+}) {
   const slots = await aiDaySlotsLeft({
     maxEur: INGEST_POLICY.feedAutoAiDailyEurMax,
     eurPerRunHigh: SYNC_COST_PER_RUN.actions["ai-research"].eur.high,
   });
+  const maxAge = opts.maxAgeDays ?? AI_MAX_AGE_DAYS;
   const { live } = await listAgencyLeads();
-  const open = live.filter(needsAi);
+  const open = live.filter((l) => needsAi(l) && isFreshForAi(l, maxAge));
   const max = Math.min(opts.max, slots.left);
   const queue = [
     ...open.filter((l) => !l.guess),

@@ -426,10 +426,17 @@ function buildCrm({ leads, radar, signals, meta }: CrmInputs): CrmOpportunity[] 
   }
 
   out.sort((a, b) => {
-    const ak = a.kans ?? -1;
-    const bk = b.kans ?? -1;
-    if (bk !== ak) return bk - ak;
-    return (b.lastSeenAt || b.foundAt || "").localeCompare(a.lastSeenAt || a.foundAt || "");
+    // Pipeline-achtig: geen HM eerst, dan geen mail/tel, dan klaar voor bericht.
+    const step = (r: CrmOpportunity) => {
+      if (r.stage === "won" || r.stage === "lost") return 9;
+      if (!r.hiringManager) return 1;
+      if (needsContact(r)) return 2;
+      return 3;
+    };
+    const as = step(a);
+    const bs = step(b);
+    if (as !== bs) return as - bs;
+    return (b.foundAt || b.lastSeenAt || "").localeCompare(a.foundAt || a.lastSeenAt || "");
   });
 
   return mergeSameRole(out);

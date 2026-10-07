@@ -171,22 +171,27 @@ function roleQuery(opts: { title: string; stack: string[]; city: string | null }
   return `${bits.join(" ")} opdracht opdrachtgever`;
 }
 
-const GENERIC_ROLE_WORD = /^(engineer|developer|consultant|specialist|medewerker|expert|lead|gezocht|voor|een|and|the)$/;
+const GENERIC_ROLE_WORD =
+  /^(engineer|developer|consultant|specialist|medewerker|expert|lead|gezocht|voor|een|and|the|netwerk|goedemiddag)$/;
 
 /**
  * Same assignment, not just any page naming the client: the role must match
- * and so must the place or part of the stack. A big bank always has *a* Scrum
- * Master vacancy somewhere.
+ * in the vacancy TITLE (not partner names buried in the body), and place/stack.
+ * Prevents "Product Owner" → gebiedsontwikkeling-page that only mentions the org as partner.
  */
 export function sameRole(hit: SearchHit, title: string, stack: string[], city: string | null) {
-  const hay = fold(`${hit.title} ${hit.description} ${hit.url}`);
+  const titleHay = ` ${fold(hit.title)} `;
   const words = fold(roleCore(title))
     .split(" ")
     .filter((w) => w.length >= 3 && !GENERIC_ROLE_WORD.test(w));
-  if (!words.some((w) => ` ${hay} `.includes(` ${w}`))) return false;
+  if (!words.length) return false;
+  // Alle rolwoorden moeten in de titel van de hit staan — niet alleen ergens in de body.
+  if (!words.every((w) => titleHay.includes(` ${w} `))) return false;
+  const hay = fold(`${hit.title} ${hit.description} ${hit.url}`);
   const cityHit = Boolean(city) && fold(city!).length >= 3 && hay.includes(fold(city!));
   const stackHit = stack.slice(0, 5).some((s) => fold(s).length >= 3 && hay.includes(fold(s)));
-  return cityHit || stackHit;
+  // Titel-rol alleen is genoeg bij ≥2 woorden (bv. "product owner"); anders plaats of stack erbij.
+  return words.length >= 2 || cityHit || stackHit;
 }
 
 const NOT_USEFUL_URL = /linkedin\.com\/(posts|feed|in\/)|\/hashtag\/|\/bitstream\/|repository\.|\.pdf(\?|$)/i;

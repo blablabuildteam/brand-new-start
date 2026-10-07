@@ -299,17 +299,14 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
       return hay.includes(needle);
     });
     return rows.slice().sort((a, b) => {
-      // Zwakke kansen (nog zonder HM, score < 55) achteraan — ook als showWeak aan staat.
+      // Pipeline eerst (stap 2 vóór 4), daarna versheid — niet kans-score (feed ≠ jobboards).
       const aw = isWeak(a) ? 1 : 0;
       const bw = isWeak(b) ? 1 : 0;
       if (aw !== bw) return aw - bw;
-      const ah = a.hiringManager ? 1 : 0;
-      const bh = b.hiringManager ? 1 : 0;
-      if (ah !== bh) return ah - bh;
-      const ak = a.kans ?? -1;
-      const bk = b.kans ?? -1;
-      if (bk !== ak) return bk - ak;
-      return (b.foundAt || "").localeCompare(a.foundAt || "");
+      const as = stepOf(a).n;
+      const bs = stepOf(b).n;
+      if (as !== bs) return as - bs;
+      return (b.foundAt || b.lastSeenAt || "").localeCompare(a.foundAt || a.lastSeenAt || "");
     });
   }, [items, filter, q, showWeak]);
 
@@ -641,12 +638,6 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
                 <span>Opdrachtgever</span>
                 <span>Bron</span>
                 <span>Hiring manager</span>
-                <span
-                  className="text-right"
-                  title="Kans-score: hoeveel bewijs er is dat hier nú een contracting-opdracht ligt. Max 98, 55+ is warm. Open een rij voor het bewijs."
-                >
-                  Kans-score
-                </span>
                 <span className="text-right">Volgende stap</span>
               </div>
             ) : null}
@@ -728,17 +719,6 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
                             </span>
                           ) : (
                             <span className="block text-[0.72rem]">&nbsp;</span>
-                          )}
-                        </span>
-
-                        <span className="kans-row__score">
-                          {row.kans != null ? (
-                            <ScoreChip
-                              kans={row.kans}
-                              parts={(row.kansFactors || []).map((f) => ({ label: f.label, points: f.points }))}
-                            />
-                          ) : (
-                            <span className="text-[0.7rem] text-[var(--muted)]">Geen bewijs</span>
                           )}
                         </span>
 

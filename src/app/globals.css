@@ -1025,7 +1025,7 @@ button.radar-opp[aria-current="true"]:hover:not(:disabled) {
 .kans-head,
 .kans-row {
   display: grid;
-  grid-template-columns: 1.1rem minmax(12rem, 1.5fr) 9.4rem minmax(8rem, 1fr) 9rem 8.75rem;
+  grid-template-columns: 1.1rem minmax(12rem, 1.6fr) 8.5rem minmax(8rem, 1.1fr) 8.75rem;
   align-items: center;
   gap: 0.55rem 1rem;
   width: 100%;
@@ -1523,9 +1523,12 @@ button.radar-opp[aria-current="true"]:hover:not(:disabled) {
 }
 .lead-buckets__hint {
   margin: 0;
-  max-width: 38rem;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: 0.72rem;
-  line-height: 1.4;
+  line-height: 1.35;
   color: var(--muted);
 }
 .lead-buckets__hint strong {
