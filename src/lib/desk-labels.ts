@@ -44,7 +44,7 @@ export const DESK = {
     id: "contact" as const,
     nav: "Contact",
     title: "Contact",
-    subtitle: "Manager · mail/tel · bericht klaarzetten",
+    subtitle: "Hier stuur je het bericht — manager, mail/tel en tekst klaar",
     href: "/regie",
   },
 } as const;

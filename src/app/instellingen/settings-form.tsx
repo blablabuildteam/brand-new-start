@@ -94,6 +94,8 @@ export default function SettingsForm() {
   const [suggestionsOpen, setSuggestionsOpen] = useState(false);
   const [dismissed, setDismissed] = useState<string[]>([]);
   const [rejected, setRejected] = useState<{ key: string; name: string; at: string }[]>([]);
+  /** Recruiterslijst per bureau: standaard dicht, zodat Vibe niet de pagina opvreet. */
+  const [openRecruiters, setOpenRecruiters] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     fetch("/api/settings")
@@ -318,6 +320,7 @@ export default function SettingsForm() {
     setNewRecruiter((prev) => ({ ...prev, [agencyId]: "" }));
     setRecruiterErr((prev) => ({ ...prev, [agencyId]: "" }));
     setError("");
+    setOpenRecruiters((prev) => ({ ...prev, [agencyId]: true }));
     void persistSettings(next);
   }
 
@@ -342,6 +345,7 @@ export default function SettingsForm() {
     });
     updateAgencies(next);
     setFound((prev) => ({ ...prev, [agencyId]: [] }));
+    setOpenRecruiters((prev) => ({ ...prev, [agencyId]: true }));
     void persistSettings(next);
   }
 
@@ -823,15 +827,27 @@ export default function SettingsForm() {
                           >
                             {findBusy === a.id ? "Zoeken…" : "Zoek recruiters"}
                           </button>
-                          {a.custom ? (
-                            <button
-                              type="button"
-                              className="btn-ghost btn-tool text-[var(--muted)] hover:text-[var(--warn)]"
-                              onClick={() => removeAgency(a.id)}
-                            >
-                              Verwijderen
-                            </button>
-                          ) : null}
+                          <button
+                            type="button"
+                            className="btn-ghost btn-tool text-[var(--muted)] hover:text-[var(--warn)]"
+                            title={
+                              a.custom
+                                ? "Bureau uit je lijst halen"
+                                : "Bureau uit je lijst halen (ook standaardbureaus)"
+                            }
+                            onClick={() => {
+                              if (
+                                !window.confirm(
+                                  `${a.name} verwijderen uit je feed-lijst? Recruiters verdwijnen mee.`
+                                )
+                              ) {
+                                return;
+                              }
+                              removeAgency(a.id);
+                            }}
+                          >
+                            Verwijderen
+                          </button>
                         </div>
                       </div>
 
@@ -935,70 +951,103 @@ export default function SettingsForm() {
 
                       {a.enabled ? (
                         <div className="mt-3 space-y-2 border-t border-[var(--line)]/70 pt-3">
-                          {shownRecruiters.map((r) => (
-                            <div key={`${a.id}-${r.name}`} className="flex items-start gap-2 pl-1">
-                              <label className="flex min-w-0 flex-1 cursor-pointer items-start gap-2.5">
-                                <input
-                                  type="checkbox"
-                                  className="mt-0.5 h-4 w-4 accent-[var(--accent)]"
-                                  checked={r.enabled}
-                                  onChange={(e) => setRecruiterEnabled(a.id, r.name, e.target.checked)}
-                                />
-                                <span className="min-w-0">
-                                  <span className="block text-[0.85rem] font-medium text-[var(--ink)]">
-                                    {r.name}
-                                  </span>
-                                  {[r.brand, r.title].filter(Boolean).length ? (
-                                    <span className="block text-[0.7rem] text-[var(--muted)]">
-                                      {[r.brand, r.title].filter(Boolean).join(" · ")}
-                                    </span>
-                                  ) : null}
-                                  {!r.linkedinUrl ? (
-                                    <span className="block text-[0.7rem] text-[var(--warn)]">
-                                      Geen /in/-URL — de feed kan deze recruiter niet ophalen.
-                                    </span>
-                                  ) : null}
+                          {shownRecruiters.length ? (
+                            <button
+                              type="button"
+                              className="flex w-full items-center justify-between gap-2 rounded-[var(--radius)] px-1 py-1 text-left text-[0.78rem] font-medium text-[var(--ink)] hover:bg-[var(--surface-2)]"
+                              aria-expanded={Boolean(openRecruiters[a.id])}
+                              onClick={() =>
+                                setOpenRecruiters((prev) => ({
+                                  ...prev,
+                                  [a.id]: !prev[a.id],
+                                }))
+                              }
+                            >
+                              <span>
+                                {shownRecruiters.length} recruiter
+                                {shownRecruiters.length === 1 ? "" : "s"}
+                                <span className="font-normal text-[var(--muted)]">
+                                  {" "}
+                                  · {shownRecruiters.filter((r) => r.enabled).length} aan
                                 </span>
-                              </label>
-                              <button
-                                type="button"
-                                className="btn-ghost btn-tool !min-h-10 !w-10 !px-0 text-base text-[var(--muted)] hover:text-[var(--warn)]"
-                                onClick={() => removeRecruiter(a.id, r.name)}
-                                aria-label={`${r.name} verwijderen`}
-                              >
-                                ×
-                              </button>
-                            </div>
-                          ))}
+                              </span>
+                              <span className="text-[var(--muted)]" aria-hidden>
+                                {openRecruiters[a.id] ? "▲" : "▼"}
+                              </span>
+                            </button>
+                          ) : (
+                            <p className="text-[0.72rem] text-[var(--muted)]">Nog geen recruiters.</p>
+                          )}
+
+                          {openRecruiters[a.id]
+                            ? shownRecruiters.map((r) => (
+                                <div key={`${a.id}-${r.name}`} className="flex items-start gap-2 pl-1">
+                                  <label className="flex min-w-0 flex-1 cursor-pointer items-start gap-2.5">
+                                    <input
+                                      type="checkbox"
+                                      className="mt-0.5 h-4 w-4 accent-[var(--accent)]"
+                                      checked={r.enabled}
+                                      onChange={(e) =>
+                                        setRecruiterEnabled(a.id, r.name, e.target.checked)
+                                      }
+                                    />
+                                    <span className="min-w-0">
+                                      <span className="block text-[0.85rem] font-medium text-[var(--ink)]">
+                                        {r.name}
+                                      </span>
+                                      {[r.brand, r.title].filter(Boolean).length ? (
+                                        <span className="block text-[0.7rem] text-[var(--muted)]">
+                                          {[r.brand, r.title].filter(Boolean).join(" · ")}
+                                        </span>
+                                      ) : null}
+                                      {!r.linkedinUrl ? (
+                                        <span className="block text-[0.7rem] text-[var(--warn)]">
+                                          Geen /in/-URL — de feed kan deze recruiter niet ophalen.
+                                        </span>
+                                      ) : null}
+                                    </span>
+                                  </label>
+                                  <button
+                                    type="button"
+                                    className="btn-ghost btn-tool !min-h-10 !w-10 !px-0 text-base text-[var(--muted)] hover:text-[var(--warn)]"
+                                    onClick={() => removeRecruiter(a.id, r.name)}
+                                    aria-label={`${r.name} verwijderen`}
+                                  >
+                                    ×
+                                  </button>
+                                </div>
+                              ))
+                            : null}
 
                           <div className="flex flex-col gap-1.5 pt-1">
                             <p className="text-[0.72rem] text-[var(--muted)]">
-                              Recruiter: alleen <span className="text-[var(--ink)]">linkedin.com/in/voornaam-achternaam</span>.
-                              Geen company-pagina, geen vacature, geen naam zonder link.
+                              Snel toevoegen:{" "}
+                              <span className="text-[var(--ink)]">linkedin.com/in/…</span>
                             </p>
                             <div className="flex flex-col gap-2 sm:flex-row">
-                            <input
-                              className="ws-input min-w-0 flex-1 bg-[var(--surface-2)]"
-                              placeholder="https://www.linkedin.com/in/…"
-                              value={newRecruiter[a.id] || ""}
-                              onChange={(e) => {
-                                setNewRecruiter((prev) => ({ ...prev, [a.id]: e.target.value }));
-                                if (recruiterErr[a.id]) setRecruiterErr((prev) => ({ ...prev, [a.id]: "" }));
-                              }}
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter") {
-                                  e.preventDefault();
-                                  addRecruiter(a.id);
-                                }
-                              }}
-                            />
-                            <button
-                              type="button"
-                              className="btn-ghost btn-tool shrink-0"
-                              onClick={() => addRecruiter(a.id)}
-                            >
-                              + Recruiter
-                            </button>
+                              <input
+                                className="ws-input min-w-0 flex-1 bg-[var(--surface-2)]"
+                                placeholder="https://www.linkedin.com/in/…"
+                                value={newRecruiter[a.id] || ""}
+                                onChange={(e) => {
+                                  setNewRecruiter((prev) => ({ ...prev, [a.id]: e.target.value }));
+                                  if (recruiterErr[a.id])
+                                    setRecruiterErr((prev) => ({ ...prev, [a.id]: "" }));
+                                }}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") {
+                                    e.preventDefault();
+                                    addRecruiter(a.id);
+                                  }
+                                }}
+                              />
+                              <button
+                                type="button"
+                                className="btn-ghost btn-tool shrink-0"
+                                onClick={() => addRecruiter(a.id)}
+                              >
+                                + Recruiter
+                              </button>
                             </div>
                             {recruiterErr[a.id] ? (
                               <p className="text-[0.78rem] text-[var(--warn)]">{recruiterErr[a.id]}</p>

@@ -294,27 +294,42 @@ export default function RegieDesk({
   return (
     <AppShell current="contact" title={DESK.voorstel.title} subtitle={DESK.voorstel.subtitle} fill>
       <div className="ws-shell ws-shell--split ws-shell--split-wide">
-        <details className={`ws-fold lg:col-span-2 ${mobilePane === "detail" ? "max-lg:hidden" : ""}`}>
+        <details className={`ws-fold lg:col-span-2 ${mobilePane === "detail" ? "max-lg:hidden" : ""}`} open>
           <summary>
-            <span>Wat is Contact?</span>
-            <span className="ws-fold__meta">Manager · bericht · jij stuurt</span>
+            <span>Wat gebeurt hier?</span>
+            <span className="ws-fold__meta">Laatste stap · jij stuurt</span>
           </summary>
           <div className="ws-fold__body">
             <p className="m-0 text-[0.8rem] leading-relaxed text-[var(--muted)]">
-              Hier zet je de hiring manager en het bericht klaar. Niets gaat de deur uit — jij kopieert en
-              stuurt. Pipeline en status houd je bij op{" "}
+              Op{" "}
               <Link href="/kansen" className="font-semibold text-[var(--ink)] underline underline-offset-2">
                 Kansen
-              </Link>
-              .
+              </Link>{" "}
+              zoek je de manager en mail/tel. <strong className="text-[var(--ink)]">Contact</strong> is alleen
+              om het bericht te kopiëren en zelf te versturen (LinkedIn of mail). Er gaat niets automatisch de
+              deur uit.
             </p>
+            <ol className="ws-fold__steps mt-2">
+              <li>
+                <span className="ws-fold__n">1</span>
+                <span>Kies links een bedrijf / rol</span>
+              </li>
+              <li>
+                <span className="ws-fold__n">2</span>
+                <span>Check of de juiste persoon er staat</span>
+              </li>
+              <li>
+                <span className="ws-fold__n">3</span>
+                <span>Kopieer het bericht → plak in LinkedIn of mail</span>
+              </li>
+            </ol>
           </div>
         </details>
         <aside
           className={`radar-scroll-pane min-h-0 max-lg:flex-1 ${mobilePane === "detail" ? "max-lg:hidden" : ""}`}
         >
           <div className="radar-scroll-pane__head">
-            <p className="ws-label">Te benaderen</p>
+            <p className="ws-label">Klaar om te sturen</p>
             <p className="tabular-nums text-[0.68rem] text-[var(--muted)]" style={{ fontFamily: "var(--mono)" }}>
               {visible.length || 0}
             </p>
@@ -332,11 +347,8 @@ export default function RegieDesk({
           <div className="radar-scroll-pane__body !px-1.5">
             {!loading && !groups.length ? (
               <p className="px-2 py-3 text-[0.78rem] leading-relaxed text-[var(--muted)]">
-                Nog niets om te benaderen. Bevestig eerst een opdrachtgever op{" "}
-                <Link href="/kansen" className="font-semibold text-[var(--ink)] underline underline-offset-2">
-                  Kansen
-                </Link>
-                .
+                Leeg tot er op Kansen een kans is met manager (en bij voorkeur mail/tel). Filter daar op{" "}
+                <strong className="text-[var(--ink)]">Bericht</strong> en klik die knop — dan land je hier.
               </p>
             ) : null}
             {groups.map((g) => {
@@ -392,9 +404,10 @@ export default function RegieDesk({
           {error ? <p className="text-sm text-[var(--warn)]">{error}</p> : null}
           {!loading && !items.length ? (
             <div className="ws-panel px-4 py-5">
-              <p className="text-sm text-[var(--ink)]">Nog geen contact klaar om te benaderen.</p>
-              <p className="mt-1.5 text-[0.78rem] text-[var(--muted)]">
-                Werk eerst een kans af tot er een manager of bericht nodig is.
+              <p className="text-sm font-semibold text-[var(--ink)]">Nog niets om te versturen</p>
+              <p className="mt-1.5 text-[0.78rem] leading-relaxed text-[var(--muted)]">
+                Deze pagina vult zich vanuit Kansen: eerst opdrachtgever → manager → mail/tel → dan het
+                bericht hier. Zonder die stappen blijft Contact leeg.
               </p>
               <Link href="/kansen" className="btn-ink btn-tool mt-3 inline-flex no-underline">
                 Naar Kansen →
@@ -430,7 +443,7 @@ export default function RegieDesk({
 
               <section className="ws-panel">
                 <div className="border-b border-[var(--line)]/80 px-4 py-2.5">
-                  <p className="ws-label">Wie benaderen</p>
+                  <p className="ws-label">1 · Wie stuur je aan</p>
                 </div>
                 {proposal.hiring.slice(0, 3).map((t) => {
                   const named = t.kind === "person" && t.cta === "bericht";
@@ -545,7 +558,7 @@ export default function RegieDesk({
 
               <section id="hm-bericht" className="ws-panel scroll-mt-4">
                 <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--line)]/80 px-4 py-2.5">
-                  <p className="ws-label">Bericht</p>
+                  <p className="ws-label">2 · Bericht (kopieer en plak)</p>
                   {proposal.shortlist.length ? (
                     <p className="text-[0.72rem] text-[var(--muted)]">
                       Met {proposal.shortlist.map((s) => s.person.name.split(" ")[0]).join(", ")}
