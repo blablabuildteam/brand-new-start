@@ -220,29 +220,40 @@ function WhyBlock({ lead }: { lead: AgencyLead }) {
   );
 }
 
-type Bucket = "ready" | "open" | "confirmed" | "rejected" | "all";
+/** Werkbakken eerst — afgehandeld secundair. */
+type Bucket = "confirm" | "needAi" | "doubt" | "confirmed" | "rejected" | "all";
+
+const WORK_BUCKETS = ["confirm", "needAi", "doubt"] as const;
+const DONE_BUCKETS = ["confirmed", "rejected", "all"] as const;
 
 const BUCKET_NL: Record<Bucket, string> = {
-  ready: "Klaar om te bevestigen",
-  open: "Te reviewen",
+  confirm: "Bevestigen",
+  needAi: "AI nodig",
+  doubt: "Twijfel",
   confirmed: "Bevestigd",
   rejected: "Weg",
   all: "Alles",
 };
 
-const BUCKET_CHIP: Record<Bucket, string> = {
-  ready: "Klaar",
-  open: "Te reviewen",
-  confirmed: "Bevestigd",
-  rejected: "Weg",
-  all: "Alles",
+const BUCKET_TIP: Record<Bucket, string> = {
+  confirm: "Sterk genoeg — jij bevestigt de opdrachtgever, daarna naar Kansen.",
+  needAi: "Nog geen AI-voorstel. Selecteer posts en start AI, of per rij.",
+  doubt: "AI heeft gezocht of een zwakke gok — check Waarom, bevestig of zet weg.",
+  confirmed: "Al bevestigd — horen op Kansen (manager / bericht).",
+  rejected: "Afgewezen of geen opdracht. Prullenbak.",
+  all: "Alle posts, ongeacht status.",
 };
+
+function hasAiSignal(l: AgencyLead) {
+  return Boolean(l.guess || l.aiMiss);
+}
 
 function bucketOf(l: AgencyLead): Exclude<Bucket, "all"> {
-  if (l.status === "suggest") return "ready";
   if (l.status === "confirmed") return "confirmed";
   if (l.status === "rejected") return "rejected";
-  return "open";
+  if (l.status === "suggest") return "confirm";
+  if (!hasAiSignal(l)) return "needAi";
+  return "doubt";
 }
 
 function statusShort(status: LeadStatus) {
@@ -251,6 +262,23 @@ function statusShort(status: LeadStatus) {
   if (status === "weak") return "Te dun";
   if (status === "confirmed") return "Bevestigd";
   return "Weg";
+}
+
+/** Korte hover-uitleg bij Te dun / Weg / Review. */
+function statusWhy(lead: AgencyLead): string {
+  if (lead.status === "rejected") {
+    if (lead.aiMiss?.notAssignment) return `Weg: ${lead.aiMiss.detail}`;
+    if (lead.aiMiss?.detail) return `Weg: ${lead.aiMiss.detail}`;
+    return "Door jou afgewezen — geen opdracht, of niet voor ons.";
+  }
+  if (lead.status === "weak") {
+    return clientExplain(lead).why;
+  }
+  if (lead.status === "review") {
+    return clientExplain(lead).why || STATUS_HINT.review;
+  }
+  if (lead.aiMiss) return `AI vond geen zekere naam. ${lead.aiMiss.detail}`;
+  return STATUS_HINT[lead.status];
 }
 
 function clientNameOf(lead: AgencyLead, draft?: string) {
@@ -345,6 +373,11 @@ function LeadCard({
               kans={conf}
               percent
               label={lead.status === "confirmed" ? "Bevestigd" : lead.status === "rejected" ? "Weg" : undefined}
+              hint={
+                lead.status === "rejected" || lead.status === "weak" || lead.status === "review"
+                  ? statusWhy(lead)
+                  : undefined
+              }
               parts={(lead.guess?.evidence || []).slice(0, 6).map((e) => ({
                 label: e.origin ? `${e.label} · ${ORIGIN_NL[e.origin] || e.origin}` : e.label,
               }))}
@@ -352,7 +385,7 @@ function LeadCard({
           ) : (
             <span
               className={`ws-score shrink-0 ${lead.status === "confirmed" ? "ws-score--hot" : lead.status === "rejected" ? "ws-score--cold" : "ws-score--watch"}`}
-              title={STATUS_HINT[lead.status]}
+              data-tip={statusWhy(lead)}
             >
               <span className="ws-score__band">{statusShort(lead.status)}</span>
             </span>
@@ -365,7 +398,7 @@ function LeadCard({
               className={`lead-row__confirm ${confirming ? "is-busy" : ""}`}
               aria-busy={confirming || undefined}
               aria-label={`Bevestig ${client} — naar Kansen om hiring manager te zoeken`}
-              data-tip={`Bevestig ${client} → naar Kansen, daar kun je de hiring manager zoeken`}
+              data-tip="Bevestig → Kansen · hiring manager zoeken"
             >
               {confirming ? (
                 <BtnSpinner />
@@ -485,11 +518,20 @@ function LeadDetail({
             kans={conf}
             percent
             label={lead.status === "confirmed" ? "Bevestigd" : lead.status === "rejected" ? "Weg" : undefined}
+            hint={
+              lead.status === "rejected" || lead.status === "weak" || lead.status === "review"
+                ? statusWhy(lead)
+                : undefined
+            }
             parts={(lead.guess?.evidence || []).slice(0, 6).map((e) => ({
               label: e.origin ? `${e.label} · ${ORIGIN_NL[e.origin] || e.origin}` : e.label,
             }))}
           />
-        ) : null}
+        ) : (
+          <span className="ws-score ws-score--watch shrink-0" data-tip={statusWhy(lead)}>
+            <span className="ws-score__band">{statusShort(lead.status)}</span>
+          </span>
+        )}
       </div>
       <div className="mt-4">
         <WhyBlock lead={lead} />
@@ -571,7 +613,6 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
   const [pickedId, setPickedId] = useState<string | null>(null);
   const [mobilePane, setMobilePane] = useState<"list" | "detail">("list");
   const [bucketPick, setBucketPick] = useState<Bucket | null>(null);
-  const [aiPick, setAiPick] = useState<"all" | "with" | "without">("all");
   const [picked, setPicked] = useState<Set<string>>(() => new Set());
   const [watchAgency, setWatchAgency] = useState<string | null>(null);
   const [openRecruiter, setOpenRecruiter] = useState<string | null>(null);
@@ -666,35 +707,31 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
   }, []);
 
   const counts = useMemo(() => {
-    const c: Record<Bucket, number> = { ready: 0, open: 0, confirmed: 0, rejected: 0, all: 0 };
+    const c: Record<Bucket, number> = {
+      confirm: 0,
+      needAi: 0,
+      doubt: 0,
+      confirmed: 0,
+      rejected: 0,
+      all: 0,
+    };
     for (const l of data?.live || []) {
       c.all += 1;
       c[bucketOf(l)] += 1;
     }
     return c;
   }, [data]);
-  const bucket: Bucket = bucketPick ?? (counts.ready ? "ready" : "open");
+  const bucket: Bucket =
+    bucketPick ??
+    (counts.confirm ? "confirm" : counts.needAi ? "needAi" : counts.doubt ? "doubt" : "confirm");
 
   const matches = useMemo(() => {
     return (l: AgencyLead) => {
       if (bucket !== "all" && bucketOf(l) !== bucket) return false;
       if (watchAgency && l.agency.name.toLowerCase() !== watchAgency.toLowerCase()) return false;
-      // AI sub-filter — alleen zinvol binnen Te reviewen / Alles waar nog beslist moet worden.
-      if (aiPick !== "all" && (bucket === "open" || bucket === "all")) {
-        const hasAi = Boolean(l.guess || l.aiMiss);
-        if (aiPick === "with" && !hasAi) return false;
-        if (aiPick === "without" && hasAi) return false;
-      }
       return true;
     };
-  }, [bucket, watchAgency, aiPick]);
-
-  const openAiCounts = useMemo(() => {
-    const live = data?.live || [];
-    const openLive = live.filter((l) => bucketOf(l) === "open");
-    const withAi = openLive.filter((l) => Boolean(l.guess || l.aiMiss)).length;
-    return { with: withAi, without: openLive.length - withAi };
-  }, [data]);
+  }, [bucket, watchAgency]);
 
   const filteredLive = useMemo(() => (data ? data.live.filter(matches) : []), [data, matches]);
   const selected =
@@ -874,7 +911,7 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
   useEffect(() => {
     clearPick();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reset when filters change
-  }, [bucket, aiPick, watchAgency]);
+  }, [bucket, watchAgency]);
 
   function patchJob(id: string, patch: Partial<AiJob> | null) {
     setAiJobs((prev) => {
@@ -1038,7 +1075,7 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
             <summary>
               <span>
                 {data ? `${counts.all} posts` : "Sync"}
-                {data ? ` · ${counts.ready} klaar` : ""}
+                {data ? ` · ${counts.confirm} te bevestigen` : ""}
               </span>
               <span className="ws-fold__meta">
                 {feedLocked
@@ -1176,48 +1213,41 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
           </details>
 
           <div className={`flex flex-wrap items-center gap-1.5 ${mobilePane === "detail" ? "max-lg:hidden" : ""}`}>
-            {(["ready", "open", "confirmed", "rejected", "all"] as const).map((b) => (
+            {WORK_BUCKETS.map((b) => (
               <button
                 key={b}
                 type="button"
                 onClick={() => setBucketPick(b)}
                 className={`ws-chip ${bucket === b ? "ws-chip--on" : ""}`}
-                title={BUCKET_NL[b]}
+                data-tip={BUCKET_TIP[b]}
               >
-                {BUCKET_CHIP[b]}
+                {BUCKET_NL[b]}
                 <span className="ws-chip__n">{data ? counts[b] : "…"}</span>
               </button>
             ))}
+            <details className="lead-donefold">
+              <summary className="lead-donefold__sum">
+                Afgehandeld
+                <span className="ws-chip__n">
+                  {data ? counts.confirmed + counts.rejected : "…"}
+                </span>
+              </summary>
+              <div className="lead-donefold__body">
+                {DONE_BUCKETS.map((b) => (
+                  <button
+                    key={b}
+                    type="button"
+                    onClick={() => setBucketPick(b)}
+                    className={`ws-chip ${bucket === b ? "ws-chip--on" : ""}`}
+                    data-tip={BUCKET_TIP[b]}
+                  >
+                    {BUCKET_NL[b]}
+                    <span className="ws-chip__n">{data ? counts[b] : "…"}</span>
+                  </button>
+                ))}
+              </div>
+            </details>
           </div>
-          {(bucket === "open" || bucket === "all") && (openAiCounts.with > 0 || openAiCounts.without > 0) ? (
-            <div className={`flex flex-wrap items-center gap-1.5 ${mobilePane === "detail" ? "max-lg:hidden" : ""}`}>
-              <span className="text-[0.68rem] uppercase tracking-wide text-[var(--muted)]">AI-voorstel</span>
-              {(
-                [
-                  { id: "all" as const, label: "Alles", n: openAiCounts.with + openAiCounts.without },
-                  { id: "with" as const, label: "Met AI", n: openAiCounts.with },
-                  { id: "without" as const, label: "Nog geen AI", n: openAiCounts.without },
-                ]
-              ).map((f) => (
-                <button
-                  key={f.id}
-                  type="button"
-                  onClick={() => setAiPick(f.id)}
-                  className={`ws-chip ${aiPick === f.id ? "ws-chip--on" : ""}`}
-                  title={
-                    f.id === "with"
-                      ? "AI heeft een voorstel of al gezocht — meestal binnen een klik te bevestigen."
-                      : f.id === "without"
-                        ? "Nog niet geprobeerd door AI — jij start de research of vult zelf in."
-                        : "Alle posts in deze bak"
-                  }
-                >
-                  {f.label}
-                  <span className="ws-chip__n">{data ? f.n : "…"}</span>
-                </button>
-              ))}
-            </div>
-          ) : null}
           {picked.size > 0 ? (
             <div className={`lead-bulkbar ${mobilePane === "detail" ? "max-lg:hidden" : ""}`} role="region" aria-label="Selectie">
               <span className="lead-bulkbar__n">{picked.size} geselecteerd</span>

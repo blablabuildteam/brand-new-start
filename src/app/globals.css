@@ -1393,6 +1393,7 @@ button.radar-opp[aria-current="true"]:hover:not(:disabled) {
 }
 .lead-row:hover {
   background: var(--surface-2);
+  z-index: 3;
 }
 .lead-row--picked {
   background: color-mix(in srgb, var(--surface-2) 85%, var(--ink) 4%);
@@ -1440,6 +1441,36 @@ button.radar-opp[aria-current="true"]:hover:not(:disabled) {
   align-items: center;
   gap: 0.35rem;
   margin-left: auto;
+}
+.lead-donefold {
+  position: relative;
+}
+.lead-donefold__sum {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  list-style: none;
+  cursor: pointer;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  padding: 0.28rem 0.7rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+.lead-donefold__sum::-webkit-details-marker {
+  display: none;
+}
+.lead-donefold[open] .lead-donefold__sum {
+  color: var(--ink);
+  border-color: color-mix(in srgb, var(--ink) 25%, var(--line));
+}
+.lead-donefold__body {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.4rem;
 }
 .lead-row:last-child {
   border-bottom: 0;
@@ -1533,6 +1564,7 @@ button.radar-opp[aria-current="true"]:hover:not(:disabled) {
   align-items: center;
   gap: 0.4rem;
   padding: 0 0.75rem 0 0;
+  overflow: visible;
 }
 .btn-row {
   height: 1.75rem;
@@ -1640,11 +1672,24 @@ button.radar-opp[aria-current="true"]:hover:not(:disabled) {
   cursor: pointer;
   transition: background 0.12s ease, border-color 0.12s ease;
 }
-/* Tip iets eerder zichtbaar dan de globale 0.12s-fade — anders lijkt hover “dood”. */
+/* Tips in de rijkolom: ónder het label, niet over de rij erboven. */
+.lead-row__side [data-tip]::after,
 .lead-row__confirm[data-tip]::after {
-  max-width: 13rem;
-  text-align: center;
+  top: calc(100% + 8px);
+  bottom: auto;
+  left: auto;
+  right: 0;
+  max-width: 12rem;
+  text-align: left;
+  transform: translateY(-3px);
   transition-delay: 0.05s;
+  z-index: 80;
+}
+.lead-row__side [data-tip]:hover::after,
+.lead-row__side [data-tip]:focus-visible::after,
+.lead-row__confirm[data-tip]:hover::after,
+.lead-row__confirm[data-tip]:focus-visible::after {
+  transform: translateY(0);
 }
 .lead-row__confirm:hover:not(:disabled) {
   border-color: color-mix(in srgb, var(--ink) 35%, var(--line));

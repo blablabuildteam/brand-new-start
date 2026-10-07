@@ -37,6 +37,7 @@ export function ScoreChip({
   percent,
   label,
   parts,
+  hint,
 }: {
   kans: number;
   large?: boolean;
@@ -46,6 +47,8 @@ export function ScoreChip({
   label?: string;
   /** Punten die optellen (kans) of aanwijzingen (zekerheid). */
   parts?: ScorePart[];
+  /** Extra uitleg onder de pop — bv. waarom Weg / Te dun. */
+  hint?: string;
 }) {
   const tone = scoreTone(kans);
   const band = label || BAND_SHORT[tone] || "Score";
@@ -121,7 +124,8 @@ export function ScoreChip({
                   ))}
                 </ul>
               ) : null}
-              {!percent && rows.length ? (
+              {hint ? <span className="ws-score__pop-foot">{hint}</span> : null}
+              {!hint && !percent && rows.length ? (
                 <span className="ws-score__pop-foot">Som van deze punten, max {SCORE_MAX}.</span>
               ) : null}
             </span>,
