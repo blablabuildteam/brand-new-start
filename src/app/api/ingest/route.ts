@@ -30,7 +30,10 @@ const CRON_FEEDS = { maxRecruiters: 4, maxPostsPerProfile: 8 } as const;
 /** Name the client of fresh feed posts before anyone opens the desk; stops well inside maxDuration. */
 async function identifyFresh(startedAt: number) {
   if (!hasAiKey()) return null;
-  return autoIdentifyOpenLeads({ max: 12, deadline: startedAt + 200_000 }).catch(() => null);
+  return autoIdentifyOpenLeads({
+    max: INGEST_POLICY.feedAutoAiMax,
+    deadline: startedAt + 200_000,
+  }).catch(() => null);
 }
 
 async function authorized(req: Request) {

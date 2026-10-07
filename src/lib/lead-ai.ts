@@ -78,8 +78,14 @@ export function needsAi(l: AgencyLead) {
  */
 export async function autoIdentifyOpenLeads(opts: { max: number; deadline: number; parallel?: number }) {
   const { live } = await listAgencyLeads();
-  const queue = live.filter(needsAi).slice(0, opts.max);
-  const out = { tried: 0, found: 0, left: live.filter(needsAi).length - queue.length };
+  // Eerst posts zonder enige gok (pure "AI nodig"), daarna de rest die nog mag.
+  // listAgencyLeads sorteert binnen een band al op versheid → nieuwste eerst.
+  const open = live.filter(needsAi);
+  const queue = [
+    ...open.filter((l) => !l.guess),
+    ...open.filter((l) => l.guess),
+  ].slice(0, opts.max);
+  const out = { tried: 0, found: 0, left: Math.max(0, open.length - queue.length), max: opts.max };
   const worker = async () => {
     while (queue.length && Date.now() < opts.deadline) {
       const lead = queue.shift()!;

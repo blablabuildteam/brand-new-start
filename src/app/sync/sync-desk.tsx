@@ -91,17 +91,22 @@ export default function SyncDesk() {
         message?: string;
         kept?: number;
         fetched?: number;
+        detective?: { tried?: number; found?: number; left?: number; max?: number } | null;
       };
       if (!res.ok) {
         setNote(j.message || j.error || "Sync mislukt. Probeer het later opnieuw.");
       } else {
         const kept = typeof j.kept === "number" ? j.kept : null;
         const fetched = typeof j.fetched === "number" ? j.fetched : null;
-        setNote(
-          kept != null && fetched != null
-            ? `Klaar: ${kept} bewaard · ${fetched} opgehaald.`
-            : "Sync klaar."
-        );
+        const bits = [
+          kept != null && fetched != null ? `${kept} bewaard · ${fetched} opgehaald` : null,
+          j.detective && typeof j.detective.tried === "number"
+            ? `AI ${j.detective.tried} posts · ${j.detective.found ?? 0} namen${
+                j.detective.left ? ` · ${j.detective.left} nog open` : ""
+              }`
+            : null,
+        ].filter(Boolean);
+        setNote(bits.length ? `Klaar: ${bits.join(" · ")}.` : "Sync klaar.");
       }
       await load();
     } catch (e) {
@@ -277,6 +282,9 @@ function SourceRow({
               ? ` · band ${eurRange(source.costEur)}`
               : null}
           </p>
+        ) : null}
+        {source.note ? (
+          <p className="mt-1 text-[0.72rem] leading-snug text-[var(--muted)]">{source.note}</p>
         ) : null}
       </div>
       {source.locked ? (

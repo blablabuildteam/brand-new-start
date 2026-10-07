@@ -1,5 +1,6 @@
 import {
   CHANNEL_ACTION,
+  INGEST_POLICY,
   SYNC_COST_PER_RUN,
   SYNC_LOCK_HOURS,
   estimateSpendFromRuns,
@@ -25,6 +26,8 @@ export type SyncDeskSource = {
   locked: boolean;
   lockedUntil: string | null;
   costEur: { low: number; high: number };
+  /** Extra uitleg onder de prijs — bv. auto-AI na feeds. */
+  note?: string | null;
 };
 
 export type SyncDeskRecent = {
@@ -81,6 +84,10 @@ export async function buildSyncDeskPayload() {
       locked: syncStillLocked(lastAt),
       lockedUntil: lockedUntilIso(lastAt),
       costEur: cost,
+      note:
+        s.id === "recruiter-feeds"
+          ? `Na ophalen: AI op max ${INGEST_POLICY.feedAutoAiMax} posts zonder voorstel (sterke regel-goks slaan we over).`
+          : null,
     };
   });
 

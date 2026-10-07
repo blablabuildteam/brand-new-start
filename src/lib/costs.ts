@@ -225,6 +225,12 @@ export const INGEST_POLICY = {
   recruiterFeedMaxProfiles: 8,
   recruiterFeedMaxPosts: 12,
   recruiterFeedCadenceDays: 2,
+  /**
+   * Na feed-sync: AI automatisch op max N posts zonder voorstel.
+   * ~€0,02–0,10/st → N=25 ≈ €0,50–2,50 bovenop de feed-sync.
+   * Stop tussentijds bij tijdslimiet van de sync-request.
+   */
+  feedAutoAiMax: 25,
 } as const;
 
 /**
@@ -288,10 +294,13 @@ export const SYNC_COST_PER_RUN = {
     },
     "recruiter-feeds": {
       label: "Recruiter-feeds",
-      tool: "Apify",
-      /** Typisch 8 profielen × recente posts */
-      eur: { low: 0.9, high: 1.8 },
-      what: `tot ${INGEST_POLICY.recruiterFeedMaxProfiles} recruiters · recente posts`,
+      tool: "Apify + AI eindklant",
+      /** Feed (~€0,90–1,80) + auto-AI op max feedAutoAiMax posts (~€0,50–2,50) */
+      eur: {
+        low: Math.round((0.9 + INGEST_POLICY.feedAutoAiMax * 0.02) * 100) / 100,
+        high: Math.round((1.8 + INGEST_POLICY.feedAutoAiMax * 0.1) * 100) / 100,
+      },
+      what: `tot ${INGEST_POLICY.recruiterFeedMaxProfiles} recruiters · daarna AI op max ${INGEST_POLICY.feedAutoAiMax} posts zonder voorstel`,
     },
     lusha: {
       label: "Lusha mail/tel",
