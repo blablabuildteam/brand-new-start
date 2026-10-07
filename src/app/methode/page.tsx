@@ -1,474 +1,73 @@
-import Link from "next/link";
 import { AppShell } from "@/components/app-shell";
 import { BlablaLogo } from "@/components/blabla-logo";
-import { SourceLogo } from "@/components/source-logo";
-import { getSession, isAdmin } from "@/lib/auth";
-import { buildLinkedInJobSearchUrls } from "@/lib/ingest/market-jobs";
-import { enabledPlatforms } from "@/lib/platforms";
-import { INGEST_POLICY, SYNC_COST_PER_RUN } from "@/lib/costs";
-import { loadHuntSettings } from "@/lib/hunt";
 import { PRODUCT } from "@/lib/product-brand";
-import { SCORE_MAX, SCORE_METHOD } from "@/lib/score";
 
 export const metadata = {
   title: `Hoe het werkt — ${PRODUCT.name}`,
-  description: "Desk-flow, bronnen en filters in begrijpelijke taal.",
+  description: "Korte werkwijze van de desk.",
 };
 
-function SourceHeading({
-  channel,
-  title,
-  tool,
-}: {
-  channel?: string;
-  title: string;
-  tool: string;
-}) {
+const STEPS = [
+  {
+    t: "Jobboards",
+    d: "Vacatures van de boards. Score helpt sorteren; jij klikt wat interessant is.",
+  },
+  {
+    t: "Recruiter feed",
+    d: "Posts van kantoren die je volgt. Jij bevestigt wie de opdrachtgever is.",
+  },
+  {
+    t: "Kansen",
+    d: "Bevestigde en warme kansen op één lijst — met de volgende stap per rij.",
+  },
+  {
+    t: "Voorstel",
+    d: "Bericht klaarzetten. Jij stuurt zelf; er gaat niets automatisch de deur uit.",
+  },
+] as const;
+
+export default function MethodePage() {
   return (
-    <div className="flex flex-wrap items-center gap-2.5">
-      {channel ? <SourceLogo channel={channel} size="md" /> : null}
-      <div className="min-w-0">
-        <h2 className="text-base font-semibold text-[var(--ink)]" style={{ fontFamily: "var(--display)" }}>
-          {title}
-        </h2>
-        <p className="text-[0.68rem] text-[var(--muted)]" style={{ fontFamily: "var(--mono)" }}>
-          {tool}
+    <AppShell title="Hoe het werkt" subtitle="Korte werkwijze">
+      <main className="ws-shell ws-shell--page">
+        <p className="mb-6 max-w-lg text-sm leading-relaxed text-[var(--muted)]">
+          Sync haalt bronnen op (kost per run). Daarna werk je de desk af. Geen automatische sync.
         </p>
-      </div>
-    </div>
-  );
-}
 
-export default async function MethodePage() {
-  const [hunt, session] = await Promise.all([loadHuntSettings(), getSession()]);
-  const admin = isAdmin(session);
-  const todayLinkedIn = buildLinkedInJobSearchUrls(INGEST_POLICY.syncMarketUrls);
-  const platforms = enabledPlatforms();
-  const indeedQueries = hunt.roles
-    .slice(0, INGEST_POLICY.syncIndeedQueries)
-    .map((role) => (hunt.requireContract ? `${role} ZZP` : role));
-  const freelanceQueries = hunt.roles.slice(0, INGEST_POLICY.syncFreelanceQueries);
-
-  const roleNames = [...new Set(hunt.roles)].sort((a, b) => a.localeCompare(b, "nl"));
-
-  return (
-    <AppShell title="Hoe het werkt" subtitle="Desk-flow, bronnen en filters">
-    <main className="ws-shell ws-shell--page">
-      <p className="mb-8 max-w-xl text-sm leading-relaxed text-[var(--muted)]">
-        Geen automatische sync. Jij (of admin) haalt LinkedIn, Indeed en Freelance.nl handmatig op —
-        advies ~1×/{INGEST_POLICY.boardsCadenceDays} dagen. Daarna werk je de kansen af in de desk.
-      </p>
-
-      <section className="mb-6 overflow-hidden rounded-md border border-[var(--line)] bg-[var(--surface)]">
-        <div className="border-b border-[var(--line)]/80 px-4 py-3 sm:px-5">
-          <h2 className="text-base font-semibold" style={{ fontFamily: "var(--display)" }}>
-            De desk in 4 stappen
-          </h2>
-        </div>
-        <ol className="divide-y divide-[var(--line)]/80 text-sm">
-          {[
-            {
-              t: "Jobboards",
-              d: "Hits van LinkedIn, Indeed, Freelance.nl. Score rangschikt; jij klikt wat interessant is.",
-            },
-            {
-              t: "Recruiter feed",
-              d: "Posts van recruiters die je volgt. AI raadt de eindklant; jij bevestigt. Daarna hiring manager zoeken.",
-            },
-            {
-              t: "Kansen",
-              d: "Bevestigde + warme kansen op één lijst. Per rij zie je stage, bron, HM en volgende actie.",
-            },
-            {
-              t: "Voorstel",
-              d: "Bericht klaarzetten voor hiring manager of ZZP’er. Shortlist komt uit jullie eigen bench (Instellingen) — niets gaat automatisch de deur uit.",
-            },
-          ].map((row, i) => (
-            <li key={row.t} className="flex gap-3 px-4 py-3 sm:px-5">
-              <span
-                className="mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-full bg-[var(--accent-soft)] text-[0.7rem] font-bold text-[var(--accent)]"
-                style={{ fontFamily: "var(--mono)" }}
-              >
-                {i + 1}
-              </span>
-              <span>
-                <strong className="text-[var(--ink)]">{row.t}</strong>
-                <span className="mt-0.5 block text-[var(--muted)]">{row.d}</span>
-              </span>
-            </li>
-          ))}
-        </ol>
-      </section>
-
-      <section className="mb-6 overflow-hidden rounded-md border border-[var(--line)] bg-[var(--surface)]">
-        <div className="border-b border-[var(--line)]/80 px-4 py-3 sm:px-5">
-          <h2 className="text-base font-semibold" style={{ fontFamily: "var(--display)" }}>
-            In het kort
-          </h2>
-        </div>
-        <ul className="divide-y divide-[var(--line)]/80 text-sm">
-          {[
-            "Elke bron draait apart: LinkedIn, Indeed, Freelance.nl, recruiter-feeds (en optioneel careers).",
-            hunt.requireContract
-              ? "Interessant = jouw rollen (Instellingen) én contract/ZZP/interim. Score rangschikt. Dubbele URL = refresh."
-              : "Interessant = jouw rollen (Instellingen). Score rangschikt. Dubbele URL = refresh.",
-            "AI research (Recruiter feed) zoekt de eindklant via web + desk-geheugen. Jij blijft de eindbeslisser.",
-            admin
-              ? "Stack-kosten (Apify/Firecrawl/Claude) staan onder Kosten — alleen zichtbaar voor admin."
-              : "Filteren in de app is gratis. Sync haalt bronnen op en kost per run.",
-          ].map((t) => (
-            <li key={t} className="flex gap-2 px-4 py-2.5 sm:px-5">
-              <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-[var(--accent)]" />
-              <span className="text-[var(--ink)]">{t}</span>
-            </li>
-          ))}
-        </ul>
-      </section>
-
-      <section className="mb-6 overflow-hidden rounded-md border border-[var(--accent)]/30 bg-[var(--accent-soft)]/25 px-4 py-4 sm:px-5">
-        <h2 className="text-base font-semibold" style={{ fontFamily: "var(--display)" }}>
-          Wat is “interessant”?
-        </h2>
-        <ol className="mt-3 space-y-2.5 text-sm text-[var(--ink)]">
-          <li>
-            <strong>1. Binnen jouw rollen</strong> — titel/tekst moet matchen met het kader in{" "}
-            <a href="/instellingen">Instellingen</a>. Anders: weg.
-          </li>
-          {hunt.requireContract ? (
-            <li>
-              <strong>2. Contract / ZZP / interim is verplicht</strong> — vaste dienstverband-postings
-              komen niet op de radar.
-            </li>
-          ) : (
-            <li>
-              <strong>2. Contract-filter staat uit</strong> — ook vaste rollen mogen door, tot je het
-              weer aanzet in Instellingen.
-            </li>
-          )}
-          <li>
-            <strong>3. Score rangschikt per opening</strong> — sterke / warme / volgen. Meerdere
-            vacatures bij één klant = één rij in de lijst, alle openingen rechts met eigen score.
-            De lijst toont de hoogste score van dat bedrijf.
-          </li>
-        </ol>
-      </section>
-
-      <section
-        id="score"
-        className="mb-6 scroll-mt-8 overflow-hidden rounded-md border border-[var(--line)] bg-[var(--surface)]"
-      >
-        <div className="border-b border-[var(--line)]/80 px-4 py-3 sm:px-5">
-          <h2 className="text-base font-semibold" style={{ fontFamily: "var(--display)" }}>
-            Hoe werkt de kans-score?
-          </h2>
-          <p className="mt-1 text-xs text-[var(--muted)]">Max {SCORE_MAX} · herschatting bij elke sync</p>
-        </div>
-        <div className="space-y-3 px-4 py-3 text-sm leading-relaxed text-[var(--ink)] sm:px-5">
-          <p>{SCORE_METHOD.intro}</p>
-          <p className="text-[var(--muted)]">
-            “Warme kans” is een <strong className="text-[var(--ink)]">scoreband</strong> (≥55), geen
-            grafiek die automatisch omhoog loopt. De score kan ook lager worden (bijv. als “net op de
-            radar”-punten wegzakken).
-          </p>
-        </div>
-        <ul className="divide-y divide-[var(--line)]/80 border-t border-[var(--line)]/80 text-sm">
-          {SCORE_METHOD.bands.map((b) => (
-            <li key={b.id} className="flex flex-wrap items-baseline justify-between gap-2 px-4 py-2.5 sm:px-5">
-              <span>
-                <strong>{b.label}</strong>
-                <span className="text-[var(--muted)]"> — {b.meaning}</span>
-              </span>
-              <span className="tabular-nums text-[var(--muted)]" style={{ fontFamily: "var(--mono)" }}>
-                {b.id === "cold" ? `< ${SCORE_METHOD.bands[2]!.min}` : `≥ ${b.min}`}
-              </span>
-            </li>
-          ))}
-        </ul>
-        <div className="border-t border-[var(--line)]/80 px-4 py-3 sm:px-5">
-          <p className="mb-2 text-[0.62rem] uppercase tracking-wide text-[var(--muted)]">
-            Factoren (punten stapelen)
-          </p>
-          <ul className="space-y-1.5 text-sm">
-            {SCORE_METHOD.factors.map((f) => (
-              <li key={f.when} className="flex justify-between gap-3">
-                <span className="text-[var(--ink)]">{f.when}</span>
-                <span className="shrink-0 tabular-nums text-[var(--green)]" style={{ fontFamily: "var(--mono)" }}>
-                  {f.points}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      </section>
-
-      <section className="mb-6 overflow-hidden rounded-md border border-[var(--line)] bg-[var(--surface)]">
-        <div className="border-b border-[var(--line)]/80 px-4 py-3 sm:px-5">
-          <h2 className="text-base font-semibold" style={{ fontFamily: "var(--display)" }}>
-            Rollen (Instellingen)
-          </h2>
-          <p className="mt-1 text-xs text-[var(--muted)]">
-            Dit kader staat in <a href="/instellingen">Instellingen</a>. Sync zoekt hierop.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-1.5 px-4 py-3 sm:px-5">
-          {roleNames.map((r) => (
-            <span key={r} className="rounded bg-[var(--surface-2)] px-2 py-1 text-xs text-[var(--ink)]">
-              {r}
-            </span>
-          ))}
-        </div>
-        <p className="border-t border-[var(--line)]/80 px-4 py-2.5 text-xs text-[var(--muted)] sm:px-5">
-          {hunt.requireContract ? "Alleen contract / ZZP / interim." : "Ook vaste rollen toegestaan."}{" "}
-          {hunt.market}
-        </p>
-      </section>
-
-      {/* —— Per bron —— */}
-      <h2
-        className="mb-3 text-[0.7rem] font-medium uppercase tracking-[0.08em] text-[var(--muted)]"
-        style={{ fontFamily: "var(--mono)" }}
-      >
-        Per bron · wat scrapen we
-      </h2>
-
-      <section className="mb-4 overflow-hidden rounded-md border border-[var(--line)] bg-[var(--surface)]">
-        <div className="border-b border-[var(--line)]/80 px-4 py-3 sm:px-5">
-          <SourceHeading channel="linkedin-jobs" title="LinkedIn Jobs" tool="Apify · hoofdboon" />
-        </div>
-        <div className="space-y-3 px-4 py-3 text-sm leading-relaxed text-[var(--ink)] sm:px-5">
-          <p>
-            We bouwen LinkedIn-zoek-URL’s voor jouw rollen
-            {hunt.requireContract ? (
-              <>
-                {" "}
-                met <strong>contract/ZZP-filters</strong>
-              </>
-            ) : null}
-            , draaien die via Apify, en halen tot ~{INGEST_POLICY.syncMarketJobs} jobs op (cap:{" "}
-            {INGEST_POLICY.syncMarketUrls} zoek-URL’s per sync).
-          </p>
-          <p className="text-[var(--muted)]">
-            Daarna in-app: alleen jouw rollen
-            {hunt.requireContract ? " + contract/ZZP" : ""} houden · dedup op URL · score op de radar.
-            Volgorde van queries roteert licht per dag.
-          </p>
-          <p className="text-xs text-[var(--muted)]">
-            Vandaag {todayLinkedIn.length} URL’s
-            {admin
-              ? ` · ≈ €${SYNC_COST_PER_RUN.actions.market.eur.low}–${SYNC_COST_PER_RUN.actions.market.eur.high} / sync`
-              : ""}
-          </p>
-        </div>
-        <ul className="max-h-44 divide-y divide-[var(--line)]/70 overflow-y-auto border-t border-[var(--line)]/80 text-sm">
-          {todayLinkedIn.map((s) => (
-            <li key={s.url} className="flex items-center justify-between gap-3 px-4 py-2 sm:px-5">
-              <span className="font-medium text-[var(--ink)]">{s.query}</span>
-              <a
-                href={s.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="shrink-0 text-xs text-[var(--accent)] no-underline hover:underline"
-              >
-                open →
-              </a>
-            </li>
-          ))}
-        </ul>
-      </section>
-
-      <section className="mb-4 overflow-hidden rounded-md border border-[var(--line)] bg-[var(--surface)]">
-        <div className="border-b border-[var(--line)]/80 px-4 py-3 sm:px-5">
-          <SourceHeading channel="indeed" title="Indeed NL" tool="Apify · aparte sync-run · alle rollen" />
-        </div>
-        <div className="space-y-3 px-4 py-3 text-sm leading-relaxed text-[var(--ink)] sm:px-5">
-          <p>
-            Indeed is een <strong>eigen sync-run</strong>. Per boards-sync draaien we{" "}
-            <strong>alle ingestelde rollen</strong> (nu {indeedQueries.length} queries
-            {hunt.requireContract ? ": rol + “ZZP”" : ""}), via Apify{" "}
-            <code className="text-[0.75rem]">misceres/indeed-scraper</code>, land NL.
-          </p>
-          <p>
-            <strong>Waarom niet elke dag?</strong> Alle rollen tegelijk is duurder/zwaarder dan één
-            query. Daarom: <strong>volledige dekking per run</strong>, cadans ~1×/
-            {INGEST_POLICY.boardsCadenceDays} dagen — aanvullen/updaten i.p.v. elke dag één rol te
-            roteren. Dedup op URL: bestaande hits worden vernieuwd, nieuwe komen erbij.
-          </p>
-          <p className="text-[var(--muted)]">
-            Cap: tot ~{INGEST_POLICY.syncIndeedMax} items over alle queries samen (~
-            {Math.max(4, Math.ceil(INGEST_POLICY.syncIndeedMax / Math.max(1, indeedQueries.length)))}{" "}
-            per rol). We bewaren titel, bedrijf, URL, locatie, plaatsingsdatum/aanmeldingen (als
-            Apify die levert). Daarna filter op jouw rollen
-            {hunt.requireContract ? " + contract" : ""} · score op de radar.
-          </p>
-          <p className="text-xs text-[var(--muted)]">
-            Handmatig via Sync & meer → Alleen Indeed
-            {admin
-              ? `. ≈ €${SYNC_COST_PER_RUN.actions.indeed.eur.low}–${SYNC_COST_PER_RUN.actions.indeed.eur.high} / run (los van Freelance.nl)`
-              : ""}
-            .
-          </p>
-        </div>
-        <div className="border-t border-[var(--line)]/80 px-4 py-2.5 sm:px-5">
-          <p className="mb-2 text-[0.62rem] uppercase tracking-wide text-[var(--muted)]">
-            Queries per boards-sync ({indeedQueries.length})
-          </p>
-          <ul className="max-h-52 divide-y divide-[var(--line)]/70 overflow-y-auto text-sm">
-            {indeedQueries.map((q) => (
-              <li key={q} className="flex items-center justify-between gap-3 py-1.5">
-                <span className="font-medium text-[var(--ink)]" style={{ fontFamily: "var(--mono)" }}>
-                  {q}
-                </span>
-                <a
-                  href={`https://nl.indeed.com/jobs?q=${encodeURIComponent(q)}&l=Netherlands`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="shrink-0 text-xs text-[var(--accent)] no-underline hover:underline"
-                >
-                  open →
-                </a>
-              </li>
-            ))}
-          </ul>
-        </div>
-      </section>
-
-      <section className="mb-4 overflow-hidden rounded-md border border-[var(--line)] bg-[var(--surface)]">
-        <div className="border-b border-[var(--line)]/80 px-4 py-3 sm:px-5">
-          <SourceHeading channel="freelance-nl" title="Freelance.nl" tool="sitemap · aparte sync-run" />
-        </div>
-        <div className="space-y-3 px-4 py-3 text-sm leading-relaxed text-[var(--ink)] sm:px-5">
-          <p>
-            De zoek-URL levert geen vacatures meer (dat is een marketingpagina). We lezen de
-            publieke sitemap en de nieuwste opdrachtpagina’s in je rollen.{" "}
-            <strong>Eigen sync-ronde</strong>, los van Indeed.
-          </p>
-          <p className="text-[var(--muted)]">
-            Een open opdracht noemt de opdrachtgever meestal niet: die tekst zit achter een login.
-            Alleen als de naam wél op de pagina staat, komt de vacature op Jobboards. Anders slaan
-            we hem over, zodat er geen “Freelance.nl” als nep-eindklant verschijnt.
-          </p>
-          <p className="text-xs text-[var(--muted)]">
-            Geen Firecrawl meer: de sitemap en de opdrachtpagina’s zijn publiek. De rollen hieronder
-            bepalen welke opdrachten we bekijken.
-          </p>
-          <div className="flex flex-wrap gap-1.5">
-            {freelanceQueries.map((q) => (
-              <span
-                key={q}
-                className="rounded bg-[var(--surface-2)] px-2 py-1 text-[0.7rem] text-[var(--ink)]"
-                style={{ fontFamily: "var(--mono)" }}
-              >
-                {q}
-              </span>
-            ))}
+        <section className="mb-8 overflow-hidden rounded-md border border-[var(--line)] bg-[var(--surface)]">
+          <div className="border-b border-[var(--line)]/80 px-4 py-3 sm:px-5">
+            <h2 className="text-base font-semibold" style={{ fontFamily: "var(--display)" }}>
+              De desk
+            </h2>
           </div>
-        </div>
-      </section>
+          <ol className="divide-y divide-[var(--line)]/80 text-sm">
+            {STEPS.map((row, i) => (
+              <li key={row.t} className="flex gap-3 px-4 py-3 sm:px-5">
+                <span
+                  className="mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-full bg-[var(--accent-soft)] text-[0.7rem] font-bold text-[var(--accent)]"
+                  style={{ fontFamily: "var(--mono)" }}
+                >
+                  {i + 1}
+                </span>
+                <span>
+                  <strong className="text-[var(--ink)]">{row.t}</strong>
+                  <span className="mt-0.5 block text-[var(--muted)]">{row.d}</span>
+                </span>
+              </li>
+            ))}
+          </ol>
+        </section>
 
-      <section className="mb-4 overflow-hidden rounded-md border border-[var(--line)] bg-[var(--surface)]">
-        <div className="border-b border-[var(--line)]/80 px-4 py-3 sm:px-5">
-          <SourceHeading
-            channel="firecrawl-careers"
-            title="Careers / platforms"
-            tool="Firecrawl · watchlist (via Sync & meer)"
-          />
-        </div>
-        <div className="space-y-3 px-4 py-3 text-sm leading-relaxed text-[var(--ink)] sm:px-5">
-          <p>
-            Geen scrape van heel NL. Vaste lijst bedrijven (
-            <code className="text-[0.75rem]">platforms.ts</code>) — Firecrawl opent hun
-            careers-URL en zoekt jouw rollen in de tekst. Cap: tot{" "}
-            {INGEST_POLICY.careersMaxUrlsPerRun} pagina’s / run · nu {platforms.length} enabled.
-          </p>
-        </div>
-        <ul className="grid gap-0 border-t border-[var(--line)]/80 sm:grid-cols-2">
-          {platforms.map((p) => (
-            <li
-              key={p.id}
-              className="flex items-baseline justify-between gap-2 border-b border-[var(--line)]/70 px-4 py-2 text-sm sm:px-5"
-            >
-              <span>
-                <strong>{p.company}</strong>
-                {p.sector ? <span className="text-[var(--muted)]"> · {p.sector}</span> : null}
-              </span>
-              <a
-                href={p.careersUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="shrink-0 text-xs text-[var(--accent)] no-underline hover:underline"
-              >
-                careers →
-              </a>
-            </li>
-          ))}
-        </ul>
-      </section>
-
-      <section className="mb-4 overflow-hidden rounded-md border border-[var(--line)] bg-[var(--surface)]">
-        <div className="border-b border-[var(--line)]/80 px-4 py-3 sm:px-5">
-          <SourceHeading title="TenderNed" tool="Officiële API · stub tot credentials" />
-        </div>
-        <div className="px-4 py-3 text-sm leading-relaxed text-[var(--muted)] sm:px-5">
-          Awards/aanbestedingen als capaciteits-signaal (geen vacature-scrape). Staat klaar in code;
-          live zodra API-credentials er zijn. Geen Apify/Firecrawl-kosten.
-        </div>
-      </section>
-
-      <section className="mb-6 overflow-hidden rounded-md border border-[var(--line)] bg-[var(--surface)]">
-        <div className="border-b border-[var(--line)]/80 px-4 py-3 sm:px-5">
-          <SourceHeading title="Team-pulse" tool="Eigen input · geen scraper" />
-        </div>
-        <div className="px-4 py-3 text-sm leading-relaxed text-[var(--muted)] sm:px-5">
-          Handmatige/team-meldingen (“ZZP besproken bij X”). Zwaar in de score, gratis. UI volgt
-          later; API bestaat al.
-        </div>
-      </section>
-
-      {admin ? (
-      <section className="mb-8 overflow-hidden rounded-md border border-[var(--line)] bg-[var(--surface)]">
-        <div className="border-b border-[var(--line)]/80 px-4 py-3 sm:px-5">
-          <h2 className="text-base font-semibold" style={{ fontFamily: "var(--display)" }}>
-            Wat betekenen die kosten?
-          </h2>
-          <p className="mt-1 text-xs text-[var(--muted)]">
-            Je betaalt Apify/Firecrawl/Claude per scrape/run — niet per “goede hit”. Alleen admin ziet dit.
-          </p>
-        </div>
-        <div className="grid gap-px bg-[var(--line)]/80 sm:grid-cols-2">
-          {Object.entries(SYNC_COST_PER_RUN.actions).map(([key, a]) => (
-            <div key={key} className="bg-[var(--surface)] px-4 py-3">
-              <div className="flex items-baseline justify-between gap-2">
-                <p className="text-sm font-medium text-[var(--ink)]">{a.label}</p>
-                <p className="tabular-nums text-sm font-bold" style={{ fontFamily: "var(--mono)" }}>
-                  €{a.eur.low.toFixed(2)}–{a.eur.high.toFixed(2)}
-                </p>
-              </div>
-              <p className="mt-0.5 text-[0.7rem] text-[var(--muted)]">
-                {a.tool} · per sync · {a.what}
-              </p>
-            </div>
-          ))}
-        </div>
-        <p className="border-t border-[var(--line)]/80 px-4 py-2.5 text-xs text-[var(--muted)] sm:px-5">
-          {SYNC_COST_PER_RUN.disclaimer} Maandbeeld:{" "}
-          <Link href="/costs" className="text-[var(--accent)]">
-            Kosten / ROI
-          </Link>
-          .
-        </p>
-      </section>
-      ) : null}
-
-      <a
-        href="https://blablabuild.com"
-        target="_blank"
-        rel="noopener noreferrer"
-        className="inline-flex items-center gap-2 text-xs text-[var(--muted)] no-underline"
-      >
-        Tool gebouwd door <BlablaLogo className="h-4 w-4" />
-        <span className="font-semibold text-[var(--ink)]">blablabuild</span>
-      </a>
-    </main>
+        <a
+          href="https://blablabuild.com"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-2 text-xs text-[var(--muted)] no-underline"
+        >
+          Tool gebouwd door <BlablaLogo className="h-4 w-4" />
+          <span className="font-semibold text-[var(--ink)]">blablabuild</span>
+        </a>
+      </main>
     </AppShell>
   );
 }
