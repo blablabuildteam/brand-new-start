@@ -231,6 +231,39 @@ function WhyBlock({ lead }: { lead: AgencyLead }) {
 /** Werkbakken eerst — afgehandeld secundair. */
 type Bucket = "confirm" | "needAi" | "doubt" | "confirmed" | "rejected" | "all";
 
+/** Periode-filter bovenin — data blijft, jij kiest het venster. */
+type DayFilter = 7 | 14 | 20 | 30 | 60 | "all";
+const DAY_OPTIONS: { id: DayFilter; label: string }[] = [
+  { id: 7, label: "7d" },
+  { id: 14, label: "14d" },
+  { id: 20, label: "20d" },
+  { id: 30, label: "30d" },
+  { id: 60, label: "60d" },
+  { id: "all", label: "Alles" },
+];
+const DAY_STORAGE = "scout-feed-days";
+
+function readDayFilter(): DayFilter {
+  if (typeof window === "undefined") return 20;
+  try {
+    const v = window.localStorage.getItem(DAY_STORAGE);
+    if (v === "all") return "all";
+    const n = Number(v);
+    if (n === 7 || n === 14 || n === 20 || n === 30 || n === 60) return n;
+  } catch {
+    /* ignore */
+  }
+  return 20;
+}
+
+function withinDayFilter(l: AgencyLead, days: DayFilter) {
+  if (days === "all") return true;
+  if (!l.postedAt) return false;
+  const t = new Date(l.postedAt).getTime();
+  if (Number.isNaN(t)) return false;
+  return Date.now() - t <= days * 86_400_000;
+}
+
 const WORK_BUCKETS = ["confirm", "needAi", "doubt"] as const;
 const DONE_BUCKETS = ["confirmed", "rejected", "all"] as const;
 
@@ -651,6 +684,7 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
   const [pickedId, setPickedId] = useState<string | null>(null);
   const [mobilePane, setMobilePane] = useState<"list" | "detail">("list");
   const [bucketPick, setBucketPick] = useState<Bucket | null>(null);
+  const [dayFilter, setDayFilter] = useState<DayFilter>(20);
   /** Hover/focus op een bak → hint toont die uitleg; anders de actieve bak. */
   const [hintBucket, setHintBucket] = useState<Bucket | null>(null);
   const [picked, setPicked] = useState<Set<string>>(() => new Set());
@@ -739,12 +773,28 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
   useLayoutEffect(() => {
     const cached = cachePeek<Payload>("leads");
     if (cached?.live?.length) applyPayload(cached);
+    setDayFilter(readDayFilter());
   }, []);
 
   useEffect(() => {
     void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  function setDayFilterPersist(next: DayFilter) {
+    setDayFilter(next);
+    try {
+      window.localStorage.setItem(DAY_STORAGE, String(next));
+    } catch {
+      /* ignore */
+    }
+  }
+
+  const inWindow = useMemo(
+    () => (data?.live || []).filter((l) => withinDayFilter(l, dayFilter)),
+    [data, dayFilter]
+  );
+  const hiddenByDays = (data?.live.length || 0) - inWindow.length;
 
   const counts = useMemo(() => {
     const c: Record<Bucket, number> = {
@@ -755,12 +805,12 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
       rejected: 0,
       all: 0,
     };
-    for (const l of data?.live || []) {
+    for (const l of inWindow) {
       c.all += 1;
       c[bucketOf(l)] += 1;
     }
     return c;
-  }, [data]);
+  }, [inWindow]);
   const bucket: Bucket =
     bucketPick ??
     (counts.confirm ? "confirm" : counts.needAi ? "needAi" : counts.doubt ? "doubt" : "confirm");
@@ -768,11 +818,12 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
 
   const matches = useMemo(() => {
     return (l: AgencyLead) => {
+      if (!withinDayFilter(l, dayFilter)) return false;
       if (bucket !== "all" && bucketOf(l) !== bucket) return false;
       if (watchAgency && l.agency.name.toLowerCase() !== watchAgency.toLowerCase()) return false;
       return true;
     };
-  }, [bucket, watchAgency]);
+  }, [bucket, watchAgency, dayFilter]);
 
   const filteredLive = useMemo(() => (data ? data.live.filter(matches) : []), [data, matches]);
   const selected =
@@ -1254,6 +1305,36 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
           </details>
 
           <div className={`lead-buckets ${mobilePane === "detail" ? "max-lg:hidden" : ""}`}>
+            <div className="lead-dayfilter" role="group" aria-label="Periode">
+              <span className="lead-dayfilter__label">Periode</span>
+              <div className="lead-dayfilter__opts">
+                {DAY_OPTIONS.map((opt) => (
+                  <button
+                    key={String(opt.id)}
+                    type="button"
+                    className={`ws-chip ${dayFilter === opt.id ? "ws-chip--on" : ""}`}
+                    onClick={() => setDayFilterPersist(opt.id)}
+                    title={
+                      opt.id === "all"
+                        ? "Alle posts, ongeacht leeftijd"
+                        : `Alleen posts van de laatste ${opt.id} dagen`
+                    }
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+              {hiddenByDays > 0 && dayFilter !== "all" ? (
+                <button
+                  type="button"
+                  className="lead-dayfilter__more"
+                  onClick={() => setDayFilterPersist("all")}
+                  title="Toon ook oudere posts"
+                >
+                  +{hiddenByDays} ouder
+                </button>
+              ) : null}
+            </div>
             <div className="lead-buckets__row">
               <div className="lead-seg" role="tablist" aria-label="Werkbakken">
                 {WORK_BUCKETS.map((b) => (

@@ -1712,6 +1712,46 @@ button.radar-opp[aria-current="true"]:hover:not(:disabled) {
   gap: 0.4rem;
   min-width: 0;
 }
+.lead-dayfilter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem 0.55rem;
+  min-width: 0;
+}
+.lead-dayfilter__label {
+  font-size: 0.62rem;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.lead-dayfilter__opts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem;
+}
+.lead-dayfilter__opts .ws-chip {
+  min-height: 1.55rem;
+  padding: 0.2rem 0.5rem;
+  font-size: 0.7rem;
+}
+.lead-dayfilter__more {
+  margin: 0;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--muted);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+.lead-dayfilter__more:hover {
+  color: var(--ink);
+}
 .lead-buckets__row {
   display: flex;
   flex-wrap: wrap;
