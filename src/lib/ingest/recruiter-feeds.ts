@@ -208,6 +208,8 @@ export async function syncRecruiterFeeds(opts?: {
   maxPostsPerProfile?: number;
   /** Sla de eerste N recruiters over — zo haal je een watchlist in meerdere runs binnen de tijdslimiet. */
   offset?: number;
+  /** Negeer de 20u-profielcache (Sync “Toch ophalen”). */
+  force?: boolean;
 }): Promise<{
   mode: string;
   detail: string;
@@ -233,6 +235,7 @@ export async function syncRecruiterFeeds(opts?: {
   const known = await knownNewestByProfile(meta.feedChecks);
   const now = Date.now();
   const freshAt = (url: string) => {
+    if (opts?.force) return null;
     const at = checkedAt(meta.feedChecks, url);
     if (!at) return null;
     const t = new Date(at).getTime();
@@ -249,7 +252,7 @@ export async function syncRecruiterFeeds(opts?: {
       const tb = new Date(checkedAt(meta.feedChecks, b.linkedinUrl) || 0).getTime();
       return ta - tb;
     });
-  const unchanged = pool.filter((r) => freshAt(r.linkedinUrl) != null).length;
+  const unchanged = opts?.force ? 0 : pool.filter((r) => freshAt(r.linkedinUrl) != null).length;
   const batch = [...never, ...due].slice(0, maxRecruiters);
   const searched = batch.map((r) => `${r.name} · ${r.agency.name}`);
 

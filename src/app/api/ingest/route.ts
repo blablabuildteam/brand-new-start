@@ -228,6 +228,7 @@ export async function POST(req: Request) {
         Number((body as { maxPostsPerProfile?: number }).maxPostsPerProfile) ||
         INGEST_POLICY.recruiterFeedMaxPosts,
       offset: Number((body as { offset?: number }).offset) || 0,
+      force: Boolean((body as { force?: boolean }).force),
     });
     await alertNewHits({ kind: "Recruiter-feeds", kept: result.kept, hits: result.hits });
     const detective = await identifyFresh(startedAt);

@@ -83,7 +83,7 @@ export default function SyncDesk() {
     void load();
   }, [load]);
 
-  async function runSource(id: SyncDeskAction) {
+  async function runSource(id: SyncDeskAction, force = false) {
     if (busyId) return;
     setBusyId(id);
     setNote(null);
@@ -91,7 +91,7 @@ export default function SyncDesk() {
       const res = await fetch("/api/ingest", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: id }),
+        body: JSON.stringify({ action: id, force }),
       });
       const j = (await res.json().catch(() => ({}))) as {
         error?: string;
@@ -208,7 +208,7 @@ export default function SyncDesk() {
                     source={s}
                     busy={busyId === s.id}
                     disabled={Boolean(busyId)}
-                    onRun={() => void runSource(s.id)}
+                    onRun={() => void runSource(s.id, s.locked)}
                   />
                 ))}
               </ul>
