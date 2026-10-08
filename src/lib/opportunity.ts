@@ -23,7 +23,6 @@ import { listAgencySignals, patchSignalRaw } from "@/lib/store";
 import { forgetLeadVerdict, loadDeskMeta, pushAlert, saveDeskMeta } from "@/lib/desk-meta";
 import { isListingPage, type FeedMemory } from "@/lib/feed-detective";
 import { plainLinkedIn } from "@/lib/plain-text";
-import { INGEST_POLICY } from "@/lib/costs";
 
 export type LeadStatus = "suggest" | "review" | "weak" | "confirmed" | "rejected";
 
@@ -434,16 +433,8 @@ export async function listAgencyLeads(): Promise<{
     // Within a status band the freshest post goes first.
     return (seenAtById.get(b.id) || 0) - (seenAtById.get(a.id) || 0);
   });
-  const activeMs = INGEST_POLICY.deskActiveDays * 86_400_000;
-  const now = Date.now();
-  const deskLive = live.filter((l) => {
-    // Afgehandeld blijft beschikbaar; open werkbakken alleen ≤ deskActiveDays.
-    if (l.status === "confirmed" || l.status === "rejected") return true;
-    if (!l.postedAt) return false;
-    const t = new Date(l.postedAt).getTime();
-    if (Number.isNaN(t)) return false;
-    return now - t <= activeMs;
-  });
+  // Geen leeftijdsfilter op de feed: open posts blijven zichtbaar tot jij ze
+  // bevestigt of wegzet (×). Kansen houdt wél deskActiveDays aan.
   return {
     watchlist: watchedAgencies().map((a) => ({
       id: a.id,
@@ -457,7 +448,7 @@ export async function listAgencyLeads(): Promise<{
         linkedinUrl: r.linkedinUrl,
       })),
     })),
-    live: deskLive.map((l) => attachLeadHm(l, meta)),
+    live: live.map((l) => attachLeadHm(l, meta)),
     demo: demoLeads().map((l) => attachLeadHm(l, meta)),
   };
 }

@@ -233,8 +233,8 @@ export const INGEST_POLICY = {
   /** Max geschatte AI-research-kosten per kalenderdag (EUR). */
   feedAutoAiDailyEurMax: 10,
   /**
-   * Desk-venster: open feed-posts en kansen ouder dan dit verdwijnen uit de
-   * werkbakken (Kansen / AI nodig / Bevestigen). Afgehandeld blijft zichtbaar.
+   * Kansen-venster: kansen ouder dan dit verdwijnen uit de pipeline-lijst.
+   * Recruiter feed filtert niet meer op leeftijd — daar zet jij zelf weg.
    */
   deskActiveDays: 20,
 } as const;
