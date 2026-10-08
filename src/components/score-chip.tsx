@@ -11,6 +11,7 @@ export function scoreTone(kans: number) {
   return "cold";
 }
 
+/** Lange namen voor tooltips / docs — niet meer op de chip zelf. */
 export const SCORE_BAND: Record<string, string> = {
   hot: "Sterke kans",
   warm: "Warme kans",
@@ -18,18 +19,11 @@ export const SCORE_BAND: Record<string, string> = {
   cold: "Zwak",
 };
 
-const BAND_SHORT: Record<string, string> = {
-  hot: "Sterk",
-  warm: "Warm",
-  watch: "Volgen",
-  cold: "Zwak",
-};
-
 export type ScorePart = { label: string; points?: number };
 
 /**
- * Zelfde score overal: band, metertje, getal.
- * Kans-score vult tot 98, zekerheid tot 100. Hover toont de opbouw.
+ * Alleen cijfer + kleur. Hover toont opbouw / uitleg.
+ * Optionele `label` (bv. Bevestigd) vervangt het cijfer niet — staat in de tip.
  */
 export function ScoreChip({
   kans,
@@ -41,9 +35,9 @@ export function ScoreChip({
 }: {
   kans: number;
   large?: boolean;
-  /** Zekerheid van de opdrachtgever. Zelfde metertje, schaal 100. */
+  /** Zekerheid van de opdrachtgever. Zelfde chip, schaal 100. */
   percent?: boolean;
-  /** Vervangt de bandnaam, bijvoorbeeld Bevestigd. */
+  /** Extra status in de hover (Bevestigd / Weg). */
   label?: string;
   /** Punten die optellen (kans) of aanwijzingen (zekerheid). */
   parts?: ScorePart[];
@@ -51,9 +45,6 @@ export function ScoreChip({
   hint?: string;
 }) {
   const tone = scoreTone(kans);
-  const band = label || BAND_SHORT[tone] || "Score";
-  const max = percent ? 100 : SCORE_MAX;
-  const fill = Math.max(4, Math.min(100, Math.round((kans / max) * 100)));
   const rows = (parts || []).filter((p) => p.label).slice(0, 5);
   const [box, setBox] = useState<{ top: number; left: number; above: boolean; maxH: number } | null>(null);
   const closeTimer = useRef<number | null>(null);
@@ -84,19 +75,21 @@ export function ScoreChip({
     });
   }
 
+  const aria = percent
+    ? `Zekerheid ${kans}%${label ? ` · ${label}` : ""}`
+    : `Score ${kans} van ${SCORE_MAX}${label ? ` · ${label}` : ""}`;
+
   return (
     <span
       className={`ws-score ws-score--${tone} ${large ? "ws-score--lg" : ""}`}
+      aria-label={aria}
       onMouseEnter={(e) => open(e.currentTarget)}
       onMouseLeave={scheduleClose}
     >
-      <span className="ws-score__band">{band}</span>
-      <span className="ws-score__track" aria-hidden>
-        <span style={{ width: `${fill}%` }} />
-      </span>
+      <span className="ws-score__dot" aria-hidden />
       <span className="ws-score__value">
         <strong>{kans}</strong>
-        <span className="ws-score__max">{percent ? "%" : `/${SCORE_MAX}`}</span>
+        {!percent ? <span className="ws-score__max">/{SCORE_MAX}</span> : <span className="ws-score__max">%</span>}
       </span>
       {box && typeof document !== "undefined"
         ? createPortal(
@@ -108,7 +101,7 @@ export function ScoreChip({
               onMouseLeave={scheduleClose}
             >
               <span className="ws-score__pop-h">
-                {percent ? "Zekerheid opdrachtgever" : "Kans-score"}
+                {label || (percent ? "Zekerheid opdrachtgever" : "Kans-score")}
                 <span>
                   {kans}
                   {percent ? "%" : `/${SCORE_MAX}`}
@@ -127,6 +120,11 @@ export function ScoreChip({
               {hint ? <span className="ws-score__pop-foot">{hint}</span> : null}
               {!hint && !percent && rows.length ? (
                 <span className="ws-score__pop-foot">Som van deze punten, max {SCORE_MAX}.</span>
+              ) : null}
+              {!hint && !rows.length && !percent ? (
+                <span className="ws-score__pop-foot">
+                  {SCORE_BAND[tone] || "Score"} · drempel warm {SCORE_THRESHOLDS.warm}+.
+                </span>
               ) : null}
             </span>,
             document.body,

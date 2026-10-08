@@ -20,13 +20,14 @@ function isSync(a: Alert) {
   return a.kind === "sync";
 }
 
-/** Actionable (confirm/hm) zijn de alerts waar jij nog iets mee moet; sync-digests zijn nieuws. */
+/** Actionable eerst; sync-digests zijn nieuws. */
 function priority(a: Alert) {
-  if (a.kind === "confirm") return 0;
-  if (a.kind === "hm") return 1;
-  if (a.kind === "info") return 2;
-  if (a.kind === "sync") return 3;
-  return 4;
+  if (a.kind === "watchlist") return 0;
+  if (a.kind === "confirm") return 1;
+  if (a.kind === "hm") return 2;
+  if (a.kind === "info") return 3;
+  if (a.kind === "sync") return 4;
+  return 5;
 }
 
 export function AlertsBell() {
@@ -184,12 +185,31 @@ export function AlertsBell() {
       {open ? (
         <div className="absolute right-0 top-full z-50 mt-1.5 w-[min(20rem,calc(100vw-2rem))] overflow-hidden rounded-[var(--radius)] border border-[var(--line)] bg-[var(--surface)] shadow-[var(--shadow)]">
           <div className="flex items-center justify-between border-b border-[var(--line)] px-3 py-2">
-            <p className="ws-label">Meldingen</p>
-            {unread ? (
-              <button type="button" className="text-[0.7rem] font-semibold text-[var(--accent)]" onClick={() => void markAll()}>
-                Alles gelezen
-              </button>
-            ) : null}
+            <Link
+              href="/alerts"
+              className="ws-label no-underline hover:text-[var(--ink)]"
+              onClick={() => setOpen(false)}
+            >
+              Meldingen
+            </Link>
+            <div className="flex items-center gap-2">
+              <Link
+                href="/alerts"
+                className="text-[0.7rem] font-semibold text-[var(--muted)] no-underline hover:text-[var(--ink)]"
+                onClick={() => setOpen(false)}
+              >
+                Alles
+              </Link>
+              {unread ? (
+                <button
+                  type="button"
+                  className="text-[0.7rem] font-semibold text-[var(--accent)]"
+                  onClick={() => void markAll()}
+                >
+                  Gelezen
+                </button>
+              ) : null}
+            </div>
           </div>
           <ul className="max-h-80 overflow-y-auto">
             {!alerts.length ? (

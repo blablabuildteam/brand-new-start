@@ -9,7 +9,14 @@ import { CommandPalette } from "@/components/command-palette";
 import { cacheClear, cacheGet, cachedJson, prefetchJson } from "@/lib/client-cache";
 import { partnerForEmail } from "@/lib/partner-brand";
 
-export type AppNavId = "radar" | "leads" | "kansen" | "contact" | "instellingen" | "sync";
+export type AppNavId =
+  | "radar"
+  | "leads"
+  | "kansen"
+  | "contact"
+  | "instellingen"
+  | "sync"
+  | "alerts";
 
 const PRIMARY: { href: string; id: AppNavId; label: string; icon: "radar" | "bureaus" | "kansen" | "contact" }[] = [
   { href: "/radar", id: "radar", label: "Jobboards", icon: "radar" },
@@ -24,10 +31,23 @@ function SideIcon({
   kind,
   on,
 }: {
-  kind: "radar" | "bureaus" | "kansen" | "contact" | "settings" | "help" | "sync" | "logout";
+  kind: "radar" | "bureaus" | "kansen" | "contact" | "settings" | "help" | "sync" | "alerts" | "logout";
   on: boolean;
 }) {
   const stroke = on ? "var(--ink)" : "currentColor";
+  if (kind === "alerts") {
+    return (
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden className="shrink-0">
+        <path
+          d="M8 2.5a3.5 3.5 0 0 0-3.5 3.5v2.2L3.2 10.8h9.6L11.5 8.2V6A3.5 3.5 0 0 0 8 2.5Z"
+          stroke={stroke}
+          strokeWidth="1.4"
+          strokeLinejoin="round"
+        />
+        <path d="M6.6 12.2a1.5 1.5 0 0 0 2.8 0" stroke={stroke} strokeWidth="1.4" strokeLinecap="round" />
+      </svg>
+    );
+  }
   if (kind === "radar") {
     return (
       <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden className="shrink-0">
@@ -282,6 +302,15 @@ export function AppShell({
         >
           <SideIcon kind="sync" on={current === "sync"} />
           <span className="rail-label">Sync</span>
+        </Link>
+        <Link
+          href="/alerts"
+          data-rail="Meldingen"
+          onClick={() => setOpen(false)}
+          className={navClass(current === "alerts")}
+        >
+          <SideIcon kind="alerts" on={current === "alerts"} />
+          <span className="rail-label">Meldingen</span>
         </Link>
       </nav>
 

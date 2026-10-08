@@ -10,7 +10,7 @@ export type CrmStage = "nieuw" | "bevestigd" | "hm" | "outreach" | "won" | "lost
 export type DeskAlert = {
   id: string;
   at: string;
-  kind: "hot" | "confirm" | "hm" | "info" | "sync";
+  kind: "hot" | "confirm" | "hm" | "info" | "sync" | "watchlist";
   title: string;
   body: string;
   href?: string;
@@ -103,6 +103,12 @@ export type AiMissRow = {
 export type FeedCheck = {
   at: string;
   newestUrl?: string | null;
+  /** Laatst gelezen headline/occupation van de posts-actor. */
+  headline?: string | null;
+  /** Geparseerde werkgever, als bekend. */
+  employer?: string | null;
+  /** Wanneer we signaleerden dat dit niet meer bij het watchlist-bureau lijkt. */
+  leftAgencyAt?: string | null;
 };
 
 /** Bedrijven die geen eindklant bleken (bureau/consultancy) — nooit meer op Jobboards. */
@@ -168,7 +174,7 @@ export async function loadDeskMeta(): Promise<DeskMeta> {
       hmGuesses: raw?.hmGuesses && typeof raw.hmGuesses === "object" ? raw.hmGuesses : {},
       rejectedCompanies:
         raw?.rejectedCompanies && typeof raw.rejectedCompanies === "object" ? raw.rejectedCompanies : {},
-      alerts: Array.isArray(raw?.alerts) ? raw!.alerts.slice(0, 40) : [],
+      alerts: Array.isArray(raw?.alerts) ? raw!.alerts.slice(0, 80) : [],
       aiDaySpend:
         raw?.aiDaySpend &&
         typeof raw.aiDaySpend === "object" &&
@@ -248,7 +254,7 @@ export async function pushAlert(
   };
   // A caller-supplied id means "this event, once" — re-running an HM search or
   // re-confirming a lead should refresh the alert, not stack duplicates.
-  const alerts = [row, ...meta.alerts.filter((a) => a.id !== row.id)].slice(0, 40);
+  const alerts = [row, ...meta.alerts.filter((a) => a.id !== row.id)].slice(0, 80);
   const saved = await saveDeskMeta({ alerts });
 
   const { postAlertWebhook } = await import("@/lib/alert-webhook");

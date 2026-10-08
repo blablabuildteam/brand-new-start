@@ -789,40 +789,36 @@ button:focus-visible {
 .ws-score {
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
-  height: 1.75rem;
+  gap: 0.35rem;
+  height: 1.65rem;
+  padding: 0 0.5rem 0 0.45rem;
   white-space: nowrap;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: var(--surface);
-  padding: 0 0.5rem;
   line-height: 1;
   color: var(--ink);
   cursor: help;
 }
 
-.ws-score__track {
-  position: relative;
-  width: 2.15rem;
-  height: 0.28rem;
+.ws-score__dot {
+  width: 0.45rem;
+  height: 0.45rem;
   flex-shrink: 0;
-  overflow: hidden;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--line) 80%, transparent);
-}
-
-.ws-score__track > span {
-  display: block;
-  height: 100%;
-  border-radius: inherit;
   background: var(--muted);
 }
-
-.ws-score--hot .ws-score__track > span {
+.ws-score--hot .ws-score__dot {
   background: var(--green);
 }
-.ws-score--warm .ws-score__track > span {
+.ws-score--warm .ws-score__dot {
   background: var(--warn);
+}
+.ws-score--watch .ws-score__dot {
+  background: color-mix(in srgb, var(--ink) 35%, var(--muted));
+}
+.ws-score--cold .ws-score__dot {
+  background: var(--muted);
 }
 
 .ws-score__pop {
@@ -890,14 +886,6 @@ button:focus-visible {
   color: var(--muted);
 }
 
-.ws-score__band {
-  font-size: 0.62rem;
-  font-weight: 650;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-
 .ws-score__value {
   display: inline-flex;
   align-items: center;
@@ -921,17 +909,14 @@ button:focus-visible {
 }
 
 .ws-score--lg {
-  height: 2.15rem;
-  padding: 0 0.7rem;
-  gap: 0.5rem;
+  height: 2rem;
+  padding: 0 0.65rem 0 0.55rem;
+  gap: 0.4rem;
 }
 
-.ws-score--lg .ws-score__track {
-  width: 2.6rem;
-}
-
-.ws-score--lg .ws-score__band {
-  font-size: 0.65rem;
+.ws-score--lg .ws-score__dot {
+  width: 0.5rem;
+  height: 0.5rem;
 }
 
 .ws-score--lg .ws-score__value strong {
@@ -963,7 +948,7 @@ button.radar-opp[aria-current="true"]:hover:not(:disabled) {
   background: var(--green-soft);
 }
 
-.ws-score--hot .ws-score__band {
+.ws-score--hot .ws-score__value strong {
   color: var(--green);
 }
 
@@ -972,7 +957,7 @@ button.radar-opp[aria-current="true"]:hover:not(:disabled) {
   background: var(--warn-soft);
 }
 
-.ws-score--warm .ws-score__band {
+.ws-score--warm .ws-score__value strong {
   color: var(--warn);
 }
 
@@ -981,7 +966,6 @@ button.radar-opp[aria-current="true"]:hover:not(:disabled) {
   background: var(--surface-2);
 }
 
-.ws-score--cold .ws-score__band,
 .ws-score--cold .ws-score__value {
   color: var(--muted);
 }

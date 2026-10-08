@@ -20,6 +20,7 @@ const DESKS: Hit[] = [
   { id: "d-regie", title: DESK.voorstel.nav, subtitle: "Manager · mail/tel · bericht", href: DESK.voorstel.href, kind: "desk" },
   { id: "d-set", title: "Instellingen", subtitle: "Rollen, kantoren, sync", href: "/instellingen", kind: "desk" },
   { id: "d-sync", title: "Sync", subtitle: "Ophalen · kosten · wanneer weer", href: "/sync", kind: "desk" },
+  { id: "d-alerts", title: "Meldingen", subtitle: "Watchlist, sync, acties", href: "/alerts", kind: "desk" },
 ];
 
 const KIND_NL: Record<Hit["kind"], string> = {

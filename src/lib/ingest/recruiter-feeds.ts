@@ -7,9 +7,14 @@
 import { watchedAgencies, watchedRecruitersFor, type Agency } from "@/lib/agency";
 import { hasApifyToken, runApifyActor } from "@/lib/apify";
 import { INGEST_POLICY } from "@/lib/costs";
-import { loadDeskMeta, saveDeskMeta, type FeedCheck } from "@/lib/desk-meta";
+import { loadDeskMeta, pushAlert, saveDeskMeta, type FeedCheck } from "@/lib/desk-meta";
 import { isVacancyPost, type LinkedInPost } from "@/lib/ingest/linkedin";
 import { detectRoleLabel, looksLikePermanent, matchesRole } from "@/lib/niche";
+import {
+  agencyFitOf,
+  watchlistAlertId,
+  workHintFromPosts,
+} from "@/lib/recruiter-agency";
 import { ingestSignal, listAgencySignals } from "@/lib/store";
 import { recordSync, type SyncHit } from "@/lib/sync-log";
 import { plainLinkedIn } from "@/lib/plain-text";
@@ -358,10 +363,38 @@ export async function syncRecruiterFeeds(opts?: {
         };
       }
 
+      const work = workHintFromPosts(fetched.posts);
+      const fit = agencyFitOf(rec.agency, work);
+      const prevLeft =
+        meta.feedChecks[rec.linkedinUrl]?.leftAgencyAt ||
+        Object.entries(meta.feedChecks).find(
+          ([k, v]) => normalizeProfileUrl(k) === rec.linkedinUrl && v?.leftAgencyAt
+        )?.[1]?.leftAgencyAt ||
+        null;
+      const leftNow = fit === "left";
       checks[rec.linkedinUrl] = {
         at: new Date().toISOString(),
         newestUrl: fetched.posts[0]?.url || known.get(rec.linkedinUrl) || null,
+        headline: work.headline,
+        employer: work.employer,
+        leftAgencyAt: leftNow
+          ? prevLeft || new Date().toISOString()
+          : fit === "ok"
+            ? null
+            : prevLeft,
       };
+
+      // Eerste keer dat we “niet meer bij bureau” zien → alert (geen spam bij elke sync).
+      if (leftNow && !prevLeft) {
+        const where = work.employer || work.headline || "andere werkgever";
+        await pushAlert({
+          id: watchlistAlertId(rec.linkedinUrl),
+          kind: "watchlist",
+          title: `${rec.name} lijkt niet meer bij ${rec.agency.name}`,
+          body: `LinkedIn toont: ${where}. Zet uit bij Instellingen als dat klopt — anders blijven we posts ophalen.`,
+          href: "/instellingen",
+        }).catch(() => null);
+      }
 
       for (const post of fetched.posts) {
         scanned += 1;
