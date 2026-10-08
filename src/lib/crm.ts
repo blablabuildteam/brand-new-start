@@ -3,6 +3,7 @@ import { listAgencySignals, listRadar, patchSignalRaw } from "@/lib/store";
 import { channelLabel } from "@/lib/sync-log";
 import { scoreSignals } from "@/lib/score";
 import { regieHref } from "@/lib/desk-links";
+import { INGEST_POLICY } from "@/lib/costs";
 import {
   CRM_STAGE_NL,
   loadDeskMeta,
@@ -11,6 +12,14 @@ import {
   type HmGuessRow,
   type HmHitStored,
 } from "@/lib/desk-meta";
+
+/** Alleen kansen binnen dit venster (eerst gezien / bevestigd). */
+function isDeskActive(isoStr: string | null) {
+  if (!isoStr) return false;
+  const t = new Date(isoStr).getTime();
+  if (Number.isNaN(t)) return false;
+  return Date.now() - t <= INGEST_POLICY.deskActiveDays * 86_400_000;
+}
 
 export type CrmLane = "bureau" | "direct";
 export type { CrmStage };
@@ -439,7 +448,9 @@ function buildCrm({ leads, radar, signals, meta }: CrmInputs): CrmOpportunity[] 
     return (b.foundAt || b.lastSeenAt || "").localeCompare(a.foundAt || a.lastSeenAt || "");
   });
 
-  return mergeSameRole(out);
+  return mergeSameRole(out).filter((i) =>
+    isDeskActive(i.foundAt || i.confirmedAt || i.lastSeenAt)
+  );
 }
 
 /**

@@ -295,7 +295,7 @@ export default function RegieDesk({
   return (
     <AppShell current="contact" title={DESK.voorstel.title} subtitle={DESK.voorstel.subtitle} fill>
       <div className="ws-shell ws-shell--split ws-shell--split-wide">
-        <details className={`ws-fold lg:col-span-2 ${mobilePane === "detail" ? "max-lg:hidden" : ""}`} open>
+        <details className={`ws-fold lg:col-span-2 ${mobilePane === "detail" ? "max-lg:hidden" : ""}`}>
           <summary>
             <span>Wat gebeurt hier?</span>
             <span className="ws-fold__meta">Laatste stap · jij stuurt</span>

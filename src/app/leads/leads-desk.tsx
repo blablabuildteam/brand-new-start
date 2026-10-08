@@ -250,7 +250,7 @@ const BUCKET_HINT: Record<Bucket, { title: string; body: string }> = {
   },
   needAi: {
     title: "AI nodig",
-    body: "Nog geen AI-gok — auto op posts ≤15 dagen; oudere sla je over of start handmatig.",
+    body: "Nog geen AI-gok — auto op posts ≤15 dagen; open posts ouder dan 20 dagen staan niet meer in de bak.",
   },
   doubt: {
     title: "Twijfel",

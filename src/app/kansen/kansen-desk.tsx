@@ -594,10 +594,7 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
             <p className="kans-costnote tabular-nums" style={{ fontFamily: "var(--mono)" }}>
               {filtered.length} {filtered.length === 1 ? "kans" : "kansen"}
               {needsHm ? ` · ${needsHm} zonder manager` : ""}
-              <span className="kans-costnote__sep">·</span>
-              manager ≈ {HM_COST}
-              <span className="kans-costnote__sep">·</span>
-              mail/tel ≈ {LUSHA_COST}
+              {` · manager ≈ ${HM_COST} · mail/tel ≈ ${LUSHA_COST}`}
             </p>
           </div>
           {needsHm || (backlog && (backlog.feedReady || backlog.feedPending || backlog.boardBelow)) ? (
@@ -974,11 +971,6 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
                                     </span>
                                   </div>
                                 </div>
-                              ) : row.lane === "bureau" ? (
-                                <p className="kans-detail__feednote">
-                                  Recruiter feed · jij bevestigde de opdrachtgever — staat hier zonder
-                                  jobboard-score.
-                                </p>
                               ) : null}
 
                               <div className="kans-detail__outcome">

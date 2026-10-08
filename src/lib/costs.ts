@@ -232,6 +232,11 @@ export const INGEST_POLICY = {
   feedAutoAiMax: 125,
   /** Max geschatte AI-research-kosten per kalenderdag (EUR). */
   feedAutoAiDailyEurMax: 10,
+  /**
+   * Desk-venster: open feed-posts en kansen ouder dan dit verdwijnen uit de
+   * werkbakken (Kansen / AI nodig / Bevestigen). Afgehandeld blijft zichtbaar.
+   */
+  deskActiveDays: 20,
 } as const;
 
 /**
