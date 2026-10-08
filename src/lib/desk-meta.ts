@@ -136,6 +136,8 @@ export type DeskMeta = {
   hmGuesses: Record<string, HmGuessRow>;
   /** keyed by genormaliseerde bedrijfsnaam */
   rejectedCompanies: Record<string, RejectedCompany>;
+  /** Jobboard-openingen die jij hebt weggezet (opening-id). */
+  dismissedOpenings: Record<string, { at: string }>;
   alerts: DeskAlert[];
   aiDaySpend: AiDaySpend | null;
 };
@@ -148,6 +150,7 @@ const emptyMeta = (): DeskMeta => ({
   crmStages: {},
   hmGuesses: {},
   rejectedCompanies: {},
+  dismissedOpenings: {},
   alerts: [],
   aiDaySpend: null,
 });
@@ -174,6 +177,8 @@ export async function loadDeskMeta(): Promise<DeskMeta> {
       hmGuesses: raw?.hmGuesses && typeof raw.hmGuesses === "object" ? raw.hmGuesses : {},
       rejectedCompanies:
         raw?.rejectedCompanies && typeof raw.rejectedCompanies === "object" ? raw.rejectedCompanies : {},
+      dismissedOpenings:
+        raw?.dismissedOpenings && typeof raw.dismissedOpenings === "object" ? raw.dismissedOpenings : {},
       alerts: Array.isArray(raw?.alerts) ? raw!.alerts.slice(0, 80) : [],
       aiDaySpend:
         raw?.aiDaySpend &&
@@ -217,6 +222,7 @@ export async function saveDeskMeta(patch: Partial<DeskMeta>, base?: DeskMeta): P
     crmStages: { ...prev.crmStages, ...patch.crmStages },
     hmGuesses: { ...prev.hmGuesses, ...patch.hmGuesses },
     rejectedCompanies: { ...prev.rejectedCompanies, ...patch.rejectedCompanies },
+    dismissedOpenings: { ...prev.dismissedOpenings, ...patch.dismissedOpenings },
     alerts: patch.alerts ?? prev.alerts,
     aiDaySpend: patch.aiDaySpend !== undefined ? patch.aiDaySpend : prev.aiDaySpend,
   };

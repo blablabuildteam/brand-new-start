@@ -9,6 +9,7 @@ import { RememberedFold } from "@/components/remembered-fold";
 import { agencyLogoUrls } from "@/lib/company-logo";
 import { BtnSpinner } from "@/components/btn-spinner";
 import { ScoreChip } from "@/components/score-chip";
+import { DismissButton } from "@/components/dismiss-button";
 import { ResearchMeter } from "@/components/research-meter";
 import { kansenHref, regieHref } from "@/lib/desk-links";
 import { cachePeek } from "@/lib/client-cache";
@@ -447,6 +448,13 @@ function LeadCard({
               {aiBusy ? "Zoekt…" : aiQueued ? "Wacht…" : `AI · ${eurApprox(SYNC_COST_PER_RUN.actions["ai-research"].eur)}`}
             </button>
           ) : null}
+          {actionable ? (
+            <DismissButton
+              disabled={busy || aiBusy}
+              title="Verwijderen — zet post weg"
+              onClick={() => onReview(lead.id, "rejected")}
+            />
+          ) : null}
         </div>
       </div>
       <div className="lead-row__clientline" onClick={onOpen}>
@@ -588,9 +596,11 @@ function LeadDetail({
           <button type="button" disabled={researchLock} onClick={() => onAiGuess(lead.id, "standard")} className="btn-ghost btn-tool">
             {aiBusy ? "…" : `AI · ${eurRange(SYNC_COST_PER_RUN.actions["ai-research"].eur)}`}
           </button>
-          <button type="button" disabled={busy || aiBusy} onClick={() => onReview(lead.id, "rejected")} className="btn-ghost btn-tool">
-            Weg
-          </button>
+          <DismissButton
+            disabled={busy || aiBusy}
+            title="Verwijderen — zet post weg"
+            onClick={() => onReview(lead.id, "rejected")}
+          />
         </div>
       ) : lead.status === "confirmed" ? (
         <div className="lead-row__actions">
@@ -1343,14 +1353,13 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
                   </button>
                 ) : null}
                 {bulkRejectIds.length ? (
-                  <button
-                    type="button"
-                    className="btn-ghost btn-tool"
+                  <DismissButton
                     disabled={busy}
+                    title={`Verwijder ${bulkRejectIds.length} posts`}
                     onClick={() => void runBulkReject()}
                   >
-                    Weg · {bulkRejectIds.length}
-                  </button>
+                    {bulkRejectIds.length}
+                  </DismissButton>
                 ) : null}
               </div>
             </div>

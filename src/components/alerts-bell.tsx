@@ -46,9 +46,11 @@ export function AlertsBell() {
     [alerts]
   );
 
-  const actionable = sorted.filter((a) => !isSync(a));
+  const watchlist = sorted.filter((a) => a.kind === "watchlist");
+  const actionable = sorted.filter((a) => !isSync(a) && a.kind !== "watchlist");
   const syncs = sorted.filter(isSync);
   const unreadSyncs = syncs.filter((a) => !a.read).length;
+  const unreadWatch = watchlist.filter((a) => !a.read).length;
   /**
    * De badge telt alle ongelezen alerts; oude sync-digests worden door de
    * sweep-effect hieronder stilletjes op gelezen gezet, dus deze teller zakt
@@ -216,7 +218,21 @@ export function AlertsBell() {
               <li className="px-3 py-4 text-sm text-[var(--muted)]">Nog geen alerts. Bevestig een kans of draai extract.</li>
             ) : (
               <>
-                {actionable.slice(0, 10).map(renderAlert)}
+                {watchlist.length ? (
+                  <li className="border-b border-[var(--line)]/70 px-3 py-2.5">
+                    <Link href="/alerts?filter=watchlist" className="block no-underline" onClick={() => setOpen(false)}>
+                      <p className="text-sm font-semibold text-[var(--ink)]">
+                        Watchlist · {watchlist.length}
+                        {unreadWatch ? ` · ${unreadWatch} nieuw` : ""}
+                      </p>
+                      <p className="mt-0.5 text-[0.75rem] text-[var(--muted)]">
+                        {watchlist[0]?.title}
+                        {watchlist.length > 1 ? ` · +${watchlist.length - 1} meer` : ""}
+                      </p>
+                    </Link>
+                  </li>
+                ) : null}
+                {actionable.slice(0, 8).map(renderAlert)}
                 {syncs.length ? (
                   <li className="flex items-center gap-2 border-b border-[var(--line)]/70 bg-[var(--surface-2)]/50 px-3 py-2">
                     <button

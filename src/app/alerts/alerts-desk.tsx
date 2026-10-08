@@ -15,6 +15,15 @@ type Alert = {
   read: boolean;
 };
 
+type Bundle = {
+  key: string;
+  kind: string;
+  label: string;
+  items: Alert[];
+  unread: number;
+  newestAt: string;
+};
+
 const KIND_NL: Record<string, string> = {
   confirm: "Bevestigen",
   hm: "Manager",
@@ -39,14 +48,52 @@ function timeAgo(iso: string) {
   return new Date(iso).toLocaleDateString("nl-NL", { day: "numeric", month: "short" });
 }
 
-function priority(a: Alert) {
-  if (a.kind === "watchlist") return 0;
-  if (a.kind === "confirm") return 1;
-  if (a.kind === "hm") return 2;
-  if (a.kind === "hot") return 3;
-  if (a.kind === "info") return 4;
-  if (a.kind === "sync") return 5;
+function priority(kind: string) {
+  if (kind === "watchlist") return 0;
+  if (kind === "confirm") return 1;
+  if (kind === "hm") return 2;
+  if (kind === "hot") return 3;
+  if (kind === "info") return 4;
+  if (kind === "sync") return 5;
   return 6;
+}
+
+/** Bundel op kind; sync per kalenderdag. */
+function bundleAlerts(alerts: Alert[]): Bundle[] {
+  const map = new Map<string, Alert[]>();
+  for (const a of alerts) {
+    const day = a.at.slice(0, 10);
+    const key = a.kind === "sync" ? `sync:${day}` : a.kind;
+    const list = map.get(key) || [];
+    list.push(a);
+    map.set(key, list);
+  }
+  const out: Bundle[] = [];
+  for (const [key, items] of map) {
+    items.sort((a, b) => b.at.localeCompare(a.at));
+    const kind = items[0]!.kind;
+    const label =
+      kind === "sync"
+        ? `Sync · ${new Date(items[0]!.at).toLocaleDateString("nl-NL", {
+            day: "numeric",
+            month: "short",
+          })}`
+        : kindLabel(kind);
+    out.push({
+      key,
+      kind,
+      label,
+      items,
+      unread: items.filter((i) => !i.read).length,
+      newestAt: items[0]!.at,
+    });
+  }
+  out.sort((a, b) => {
+    const dp = priority(a.kind) - priority(b.kind);
+    if (dp !== 0) return dp;
+    return b.newestAt.localeCompare(a.newestAt);
+  });
+  return out;
 }
 
 export default function AlertsDesk() {
@@ -54,6 +101,7 @@ export default function AlertsDesk() {
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | "unread" | "watchlist" | "sync">("all");
+  const [openKeys, setOpenKeys] = useState<Set<string>>(new Set());
 
   const load = useCallback(async () => {
     const res = await fetch("/api/alerts");
@@ -70,24 +118,21 @@ export default function AlertsDesk() {
     void load();
   }, [load]);
 
-  const sorted = useMemo(
-    () =>
-      [...alerts].sort((a, b) => {
-        const dp = priority(a) - priority(b);
-        if (dp !== 0) return dp;
-        return b.at.localeCompare(a.at);
-      }),
-    [alerts]
-  );
+  const filtered = useMemo(() => {
+    if (filter === "unread") return alerts.filter((a) => !a.read);
+    if (filter === "watchlist") return alerts.filter((a) => a.kind === "watchlist");
+    if (filter === "sync") return alerts.filter((a) => a.kind === "sync");
+    return alerts;
+  }, [alerts, filter]);
 
-  const visible = useMemo(() => {
-    if (filter === "unread") return sorted.filter((a) => !a.read);
-    if (filter === "watchlist") return sorted.filter((a) => a.kind === "watchlist");
-    if (filter === "sync") return sorted.filter((a) => a.kind === "sync");
-    return sorted;
-  }, [sorted, filter]);
-
+  const bundles = useMemo(() => bundleAlerts(filtered), [filtered]);
   const unread = alerts.filter((a) => !a.read).length;
+
+  useEffect(() => {
+    // Eerste bundel met ongelezen openen.
+    const first = bundles.find((b) => b.unread > 0) || bundles[0];
+    if (first) setOpenKeys(new Set([first.key]));
+  }, [bundles.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function markAll() {
     const res = await fetch("/api/alerts", {
@@ -101,16 +146,26 @@ export default function AlertsDesk() {
     }
   }
 
-  async function markOne(id: string) {
+  async function markIds(ids: string[]) {
+    if (!ids.length) return;
     const res = await fetch("/api/alerts", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ids: [id] }),
+      body: JSON.stringify({ ids }),
     });
     if (res.ok) {
       const j = (await res.json()) as { alerts?: Alert[] };
       if (j.alerts) setAlerts(j.alerts);
     }
+  }
+
+  function toggle(key: string) {
+    setOpenKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
   }
 
   return (
@@ -147,7 +202,7 @@ export default function AlertsDesk() {
           <div className="radar-scroll-pane__body !px-0">
             {loading ? (
               <p className="px-5 py-4 text-sm text-[var(--muted)]">Laden…</p>
-            ) : !visible.length ? (
+            ) : !bundles.length ? (
               <p className="ws-empty m-4">
                 {filter === "all"
                   ? "Nog geen meldingen. Sync of watchlist-wijzigingen verschijnen hier."
@@ -155,44 +210,83 @@ export default function AlertsDesk() {
               </p>
             ) : (
               <ul className="divide-y divide-[var(--line)]">
-                {visible.map((a) => (
-                  <li key={a.id} className={`px-5 py-3.5 ${a.read ? "opacity-70" : ""}`}>
-                    <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-                      <p className="text-[0.62rem] font-semibold uppercase tracking-[0.08em] text-[var(--muted)]">
-                        {kindLabel(a.kind)}
-                        <span className="ml-2 font-normal normal-case tracking-normal">
-                          {timeAgo(a.at)}
-                        </span>
-                      </p>
-                      {!a.read ? (
+                {bundles.map((b) => {
+                  const open = openKeys.has(b.key);
+                  return (
+                    <li key={b.key}>
+                      <div className="flex items-center gap-2 px-5 py-3">
                         <button
                           type="button"
-                          className="text-[0.72rem] font-semibold text-[var(--accent)]"
-                          onClick={() => void markOne(a.id)}
+                          className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                          onClick={() => toggle(b.key)}
+                          aria-expanded={open}
                         >
-                          Gelezen
+                          <span className="text-[0.62rem] font-semibold uppercase tracking-[0.08em] text-[var(--muted)]">
+                            {b.label}
+                          </span>
+                          <span
+                            className="tabular-nums text-[0.72rem] text-[var(--muted)]"
+                            style={{ fontFamily: "var(--mono)" }}
+                          >
+                            {b.items.length}
+                            {b.unread ? ` · ${b.unread} nieuw` : ""}
+                          </span>
+                          <span className="ml-auto text-[0.7rem] text-[var(--muted)]" aria-hidden>
+                            {open ? "▴" : "▾"}
+                          </span>
                         </button>
+                        {b.unread ? (
+                          <button
+                            type="button"
+                            className="shrink-0 text-[0.72rem] font-semibold text-[var(--accent)]"
+                            onClick={() =>
+                              void markIds(b.items.filter((i) => !i.read).map((i) => i.id))
+                            }
+                          >
+                            Gelezen
+                          </button>
+                        ) : null}
+                      </div>
+                      {open ? (
+                        <ul className="border-t border-[var(--line)]/60 bg-[var(--surface-2)]/35">
+                          {b.items.map((a) => (
+                            <li
+                              key={a.id}
+                              className={`border-b border-[var(--line)]/50 px-5 py-2.5 last:border-b-0 ${
+                                a.read ? "opacity-70" : ""
+                              }`}
+                            >
+                              <p className="text-[0.68rem] text-[var(--muted)]">{timeAgo(a.at)}</p>
+                              {a.href ? (
+                                <Link
+                                  href={a.href}
+                                  className="mt-0.5 block no-underline"
+                                  onClick={() => {
+                                    if (!a.read) void markIds([a.id]);
+                                  }}
+                                >
+                                  <p className="text-[0.9rem] font-semibold text-[var(--ink)]">{a.title}</p>
+                                  <p className="mt-0.5 text-[0.78rem] leading-snug text-[var(--muted)]">
+                                    {a.body}
+                                  </p>
+                                </Link>
+                              ) : (
+                                <>
+                                  <p className="mt-0.5 text-[0.9rem] font-semibold text-[var(--ink)]">
+                                    {a.title}
+                                  </p>
+                                  <p className="mt-0.5 text-[0.78rem] leading-snug text-[var(--muted)]">
+                                    {a.body}
+                                  </p>
+                                </>
+                              )}
+                            </li>
+                          ))}
+                        </ul>
                       ) : null}
-                    </div>
-                    {a.href ? (
-                      <Link
-                        href={a.href}
-                        className="mt-1 block no-underline"
-                        onClick={() => {
-                          if (!a.read) void markOne(a.id);
-                        }}
-                      >
-                        <p className="text-[0.95rem] font-semibold text-[var(--ink)]">{a.title}</p>
-                        <p className="mt-0.5 text-[0.8rem] leading-snug text-[var(--muted)]">{a.body}</p>
-                      </Link>
-                    ) : (
-                      <>
-                        <p className="mt-1 text-[0.95rem] font-semibold text-[var(--ink)]">{a.title}</p>
-                        <p className="mt-0.5 text-[0.8rem] leading-snug text-[var(--muted)]">{a.body}</p>
-                      </>
-                    )}
-                  </li>
-                ))}
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </div>

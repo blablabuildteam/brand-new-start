@@ -7,6 +7,7 @@ import { AppShell } from "@/components/app-shell";
 import { RememberedFold } from "@/components/remembered-fold";
 import { BtnSpinner } from "@/components/btn-spinner";
 import { ScoreChip } from "@/components/score-chip";
+import { DismissButton } from "@/components/dismiss-button";
 import { CompanyMark } from "@/components/company-mark";
 import type { CrmLane, CrmOpportunity, CrmStage } from "@/lib/crm";
 import { CRM_STAGE_NL, needsContact } from "@/lib/crm";
@@ -279,6 +280,8 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
     const rows = items.filter((r) => {
+      // Weggezet (Afgelegd) verdwijnt uit de werkbak.
+      if (r.stage === "lost") return false;
       if (filter === "bureau" || filter === "direct") {
         if (r.lane !== filter) return false;
       } else if (filter !== "all") {
@@ -570,6 +573,22 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
                 {hmBusy ? <BtnSpinner /> : null}
                 {hmBusy ? "Zoeken" : "Zoek HM"}
               </button>
+              <DismissButton
+                disabled={stageBusy}
+                title={`Verwijder ${picked.size} kansen`}
+                onClick={() => {
+                  void (async () => {
+                    const ids = [...picked];
+                    for (const id of ids) {
+                      await setStage(id, "lost");
+                    }
+                    setPicked(new Set());
+                    setBulkNote(`${ids.length} weggezet`);
+                  })();
+                }}
+              >
+                {picked.size}
+              </DismissButton>
               <button type="button" className="btn-ghost btn-tool" onClick={() => setPicked(new Set())}>
                 Wissen
               </button>
@@ -761,30 +780,39 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
                         </span>
 
                         <span className="kans-row__side">
-                          {step.action ? (
-                            <button
-                              type="button"
-                              disabled={stepBusy}
-                              className={`btn-ink btn-row kans-row__cta ${stepBusy ? "is-busy" : ""}`}
-                              aria-busy={stepBusy || undefined}
-                              title={
-                                step.action === "hm"
-                                  ? `Manager zoeken · ≈ ${HM_COST}`
-                                  : step.action === "contact"
-                                    ? `Mail/tel ophalen · ≈ ${LUSHA_COST}`
-                                    : undefined
-                              }
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                void runPrimary(row);
-                              }}
-                            >
-                              {stepBusy ? <BtnSpinner /> : null}
-                              {stepBusy ? (step.action === "hm" ? "Zoeken" : "Bezig") : step.label}
-                            </button>
-                          ) : (
-                            <span className="kans-row__next">{step.label}</span>
-                          )}
+                          <span className="kans-row__side-actions">
+                            {step.action ? (
+                              <button
+                                type="button"
+                                disabled={stepBusy}
+                                className={`btn-ink btn-row kans-row__cta ${stepBusy ? "is-busy" : ""}`}
+                                aria-busy={stepBusy || undefined}
+                                title={
+                                  step.action === "hm"
+                                    ? `Manager zoeken · ≈ ${HM_COST}`
+                                    : step.action === "contact"
+                                      ? `Mail/tel ophalen · ≈ ${LUSHA_COST}`
+                                      : undefined
+                                }
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  void runPrimary(row);
+                                }}
+                              >
+                                {stepBusy ? <BtnSpinner /> : null}
+                                {stepBusy ? (step.action === "hm" ? "Zoeken" : "Bezig") : step.label}
+                              </button>
+                            ) : (
+                              <span className="kans-row__next">{step.label}</span>
+                            )}
+                            {row.stage !== "won" && row.stage !== "lost" ? (
+                              <DismissButton
+                                disabled={stageBusy}
+                                title="Verwijderen — afleggen"
+                                onClick={() => void setStage(row.id, "lost")}
+                              />
+                            ) : null}
+                          </span>
                           <span className="kans-row__step">
                             Stap {step.n} · {STEPS[step.n - 1]}
                           </span>

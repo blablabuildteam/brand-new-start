@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { SourceLogo, SourceLogos, sourceChannelsFromRow } from "@/components/source-logo";
 import { CompanyMark } from "@/components/company-mark";
 import { ScoreChip, scoreTone } from "@/components/score-chip";
+import { DismissButton } from "@/components/dismiss-button";
 import { resolveCompanyLogo } from "@/lib/company-logo";
 import { AppShell } from "@/components/app-shell";
 import { RememberedFold } from "@/components/remembered-fold";
@@ -706,9 +707,72 @@ export default function RadarApp({
   const [mobilePane, setMobilePane] = useState<"list" | "detail">(
     initialId || initialQuery ? "detail" : "list"
   );
+  const [picked, setPicked] = useState<Set<string>>(new Set());
+  const [dismissBusy, setDismissBusy] = useState(false);
   const detailRef = useRef<HTMLElement>(null);
   const listScrollRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  function openingIdsOf(r: RadarRow): string[] {
+    if (r.openings?.length) return r.openings.map((o) => o.id);
+    return [r.id];
+  }
+
+  function dropOpeningsFromRadar(ids: string[]) {
+    const ban = new Set(ids);
+    setRadar((rows) => {
+      const next = rows
+        .map((r) => {
+          const openings = (r.openings || []).filter((o) => !ban.has(o.id));
+          if (r.openings?.length) {
+            if (!openings.length) return null;
+            const best = openings[0]!;
+            return {
+              ...r,
+              openings,
+              openingsAtCompany: openings.length,
+              kans: best.kans,
+              status: best.status,
+              roleLabel: openings.length === 1 ? best.roleLabel : `${openings.length} rollen`,
+              openingTitle:
+                openings.length === 1
+                  ? best.openingTitle
+                  : openings.map((o) => o.openingTitle).join(" · "),
+              factors: best.factors,
+              signals: openings.flatMap((o) => o.signals),
+            };
+          }
+          return ban.has(r.id) ? null : r;
+        })
+        .filter((r): r is RadarRow => Boolean(r));
+      setActiveId((prev) => (prev && next.some((r) => r.id === prev) ? prev : next[0]?.id ?? null));
+      return next;
+    });
+    setPicked((prev) => {
+      const next = new Set(prev);
+      for (const id of ids) next.delete(id);
+      return next;
+    });
+  }
+
+  async function dismissOpenings(ids: string[]) {
+    if (!ids.length || dismissBusy) return;
+    setDismissBusy(true);
+    try {
+      const res = await fetch("/api/radar/dismiss", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ openingIds: ids }),
+      });
+      if (!res.ok) return;
+      dropOpeningsFromRadar(ids);
+      const { cacheClear } = await import("@/lib/client-cache");
+      cacheClear("radar");
+      cacheClear("crm");
+    } finally {
+      setDismissBusy(false);
+    }
+  }
 
   async function load(opts?: { keepActive?: boolean; fresh?: boolean; attempt?: number }) {
     try {
@@ -1924,15 +1988,26 @@ export default function RadarApp({
                   <span className="font-normal text-[var(--muted)]"> bedrijven</span>
                 </p>
               </div>
-              {listCanScrollMore ? (
-                <span
-                  className="ml-0.5 text-[0.65rem] text-[var(--accent)]"
-                  style={{ fontFamily: "var(--mono)" }}
-                  aria-hidden
-                >
-                  ↓
-                </span>
-              ) : null}
+              <div className="flex items-center gap-2">
+                {picked.size ? (
+                  <DismissButton
+                    disabled={dismissBusy}
+                    title={`Verwijder ${picked.size} openingen`}
+                    onClick={() => void dismissOpenings([...picked])}
+                  >
+                    {picked.size}
+                  </DismissButton>
+                ) : null}
+                {listCanScrollMore ? (
+                  <span
+                    className="ml-0.5 text-[0.65rem] text-[var(--accent)]"
+                    style={{ fontFamily: "var(--mono)" }}
+                    aria-hidden
+                  >
+                    ↓
+                  </span>
+                ) : null}
+              </div>
             </div>
             <div
               ref={listScrollRef}
@@ -1962,13 +2037,34 @@ export default function RadarApp({
                       (r.openingsAtCompany || 0) > 1
                         ? `${r.openingsAtCompany} openingen`
                         : r.openingTitle || r.roleLabel;
+                    const oids = openingIdsOf(r);
+                    const allPicked = oids.length > 0 && oids.every((id) => picked.has(id));
                     return (
-                      <li key={r.id}>
+                      <li key={r.id} className="flex items-stretch gap-1">
+                        <label
+                          className="flex shrink-0 items-center px-1"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <input
+                            type="checkbox"
+                            className="kans-check"
+                            checked={allPicked}
+                            onChange={() => {
+                              setPicked((prev) => {
+                                const next = new Set(prev);
+                                if (allPicked) for (const id of oids) next.delete(id);
+                                else for (const id of oids) next.add(id);
+                                return next;
+                              });
+                            }}
+                            aria-label={`Selecteer ${r.company.name}`}
+                          />
+                        </label>
                         <button
                           type="button"
                           onClick={() => selectRow(r.id)}
                           aria-current={on ? "true" : undefined}
-                          className={`radar-opp flex w-full items-center gap-3.5 rounded-[var(--radius)] border px-3.5 py-3.5 text-left ${
+                          className={`radar-opp flex min-w-0 flex-1 items-center gap-3.5 rounded-[var(--radius)] border px-3.5 py-3.5 text-left ${
                             on
                               ? "border-[var(--line)] bg-[var(--surface-2)]"
                               : "border-transparent hover:border-[var(--line)] hover:bg-[var(--surface)]/80"
@@ -1996,6 +2092,13 @@ export default function RadarApp({
                             parts={(r.factors || []).map((f) => ({ label: f.label, points: f.points }))}
                           />
                         </button>
+                        <div className="flex shrink-0 items-center pr-1">
+                          <DismissButton
+                            disabled={dismissBusy}
+                            title="Verwijderen van Jobboards"
+                            onClick={() => void dismissOpenings(oids)}
+                          />
+                        </div>
                       </li>
                     );
                   })}

@@ -685,7 +685,10 @@ export async function listRadar() {
         };
       });
       openings.sort((a, b) => b.kans - a.kans);
-      const withHm = borrowHiringManager(openings).map((o) => ({
+      const dismissed = meta.dismissedOpenings || {};
+      const visibleOpenings = openings.filter((o) => !dismissed[o.id]);
+      if (!visibleOpenings.length) continue;
+      const withHm = borrowHiringManager(visibleOpenings).map((o) => ({
         ...o,
         hiringManager: o.org.hiringManager,
         approach: buildApproach({
