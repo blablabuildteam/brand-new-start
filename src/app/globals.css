@@ -107,6 +107,13 @@ a:focus-visible {
   display: none;
 }
 
+.rail-icon {
+  display: block;
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+}
+
 .app-sidebar--slim .rail-label,
 .app-sidebar--slim .rail-section,
 .app-sidebar--slim .rail-meta,

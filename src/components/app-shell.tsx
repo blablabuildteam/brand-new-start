@@ -27,6 +27,7 @@ const PRIMARY: { href: string; id: AppNavId; label: string; icon: "radar" | "bur
 
 type ShellUser = { email: string; role?: string };
 
+/** Één set: 16×16, stroke 1.5, round caps — zelfde gewicht als Scout-mark. */
 function SideIcon({
   kind,
   on,
@@ -35,96 +36,99 @@ function SideIcon({
   on: boolean;
 }) {
   const stroke = on ? "var(--ink)" : "currentColor";
-  if (kind === "alerts") {
-    return (
-      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden className="shrink-0">
-        <path
-          d="M8 2.5a3.5 3.5 0 0 0-3.5 3.5v2.2L3.2 10.8h9.6L11.5 8.2V6A3.5 3.5 0 0 0 8 2.5Z"
-          stroke={stroke}
-          strokeWidth="1.4"
-          strokeLinejoin="round"
-        />
-        <path d="M6.6 12.2a1.5 1.5 0 0 0 2.8 0" stroke={stroke} strokeWidth="1.4" strokeLinecap="round" />
-      </svg>
-    );
-  }
+  const common = {
+    width: 16,
+    height: 16,
+    viewBox: "0 0 16 16",
+    fill: "none" as const,
+    "aria-hidden": true as const,
+    className: "rail-icon shrink-0",
+  };
+  const s = {
+    stroke,
+    strokeWidth: 1.5,
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+  };
+
   if (kind === "radar") {
     return (
-      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden className="shrink-0">
-        <circle cx="8" cy="8" r="5.5" stroke={stroke} strokeWidth="1.4" />
-        <circle cx="8" cy="8" r="2" stroke={stroke} strokeWidth="1.3" />
-        <path d="M8 8 L13 4" stroke={on ? "var(--ink)" : stroke} strokeWidth="1.5" strokeLinecap="round" />
+      <svg {...common}>
+        <circle cx="8" cy="8" r="5.25" {...s} />
+        <circle cx="8" cy="8" r="2.25" {...s} />
+        <path d="M8 8 L12.5 4.2" {...s} />
       </svg>
     );
   }
   if (kind === "bureaus") {
+    // Recruiter feed: twee postkaarten, zelfde gewicht als de rest.
     return (
-      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden className="shrink-0">
-        <path d="M3 13V5.5L8 3l5 2.5V13" stroke={stroke} strokeWidth="1.4" strokeLinejoin="round" />
-        <path d="M6 13V8h4v5" stroke={stroke} strokeWidth="1.4" />
+      <svg {...common}>
+        <rect x="3.5" y="2.75" width="9" height="4" rx="1" {...s} />
+        <rect x="3.5" y="8.25" width="9" height="5" rx="1" {...s} />
+        <path d="M5.5 4.75h5M5.5 10.25h3.5" {...s} />
       </svg>
     );
   }
   if (kind === "kansen") {
     return (
-      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden className="shrink-0">
-        <path d="M3 12.5V5l5-2.5L13 5v7.5l-5 2.5L3 12.5Z" stroke={stroke} strokeWidth="1.4" strokeLinejoin="round" />
-        <path d="M8 5v10" stroke={on ? "var(--ink)" : stroke} strokeWidth="1.3" />
+      <svg {...common}>
+        <path d="M8 2.5 L13.5 5.5 V10.5 L8 13.5 L2.5 10.5 V5.5 Z" {...s} />
+        <path d="M8 5.5 V13.5" {...s} />
       </svg>
     );
   }
   if (kind === "contact") {
     return (
-      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden className="shrink-0">
-        <circle cx="8" cy="5.5" r="2.2" stroke={stroke} strokeWidth="1.4" />
+      <svg {...common}>
         <path
-          d="M3.5 13c.6-2.2 2.3-3.5 4.5-3.5s3.9 1.3 4.5 3.5"
-          stroke={stroke}
-          strokeWidth="1.4"
-          strokeLinecap="round"
+          d="M3 4.25h10a1 1 0 0 1 1 1v5.25a1 1 0 0 1-1 1H7.25L4.5 13.5V11.5H3a1 1 0 0 1-1-1V5.25a1 1 0 0 1 1-1Z"
+          {...s}
         />
+      </svg>
+    );
+  }
+  if (kind === "alerts") {
+    return (
+      <svg {...common}>
+        <path d="M8 2.75a3.25 3.25 0 0 0-3.25 3.25v2.1L3.5 10.75h9L11.25 8.1V6A3.25 3.25 0 0 0 8 2.75Z" {...s} />
+        <path d="M6.75 12.5a1.25 1.25 0 0 0 2.5 0" {...s} />
       </svg>
     );
   }
   if (kind === "help") {
     return (
-      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden className="shrink-0">
-        <circle cx="8" cy="8" r="5.5" stroke={stroke} strokeWidth="1.4" />
-        <path d="M6.4 6.3a1.6 1.6 0 0 1 3.1.5c0 1.1-1.5 1.4-1.5 2.4" stroke={stroke} strokeWidth="1.3" strokeLinecap="round" />
-        <circle cx="8" cy="11.2" r="0.7" fill={stroke} />
+      <svg {...common}>
+        <circle cx="8" cy="8" r="5.25" {...s} />
+        <path d="M6.4 6.35a1.6 1.6 0 0 1 3.15.55c0 1.05-1.45 1.35-1.45 2.35" {...s} />
+        <circle cx="8" cy="11.35" r="0.65" fill={stroke} stroke="none" />
       </svg>
     );
   }
   if (kind === "sync") {
     return (
-      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden className="shrink-0">
-        <path
-          d="M3.5 8a4.5 4.5 0 0 1 7.6-3.3M12.5 8a4.5 4.5 0 0 1-7.6 3.3"
-          stroke={stroke}
-          strokeWidth="1.4"
-          strokeLinecap="round"
-        />
-        <path d="M11.2 2.8v2.4H8.8M4.8 13.2v-2.4h2.4" stroke={stroke} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+      <svg {...common}>
+        <path d="M3.5 8a4.5 4.5 0 0 1 7.55-3.3" {...s} />
+        <path d="M12.5 8a4.5 4.5 0 0 1-7.55 3.3" {...s} />
+        <path d="M11.1 2.9v2.35H8.75M4.9 13.1v-2.35h2.35" {...s} />
       </svg>
     );
   }
   if (kind === "logout") {
     return (
-      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden className="shrink-0">
-        <path d="M6.5 3.5H4.2A1.2 1.2 0 0 0 3 4.7v6.6a1.2 1.2 0 0 0 1.2 1.2h2.3" stroke={stroke} strokeWidth="1.4" strokeLinecap="round" />
-        <path d="M7 8h6.2M11 5.6 13.4 8 11 10.4" stroke={stroke} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+      <svg {...common}>
+        <path d="M6.5 3.5H4.35A1.1 1.1 0 0 0 3.25 4.6v6.8a1.1 1.1 0 0 0 1.1 1.1H6.5" {...s} />
+        <path d="M7.25 8h5.5M10.5 5.75 13 8l-2.5 2.25" {...s} />
       </svg>
     );
   }
+  // settings — sliders, leest helder op 16×16
   return (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden className="shrink-0">
-      <circle cx="8" cy="8" r="2.2" stroke={stroke} strokeWidth="1.4" />
-      <path
-        d="M8 2.5v1.2M8 12.3v1.2M2.5 8h1.2M12.3 8h1.2M4.1 4.1l.85.85M11.05 11.05l.85.85M11.9 4.1l-.85.85M4.95 11.05l-.85.85"
-        stroke={stroke}
-        strokeWidth="1.3"
-        strokeLinecap="round"
-      />
+    <svg {...common}>
+      <path d="M3 4.5h10M3 8h10M3 11.5h10" {...s} />
+      <circle cx="6" cy="4.5" r="1.35" {...s} />
+      <circle cx="10.5" cy="8" r="1.35" {...s} />
+      <circle cx="7" cy="11.5" r="1.35" {...s} />
     </svg>
   );
 }
