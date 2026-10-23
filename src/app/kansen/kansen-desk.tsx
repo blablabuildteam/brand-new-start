@@ -9,16 +9,45 @@ import { BtnSpinner } from "@/components/btn-spinner";
 import { ScoreChip } from "@/components/score-chip";
 import { DismissButton } from "@/components/dismiss-button";
 import { CompanyMark } from "@/components/company-mark";
-import type { CrmLane, CrmOpportunity, CrmStage } from "@/lib/crm";
-import { CRM_STAGE_NL, needsContact } from "@/lib/crm";
+import type { CrmLane, CrmOpportunity, CrmResults, CrmStage, DealInput } from "@/lib/crm";
+import { needsContact } from "@/lib/crm";
 import { radarHref } from "@/lib/desk-links";
 import { cachePeek } from "@/lib/client-cache";
 import { DESK, hmSearchMessage } from "@/lib/desk-labels";
 import { eurRange, SYNC_COST_PER_RUN } from "@/lib/costs";
 import { guessCompanyLogo } from "@/lib/company-logo";
 
-/** Filters volgen de vier stappen plus de twee bronnen — niet de losse stages. */
-type Filter = "all" | "step2" | "step3" | "step4" | CrmLane;
+/** Werkbakken: open stappen, dan uitkomst. Bron is een losse keuze ernaast. */
+type Bucket = "step2" | "step3" | "step4" | "contacted" | "won" | "lost";
+type Filter = "open" | Bucket;
+
+function bucketOf(row: CrmOpportunity): Bucket {
+  if (row.stage === "won") return "won";
+  if (row.stage === "lost") return "lost";
+  if (row.stage === "outreach") return "contacted";
+  const n = stepOf(row).n;
+  return n === 2 ? "step2" : n === 3 ? "step3" : "step4";
+}
+
+const FILTER_HINT: Record<Filter, string> = {
+  open: "Alles wat nog loopt — de knop rechts is steeds de volgende stap.",
+  step2: "Opdrachtgever bekend, nog geen hiring manager.",
+  step3: "Manager bekend, mail of telefoon ontbreekt nog.",
+  step4: "Klaar om te benaderen — stuur het bericht en zet daarna op Gecontacteerd.",
+  contacted: "Bericht verstuurd of gebeld. Wordt het wat? Zet op Gewonnen met de dealwaarde.",
+  won: "Gesloten deals — wie, wanneer en voor hoeveel.",
+  lost: "Afgelegd. Terugzetten kan in de detail.",
+};
+
+function eur(n: number) {
+  return `€${Math.round(n).toLocaleString("nl-NL")}`;
+}
+
+function firstName(email: string | null | undefined) {
+  if (!email) return null;
+  const local = email.split("@")[0] || "";
+  return local ? local.charAt(0).toUpperCase() + local.slice(1) : null;
+}
 
 function formatDay(isoStr: string | null) {
   if (!isoStr) return "—";
@@ -108,6 +137,7 @@ type InitialCrm = {
     byStage?: Record<string, number>;
   };
   backlog?: { feedPending: number; feedReady?: number; boardBelow: number; boardThreshold: number };
+  results?: CrmResults;
   lusha?: boolean;
 };
 
@@ -120,7 +150,9 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
   );
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(!initial);
-  const [filter, setFilter] = useState<Filter>("all");
+  const [filter, setFilter] = useState<Filter>("open");
+  const [lane, setLane] = useState<"all" | CrmLane>("all");
+  const [results, setResults] = useState<CrmResults | null>(initial?.results || null);
   const [sel, setSel] = useState<string | null>(params.get("id"));
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [stageBusy, setStageBusy] = useState(false);
@@ -145,6 +177,7 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
         setItems(j.items);
         setCounts(j.counts);
         if (j.backlog) setBacklog(j.backlog);
+        if (j.results) setResults(j.results);
         if (typeof j.lusha === "boolean") setLushaReady(j.lusha);
       });
     });
@@ -220,6 +253,7 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
     setItems(cached.items);
     setCounts(cached.counts);
     if (cached.backlog) setBacklog(cached.backlog);
+        if (cached.results) setResults(cached.results);
     if (typeof cached.lusha === "boolean") setLushaReady(cached.lusha);
     setLoading(false);
   }, []);
@@ -235,6 +269,7 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
           setItems(j.items);
           setCounts(j.counts);
           if (j.backlog) setBacklog(j.backlog);
+        if (j.results) setResults(j.results);
           if (typeof j.lusha === "boolean") setLushaReady(j.lusha);
         },
       })
@@ -242,6 +277,7 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
           setItems(j.items);
           setCounts(j.counts);
           if (j.backlog) setBacklog(j.backlog);
+        if (j.results) setResults(j.results);
           if (typeof j.lusha === "boolean") setLushaReady(j.lusha);
         })
         .catch((e: unknown) => {
@@ -274,19 +310,20 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
     r.lane === "direct" &&
     r.stage !== "won" &&
     r.stage !== "lost" &&
+    r.stage !== "outreach" &&
     r.kans != null &&
     r.kans < 55;
+
+  const inFilter = (r: CrmOpportunity, f: Filter) => {
+    if (lane !== "all" && r.lane !== lane) return false;
+    const b = bucketOf(r);
+    return f === "open" ? b !== "won" && b !== "lost" : b === f;
+  };
 
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
     const rows = items.filter((r) => {
-      // Weggezet (Afgelegd) verdwijnt uit de werkbak.
-      if (r.stage === "lost") return false;
-      if (filter === "bureau" || filter === "direct") {
-        if (r.lane !== filter) return false;
-      } else if (filter !== "all") {
-        if (stepOf(r).n !== Number(filter.slice(4))) return false;
-      }
+      if (!inFilter(r, filter)) return false;
       if (!showWeak && isWeak(r)) return false;
       if (!needle) return true;
       const hay = [
@@ -303,6 +340,14 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
         .toLowerCase();
       return hay.includes(needle);
     });
+    if (filter === "won") {
+      return rows.slice().sort((a, b) => (b.deal?.wonAt || "").localeCompare(a.deal?.wonAt || ""));
+    }
+    if (filter === "contacted") {
+      return rows
+        .slice()
+        .sort((a, b) => (b.deal?.contactedAt || "").localeCompare(a.deal?.contactedAt || ""));
+    }
     return rows.slice().sort((a, b) => {
       const aw = isWeak(a) ? 1 : 0;
       const bw = isWeak(b) ? 1 : 0;
@@ -319,35 +364,32 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
       if (as !== bs) return as - bs;
       return fresh(b).localeCompare(fresh(a));
     });
-  }, [items, filter, q, showWeak, sortBy]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- inFilter/isWeak lezen alleen lane
+  }, [items, filter, lane, q, showWeak, sortBy]);
 
   const weakHidden = useMemo(() => {
     if (showWeak) return 0;
-    return items.filter((r) => {
-      if (filter === "bureau" || filter === "direct") {
-        if (r.lane !== filter) return false;
-      } else if (filter !== "all") {
-        if (stepOf(r).n !== Number(filter.slice(4))) return false;
-      }
-      return isWeak(r);
-    }).length;
-  }, [items, filter, showWeak]);
+    return items.filter((r) => inFilter(r, filter) && isWeak(r)).length;
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- inFilter/isWeak lezen alleen lane
+  }, [items, filter, lane, showWeak]);
 
-  async function setStage(id: string, stage: CrmStage) {
+  async function setStage(id: string, stage: CrmStage, deal?: DealInput) {
     setStageBusy(true);
     try {
       const res = await fetch("/api/crm", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, stage }),
+        body: JSON.stringify({ id, stage, deal }),
       });
       if (!res.ok) throw new Error("stage mislukt");
       const j = (await res.json()) as { item?: CrmOpportunity };
       if (j.item) {
-        setItems((prev) => prev.map((x) => (x.id === id ? { ...x, stage: j.item!.stage } : x)));
+        setItems((prev) =>
+          prev.map((x) => (x.id === id ? { ...x, stage: j.item!.stage, deal: j.item!.deal } : x))
+        );
       }
-      const { cacheClear } = await import("@/lib/client-cache");
-      cacheClear("crm");
+      // Resultaat-tellers komen van de server; stil verversen.
+      void refresh().catch(() => null);
     } finally {
       setStageBusy(false);
     }
@@ -434,15 +476,18 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
     window.setTimeout(() => setBulkNote(null), 2000);
   }
 
-  const perStep = (n: number) => items.filter((r) => stepOf(r).n === n).length;
-  const filters: { id: Filter; label: string; n: number }[] = [
-    { id: "all", label: "Alles", n: counts.all },
-    { id: "step2", label: "Zoek manager", n: perStep(2) },
-    { id: "step3", label: "Haal mail/tel", n: perStep(3) },
-    { id: "step4", label: "Bericht", n: perStep(4) },
-    { id: "direct", label: "Jobboards", n: counts.direct },
-    { id: "bureau", label: "Recruiter feed", n: counts.bureau },
+  const nIn = (f: Filter) => items.filter((r) => inFilter(r, f)).length;
+  const workFilters: { id: Filter; label: string }[] = [
+    { id: "open", label: "Alles open" },
+    { id: "step2", label: "Zoek manager" },
+    { id: "step3", label: "Mail/tel" },
+    { id: "step4", label: "Bericht" },
   ];
+  const outcomeFilters: { id: Filter; label: string }[] = [
+    { id: "contacted", label: "Gecontacteerd" },
+    { id: "won", label: "Gewonnen" },
+  ];
+  const lostN = nIn("lost");
 
   const needsHm = filtered.filter((r) => !r.hiringManager && r.stage !== "won" && r.stage !== "lost").length;
   const allFilteredPicked = filtered.length > 0 && filtered.every((r) => picked.has(r.id));
@@ -512,43 +557,85 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
           </div>
         </RememberedFold>
 
-        <div className="flex shrink-0 flex-wrap items-center gap-2">
-          <input
-            type="search"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Filter op eindklant, rol of HM…"
-            className="min-w-[12rem] flex-1 rounded-[var(--radius)] border border-[var(--line)] bg-[var(--surface)] px-2.5 py-1.5 text-sm outline-none focus:border-[var(--accent)]"
-            aria-label="Filter kansen"
-          />
-          {filters.map((f) => (
-            <button
-              key={f.id}
-              type="button"
-              onClick={() => setFilterSafe(f.id)}
-              className={`ws-chip shrink-0 ${filter === f.id ? "ws-chip--on" : ""}`}
-            >
-              {f.label}
-              <span className="tabular-nums opacity-80" style={{ fontFamily: "var(--mono)" }}>
-                {loading ? "…" : f.n}
-              </span>
-            </button>
-          ))}
-          {(weakHidden > 0 || showWeak) ? (
-            <button
-              type="button"
-              onClick={() => setShowWeak((v) => !v)}
-              className={`ws-chip shrink-0 ${showWeak ? "ws-chip--on" : ""}`}
-              title="Jobboard-kansen met score onder 55. Recruiter-feed bevestigingen blijven altijd zichtbaar."
-            >
-              {showWeak ? "Zwak tonen" : "Zwak verbergen"}
-              {weakHidden > 0 && !showWeak ? (
-                <span className="tabular-nums opacity-80" style={{ fontFamily: "var(--mono)" }}>
-                  {weakHidden}
-                </span>
-              ) : null}
-            </button>
-          ) : null}
+        <div className="kans-toolbar shrink-0">
+          <div className="kans-toolbar__row">
+            <div className="lead-seg" role="tablist" aria-label="Werkbak">
+              {workFilters.map((f) => (
+                <button
+                  key={f.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={filter === f.id}
+                  onClick={() => setFilterSafe(f.id)}
+                  className={`lead-seg__btn ${filter === f.id ? "lead-seg__btn--on" : ""}`}
+                >
+                  {f.label}
+                  <span className="lead-seg__n">{loading ? "…" : nIn(f.id)}</span>
+                </button>
+              ))}
+            </div>
+            <div className="lead-seg kans-toolbar__outcome" role="tablist" aria-label="Uitkomst">
+              {outcomeFilters.map((f) => (
+                <button
+                  key={f.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={filter === f.id}
+                  onClick={() => setFilterSafe(f.id)}
+                  className={`lead-seg__btn ${filter === f.id ? "lead-seg__btn--on" : ""} ${
+                    f.id === "won" ? "kans-toolbar__won" : ""
+                  }`}
+                >
+                  {f.label}
+                  <span className="lead-seg__n">{loading ? "…" : nIn(f.id)}</span>
+                </button>
+              ))}
+            </div>
+            <div className="kans-toolbar__right">
+              <label className="lead-period">
+                <span className="lead-period__label">Bron</span>
+                <select
+                  value={lane}
+                  onChange={(e) => {
+                    setLane(e.target.value as "all" | CrmLane);
+                    setSel(null);
+                    setPicked(new Set());
+                  }}
+                  aria-label="Filter op bron"
+                >
+                  <option value="all">Alle bronnen</option>
+                  <option value="direct">Jobboards</option>
+                  <option value="bureau">Recruiter feed</option>
+                </select>
+              </label>
+              <input
+                type="search"
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder="Zoek klant, rol of manager…"
+                className="kans-toolbar__search"
+                aria-label="Filter kansen"
+              />
+            </div>
+          </div>
+          <div className="lead-toolbar__hint">
+            <p className="lead-buckets__hint">{FILTER_HINT[filter]}</p>
+            {weakHidden > 0 || showWeak ? (
+              <button
+                type="button"
+                className="lead-toolbar__more"
+                onClick={() => setShowWeak((v) => !v)}
+                title="Jobboard-kansen met score onder 55. Recruiter-feed bevestigingen blijven altijd zichtbaar."
+              >
+                {showWeak ? "Verberg zwakke (<55)" : `+${weakHidden} zwak (<55)`}
+              </button>
+            ) : null}
+            {lostN && filter !== "lost" ? (
+              <button type="button" className="lead-toolbar__more" onClick={() => setFilterSafe("lost")}>
+                {lostN} afgelegd
+              </button>
+            ) : null}
+          </div>
         </div>
 
         {picked.size > 0 ? (
@@ -616,43 +703,50 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
               {` · manager ≈ ${HM_COST} · mail/tel ≈ ${LUSHA_COST}`}
             </p>
           </div>
-          {needsHm || (backlog && (backlog.feedReady || backlog.feedPending || backlog.boardBelow)) ? (
-            <p className="kans-backlog">
-              <span className="kans-backlog__label">Vandaag</span>
-              {needsHm ? (
-                <button
-                  type="button"
-                  className="kans-backlog__link kans-backlog__link--local"
-                  onClick={() => setFilterSafe("step2")}
-                  title="Toon alleen kansen die nog een hiring manager zoeken"
-                >
-                  {needsHm} zoeken nog een manager
-                </button>
-              ) : null}
-              {backlog?.feedReady ? (
-                <Link href="/leads" className="kans-backlog__link">
-                  {backlog.feedReady} posts klaar om te bevestigen
-                </Link>
-              ) : null}
-              {backlog?.feedPending ? (
-                <Link href="/leads" className="kans-backlog__link">
-                  {backlog.feedPending} posts nog te reviewen
-                </Link>
-              ) : null}
-              {backlog?.boardBelow ? (
-                <Link href="/radar" className="kans-backlog__link">
-                  {backlog.boardBelow} vacatures onder score {backlog.boardThreshold}
-                </Link>
-              ) : null}
-            </p>
-          ) : null}
+          <div className="kans-results">
+            <span className="kans-results__label">Resultaat</span>
+            <button
+              type="button"
+              className={`kans-results__stat ${filter === "contacted" ? "is-on" : ""}`}
+              onClick={() => setFilterSafe("contacted")}
+            >
+              <strong>{results?.contacted ?? 0}</strong> gecontacteerd
+            </button>
+            <button
+              type="button"
+              className={`kans-results__stat kans-results__stat--won ${filter === "won" ? "is-on" : ""}`}
+              onClick={() => setFilterSafe("won")}
+            >
+              <strong>{results?.won ?? 0}</strong> gewonnen
+              {results?.wonEur ? <span className="kans-results__eur">{eur(results.wonEur)}</span> : null}
+            </button>
+            {results?.conversion != null ? (
+              <span className="kans-results__conv" title="Gewonnen ÷ gecontacteerd">
+                {results.conversion}% conversie
+              </span>
+            ) : null}
+            {backlog?.feedReady ? (
+              <Link
+                href="/leads"
+                className="kans-results__inflow"
+                title="Deze posts komen pas op Kansen als je de opdrachtgever bevestigt."
+              >
+                Instroom: {backlog.feedReady} posts wachten op bevestiging in Recruiter feed →
+              </Link>
+            ) : null}
+          </div>
           <div className="radar-scroll-pane__body !p-0">
             {error ? <p className="px-5 py-3 text-sm text-[var(--warn)]">{error}</p> : null}
             {loading ? <p className="px-5 py-3 text-sm text-[var(--muted)]">Laden…</p> : null}
             {!loading && !filtered.length ? (
               <p className="ws-empty m-4">
-                Nog geen kansen hier. Bevestig een opdrachtgever op Recruiter feed, of wacht op een warme
-                jobboard-hit.
+                {filter === "won"
+                  ? "Nog geen gewonnen deals. Open een gecontacteerde kans en zet hem op Gewonnen met de dealwaarde."
+                  : filter === "contacted"
+                    ? "Nog niemand gecontacteerd. Na je bericht of belletje: open de kans en klik Gecontacteerd."
+                    : filter === "lost"
+                      ? "Niets afgelegd."
+                      : "Nog geen kansen hier. Bevestig een opdrachtgever op Recruiter feed, of wacht op een warme jobboard-hit."}
               </p>
             ) : null}
 
@@ -781,7 +875,11 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
 
                         <span className="kans-row__side">
                           <span className="kans-row__side-actions">
-                            {step.action ? (
+                            {row.stage === "won" ? (
+                              <span className="kans-row__deal">
+                                {row.deal?.dealEur ? eur(row.deal.dealEur) : "Gewonnen"}
+                              </span>
+                            ) : step.action ? (
                               <button
                                 type="button"
                                 disabled={stepBusy}
@@ -814,7 +912,15 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
                             ) : null}
                           </span>
                           <span className="kans-row__step">
-                            Stap {step.n} · {STEPS[step.n - 1]}
+                            {row.stage === "won"
+                              ? `Gewonnen ${formatDay(row.deal?.wonAt || null)}${
+                                  firstName(row.deal?.closedBy) ? ` · ${firstName(row.deal?.closedBy)}` : ""
+                                }`
+                              : row.stage === "outreach"
+                                ? `Gecontacteerd ${formatDay(row.deal?.contactedAt || null)}`
+                                : row.stage === "lost"
+                                  ? "Afgelegd"
+                                  : `Stap ${step.n} · ${STEPS[step.n - 1]}`}
                           </span>
                         </span>
                       </div>
@@ -1001,47 +1107,12 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
                                 </div>
                               ) : null}
 
-                              <div className="kans-detail__outcome">
-                                <p className="ws-label">
-                                  Uitkomst
-                                  <span className="kans-detail__outcome-state">
-                                    {row.stage === "outreach" || row.stage === "won" || row.stage === "lost"
-                                      ? CRM_STAGE_NL[row.stage]
-                                      : "nog open"}
-                                  </span>
-                                </p>
-                                <div className="kans-detail__chips">
-                                  {(
-                                    [
-                                      ["outreach", "Bericht verstuurd"],
-                                      ["won", "Gewonnen"],
-                                      ["lost", "Afgelegd"],
-                                    ] as [CrmStage, string][]
-                                  ).map(([st, label]) => (
-                                    <button
-                                      key={st}
-                                      type="button"
-                                      disabled={stageBusy}
-                                      onClick={() => void setStage(row.id, st)}
-                                      className={`ws-chip ${row.stage === st ? "ws-chip--on" : ""}`}
-                                    >
-                                      {label}
-                                    </button>
-                                  ))}
-                                  {row.stage === "outreach" || row.stage === "won" || row.stage === "lost" ? (
-                                    <button
-                                      type="button"
-                                      disabled={stageBusy}
-                                      onClick={() =>
-                                        void setStage(row.id, row.hiringManager ? "hm" : "bevestigd")
-                                      }
-                                      className="ws-chip"
-                                    >
-                                      Terug
-                                    </button>
-                                  ) : null}
-                                </div>
-                              </div>
+                              <OutcomePanel
+                                key={row.id}
+                                row={row}
+                                busy={stageBusy}
+                                onStage={(st, deal) => setStage(row.id, st, deal)}
+                              />
                             </div>
 
                             <div className="kans-detail__actions">
@@ -1098,5 +1169,166 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
         </section>
       </div>
     </AppShell>
+  );
+}
+
+const DEAL_DEFAULTS = { marginPerHour: 20, hoursPerWeek: 36, weeks: 20 };
+
+/**
+ * Uitkomst van één kans: gecontacteerd → gewonnen (met dealwaarde) of afgelegd.
+ * Dealwaarde = marge/uur × uren/week × weken; zo is elke deal vergelijkbaar.
+ */
+function OutcomePanel({
+  row,
+  busy,
+  onStage,
+}: {
+  row: CrmOpportunity;
+  busy: boolean;
+  onStage: (stage: CrmStage, deal?: DealInput) => Promise<void>;
+}) {
+  const d = row.deal;
+  const [editing, setEditing] = useState(false);
+  const [margin, setMargin] = useState(String(d?.marginPerHour ?? DEAL_DEFAULTS.marginPerHour));
+  const [hours, setHours] = useState(String(d?.hoursPerWeek ?? DEAL_DEFAULTS.hoursPerWeek));
+  const [weeks, setWeeks] = useState(String(d?.weeks ?? DEAL_DEFAULTS.weeks));
+  const [note, setNote] = useState(d?.note ?? "");
+
+  const m = Number(margin) || 0;
+  const h = Number(hours) || 0;
+  const w = Number(weeks) || 0;
+  const total = Math.round(m * h * w);
+  const backStage: CrmStage = row.hiringManager ? "hm" : "bevestigd";
+  const who = (email?: string | null) => (firstName(email) ? ` · ${firstName(email)}` : "");
+
+  const state =
+    row.stage === "won"
+      ? `Gewonnen ${formatDay(d?.wonAt || null)}${who(d?.closedBy)}`
+      : row.stage === "outreach"
+        ? `Gecontacteerd ${formatDay(d?.contactedAt || null)}${who(d?.contactedBy)}`
+        : row.stage === "lost"
+          ? "Afgelegd"
+          : "Nog niet gecontacteerd";
+
+  async function saveWon() {
+    await onStage("won", {
+      marginPerHour: m || null,
+      hoursPerWeek: h || null,
+      weeks: w || null,
+      dealEur: total || null,
+      note: note.trim() || null,
+    });
+    setEditing(false);
+  }
+
+  return (
+    <div className="kans-outcome">
+      <p className="ws-label">
+        Uitkomst
+        <span className={`kans-outcome__state kans-outcome__state--${row.stage}`}>{state}</span>
+      </p>
+
+      {row.stage === "won" && d?.dealEur && !editing ? (
+        <p className="kans-outcome__deal">
+          <strong>{eur(d.dealEur)}</strong>
+          {d.marginPerHour && d.hoursPerWeek && d.weeks ? (
+            <span>
+              {" "}
+              · €{d.marginPerHour}/u × {d.hoursPerWeek}u × {d.weeks} wk
+            </span>
+          ) : null}
+          {d.note ? <span> · {d.note}</span> : null}
+        </p>
+      ) : null}
+
+      {editing ? (
+        <div className="kans-deal">
+          <div className="kans-deal__grid">
+            <label>
+              <span>Marge €/uur</span>
+              <input type="number" min={0} inputMode="decimal" value={margin} onChange={(e) => setMargin(e.target.value)} />
+            </label>
+            <label>
+              <span>Uren/week</span>
+              <input type="number" min={0} inputMode="numeric" value={hours} onChange={(e) => setHours(e.target.value)} />
+            </label>
+            <label>
+              <span>Looptijd (weken)</span>
+              <input type="number" min={0} inputMode="numeric" value={weeks} onChange={(e) => setWeeks(e.target.value)} />
+            </label>
+            <div className="kans-deal__total">
+              <span>Dealwaarde</span>
+              <strong>{total ? eur(total) : "—"}</strong>
+            </div>
+          </div>
+          <label className="kans-deal__note">
+            <span>Kandidaat / notitie</span>
+            <input
+              type="text"
+              maxLength={300}
+              value={note}
+              placeholder="Bijv. Jan de Vries · start 1 dec"
+              onChange={(e) => setNote(e.target.value)}
+            />
+          </label>
+          <div className="kans-detail__chips">
+            <button type="button" disabled={busy} className="btn-ink btn-tool" onClick={() => void saveWon()}>
+              {busy ? "Opslaan…" : row.stage === "won" ? "Deal bijwerken" : "Opslaan als gewonnen"}
+            </button>
+            <button type="button" className="btn-ghost btn-tool" onClick={() => setEditing(false)}>
+              Annuleer
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="kans-detail__chips">
+          {row.stage !== "outreach" && row.stage !== "won" && row.stage !== "lost" ? (
+            <button
+              type="button"
+              disabled={busy}
+              className="ws-chip"
+              title="Bericht verstuurd of gebeld — telt mee in je conversie."
+              onClick={() => void onStage("outreach")}
+            >
+              ✓ Gecontacteerd
+            </button>
+          ) : null}
+          {row.stage !== "won" && row.stage !== "lost" ? (
+            <button
+              type="button"
+              disabled={busy}
+              className="ws-chip kans-outcome__win"
+              onClick={() => setEditing(true)}
+            >
+              Gewonnen…
+            </button>
+          ) : null}
+          {row.stage === "won" ? (
+            <button type="button" disabled={busy} className="ws-chip" onClick={() => setEditing(true)}>
+              Wijzig deal
+            </button>
+          ) : null}
+          {row.stage !== "lost" && row.stage !== "won" ? (
+            <button type="button" disabled={busy} className="ws-chip" onClick={() => void onStage("lost")}>
+              Afgelegd
+            </button>
+          ) : null}
+          {row.stage === "won" || row.stage === "lost" ? (
+            <button
+              type="button"
+              disabled={busy}
+              className="ws-chip"
+              onClick={() => void onStage(d?.contactedAt ? "outreach" : backStage)}
+            >
+              {d?.contactedAt ? "Terug naar gecontacteerd" : "Terug naar werkbak"}
+            </button>
+          ) : row.stage === "outreach" ? (
+            <button type="button" disabled={busy} className="ws-chip" onClick={() => void onStage(backStage)}>
+              Toch niet gecontacteerd
+            </button>
+          ) : null}
+        </div>
+      )}
+    </div>
   );
 }

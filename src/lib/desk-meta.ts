@@ -127,6 +127,32 @@ export type ParkedCompany = {
   until: string | null;
 };
 
+/**
+ * Uitkomst van een kans: wanneer gecontacteerd, gewonnen/afgelegd, dealgrootte
+ * en door wie. Met snapshot van klant/rol, zodat een gewonnen deal zichtbaar
+ * blijft als de vacature zelf allang uit de syncs is.
+ */
+export type CrmDeal = {
+  endClient: string;
+  title: string;
+  roleLabel: string;
+  lane: "bureau" | "direct";
+  agencyName?: string | null;
+  contactedAt?: string | null;
+  contactedBy?: string | null;
+  wonAt?: string | null;
+  lostAt?: string | null;
+  closedBy?: string | null;
+  marginPerHour?: number | null;
+  hoursPerWeek?: number | null;
+  weeks?: number | null;
+  /** Dealwaarde in € (marge × uren × weken, of los ingevuld). */
+  dealEur?: number | null;
+  /** Kandidaat of korte notitie bij de deal. */
+  note?: string | null;
+  updatedAt: string;
+};
+
 /** Teller AI-research vandaag — voor dagplafond (geschatte €). */
 export type AiDaySpend = {
   /** YYYY-MM-DD (UTC) */
@@ -141,6 +167,8 @@ export type DeskMeta = {
   /** keyed by genormaliseerde LinkedIn-URL */
   feedChecks: Record<string, FeedCheck>;
   crmStages: Record<string, CrmStage>;
+  /** Gecontacteerd / gewonnen + dealgrootte, keyed by CRM id. */
+  crmDeals: Record<string, CrmDeal>;
   /** Hiring-manager results keyed by CRM id (crm_bureau_* / crm_direct_*). */
   hmGuesses: Record<string, HmGuessRow>;
   /** keyed by genormaliseerde bedrijfsnaam */
@@ -159,6 +187,7 @@ const emptyMeta = (): DeskMeta => ({
   aiMisses: {},
   feedChecks: {},
   crmStages: {},
+  crmDeals: {},
   hmGuesses: {},
   rejectedCompanies: {},
   parkedCompanies: {},
@@ -186,6 +215,7 @@ export async function loadDeskMeta(): Promise<DeskMeta> {
       aiMisses: raw?.aiMisses && typeof raw.aiMisses === "object" ? raw.aiMisses : {},
       feedChecks: raw?.feedChecks && typeof raw.feedChecks === "object" ? raw.feedChecks : {},
       crmStages: raw?.crmStages && typeof raw.crmStages === "object" ? raw.crmStages : {},
+      crmDeals: raw?.crmDeals && typeof raw.crmDeals === "object" ? raw.crmDeals : {},
       hmGuesses: raw?.hmGuesses && typeof raw.hmGuesses === "object" ? raw.hmGuesses : {},
       rejectedCompanies:
         raw?.rejectedCompanies && typeof raw.rejectedCompanies === "object" ? raw.rejectedCompanies : {},
@@ -235,6 +265,7 @@ export async function saveDeskMeta(patch: Partial<DeskMeta>, base?: DeskMeta): P
     aiMisses: { ...prev.aiMisses, ...patch.aiMisses },
     feedChecks: { ...prev.feedChecks, ...patch.feedChecks },
     crmStages: { ...prev.crmStages, ...patch.crmStages },
+    crmDeals: { ...prev.crmDeals, ...patch.crmDeals },
     hmGuesses: { ...prev.hmGuesses, ...patch.hmGuesses },
     rejectedCompanies: { ...prev.rejectedCompanies, ...patch.rejectedCompanies },
     parkedCompanies: { ...prev.parkedCompanies, ...patch.parkedCompanies },
@@ -318,7 +349,7 @@ export const CRM_STAGE_NL: Record<CrmStage, string> = {
   nieuw: "Nieuw",
   bevestigd: "Bevestigd",
   hm: "Manager",
-  outreach: "Outreach",
+  outreach: "Gecontacteerd",
   won: "Gewonnen",
   lost: "Afgelegd",
 };

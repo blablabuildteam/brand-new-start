@@ -1236,6 +1236,234 @@ button.radar-opp[aria-current="true"]:hover:not(:disabled) {
   color: var(--surface);
 }
 
+/* Kansen-toolbar: werkbakken | uitkomst | bron + zoeken, één hintregel eronder. */
+.kans-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  min-width: 0;
+}
+.kans-toolbar__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.65rem;
+}
+.kans-toolbar__right {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-left: auto;
+  min-width: 0;
+}
+.kans-toolbar__search {
+  width: 14rem;
+  height: 2rem;
+  min-width: 0;
+  padding: 0 0.65rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  font-size: 0.8rem;
+  outline: none;
+}
+.kans-toolbar__search:focus {
+  border-color: color-mix(in srgb, var(--ink) 35%, var(--line));
+}
+.kans-toolbar__won.lead-seg__btn--on {
+  background: var(--green-soft);
+  color: var(--green);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--green) 30%, var(--line));
+}
+@media (max-width: 760px) {
+  .kans-toolbar__right {
+    width: 100%;
+    margin-left: 0;
+  }
+  .kans-toolbar__search {
+    flex: 1 1 auto;
+    width: auto;
+  }
+}
+
+/* Resultaat-strip boven de lijst: wat het oplevert, plus één expliciete instroom-link. */
+.kans-results {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem 0.9rem;
+  margin: 0;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+  padding: 0.5rem 1.15rem;
+  font-size: 0.74rem;
+  color: var(--muted);
+}
+.kans-results__label {
+  font-size: 0.62rem;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.kans-results__stat {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.3rem;
+  border: 0;
+  background: transparent;
+  padding: 0.1rem 0;
+  font-size: 0.76rem;
+  color: var(--muted);
+  cursor: pointer;
+  border-bottom: 1px solid transparent;
+}
+.kans-results__stat strong {
+  font-family: var(--mono);
+  font-size: 0.82rem;
+  color: var(--ink);
+}
+.kans-results__stat:hover,
+.kans-results__stat.is-on {
+  color: var(--ink);
+  border-bottom-color: var(--ink);
+}
+.kans-results__stat--won strong {
+  color: var(--green);
+}
+.kans-results__eur {
+  margin-left: 0.15rem;
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  background: var(--green-soft);
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  font-weight: 650;
+  color: var(--green);
+}
+.kans-results__conv {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+}
+.kans-results__inflow {
+  margin-left: auto;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--muted);
+  text-decoration: none;
+}
+.kans-results__inflow:hover {
+  color: var(--ink);
+}
+@media (max-width: 760px) {
+  .kans-results__inflow {
+    margin-left: 0;
+    width: 100%;
+  }
+}
+
+/* Gewonnen-bedrag in de rij, op de plek van de actieknop. */
+.kans-row__deal {
+  flex: 1 1 auto;
+  text-align: center;
+  padding: 0.3rem 0.4rem;
+  border-radius: var(--radius);
+  background: var(--green-soft);
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--green);
+}
+
+/* Uitkomst in de detail: gecontacteerd → gewonnen + deal. */
+.kans-outcome {
+  flex: 1 1 16rem;
+  min-width: 0;
+}
+.kans-outcome__state {
+  margin-left: 0.45rem;
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--muted);
+}
+.kans-outcome__state--won {
+  color: var(--green);
+  font-weight: 650;
+}
+.kans-outcome__state--outreach {
+  color: var(--ink);
+}
+.kans-outcome__deal {
+  margin: 0.35rem 0 0;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+.kans-outcome__deal strong {
+  font-family: var(--mono);
+  font-size: 0.95rem;
+  color: var(--green);
+}
+.kans-outcome__win {
+  border-color: color-mix(in srgb, var(--green) 35%, var(--line));
+  color: var(--green);
+}
+.kans-outcome__win:hover {
+  background: var(--green-soft);
+}
+.kans-deal {
+  margin-top: 0.5rem;
+  padding: 0.75rem;
+  border: 1px solid color-mix(in srgb, var(--green) 25%, var(--line));
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--green-soft) 55%, var(--surface));
+}
+.kans-deal__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(6.5rem, auto);
+  gap: 0.5rem;
+  align-items: end;
+}
+@media (max-width: 640px) {
+  .kans-deal__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.kans-deal label,
+.kans-deal__total {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+}
+.kans-deal label > span,
+.kans-deal__total > span {
+  font-size: 0.66rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+.kans-deal input {
+  height: 2rem;
+  min-width: 0;
+  padding: 0 0.5rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  font-size: 0.82rem;
+  color: var(--ink);
+}
+.kans-deal__total strong {
+  height: 2rem;
+  display: flex;
+  align-items: center;
+  font-family: var(--mono);
+  font-size: 1rem;
+  color: var(--green);
+}
+.kans-deal__note {
+  margin-top: 0.5rem;
+}
+
 .kans-backlog {
   display: flex;
   flex-wrap: wrap;

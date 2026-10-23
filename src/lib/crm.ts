@@ -8,6 +8,7 @@ import {
   CRM_STAGE_NL,
   loadDeskMeta,
   saveDeskMeta,
+  type CrmDeal,
   type CrmStage,
   type HmGuessRow,
   type HmHitStored,
@@ -22,7 +23,7 @@ function isDeskActive(isoStr: string | null) {
 }
 
 export type CrmLane = "bureau" | "direct";
-export type { CrmStage };
+export type { CrmDeal, CrmStage };
 export { CRM_STAGE_NL };
 
 export type CrmOpportunity = {
@@ -69,7 +70,35 @@ export type CrmOpportunity = {
   logoUrl: string | null;
   /** Primary ingest channel for SourceLogo (linkedin-jobs, indeed, …). */
   sourceChannel: string | null;
+  /** Gecontacteerd / gewonnen + dealgrootte. */
+  deal: CrmDeal | null;
 };
+
+/** Resultaat over alle kansen ooit: wie we spraken en wat er gesloten is. */
+export type CrmResults = {
+  contacted: number;
+  won: number;
+  lost: number;
+  wonEur: number;
+  /** Gewonnen ÷ gecontacteerd, 0–100. */
+  conversion: number | null;
+};
+
+export function crmResults(meta: { crmDeals: Record<string, CrmDeal>; crmStages: Record<string, CrmStage> }): CrmResults {
+  let contacted = 0;
+  let won = 0;
+  let lost = 0;
+  let wonEur = 0;
+  for (const [id, d] of Object.entries(meta.crmDeals)) {
+    const stage = meta.crmStages[id];
+    if (d.contactedAt || stage === "outreach" || stage === "won" || stage === "lost") contacted += 1;
+    if (stage === "won") {
+      won += 1;
+      wonEur += d.dealEur || 0;
+    } else if (stage === "lost" && d.contactedAt) lost += 1;
+  }
+  return { contacted, won, lost, wonEur, conversion: contacted ? Math.round((won / contacted) * 100) : null };
+}
 
 function iso(d: Date | string | null | undefined): string | null {
   if (!d) return null;
@@ -217,7 +246,11 @@ async function loadCrmInputs(): Promise<CrmInputs> {
   return { leads, radar, signals, meta };
 }
 
-export async function listCrmDesk(): Promise<{ items: CrmOpportunity[]; backlog: CrmBacklog }> {
+export async function listCrmDesk(): Promise<{
+  items: CrmOpportunity[];
+  backlog: CrmBacklog;
+  results: CrmResults;
+}> {
   const inputs = await loadCrmInputs();
   const openLeads = inputs.leads.live.filter(
     (l) => l.status !== "confirmed" && l.status !== "rejected"
@@ -230,6 +263,7 @@ export async function listCrmDesk(): Promise<{ items: CrmOpportunity[]; backlog:
   return {
     items: buildCrm(inputs),
     backlog: { feedPending, feedReady, boardBelow, boardThreshold: 55 },
+    results: crmResults(inputs.meta),
   };
 }
 
@@ -362,6 +396,7 @@ function buildCrm({ leads, radar, signals, meta }: CrmInputs): CrmOpportunity[] 
         allowGuess: true,
       }),
       sourceChannel: sourceChannelOf(boardSources) || sourceChannelOf(allSources),
+      deal: meta.crmDeals[id] || null,
     });
   }
 
@@ -430,6 +465,7 @@ function buildCrm({ leads, radar, signals, meta }: CrmInputs): CrmOpportunity[] 
           allowGuess: true,
         }),
         sourceChannel: sourceChannelOf(boards),
+        deal: meta.crmDeals[id] || null,
       });
     }
   }
@@ -448,9 +484,62 @@ function buildCrm({ leads, radar, signals, meta }: CrmInputs): CrmOpportunity[] 
     return (b.foundAt || b.lastSeenAt || "").localeCompare(a.foundAt || a.lastSeenAt || "");
   });
 
-  return mergeSameRole(out).filter((i) =>
-    isDeskActive(i.foundAt || i.confirmedAt || i.lastSeenAt)
+  // Gecontacteerd/gewonnen blijft staan, ook buiten het actieve venster.
+  const kept = mergeSameRole(out).filter(
+    (i) =>
+      i.stage === "outreach" ||
+      i.stage === "won" ||
+      isDeskActive(i.foundAt || i.confirmedAt || i.lastSeenAt)
   );
+  const present = new Set(kept.map((i) => i.id));
+  for (const [id, deal] of Object.entries(meta.crmDeals)) {
+    const stage = meta.crmStages[id];
+    if (present.has(id) || (stage !== "won" && stage !== "outreach")) continue;
+    kept.push(dealOnlyRow(id, stage, deal));
+  }
+  return kept;
+}
+
+/** Vacature is uit de syncs verdwenen — de deal zelf blijft zichtbaar. */
+function dealOnlyRow(id: string, stage: CrmStage, deal: CrmDeal): CrmOpportunity {
+  const at = deal.wonAt || deal.contactedAt || deal.updatedAt;
+  return {
+    id,
+    lane: deal.lane,
+    stage,
+    endClient: deal.endClient,
+    sector: null,
+    roleLabel: deal.roleLabel,
+    title: deal.title,
+    kans: null,
+    kansFactors: [],
+    sources: [],
+    bronLabel: deal.lane === "bureau" ? `Bureau · ${deal.agencyName || "?"}` : "Jobboards",
+    bronDetail: null,
+    foundAt: at,
+    lastSeenAt: at,
+    freshness: "ouder",
+    freshnessLabel: "Vacature offline",
+    stillLive: false,
+    hiringManager: null,
+    hiringManagerTitle: null,
+    hiringManagerUrl: null,
+    hiringManagerEmail: null,
+    hiringManagerPhone: null,
+    lushaStatus: null,
+    hmHits: [],
+    agencyName: deal.agencyName || null,
+    recruiterName: null,
+    confirmedAt: null,
+    evidenceUrl: null,
+    href: null,
+    companyId: null,
+    openingId: null,
+    extractSummary: null,
+    logoUrl: null,
+    sourceChannel: null,
+    deal,
+  };
 }
 
 /**
@@ -507,12 +596,66 @@ export function listActionQueue(items: CrmOpportunity[]) {
     .slice(0, 8);
 }
 
-export async function setCrmStage(id: string, stage: CrmStage): Promise<CrmOpportunity | null> {
+export type DealInput = {
+  marginPerHour?: number | null;
+  hoursPerWeek?: number | null;
+  weeks?: number | null;
+  dealEur?: number | null;
+  note?: string | null;
+};
+
+export async function setCrmStage(
+  id: string,
+  stage: CrmStage,
+  opts?: { by?: string | null; deal?: DealInput }
+): Promise<CrmOpportunity | null> {
   const items = await listCrmOpportunities();
   const item = items.find((i) => i.id === id);
   if (!item) return null;
 
-  await saveDeskMeta({ crmStages: { [id]: stage } });
+  const now = new Date().toISOString();
+  const prev = item.deal;
+  const by = opts?.by || null;
+  const d = opts?.deal;
+  const computed =
+    d?.marginPerHour && d?.hoursPerWeek && d?.weeks
+      ? Math.round(d.marginPerHour * d.hoursPerWeek * d.weeks)
+      : null;
+  const deal: CrmDeal = {
+    ...prev,
+    endClient: item.endClient,
+    title: item.title,
+    roleLabel: item.roleLabel,
+    lane: item.lane,
+    agencyName: item.agencyName,
+    // Een gewonnen deal is per definitie gecontacteerd.
+    contactedAt:
+      prev?.contactedAt || (stage === "outreach" || stage === "won" ? now : null),
+    contactedBy: prev?.contactedBy || (stage === "outreach" || stage === "won" ? by : null),
+    wonAt: stage === "won" ? prev?.wonAt || now : null,
+    lostAt: stage === "lost" ? now : null,
+    closedBy: stage === "won" ? prev?.closedBy || by : null,
+    ...(d
+      ? {
+          marginPerHour: d.marginPerHour ?? null,
+          hoursPerWeek: d.hoursPerWeek ?? null,
+          weeks: d.weeks ?? null,
+          dealEur: d.dealEur ?? computed,
+          note: d.note?.trim() || null,
+        }
+      : {}),
+    updatedAt: now,
+  };
+  // Terug naar de werkbak = nog niet gecontacteerd: telt niet mee in de conversie.
+  if (stage !== "outreach" && stage !== "won" && stage !== "lost") {
+    deal.wonAt = null;
+    deal.lostAt = null;
+    deal.closedBy = null;
+    deal.contactedAt = null;
+    deal.contactedBy = null;
+  }
+
+  await saveDeskMeta({ crmStages: { [id]: stage }, crmDeals: { [id]: deal } });
 
   if (item.lane === "bureau" && id.startsWith("crm_bureau_")) {
     const leadId = id.replace("crm_bureau_", "");
@@ -531,5 +674,5 @@ export async function setCrmStage(id: string, stage: CrmStage): Promise<CrmOppor
     if (sig) await patchSignalRaw(sig.id, { crmStage: stage });
   }
 
-  return { ...item, stage };
+  return { ...item, stage, deal };
 }
