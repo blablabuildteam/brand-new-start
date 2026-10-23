@@ -2,6 +2,18 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { BlablaLogo } from "@/components/blabla-logo";
 import { PrintPilotButton } from "@/app/pilot/print-button";
+import { BnsSignPanel } from "@/app/pilot/sign-panel";
+import { SignStatus } from "@/components/sign-status";
+import { getSession, isAdmin } from "@/lib/auth";
+import {
+  ACCOUNT_LAPSE_MONTHS,
+  AGREEMENT_VERSION,
+  OUR_SIGNATURE,
+  SHARES,
+  dateNl,
+  loadBnsSignature,
+  signedCurrent,
+} from "@/lib/agreement";
 
 export const metadata = {
   title: "Pilotovereenkomst — Brand New Start × blablabuild",
@@ -20,7 +32,16 @@ function Art({ n, title, children }: { n: string; title: string; children: React
   );
 }
 
-export default function PilotPage() {
+export const dynamic = "force-dynamic";
+
+function pct(n: number) {
+  return `${Math.round(n * 100)}%`;
+}
+
+export default async function PilotPage() {
+  const [session, bns] = await Promise.all([getSession(), loadBnsSignature()]);
+  const viewer = !session ? "anon" : isAdmin(session) ? "admin" : "bns";
+  const current = signedCurrent(bns);
   return (
     <main className="pilot mx-auto min-h-dvh max-w-[760px] px-5 py-8 md:px-8 print:max-w-none print:px-0 print:py-0">
       <div className="mb-8 flex flex-wrap items-start justify-between gap-3 print:hidden">
@@ -37,8 +58,12 @@ export default function PilotPage() {
           <p className="mt-2 max-w-xl text-sm leading-relaxed text-[var(--muted)]">
             Dit is het stuk dat vastlegt: de tool en de data zijn van blablabuild, Brand New Start
             mag die gebruiken om te benaderen en te closen, de marge op opdrachten via de tool
-            delen we 30/70 (20/80 bij verlenging), en de kosten delen we naar rato.
+            delen we volgens een staffel (30% → 20% bij verlenging, 15% tweede rol, 10% verdere
+            accountbusiness), en de kosten delen we naar rato.
           </p>
+          <div className="mt-3">
+            <SignStatus bns={bns} current={current} />
+          </div>
         </div>
         <div className="flex flex-col items-end gap-1.5 text-sm">
           <Link href="/samenwerking" className="font-medium text-[var(--accent)]">
@@ -165,15 +190,33 @@ export default function PilotPage() {
           maal de aan de klant gefactureerde uren, exclusief btw.
         </p>
         <ul className="list-disc space-y-1 pl-5">
-          <li>Eerste opdrachtperiode: 30% voor Leverancier, 70% voor Bureau;</li>
           <li>
-            elke verlenging van díezelfde opdracht: 20% voor Leverancier, 80% voor Bureau, zonder
-            maximum in aantal of duur.
+            eerste rol bij die organisatie: {pct(SHARES.firstRole)} voor Leverancier,{" "}
+            {pct(1 - SHARES.firstRole)} voor Bureau over de eerste opdrachtperiode;
+          </li>
+          <li>
+            elke verlenging van díe opdracht, ook met een vervanger op dezelfde rol:{" "}
+            {pct(SHARES.extension)} / {pct(1 - SHARES.extension)}, zonder maximum in aantal of duur;
+          </li>
+          <li>
+            tweede rol bij dezelfde organisatie (het <strong>account</strong>): {pct(SHARES.secondRole)}{" "}
+            / {pct(1 - SHARES.secondRole)}, ook bij verlenging;
+          </li>
+          <li>
+            alle verdere business uit dat account — derde rol en verder, vaste plaatsingen en
+            overnamefees, inclusief verlengingen: {pct(SHARES.account)} / {pct(1 - SHARES.account)}.
           </li>
         </ul>
         <p>
+          Een account is de organisatie inclusief haar groepsmaatschappijen in Nederland. Het
+          account telt niet meer mee als er {ACCOUNT_LAPSE_MONTHS} maanden achter elkaar geen
+          opdracht via Bureau loopt; lopende verlengingen van de eerste rol blijven altijd gedeeld.
+          Bij vaste plaatsingen (werving & selectie) of overname geldt dezelfde verdeling over de
+          fee die Bureau ontvangt.
+        </p>
+        <p>
           Gebruikskosten van de Tool (scraping, AI-research, contactdata, hosting en database)
-          dragen partijen naar rato: 30% Leverancier, 70% Bureau. Ontwikkeltijd van Leverancier
+          dragen partijen naar rato: {pct(SHARES.costs)} Leverancier, {pct(1 - SHARES.costs)} Bureau. Ontwikkeltijd van Leverancier
           en tijd van Bureau tellen niet als kosten. Een nieuwe betaalde dienst of meer dan €250
           per maand extra kosten alleen na akkoord van beide partijen.
         </p>
@@ -300,20 +343,28 @@ export default function PilotPage() {
         </p>
       </Art>
 
-      <section className="mt-10 grid gap-8 sm:grid-cols-2 print:mt-8">
-        {[
-          { who: "blablabuild", role: "Leverancier" },
-          { who: "Brand New Start", role: "Bureau" },
-        ].map((p) => (
-          <div key={p.who} className="border-t border-[var(--line)] pt-4">
-            <p className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">{p.role}</p>
-            <p className="mt-1 font-semibold">{p.who}</p>
-            <p className="mt-6 text-sm text-[var(--muted)]">Naam / functie</p>
-            <p className="mt-6 border-b border-[var(--line)] pb-1 text-sm">&nbsp;</p>
-            <p className="mt-6 text-sm text-[var(--muted)]">Datum / handtekening</p>
-            <p className="mt-8 border-b border-[var(--line)] pb-1">&nbsp;</p>
+      <section id="tekenen" className="mt-10 scroll-mt-6 print:mt-8" aria-label="Ondertekening">
+        <p className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">
+          Ondertekening · versie {AGREEMENT_VERSION}
+        </p>
+        <div className="mt-3 grid gap-4 sm:grid-cols-2">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">Leverancier</p>
+            <p className="mt-1 font-semibold">blablabuild</p>
+            <div className="sign-block sign-block--done mt-2">
+              <p className="sign-block__state">✓ Getekend</p>
+              <p className="sign-block__who">Namens blablabuild</p>
+              <p className="sign-block__meta">{dateNl(OUR_SIGNATURE.signedAt)}</p>
+            </div>
           </div>
-        ))}
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">Bureau</p>
+            <p className="mt-1 font-semibold">Brand New Start</p>
+            <div className="mt-2">
+              <BnsSignPanel signature={bns} current={current} version={AGREEMENT_VERSION} viewer={viewer} />
+            </div>
+          </div>
+        </div>
       </section>
 
       <p className="mt-10 text-xs text-[var(--muted)] print:mt-8">

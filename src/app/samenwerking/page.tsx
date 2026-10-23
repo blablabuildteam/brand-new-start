@@ -1,16 +1,47 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { BlablaLogo } from "@/components/blabla-logo";
+import { SignStatus } from "@/components/sign-status";
+import { ACCOUNT_LAPSE_MONTHS, SHARES, loadBnsSignature, signedCurrent } from "@/lib/agreement";
 
 export const metadata = {
   title: "De afspraak — Brand New Start × blablabuild",
   description:
-    "Commercieel model: 30% / 70% van de marge op nieuwe opdrachten via de tool, 20% op elke verlenging, kosten naar rato, maandelijks gefactureerd.",
+    "Commercieel model: 30% van de marge op nieuwe opdrachten via de tool, 20% op verlengingen, 15% tweede rol, 10% verdere accountbusiness, kosten naar rato, maandelijks gefactureerd.",
 };
 
-const SHARE_FIRST = 0.3;
-const SHARE_EXTENSION = 0.2;
-const COST_SHARE = SHARE_FIRST;
+export const dynamic = "force-dynamic";
+
+const SHARE_FIRST = SHARES.firstRole;
+const SHARE_EXTENSION = SHARES.extension;
+const COST_SHARE = SHARES.costs;
+
+const TIERS: { k: string; t: string; d: string; share: number }[] = [
+  {
+    k: "Rol 1",
+    t: "Eerste opdracht bij een nieuwe klant",
+    d: "De tool vond het signaal, BNS sloot de deal. Over de eerste opdrachtperiode.",
+    share: SHARES.firstRole,
+  },
+  {
+    k: "Verlenging",
+    t: "Elke verlenging van die eerste opdracht",
+    d: "Zelfde kandidaat, zelfde klant. Op álle verlengingen, zonder maximum.",
+    share: SHARES.extension,
+  },
+  {
+    k: "Rol 2",
+    t: "Tweede rol bij hetzelfde account",
+    d: "De klant kwam via de tool; BNS doet het accountwerk. Ook bij verlenging.",
+    share: SHARES.secondRole,
+  },
+  {
+    k: "Rol 3+",
+    t: "Alle verdere business uit het account",
+    d: "Derde rol en verder, vaste plaatsingen en overnamefees — inclusief verlengingen.",
+    share: SHARES.account,
+  },
+];
 
 const EX = {
   marginPerHour: 20,
@@ -96,16 +127,16 @@ const OPEN_POINTS: { t: string; q: string; advice: string }[] = [
       "Bij start een lijst bestaande klanten en lopende pipeline; die tellen niet. Een deal telt als de kans in de Desk stond en in Kansen op Gecontacteerd → Gewonnen is gezet. Melden binnen 10 werkdagen na akkoord van de klant.",
   },
   {
-    t: "Verlenging vs. nieuwe opdracht",
-    q: "Is een tweede rol bij dezelfde klant 30%, 20% of niets? En een vervanger op dezelfde rol?",
+    t: "Vervanger op dezelfde rol",
+    q: "Stopt de kandidaat en zet BNS iemand anders op dezelfde opdracht — is dat rol 1 of rol 2?",
     advice:
-      "Zelfde klant, zelfde kandidaat, zelfde of vervolgrol = verlenging (20%). Vervanger op dezelfde opdracht = loopt door op 20%. Nieuwe rol bij die klant met een andere kandidaat = 20% (de klant kwam via de tool); een nieuwe klant via een nieuw signaal = weer 30%.",
+      "Telt als verlenging van rol 1 (20%): het is dezelfde opdracht bij dezelfde klant, alleen een andere persoon.",
   },
   {
-    t: "Hoe lang loopt “alle verlengingen”",
-    q: "Geen einddatum, of een maximum?",
+    t: "Wat als het account al “warm” was",
+    q: "Een organisatie die niet op de startlijst stond, maar waar BNS wél al eens contact mee had?",
     advice:
-      "Expliciet opschrijven: zolang die kandidaat bij die klant werkt, zonder maximum — ook na het einde van de samenwerking. Wil BNS een cap, dan liever in jaren (bijv. 3) dan in aantal verlengingen.",
+      "De startlijst is leidend: niet op de lijst = nieuw. Daarom de lijst bij de start ruim maken, dan is er later geen discussie.",
   },
   {
     t: "Wanbetaling van de klant",
@@ -126,15 +157,9 @@ const OPEN_POINTS: { t: string; q: string; advice: string }[] = [
       "Wel: Apify, AI-research, Lusha/contactdata, hosting en database — wat op de Kosten-pagina staat. Niet: ontwikkeltijd van blablabuild (onze investering) en recruitertijd van BNS. Nieuwe betaalde tool of > €250/maand extra: eerst samen akkoord.",
   },
   {
-    t: "Kostenverdeling in verlengmaanden",
-    q: "Blijft het 30/70, of zakt ons deel mee naar 20%?",
-    advice: "Simpel houden: kosten altijd 30/70, los van wat er die maand loopt.",
-  },
-  {
-    t: "Vaste plaatsingen en overname",
-    q: "Een lucky shot (vaste rol) of de klant neemt de ZZP’er over — delen we die fee ook?",
-    advice:
-      "Ja, zelfde verdeling: 30% van de werving- & selectie- of overnamefee als die rol/klant via de tool kwam. Lucky shots zijn juist daarvoor gebouwd.",
+    t: "Kostenverdeling bij verlengingen en accountbusiness",
+    q: "Blijft het 30/70, of zakt ons deel mee met de staffel?",
+    advice: "Simpel houden: kosten altijd 30/70, los van welke plaatsingen er die maand lopen.",
   },
   {
     t: "Betaaltermijn en btw",
@@ -150,7 +175,9 @@ const OPEN_POINTS: { t: string; q: string; advice: string }[] = [
   },
 ];
 
-export default function SamenwerkingPage() {
+export default async function SamenwerkingPage() {
+  const bns = await loadBnsSignature();
+  const current = signedCurrent(bns);
   const firstOurs = marginPerMonth * SHARE_FIRST;
   const extOurs = marginPerMonth * SHARE_EXTENSION;
   const costOurs = EX.costsPerMonth * COST_SHARE;
@@ -169,6 +196,9 @@ export default function SamenwerkingPage() {
             Brand New Start × blablabuild. Hoe we de marge delen op opdrachten die via de tool
             binnenkomen, wie welke kosten draagt, en hoe we elke maand afrekenen.
           </p>
+          <div className="mt-3">
+            <SignStatus bns={bns} current={current} linkToAgreement />
+          </div>
         </div>
         <div className="flex items-center gap-3 text-sm">
           <Link href="/" className="font-medium text-[var(--accent)]">
@@ -185,42 +215,66 @@ export default function SamenwerkingPage() {
 
       <section className="mb-6 overflow-hidden rounded-md border border-[var(--accent)]/30 bg-[var(--accent-soft)]/40 px-4 py-4 sm:px-5">
         <p className="text-sm leading-relaxed text-[var(--ink)]">
-          <strong>In één zin:</strong> op elke nieuwe opdracht via de tool krijgt blablabuild{" "}
-          {pct(SHARE_FIRST)} van de marge en Brand New Start {pct(1 - SHARE_FIRST)}; op elke
-          verlenging {pct(SHARE_EXTENSION)} / {pct(1 - SHARE_EXTENSION)}. De kosten van de tool delen
-          we in dezelfde verhouding ({pct(COST_SHARE)} / {pct(1 - COST_SHARE)}), en we rekenen elke
-          maand af.
+          <strong>In één zin:</strong> brengt de tool een nieuwe klant binnen, dan krijgt blablabuild{" "}
+          {pct(SHARES.firstRole)} van de marge op die eerste opdracht en {pct(SHARES.extension)} op elke
+          verlenging. Rolt er meer business uit dat account, dan {pct(SHARES.secondRole)} op de tweede
+          rol en {pct(SHARES.account)} op alles daarna. Kosten delen we {pct(COST_SHARE)} /{" "}
+          {pct(1 - COST_SHARE)}; we rekenen elke maand af.
         </p>
       </section>
+
+      <Section
+        kicker="De staffel"
+        title="Wat blablabuild krijgt, per soort business"
+        lead="Hoe verder van het oorspronkelijke signaal, hoe meer werk BNS zelf doet — en hoe kleiner ons deel. BNS krijgt steeds de rest."
+      >
+        <div className="divide-y divide-[var(--line)]/80 text-sm">
+          {TIERS.map((tier) => (
+            <div key={tier.k} className="deal-tier">
+              <span className="deal-tier__k" style={MONO}>
+                {tier.k}
+              </span>
+              <span className="min-w-0">
+                <span className="block font-semibold text-[var(--ink)]">{tier.t}</span>
+                <span className="mt-0.5 block text-xs leading-relaxed text-[var(--muted)]">{tier.d}</span>
+              </span>
+              <span className="deal-tier__split" style={MONO}>
+                <strong>{pct(tier.share)}</strong>
+                <span>/ {pct(1 - tier.share)}</span>
+              </span>
+            </div>
+          ))}
+          <div className="deal-tier deal-tier--cost">
+            <span className="deal-tier__k" style={MONO}>
+              Kosten
+            </span>
+            <span className="min-w-0">
+              <span className="block font-semibold text-[var(--ink)]">Toolkosten naar rato</span>
+              <span className="mt-0.5 block text-xs leading-relaxed text-[var(--muted)]">
+                Wij investeren mee: scraping, AI, contactdata, hosting. Altijd in deze verhouding.
+              </span>
+            </span>
+            <span className="deal-tier__split" style={MONO}>
+              <strong>{pct(COST_SHARE)}</strong>
+              <span>/ {pct(1 - COST_SHARE)}</span>
+            </span>
+          </div>
+        </div>
+      </Section>
 
       <ul className="mb-8 grid gap-2 sm:grid-cols-2">
         {[
           {
-            k: `${pct(SHARE_FIRST)} / ${pct(1 - SHARE_FIRST)}`,
-            t: "Nieuwe opdracht",
-            d: "Van de marge op een opdracht die via de tool is binnengekomen: blablabuild / BNS, zolang de eerste opdrachtperiode loopt.",
+            t: "Wat is een account",
+            d: `De klantorganisatie inclusief haar groepsmaatschappijen in Nederland. Loopt er ${ACCOUNT_LAPSE_MONTHS} maanden achter elkaar geen opdracht via BNS, dan telt het account niet meer mee. Verlengingen van de eerste rol blijven altijd gedeeld.`,
           },
           {
-            k: `${pct(SHARE_EXTENSION)} / ${pct(1 - SHARE_EXTENSION)}`,
-            t: "Elke verlenging",
-            d: "Wordt de opdracht verlengd, dan gaat ons deel naar 20% — op álle verlengingen van die opdracht.",
-          },
-          {
-            k: `${pct(COST_SHARE)} / ${pct(1 - COST_SHARE)}`,
-            t: "Kosten naar rato",
-            d: "Wij investeren mee: gebruikskosten van de tool (scraping, AI, contactdata, hosting) delen we in dezelfde verhouding.",
-          },
-          {
-            k: "Maandelijks",
-            t: "Afrekenen",
+            t: "Maandelijks afrekenen",
             d: "Eén factuur per maand over de marge van die maand, met de kostenverrekening erop. Valt een opdracht weg, dan stopt het vanzelf.",
           },
         ].map((item) => (
           <li key={item.t} className="rounded-md border border-[var(--line)] bg-[var(--surface)] px-3.5 py-3">
-            <p className="text-xl font-bold tabular-nums text-[var(--ink)]" style={MONO}>
-              {item.k}
-            </p>
-            <p className="mt-1 text-sm font-semibold text-[var(--ink)]">{item.t}</p>
+            <p className="text-sm font-semibold text-[var(--ink)]">{item.t}</p>
             <p className="mt-1 text-xs leading-relaxed text-[var(--muted)]">{item.d}</p>
           </li>
         ))}
@@ -250,6 +304,18 @@ export default function SamenwerkingPage() {
             ours={extOurs}
             theirs={marginPerMonth - extOurs}
             note={`${pct(SHARE_EXTENSION)} van ${eur(marginPerMonth)} — ook bij de tweede, derde, … verlenging.`}
+          />
+          <Split
+            label={`Tweede rol bij dat account · ${pct(SHARES.secondRole)} / ${pct(1 - SHARES.secondRole)}`}
+            ours={marginPerMonth * SHARES.secondRole}
+            theirs={marginPerMonth * (1 - SHARES.secondRole)}
+            note={`Zelfde marge als voorbeeld: ${pct(SHARES.secondRole)} van ${eur(marginPerMonth)}.`}
+          />
+          <Split
+            label={`Derde rol en verder · ${pct(SHARES.account)} / ${pct(1 - SHARES.account)}`}
+            ours={marginPerMonth * SHARES.account}
+            theirs={marginPerMonth * (1 - SHARES.account)}
+            note={`${pct(SHARES.account)} van ${eur(marginPerMonth)} — ook voor een vaste plaatsing: dan ${pct(SHARES.account)} van de fee.`}
           />
           <Split
             label={`Toolkosten · ${pct(COST_SHARE)} / ${pct(1 - COST_SHARE)}`}
@@ -282,10 +348,14 @@ export default function SamenwerkingPage() {
             </>,
             <>Eind van de maand stuurt BNS per lopende plaatsing de gefactureerde uren en tarieven.</>,
             <>
-              blablabuild factureert {pct(SHARE_FIRST)} (eerste periode) of {pct(SHARE_EXTENSION)}{" "}
-              (verlenging) van die marge, met de kostenverrekening {pct(COST_SHARE)} / {pct(1 - COST_SHARE)}.
+              blablabuild factureert per plaatsing het percentage uit de staffel ({pct(SHARE_FIRST)},{" "}
+              {pct(SHARE_EXTENSION)}, {pct(SHARES.secondRole)} of {pct(SHARES.account)}) over die marge,
+              met de kostenverrekening {pct(COST_SHARE)} / {pct(1 - COST_SHARE)}.
             </>,
-            <>Wordt een opdracht verlengd, dan zetten we in Kansen een notitie en loopt hij door op {pct(SHARE_EXTENSION)}.</>,
+            <>
+              Wordt een opdracht verlengd of komt er een tweede rol bij die klant, dan zetten we dat
+              in Kansen en geldt het percentage uit de staffel.
+            </>,
           ].map((step, i) => (
             <li key={i} className="flex gap-3">
               <span

@@ -28,8 +28,8 @@ export async function hideCompany(company: string, kind: HideKind, undo = false)
 
 export function hideLabel(kind: HideKind) {
   if (kind === "not-client") return "gemarkeerd als geen eindklant";
-  if (kind === "park-forever") return "op de lijst ‘niet interessant’";
-  return "3 maanden op ‘niet interessant’";
+  if (kind === "park") return "3 maanden op ‘niet interessant’";
+  return "op de lijst ‘niet interessant’";
 }
 
 const EYE_OFF = (
@@ -84,11 +84,11 @@ export function CompanyHideMenu({
         type="button"
         className="hide-btn"
         disabled={Boolean(busy)}
-        data-tip="Wél een eindklant, nu even niet relevant. 3 maanden weg uit feed en Jobboards; staat op je bewaarde lijst in Instellingen."
-        onClick={() => void pick("park")}
+        data-tip="Wél een eindklant, nu niet relevant. Weg uit feed en Jobboards tot je hem terugzet via Instellingen; sync slaat nieuwe vacatures over."
+        onClick={() => void pick("park-forever")}
       >
         {EYE_OFF}
-        {busy === "park" ? "Bezig…" : "Niet interessant"}
+        {busy === "park-forever" ? "Bezig…" : "Niet interessant"}
       </button>
       {allowNotClient ? (
         <button
@@ -107,10 +107,10 @@ export function CompanyHideMenu({
   );
 }
 
-/** Bevestiging na verbergen, met ongedaan maken (en bij "niet interessant": voorgoed). */
+/** Bevestiging na verbergen, met ongedaan maken. */
 export function HiddenNote({
   company,
-  kind: initialKind,
+  kind,
   onUndo,
   onClose,
 }: {
@@ -119,32 +119,15 @@ export function HiddenNote({
   onUndo: () => void;
   onClose: () => void;
 }) {
-  const [kind, setKind] = useState(initialKind);
   const [busy, setBusy] = useState(false);
   return (
     <div className="hide-note" role="status">
       <span className="min-w-0 truncate">
         <strong>{company}</strong> {hideLabel(kind)}.
       </span>
-      {kind === "park" ? (
-        <button
-          type="button"
-          className="hide-note__undo hide-note__alt"
-          disabled={busy}
-          title="Zonder einddatum op ‘niet interessant’ — terugzetten kan in Instellingen."
-          onClick={() => {
-            setBusy(true);
-            void hideCompany(company, "park-forever")
-              .then(() => setKind("park-forever"))
-              .finally(() => setBusy(false));
-          }}
-        >
-          Voorgoed
-        </button>
-      ) : null}
       <button
         type="button"
-        className={`hide-note__undo${kind === "park" ? " hide-note__undo--next" : ""}`}
+        className="hide-note__undo"
         disabled={busy}
         onClick={() => {
           setBusy(true);

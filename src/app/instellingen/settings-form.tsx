@@ -609,8 +609,8 @@ export default function SettingsForm() {
                 <div>
                   <p className="text-sm font-medium text-[var(--ink)]">Niet interessant</p>
                   <p className="mt-0.5 text-[0.75rem] text-[var(--muted)]">
-                    Eindklanten die je even niet wilt zien. Bewaard; sync slaat nieuwe vacatures over tot de
-                    einddatum of tot je terugzet.
+                    Eindklanten die je niet wilt zien. Bewaard; sync slaat nieuwe vacatures over tot je ze
+                    terugzet.
                   </p>
                   <ul className="mt-2 space-y-1.5">
                     {parked.map((r) => (
@@ -619,7 +619,7 @@ export default function SettingsForm() {
                         <span className="ml-auto shrink-0 text-[0.7rem] text-[var(--muted)]">
                           {r.until
                             ? `t/m ${new Date(r.until).toLocaleDateString("nl-NL", { day: "numeric", month: "short" })}`
-                            : "altijd"}
+                            : "tot je terugzet"}
                         </span>
                         <button
                           type="button"
