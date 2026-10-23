@@ -6,7 +6,7 @@ import { PrintPilotButton } from "@/app/pilot/print-button";
 export const metadata = {
   title: "Pilotovereenkomst — Brand New Start × blablabuild",
   description:
-    "Afspraken over de Recruitment Scout-pilot: intellectueel eigendom, gebruik, gegevens, success fee en vervolg.",
+    "Afspraken over de Recruitment Scout-pilot: intellectueel eigendom, gebruik, gegevens, margedeling en vervolg.",
 };
 
 function Art({ n, title, children }: { n: string; title: string; children: ReactNode }) {
@@ -36,13 +36,13 @@ export default function PilotPage() {
           </h1>
           <p className="mt-2 max-w-xl text-sm leading-relaxed text-[var(--muted)]">
             Dit is het stuk dat vastlegt: de tool en de data zijn van blablabuild, Brand New Start
-            mag die gebruiken om te benaderen en te closen, gebruikskosten liggen bij hen, en bij
-            een nieuwe organisatie die zij via de tool sluiten is er commissie.
+            mag die gebruiken om te benaderen en te closen, de marge op opdrachten via de tool
+            delen we 30/70 (20/80 bij verlenging), en de kosten delen we naar rato.
           </p>
         </div>
         <div className="flex flex-col items-end gap-1.5 text-sm">
           <Link href="/samenwerking" className="font-medium text-[var(--accent)]">
-            ← Samenwerking
+            ← De afspraak
           </Link>
           <PrintPilotButton />
         </div>
@@ -82,7 +82,7 @@ export default function PilotPage() {
           gebruiker en praktijkpartner. Leverancier blijft eigenaar en bouwer van het product.
         </p>
         <p>
-          Het openbare samenwerkingsvoorstel (zelfde site, pagina Samenwerking) is achtergrond. Bij
+          De samenvatting van de afspraak (zelfde site, pagina De afspraak) is achtergrond. Bij
           strijd gaat deze overeenkomst voor.
         </p>
       </Art>
@@ -158,41 +158,48 @@ export default function PilotPage() {
         </p>
       </Art>
 
-      <Art n="6" title="Gebruikskosten bij Bureau, commissie bij een nieuwe close">
-        <p>
-          Kosten van gebruik liggen bij Bureau: Apify, Firecrawl, hosting, AI-research en overige
-          derden, maandelijks 1:1 doorbelast (zonder opslag). Geen aparte softwarehuur bovenop
-          die gebruikskosten.
-        </p>
+      <Art n="6" title="Margedeling en kosten naar rato">
         <p>
           Zodra Bureau een plaatsing sluit bij een organisatie die zij nog niet kenden, en die
-          volgt uit de Tool, is commissie verschuldigd:
+          volgt uit de Tool, delen partijen de marge. Marge is klanttarief min ZZP-inkooptarief,
+          maal de aan de klant gefactureerde uren, exclusief btw.
         </p>
         <ul className="list-disc space-y-1 pl-5">
-          <li>25% van de uurtarief-marge van Bureau over de eerste opdrachtperiode;</li>
+          <li>Eerste opdrachtperiode: 30% voor Leverancier, 70% voor Bureau;</li>
           <li>
-            daarna 15% over verlengingen van díezelfde opdracht, tot maximaal 24 maanden na
-            startdatum van de opdracht.
+            elke verlenging van díezelfde opdracht: 20% voor Leverancier, 80% voor Bureau, zonder
+            maximum in aantal of duur.
           </li>
         </ul>
         <p>
-          Geen commissie als Bureau de organisatie al kende — bestaande klant of aantoonbare
+          Gebruikskosten van de Tool (scraping, AI-research, contactdata, hosting en database)
+          dragen partijen naar rato: 30% Leverancier, 70% Bureau. Ontwikkeltijd van Leverancier
+          en tijd van Bureau tellen niet als kosten. Een nieuwe betaalde dienst of meer dan €250
+          per maand extra kosten alleen na akkoord van beide partijen.
+        </p>
+        <p>
+          Leverancier factureert maandelijks achteraf: het aandeel over de marge van die maand,
+          met de verrekening van de kosten. Bureau levert daarvoor per lopende plaatsing de uren en
+          tarieven aan. Betaalt de klant niet, dan vervalt het aandeel over dat bedrag naar rato.
+        </p>
+        <p>
+          Geen margedeling als Bureau de organisatie al kende — bestaande klant of aantoonbare
           pipeline vóór het signaal. Bij start van de pilot levert Bureau een lijst bestaande
           klanten en open kansen; wat daarop staat, telt als gekend. Een organisatie die niet op
           die lijst stond, telt als nieuw.
         </p>
         <p>
           Bureau meldt een gesloten plaatsing binnen 10 werkdagen, met opdrachtgever, startdatum,
-          tariefmarge en looptijd. Commissies en openstaande gebruikskosten blijven verschuldigd
-          na einde van de pilot.
+          tariefmarge en looptijd. Het aandeel over lopende plaatsingen en hun verlengingen, en
+          openstaande kosten, blijven verschuldigd na einde van de pilot.
         </p>
       </Art>
 
-      <Art n="7" title="Wanneer de commissie geldt">
+      <Art n="7" title="Wanneer de margedeling geldt">
         <p>Een plaatsing telt als:</p>
         <ol className="list-decimal space-y-1 pl-5">
           <li>het signaal in de Desk stond (Jobboards, Recruiter feed of Kansen);</li>
-          <li>Bureau daarop heeft benaderd of de deal heeft gesloten; en</li>
+          <li>Bureau daarop heeft benaderd of de deal heeft gesloten (in Kansen: Gecontacteerd → Gewonnen); en</li>
           <li>de organisatie niet op de startlijst bestaande klanten/pipeline stond.</li>
         </ol>
         <p>
@@ -205,8 +212,8 @@ export default function PilotPage() {
         <p>Na 90 dagen zijn er drie normale uitkomsten:</p>
         <ol className="list-decimal space-y-1.5 pl-5">
           <li>
-            <strong>Doorgaan.</strong> Dezelfde commissie blijft gelden, of partijen stappen over
-            op een andere mix. Schriftelijk bevestigen is genoeg.
+            <strong>Doorgaan.</strong> Dezelfde margedeling blijft gelden. Schriftelijk bevestigen
+            is genoeg.
           </li>
           <li>
             <strong>Bijstellen.</strong> Fee, scope of kosten wijzigen alleen schriftelijk.
@@ -226,8 +233,9 @@ export default function PilotPage() {
         <p>
           Beide partijen mogen opzeggen met 30 dagen schriftelijke kennisgeving, ook tijdens de
           pilot. Bij einde: toegang stopt na de wind-down. Bureau krijgt geen export van de
-          dataset, scores of research. Commissies over al gesloten of in tail lopende opdrachten
-          blijven verschuldigd.
+          dataset, scores of research. Het aandeel over al gesloten opdrachten en al hun
+          verlengingen blijft verschuldigd. Partijen omzeilen dit niet via een andere entiteit of
+          label.
         </p>
         <p>
           Bureau mag daarna eigen tools bouwen of kopen. Dat geeft geen recht op code, prompts,
@@ -275,8 +283,7 @@ export default function PilotPage() {
         </p>
         <p>
           Aansprakelijkheid van Leverancier is beperkt tot directe schade, tot maximaal het
-          bedrag dat Bureau in de 12 maanden daarvoor aan gebruikskosten en commissie heeft
-          betaald. Geen aansprakelijkheid voor misgelopen deals, indirecte schade of
+          bedrag dat Bureau in de 12 maanden daarvoor aan Leverancier heeft betaald. Geen aansprakelijkheid voor misgelopen deals, indirecte schade of
           gevolgschade, behalve bij opzet of grove schuld.
         </p>
       </Art>
@@ -310,8 +317,7 @@ export default function PilotPage() {
       </section>
 
       <p className="mt-10 text-xs text-[var(--muted)] print:mt-8">
-        Versie voor de pilotfase. Behoort bij het samenwerkingsvoorstel Brand New Start ×
-        blablabuild.
+        Versie voor de pilotfase. Behoort bij De afspraak Brand New Start × blablabuild.
       </p>
 
       <a

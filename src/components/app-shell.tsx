@@ -381,12 +381,12 @@ export function AppShell({
         {user?.role === "admin" ? (
           <Link
             href="/samenwerking"
-            data-rail="Samenwerking"
+            data-rail="De afspraak"
             className="nav-link flex items-center gap-2.5 rounded-[var(--radius)] px-2.5 py-2 text-[0.8rem] text-[var(--muted)] hover:bg-[var(--surface-2)] hover:text-[var(--ink)]"
             onClick={() => setOpen(false)}
           >
             <SideIcon kind="help" on={false} />
-            <span className="rail-label">Samenwerking</span>
+            <span className="rail-label">De afspraak</span>
           </Link>
         ) : null}
         {user?.email ? (

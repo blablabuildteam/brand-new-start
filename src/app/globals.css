@@ -5857,12 +5857,14 @@ body:has(.desk-home--scout) {
   100% { opacity: 0; }
 }
 
-/* Verberg bedrijf — één knop, keuzes in een menu (niet interessant / geen eindklant). */
-.hide-menu {
-  position: relative;
+/* Bedrijf verbergen — twee losse knoppen: niet interessant / geen eindklant. */
+.hide-actions {
   display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
 }
-.hide-menu__btn {
+.hide-btn {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
@@ -5878,100 +5880,28 @@ body:has(.desk-home--scout) {
   cursor: pointer;
   transition: border-color 0.12s ease, color 0.12s ease, background 0.12s ease;
 }
-/* Tip iets breder + boven de knop — menu zit eronder. */
-.hide-menu__btn[data-tip]::after {
-  left: 0;
-  right: auto;
-  bottom: calc(100% + 8px);
-  max-width: 15.5rem;
-  transform: translateX(0) translateY(2px);
-}
-.hide-menu__btn[data-tip]:hover::after,
-.hide-menu__btn[data-tip]:focus-visible::after {
-  transform: translateX(0) translateY(0);
-}
-.hide-menu__btn:hover,
-.hide-menu__btn[aria-expanded="true"] {
+.hide-btn:hover:not(:disabled) {
   border-color: color-mix(in srgb, var(--ink) 30%, var(--line));
   background: var(--surface-2);
   color: var(--ink);
 }
-.hide-menu__chev {
-  font-size: 0.6rem;
-  opacity: 0.6;
-}
-.hide-menu__pop {
-  position: absolute;
-  top: calc(100% + 4px);
-  z-index: 60;
-  display: flex;
-  width: 17.5rem;
-  flex-direction: column;
-  gap: 0.1rem;
-  padding: 0.3rem;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: var(--surface);
-  box-shadow: 0 10px 28px color-mix(in srgb, var(--ink) 14%, transparent);
-}
-.hide-menu__pop--left {
-  left: 0;
-}
-.hide-menu__pop--right {
-  right: 0;
-}
-.hide-menu__head {
-  margin: 0;
-  padding: 0.3rem 0.55rem 0.2rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 0.64rem;
-  font-weight: 650;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-.hide-menu__intro {
-  margin: 0 0 0.2rem;
-  padding: 0 0.55rem 0.4rem;
-  border-bottom: 1px solid var(--line);
-  font-size: 0.68rem;
-  line-height: 1.35;
-  color: var(--muted);
-}
-.hide-menu__item {
-  display: flex;
-  flex-direction: column;
-  gap: 0.1rem;
-  width: 100%;
-  margin: 0;
-  padding: 0.45rem 0.55rem;
-  border: 0;
-  border-radius: calc(var(--radius) - 2px);
-  background: transparent;
-  text-align: left;
-  cursor: pointer;
-}
-.hide-menu__item:hover:not(:disabled) {
-  background: var(--surface-2);
-}
-.hide-menu__item:disabled {
+.hide-btn:disabled {
   cursor: wait;
   opacity: 0.6;
 }
-.hide-menu__t {
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: var(--ink);
+/* Tip boven de knop, links uitgelijnd — de knoppen staan tegen de linkerrand. */
+.hide-btn[data-tip]::after {
+  left: 0;
+  right: auto;
+  bottom: calc(100% + 8px);
+  max-width: 16rem;
+  transform: translateX(0) translateY(2px);
 }
-.hide-menu__d {
-  font-size: 0.7rem;
-  line-height: 1.35;
-  color: var(--muted);
+.hide-btn[data-tip]:hover::after,
+.hide-btn[data-tip]:focus-visible::after {
+  transform: translateX(0) translateY(0);
 }
-.hide-menu__err {
-  margin: 0.2rem 0.55rem 0.3rem;
+.hide-actions__err {
   font-size: 0.7rem;
   color: var(--warn);
 }
@@ -6002,6 +5932,12 @@ body:has(.desk-home--scout) {
   text-decoration: underline;
   text-underline-offset: 2px;
   cursor: pointer;
+}
+.hide-note__undo--next {
+  margin-left: 0;
+}
+.hide-note__alt {
+  color: var(--muted);
 }
 .hide-note__x {
   flex-shrink: 0;

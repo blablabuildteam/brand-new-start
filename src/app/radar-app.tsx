@@ -1486,7 +1486,7 @@ export default function RadarApp({
                 className="block border-t border-[var(--line)]/80 px-3 py-2 text-xs text-[var(--muted)] no-underline hover:bg-[var(--surface-2)] hover:text-[var(--ink)]"
                 onClick={() => setMenuOpen(false)}
               >
-                Samenwerkingsvoorstel →
+                De afspraak →
               </a>
             </div>
           ) : null}
@@ -1981,6 +1981,7 @@ export default function RadarApp({
 
         {hidden ? (
           <HiddenNote
+            key={`${hidden.company}:${hidden.kind}`}
             company={hidden.company}
             kind={hidden.kind}
             onUndo={() => {

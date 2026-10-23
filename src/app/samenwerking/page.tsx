@@ -1,380 +1,343 @@
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { BlablaLogo } from "@/components/blabla-logo";
-import { ROI_MODEL, mvpMonthlyTotal } from "@/lib/costs";
 
 export const metadata = {
-  title: "Samenwerkingsvoorstel — Brand New Start × blablabuild",
+  title: "De afspraak — Brand New Start × blablabuild",
   description:
-    "Verdienmodel: gebruikskosten bij BNS, commissie 25% / 15% bij een nieuwe plaatsing via de radar.",
+    "Commercieel model: 30% / 70% van de marge op nieuwe opdrachten via de tool, 20% op elke verlenging, kosten naar rato, maandelijks gefactureerd.",
 };
 
+const SHARE_FIRST = 0.3;
+const SHARE_EXTENSION = 0.2;
+const COST_SHARE = SHARE_FIRST;
+
+const EX = {
+  marginPerHour: 20,
+  hoursPerWeek: 36,
+  costsPerMonth: 100,
+};
+const hoursPerMonth = Math.round((EX.hoursPerWeek * 52) / 12);
+const marginPerMonth = EX.marginPerHour * hoursPerMonth;
+
+function eur(n: number) {
+  return `€${Math.round(n).toLocaleString("nl-NL")}`;
+}
+function pct(n: number) {
+  return `${Math.round(n * 100)}%`;
+}
+
+const MONO = { fontFamily: "var(--mono)" } as const;
+const DISPLAY = { fontFamily: "var(--display)" } as const;
+
+function Section({
+  kicker,
+  title,
+  lead,
+  children,
+}: {
+  kicker?: string;
+  title: string;
+  lead?: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <section className="mb-8 overflow-hidden rounded-md border border-[var(--line)] bg-[var(--surface)]">
+      <div className="border-b border-[var(--line)]/80 px-4 py-3 sm:px-5">
+        {kicker ? (
+          <p className="text-[0.65rem] font-medium uppercase tracking-[0.08em] text-[var(--muted)]" style={MONO}>
+            {kicker}
+          </p>
+        ) : null}
+        <h2 className="mt-0.5 text-base font-semibold" style={DISPLAY}>
+          {title}
+        </h2>
+        {lead ? <p className="mt-1 text-xs leading-relaxed text-[var(--muted)]">{lead}</p> : null}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function Split({ label, ours, theirs, note }: { label: string; ours: number; theirs: number; note: string }) {
+  return (
+    <div className="px-4 py-3.5 sm:px-5">
+      <p className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">{label}</p>
+      <div className="mt-2 grid gap-2 sm:grid-cols-2">
+        <div className="rounded border border-[var(--line)] px-3 py-2.5">
+          <p className="text-[0.62rem] uppercase tracking-wide text-[var(--muted)]">blablabuild</p>
+          <p className="mt-0.5 text-xl font-bold tabular-nums" style={MONO}>
+            {eur(ours)}
+          </p>
+        </div>
+        <div className="rounded border border-[var(--line)] px-3 py-2.5">
+          <p className="text-[0.62rem] uppercase tracking-wide text-[var(--muted)]">Brand New Start</p>
+          <p className="mt-0.5 text-xl font-bold tabular-nums" style={MONO}>
+            {eur(theirs)}
+          </p>
+        </div>
+      </div>
+      <p className="mt-1.5 text-xs text-[var(--muted)]">{note}</p>
+    </div>
+  );
+}
+
+const OPEN_POINTS: { t: string; q: string; advice: string }[] = [
+  {
+    t: "Wat is “de marge” precies",
+    q: "Klanttarief min ZZP-tarief per gefactureerd uur, of gaan er nog kosten van BNS af?",
+    advice:
+      "Klanttarief − ZZP-inkooptarief × gefactureerde uren, excl. btw. Geen overhead, sales-tijd of fee van een tussenpartij eraf — dat maakt de maandafrekening controleerbaar.",
+  },
+  {
+    t: "Wanneer telt een deal als “via de tool”",
+    q: "Hoe voorkomen we discussie over klanten die BNS al kende?",
+    advice:
+      "Bij start een lijst bestaande klanten en lopende pipeline; die tellen niet. Een deal telt als de kans in de Desk stond en in Kansen op Gecontacteerd → Gewonnen is gezet. Melden binnen 10 werkdagen na akkoord van de klant.",
+  },
+  {
+    t: "Verlenging vs. nieuwe opdracht",
+    q: "Is een tweede rol bij dezelfde klant 30%, 20% of niets? En een vervanger op dezelfde rol?",
+    advice:
+      "Zelfde klant, zelfde kandidaat, zelfde of vervolgrol = verlenging (20%). Vervanger op dezelfde opdracht = loopt door op 20%. Nieuwe rol bij die klant met een andere kandidaat = 20% (de klant kwam via de tool); een nieuwe klant via een nieuw signaal = weer 30%.",
+  },
+  {
+    t: "Hoe lang loopt “alle verlengingen”",
+    q: "Geen einddatum, of een maximum?",
+    advice:
+      "Expliciet opschrijven: zolang die kandidaat bij die klant werkt, zonder maximum — ook na het einde van de samenwerking. Wil BNS een cap, dan liever in jaren (bijv. 3) dan in aantal verlengingen.",
+  },
+  {
+    t: "Wanbetaling van de klant",
+    q: "Delen we het debiteurenrisico?",
+    advice:
+      "Ja, naar rato: ons aandeel is verschuldigd over wat BNS aan de klant factureert; betaalt de klant niet, dan crediteren we ons deel van die maand.",
+  },
+  {
+    t: "Inzage voor de maandfactuur",
+    q: "Waarop baseren we het bedrag?",
+    advice:
+      "BNS stuurt per lopende plaatsing per maand: uren, klanttarief, ZZP-tarief (of de factuurregels). Eén overzicht per maand is genoeg.",
+  },
+  {
+    t: "Welke kosten delen we",
+    q: "Wat valt onder “kosten naar rato”?",
+    advice:
+      "Wel: Apify, AI-research, Lusha/contactdata, hosting en database — wat op de Kosten-pagina staat. Niet: ontwikkeltijd van blablabuild (onze investering) en recruitertijd van BNS. Nieuwe betaalde tool of > €250/maand extra: eerst samen akkoord.",
+  },
+  {
+    t: "Kostenverdeling in verlengmaanden",
+    q: "Blijft het 30/70, of zakt ons deel mee naar 20%?",
+    advice: "Simpel houden: kosten altijd 30/70, los van wat er die maand loopt.",
+  },
+  {
+    t: "Vaste plaatsingen en overname",
+    q: "Een lucky shot (vaste rol) of de klant neemt de ZZP’er over — delen we die fee ook?",
+    advice:
+      "Ja, zelfde verdeling: 30% van de werving- & selectie- of overnamefee als die rol/klant via de tool kwam. Lucky shots zijn juist daarvoor gebouwd.",
+  },
+  {
+    t: "Betaaltermijn en btw",
+    q: "Wanneer factureren we en hoe snel wordt er betaald?",
+    advice:
+      "Factuur in de eerste week van de maand over de vorige maand, betaaltermijn 14 dagen na ontvangst van de klantbetaling. Alle bedragen excl. btw.",
+  },
+  {
+    t: "Stoppen",
+    q: "Wat gebeurt er met lopende deals als we uit elkaar gaan?",
+    advice:
+      "30 dagen opzegtermijn. Lopende plaatsingen en hun verlengingen blijven gedeeld; kosten stoppen na de wind-down. Geen omweg via een andere BV of label (non-circumventie).",
+  },
+];
+
 export default function SamenwerkingPage() {
-  const midMargin = ROI_MODEL.marginPerPlacement({ marginPerHour: 20, weeks: 20 });
-  const feePct = 0.25;
-  const tailPct = 0.15;
-  const feePerDeal = Math.round(midMargin * feePct);
-  const tailPerDeal = Math.round(midMargin * tailPct);
-  const monthly = mvpMonthlyTotal();
-  const stackHighYear = monthly.withFirecrawl.high * 12;
+  const firstOurs = marginPerMonth * SHARE_FIRST;
+  const extOurs = marginPerMonth * SHARE_EXTENSION;
+  const costOurs = EX.costsPerMonth * COST_SHARE;
 
   return (
     <main className="mx-auto min-h-dvh max-w-[820px] px-5 py-8 md:px-8">
       <div className="mb-8 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p
-            className="text-[0.68rem] uppercase tracking-[0.08em] text-[var(--muted)]"
-            style={{ fontFamily: "var(--mono)" }}
-          >
-            Voorstel · deelbaar met BNS · niet-bindend
+          <p className="text-[0.68rem] uppercase tracking-[0.08em] text-[var(--muted)]" style={MONO}>
+            Commercieel model · deelbaar met BNS
           </p>
-          <h1 className="mt-1 text-2xl font-bold text-[var(--ink)] md:text-3xl" style={{ fontFamily: "var(--display)" }}>
-            Samen optrekken op new business
+          <h1 className="mt-1 text-2xl font-bold text-[var(--ink)] md:text-3xl" style={DISPLAY}>
+            De afspraak
           </h1>
           <p className="mt-2 max-w-xl text-sm leading-relaxed text-[var(--muted)]">
-            Brand New Start × blablabuild — de radar als motor voor extra interim-plaatsingen bij
-            nieuwe organisaties, zonder invloed op jullie bestaande klanten. Deze pagina is te delen
-            (geen login).
+            Brand New Start × blablabuild. Hoe we de marge delen op opdrachten die via de tool
+            binnenkomen, wie welke kosten draagt, en hoe we elke maand afrekenen.
           </p>
         </div>
-        <div className="flex flex-col items-end gap-1.5 text-sm">
+        <div className="flex items-center gap-3 text-sm">
           <Link href="/" className="font-medium text-[var(--accent)]">
             ← Desk
           </Link>
-          <Link href="/sync" className="text-[var(--muted)] hover:text-[var(--ink)]">
-            Sync
+          <Link href="/kansen" className="text-[var(--muted)] hover:text-[var(--ink)]">
+            Kansen
+          </Link>
+          <Link href="/kosten" className="text-[var(--muted)] hover:text-[var(--ink)]">
+            Kosten
           </Link>
         </div>
       </div>
 
       <section className="mb-6 overflow-hidden rounded-md border border-[var(--accent)]/30 bg-[var(--accent-soft)]/40 px-4 py-4 sm:px-5">
         <p className="text-sm leading-relaxed text-[var(--ink)]">
-          <strong>In één zin:</strong> wij bouwen de radar en de data daarin is van ons. Jullie
-          gebruiken die om te benaderen en te closen. Gebruikskosten (Apify, hosting) liggen bij
-          jullie, 1:1. Bij een plaatsing via de tool bij een organisatie die jullie nog niet
-          kenden: 25% van de marge op de eerste opdracht, 15% bij verlenging. De klantrelatie voer
-          je zelf.
+          <strong>In één zin:</strong> op elke nieuwe opdracht via de tool krijgt blablabuild{" "}
+          {pct(SHARE_FIRST)} van de marge en Brand New Start {pct(1 - SHARE_FIRST)}; op elke
+          verlenging {pct(SHARE_EXTENSION)} / {pct(1 - SHARE_EXTENSION)}. De kosten van de tool delen
+          we in dezelfde verhouding ({pct(COST_SHARE)} / {pct(1 - COST_SHARE)}), en we rekenen elke
+          maand af.
         </p>
       </section>
 
-      <section className="mb-8">
-        <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-[var(--muted)]">Principes</h2>
-        <ul className="grid gap-2 sm:grid-cols-2">
-          {[
-            {
-              t: "Gebruikskosten bij BNS",
-              d: "Apify, Firecrawl, hosting en AI-research 1:1 doorbelast. Geen aparte softwarehuur daarbovenop.",
-            },
-            {
-              t: "Commissie bij een nieuwe close",
-              d: "25% van de marge op de eerste opdrachtperiode, 15% bij verlenging — alleen als de organisatie nog niet van jullie was.",
-            },
-            {
-              t: "Tool en data bij blablabuild",
-              d: "Code, scores, signalen, gevonden opdrachtgevers: van ons. Jullie licentie is: benaderen en closen. Geen dataset om mee te nemen.",
-            },
-            {
-              t: "Schalen mag, verplicht niet",
-              d: "Later samen naar andere bureaus / specialisaties — BNS verdient mee als jullie dat willen.",
-            },
-            {
-              t: "Aligned prikkels",
-              d: "Wij verdienen als de radar écht deals oplevert — kwaliteit boven volume.",
-            },
-          ].map((item) => (
-            <li key={item.t} className="rounded-md border border-[var(--line)] bg-[var(--surface)] px-3.5 py-3">
-              <p className="text-sm font-semibold text-[var(--ink)]">{item.t}</p>
-              <p className="mt-1 text-xs leading-relaxed text-[var(--muted)]">{item.d}</p>
-            </li>
-          ))}
-        </ul>
-      </section>
+      <ul className="mb-8 grid gap-2 sm:grid-cols-2">
+        {[
+          {
+            k: `${pct(SHARE_FIRST)} / ${pct(1 - SHARE_FIRST)}`,
+            t: "Nieuwe opdracht",
+            d: "Van de marge op een opdracht die via de tool is binnengekomen: blablabuild / BNS, zolang de eerste opdrachtperiode loopt.",
+          },
+          {
+            k: `${pct(SHARE_EXTENSION)} / ${pct(1 - SHARE_EXTENSION)}`,
+            t: "Elke verlenging",
+            d: "Wordt de opdracht verlengd, dan gaat ons deel naar 20% — op álle verlengingen van die opdracht.",
+          },
+          {
+            k: `${pct(COST_SHARE)} / ${pct(1 - COST_SHARE)}`,
+            t: "Kosten naar rato",
+            d: "Wij investeren mee: gebruikskosten van de tool (scraping, AI, contactdata, hosting) delen we in dezelfde verhouding.",
+          },
+          {
+            k: "Maandelijks",
+            t: "Afrekenen",
+            d: "Eén factuur per maand over de marge van die maand, met de kostenverrekening erop. Valt een opdracht weg, dan stopt het vanzelf.",
+          },
+        ].map((item) => (
+          <li key={item.t} className="rounded-md border border-[var(--line)] bg-[var(--surface)] px-3.5 py-3">
+            <p className="text-xl font-bold tabular-nums text-[var(--ink)]" style={MONO}>
+              {item.k}
+            </p>
+            <p className="mt-1 text-sm font-semibold text-[var(--ink)]">{item.t}</p>
+            <p className="mt-1 text-xs leading-relaxed text-[var(--muted)]">{item.d}</p>
+          </li>
+        ))}
+      </ul>
 
-      <section className="mb-8 overflow-hidden rounded-md border border-[var(--line)] bg-[var(--surface)] shadow-[var(--shadow)]">
-        <div className="border-b border-[var(--line)]/80 px-4 py-3 sm:px-5">
-          <p
-            className="text-[0.65rem] font-medium uppercase tracking-[0.08em] text-[var(--muted)]"
-            style={{ fontFamily: "var(--mono)" }}
-          >
-            Model A · aanbevolen
-          </p>
-          <h2 className="mt-0.5 text-base font-semibold" style={{ fontFamily: "var(--display)" }}>
-            Attributed New Placement Fee
-          </h2>
-        </div>
-
+      <Section
+        kicker="Rekenvoorbeeld"
+        title="Eén plaatsing, per maand"
+        lead={`Stel: €${EX.marginPerHour}/uur marge (klanttarief − ZZP-tarief), ${EX.hoursPerWeek} uur per week ≈ ${hoursPerMonth} uur per maand. Bedragen excl. btw.`}
+      >
         <div className="divide-y divide-[var(--line)]/80 text-sm">
-          {[
-            ["Wat telt", "Een plaatsing via de tool bij een organisatie die BNS nog niet kende."],
-            ["Wat niet telt", "Bestaande klanten en pipeline (lijst bij start). Deals zonder link met de Desk."],
-            [
-              "Fee · eerste opdracht",
-              "25% van de uurtarief-marge over de eerste opdrachtperiode.",
-            ],
-            [
-              "Fee · verlenging / doorloop",
-              "Tail 15% op verlengingen van díe opdracht, max 24 maanden na startdatum.",
-            ],
-            [
-              "Wat de tail níet is",
-              "Geen aandeel op andere rollen. Wel opnieuw 25% als een nieuw signaal tot een andere nieuwe organisatie leidt.",
-            ],
-            [
-              "Klantrelatie",
-              "Jullie sluiten en onderhouden de deal. De data en de tool blijven van blablabuild.",
-            ],
-            [
-              "Toolkosten",
-              "Bij BNS. Apify / Firecrawl / hosting / AI 1:1, zonder opslag.",
-            ],
-          ].map(([label, value]) => (
-            <div key={label} className="grid gap-1 px-4 py-3 sm:grid-cols-[11rem_1fr] sm:gap-4 sm:px-5">
-              <p className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">{label}</p>
-              <p className="text-[var(--ink)]">{value}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section className="mb-8 overflow-hidden rounded-md border border-[var(--line)] bg-[var(--surface)]">
-        <div className="border-b border-[var(--line)]/80 px-4 py-3 sm:px-5">
-          <h2 className="text-base font-semibold" style={{ fontFamily: "var(--display)" }}>
-            Rekenvoorbeeld — zo lees je het
-          </h2>
-          <p className="mt-1 text-xs leading-relaxed text-[var(--muted)]">
-            Stel: de radar vindt een nieuwe interim-opdracht. BNS plaatst iemand. Wat verdient wie?
-          </p>
-        </div>
-
-        <div className="space-y-0 divide-y divide-[var(--line)]/80 text-sm">
           <div className="px-4 py-3.5 sm:px-5">
-            <p className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">1. Wat is “de marge”?</p>
-            <p className="mt-1.5 text-[var(--ink)]">
-              Dat is wat BNS overhoudt op de opdracht: klant-uurtarief minus ZZP-uurtarief, × uren × weken.
-            </p>
-            <p
-              className="mt-2 rounded bg-[var(--surface-2)] px-3 py-2 text-xs text-[var(--muted)]"
-              style={{ fontFamily: "var(--mono)" }}
-            >
-              €20/u × 36u/week × 20 weken ={" "}
-              <strong className="text-[var(--ink)]">€{midMargin.toLocaleString("nl-NL")}</strong> marge
-              voor BNS op die opdracht
+            <p className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">Marge per maand</p>
+            <p className="mt-2 rounded bg-[var(--surface-2)] px-3 py-2 text-xs text-[var(--muted)]" style={MONO}>
+              €{EX.marginPerHour}/u × {hoursPerMonth} u ={" "}
+              <strong className="text-[var(--ink)]">{eur(marginPerMonth)}</strong> marge voor die maand
             </p>
           </div>
-
-          <div className="px-4 py-3.5 sm:px-5">
-            <p className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">
-              2. Eerste opdracht — fee 25%
-            </p>
-            <p className="mt-1.5 text-[var(--ink)]">
-              Omdat de radar deze nieuwe opdracht heeft gesignaleerd, krijgt blablabuild 25% van die
-              marge. BNS houdt de rest.
-            </p>
-            <div className="mt-3 grid gap-2 sm:grid-cols-2">
-              <div className="rounded border border-[var(--line)] px-3 py-2.5">
-                <p className="text-[0.62rem] uppercase tracking-wide text-[var(--muted)]">blablabuild</p>
-                <p className="mt-0.5 text-xl font-bold tabular-nums" style={{ fontFamily: "var(--mono)" }}>
-                  €{feePerDeal.toLocaleString("nl-NL")}
-                </p>
-                <p className="text-xs text-[var(--muted)]">25% van €{midMargin.toLocaleString("nl-NL")}</p>
-              </div>
-              <div className="rounded border border-[var(--line)] px-3 py-2.5">
-                <p className="text-[0.62rem] uppercase tracking-wide text-[var(--muted)]">BNS houdt</p>
-                <p className="mt-0.5 text-xl font-bold tabular-nums" style={{ fontFamily: "var(--mono)" }}>
-                  €{(midMargin - feePerDeal).toLocaleString("nl-NL")}
-                </p>
-                <p className="text-xs text-[var(--muted)]">75% — plus de klantrelatie</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="px-4 py-3.5 sm:px-5">
-            <p className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">
-              3. Opdracht wordt verlengd — tail 15%
-            </p>
-            <p className="mt-1.5 text-[var(--ink)]">
-              Blijft dezelfde opdracht lopen? Dan 15% — BNS blijft de relatie doen, de tool heeft de
-              opdracht binnengebracht.
-            </p>
-            <div className="mt-3 grid gap-2 sm:grid-cols-2">
-              <div className="rounded border border-[var(--line)] px-3 py-2.5">
-                <p className="text-[0.62rem] uppercase tracking-wide text-[var(--muted)]">blablabuild (tail)</p>
-                <p className="mt-0.5 text-xl font-bold tabular-nums" style={{ fontFamily: "var(--mono)" }}>
-                  €{tailPerDeal.toLocaleString("nl-NL")}
-                </p>
-                <p className="text-xs text-[var(--muted)]">
-                  15% van weer ≈ €{midMargin.toLocaleString("nl-NL")} marge
-                </p>
-              </div>
-              <div className="rounded border border-[var(--line)] px-3 py-2.5">
-                <p className="text-[0.62rem] uppercase tracking-wide text-[var(--muted)]">BNS houdt</p>
-                <p className="mt-0.5 text-xl font-bold tabular-nums" style={{ fontFamily: "var(--mono)" }}>
-                  €{(midMargin - tailPerDeal).toLocaleString("nl-NL")}
-                </p>
-                <p className="text-xs text-[var(--muted)]">85% bij verlenging</p>
-              </div>
-            </div>
-          </div>
-
+          <Split
+            label={`Eerste opdrachtperiode · ${pct(SHARE_FIRST)} / ${pct(1 - SHARE_FIRST)}`}
+            ours={firstOurs}
+            theirs={marginPerMonth - firstOurs}
+            note={`${pct(SHARE_FIRST)} van ${eur(marginPerMonth)} — elke maand dat de opdracht loopt.`}
+          />
+          <Split
+            label={`Na verlenging · ${pct(SHARE_EXTENSION)} / ${pct(1 - SHARE_EXTENSION)}`}
+            ours={extOurs}
+            theirs={marginPerMonth - extOurs}
+            note={`${pct(SHARE_EXTENSION)} van ${eur(marginPerMonth)} — ook bij de tweede, derde, … verlenging.`}
+          />
+          <Split
+            label={`Toolkosten · ${pct(COST_SHARE)} / ${pct(1 - COST_SHARE)}`}
+            ours={costOurs}
+            theirs={EX.costsPerMonth - costOurs}
+            note={`Voorbeeld met ${eur(EX.costsPerMonth)} kosten in een maand. Echte bedragen staan op de Kosten-pagina.`}
+          />
           <div className="bg-[var(--accent-soft)]/30 px-4 py-3.5 sm:px-5">
-            <p className="text-xs font-semibold uppercase tracking-wide text-[var(--accent)]">Kortom</p>
-            <ul className="mt-1.5 space-y-1 text-sm text-[var(--ink)]">
-              <li>Alleen bij een nieuwe organisatie. Wat ze al kenden, blijft van hen.</li>
-              <li>BNS houdt 75% / 85% van de marge en de klantrelatie.</li>
-              <li>
-                Gebruikskosten (≈ €{stackHighYear.toLocaleString("nl-NL")}/jaar worst-case) liggen bij
-                BNS, 1:1 — vaak gedekt door één extra plaatsing.
-              </li>
-            </ul>
+            <p className="text-xs font-semibold uppercase tracking-wide text-[var(--accent)]">Maandfactuur</p>
+            <p className="mt-1.5 text-sm text-[var(--ink)]">
+              In een maand met één lopende eerste opdracht factureert blablabuild{" "}
+              <strong style={MONO}>{eur(firstOurs)}</strong> marge-aandeel. De kosten verrekenen we op
+              dezelfde factuur: wie de rekeningen voorschiet, krijgt het deel van de ander terug. In een
+              maand zónder deal is er alleen die kostenverrekening.
+            </p>
           </div>
         </div>
-      </section>
+      </Section>
 
-      <section className="mb-8">
-        <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-[var(--muted)]">Attribution</h2>
-        <ol className="space-y-2.5 text-sm text-[var(--ink)]">
+      <Section kicker="In de praktijk" title="Hoe een maand loopt">
+        <ol className="space-y-2.5 px-4 py-4 text-sm text-[var(--ink)] sm:px-5">
           {[
-            "Signaal markeren als “Outreach via radar”.",
-            "Bij deal: binnen 10 werkdagen melden + koppeling aan het signaal.",
-            "Twijfel in het maandelijkse overleg; een deal via de tool verzwijgen mag niet.",
-            "Maandelijks 15 min: welke deals, welke commissie.",
+            <>
+              Kans uit de tool benaderd? Zet hem in{" "}
+              <Link href="/kansen" className="font-medium underline underline-offset-2">
+                Kansen
+              </Link>{" "}
+              op <strong>Gecontacteerd</strong>. Getekend? <strong>Gewonnen</strong>, met marge per
+              uur, uren en looptijd. Dat is meteen de registratie dat de deal via de tool kwam.
+            </>,
+            <>Eind van de maand stuurt BNS per lopende plaatsing de gefactureerde uren en tarieven.</>,
+            <>
+              blablabuild factureert {pct(SHARE_FIRST)} (eerste periode) of {pct(SHARE_EXTENSION)}{" "}
+              (verlenging) van die marge, met de kostenverrekening {pct(COST_SHARE)} / {pct(1 - COST_SHARE)}.
+            </>,
+            <>Wordt een opdracht verlengd, dan zetten we in Kansen een notitie en loopt hij door op {pct(SHARE_EXTENSION)}.</>,
           ].map((step, i) => (
-            <li key={step} className="flex gap-3 rounded-md border border-[var(--line)] bg-[var(--surface)] px-3.5 py-2.5">
+            <li key={i} className="flex gap-3">
               <span
                 className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--accent-soft)] text-xs font-semibold text-[var(--accent)]"
-                style={{ fontFamily: "var(--mono)" }}
+                style={MONO}
               >
                 {i + 1}
               </span>
-              <span className="pt-0.5">{step}</span>
+              <span className="pt-0.5 leading-relaxed">{step}</span>
             </li>
           ))}
         </ol>
-      </section>
+      </Section>
 
-      <section className="mb-8 overflow-hidden rounded-md border border-[var(--line)] bg-[var(--surface)]">
-        <div className="border-b border-[var(--line)]/80 px-4 py-3 sm:px-5">
-          <h2 className="text-base font-semibold" style={{ fontFamily: "var(--display)" }}>
-            Exclusiviteit & “zelf bouwen”
-          </h2>
-          <p className="mt-1 text-xs text-[var(--muted)]">
-            Kort houden — genoeg bescherming, geen zwaar contract.
-          </p>
-        </div>
+      <Section
+        kicker="Nog vast te leggen"
+        title="Wat we nog expliciet moeten afspreken"
+        lead="De kern staat. Dit zijn de punten waar later discussie over kan ontstaan — per punt ons voorstel."
+      >
         <div className="divide-y divide-[var(--line)]/80 text-sm">
-          <div className="px-4 py-3.5 sm:px-5">
-            <p className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">
-              Exclusiviteit · twee kanten
-            </p>
-            <ul className="mt-2 space-y-1.5 text-[var(--ink)]">
-              <li>
-                <strong>Tijdens de pilot (90 dagen):</strong> soft exclusivity — BNS werkt voor hun
-                niche (agile/SM/BA e.d.) met ons; wij verkopen diezelfde niche-config niet aan een
-                directe concurrent van BNS in NL.
-              </li>
-              <li>
-                <strong>Daarna:</strong> verlengen bij wederzijds akkoord, of stoppen. Geen eeuwige
-                lock-in. Andere specialisaties / andere bureaus blijven open (tenzij we samen
-                schalen).
-              </li>
-              <li>
-                <strong>Niet exclusief:</strong> BNS mag andere tools blijven gebruiken. Wij mogen
-                het product elders inzetten buiten hun concurrentie-niche tijdens de soft-periode.
-              </li>
-            </ul>
-          </div>
-          <div className="px-4 py-3.5 sm:px-5">
-            <p className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">
-              Als BNS het zelf wil bouwen
-            </p>
-            <ul className="mt-2 space-y-1.5 text-[var(--ink)]">
-              <li>
-                Mag — hun business, hun keuze. Code/IP van de tool blijft van blablabuild tenzij
-                expliciet overgedragen (dat doen we niet standaard).
-              </li>
-              <li>
-                Bij stop: nette exit (data-export van hun radar-hits, 30 dagen wind-down). Geen
-                boete; open success-fees over al lopende attributed deals blijven verschuldigd.
-              </li>
-              <li>
-                Praktisch risico voor ons: laag als we op success verdienen — geen lange prepaid
-                lock. Ons “moat” is doorontwikkeling + niche-config, niet een verbod.
-              </li>
-            </ul>
-          </div>
-          <div className="px-4 py-3.5 sm:px-5">
-            <p className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">
-              Wat we wél even vastleggen
-            </p>
-            <ul className="mt-2 space-y-1.5 text-[var(--ink)]">
-              <li>Fee % (eerste + tail) + attribution + “bestaande pipeline buiten scope”</li>
-              <li>Soft exclusivity niche + duur (pilot → review)</li>
-              <li>IP en data bij blablabuild; BNS mag benaderen en closen</li>
-              <li>Gebruikskosten 1:1 bij BNS; commissie 25% + tail 15% op nieuwe closes</li>
-              <li>Opzegtermijn 30 dagen; geen non-compete op hun recruitmentwerk</li>
-              <li>
-                Tekenbaar:{" "}
-                <Link href="/pilot" className="font-medium text-[var(--ink)] underline underline-offset-2">
-                  pilotovereenkomst
-                </Link>
-              </li>
-            </ul>
-          </div>
+          {OPEN_POINTS.map((p, i) => (
+            <div key={p.t} className="grid gap-1 px-4 py-3.5 sm:grid-cols-[13rem_1fr] sm:gap-4 sm:px-5">
+              <div>
+                <p className="text-sm font-semibold text-[var(--ink)]">
+                  <span className="mr-1.5 tabular-nums text-[var(--muted)]" style={MONO}>
+                    {String(i + 1).padStart(2, "0")}
+                  </span>
+                  {p.t}
+                </p>
+                <p className="mt-0.5 text-xs leading-relaxed text-[var(--muted)]">{p.q}</p>
+              </div>
+              <p className="leading-relaxed text-[var(--ink)]">
+                <span
+                  className="mr-1.5 rounded bg-[var(--surface-2)] px-1.5 py-0.5 text-[0.6rem] font-semibold uppercase tracking-wide text-[var(--muted)]"
+                  style={MONO}
+                >
+                  Voorstel
+                </span>
+                {p.advice}
+              </p>
+            </div>
+          ))}
         </div>
-      </section>
+      </Section>
 
-      <section className="mb-8">
-        <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-[var(--muted)]">Alternatieven</h2>
-        <div className="overflow-hidden rounded-md border border-[var(--line)]">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-[var(--surface-2)]/80 text-[0.65rem] uppercase tracking-wide text-[var(--muted)]">
-              <tr>
-                <th className="px-3 py-2 font-medium sm:px-4">Model</th>
-                <th className="px-3 py-2 font-medium sm:px-4">Wanneer</th>
-                <th className="hidden px-3 py-2 font-medium sm:table-cell sm:px-4">Kanttekening</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[var(--line)]/80 bg-[var(--surface)]">
-              <tr>
-                <td className="px-3 py-2.5 font-medium sm:px-4">A. Pure success</td>
-                <td className="px-3 py-2.5 text-[var(--muted)] sm:px-4">Default — beste alignment</td>
-                <td className="hidden px-3 py-2.5 text-[var(--muted)] sm:table-cell sm:px-4">
-                  Cashflow voor blablabuild onzekerder
-                </td>
-              </tr>
-              <tr>
-                <td className="px-3 py-2.5 font-medium sm:px-4">B. Hybrid</td>
-                <td className="px-3 py-2.5 text-[var(--muted)] sm:px-4">€150–300/m + 10–15% success</td>
-                <td className="hidden px-3 py-2.5 text-[var(--muted)] sm:table-cell sm:px-4">
-                  Fair als stack structureel doorloopt
-                </td>
-              </tr>
-              <tr>
-                <td className="px-3 py-2.5 font-medium sm:px-4">C. Retainer only</td>
-                <td className="px-3 py-2.5 text-[var(--muted)] sm:px-4">Als success niet gewenst is</td>
-                <td className="hidden px-3 py-2.5 text-[var(--muted)] sm:table-cell sm:px-4">
-                  Voelt sneller als kostenpost
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        <p className="mt-2 text-xs text-[var(--muted)]">
-          Openen met A; na 3 maanden eventueel naar B als de stack structureel €50+/m kost.
-        </p>
-      </section>
-
-      <section className="mb-8 overflow-hidden rounded-md border border-[var(--line)] bg-[var(--surface)]">
-        <div className="border-b border-[var(--line)]/80 px-4 py-3 sm:px-5">
-          <h2 className="text-base font-semibold" style={{ fontFamily: "var(--display)" }}>
-            Pilot · 90 dagen
-          </h2>
-        </div>
+      <Section kicker="Blijft zoals het was" title="Tool, data en klantrelatie">
         <ul className="space-y-2 px-4 py-4 text-sm text-[var(--ink)] sm:px-5">
           {[
-            "Tool live voor het BNS-team. Gebruikskosten 1:1 bij BNS.",
-            "Commissie 25% op de eerste opdrachtperiode bij een nieuwe organisatie via de tool; tail 15% op verlengingen (max 24 mnd).",
-            "Startlijst bestaande klanten/pipeline = geen commissie.",
-            "Na 90 dagen: deals, marge, commissie, tevredenheid → verlengen of stoppen.",
+            "De tool en de data erin (signalen, scores, gevonden opdrachtgevers en managers) zijn van blablabuild.",
+            "BNS benadert, sluit en onderhoudt de klant en de kandidaat. Die relatie is van BNS.",
+            "Bestaande klanten en pipeline van BNS bij de start vallen erbuiten.",
+            "BNS mag andere tools blijven gebruiken; geen non-compete op het recruitmentwerk.",
           ].map((item) => (
             <li key={item} className="flex gap-2">
               <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-[var(--green)]" />
@@ -382,87 +345,14 @@ export default function SamenwerkingPage() {
             </li>
           ))}
         </ul>
-      </section>
+      </Section>
 
-      <section className="mb-8 overflow-hidden rounded-md border border-[var(--line)] bg-[var(--surface)] shadow-[var(--shadow)]">
-        <div className="border-b border-[var(--line)]/80 px-4 py-3 sm:px-5">
-          <p
-            className="text-[0.65rem] font-medium uppercase tracking-[0.08em] text-[var(--muted)]"
-            style={{ fontFamily: "var(--mono)" }}
-          >
-            Optie · later
-          </p>
-          <h2 className="mt-0.5 text-base font-semibold" style={{ fontFamily: "var(--display)" }}>
-            Samen verkopen aan andere bureaus
-          </h2>
-          <p className="mt-1 text-xs leading-relaxed text-[var(--muted)]">
-            Dezelfde radar, andere specialisatie (finance, tech, healthcare, …). BNS is pilot én
-            optionele partner — geen verplichting.
-          </p>
-        </div>
-        <div className="space-y-3 px-4 py-4 text-sm text-[var(--ink)] sm:px-5">
-          <p>
-            Als de radar bij BNS werkt, kunnen we hem productiseren voor andere recruitmentbureaus.
-            BNS mag daarop meeverdienen — bijvoorbeeld als referentie, niche-adviseur of
-            co-seller — <strong>alleen als jullie dat willen</strong>.
-          </p>
-          <ul className="space-y-2">
-            {[
-              {
-                t: "Wat BNS inbrengt (optioneel)",
-                d: "Praktijkkennis, referentie-case, warm intros naar bevriende bureaus.",
-              },
-              {
-                t: "Wat blablabuild inbrengt",
-                d: "Product, hosting, niche-config per bureau, sales van de software.",
-              },
-              {
-                t: "Verdienste voor BNS",
-                d: "Bijv. 10–20% van de software-omzet (SaaS/retainer) of een vaste referral per live bureau — nader af te spreken.",
-              },
-              {
-                t: "Grenzen",
-                d: "Geen claim op deals van die andere bureaus. BNS-eigen business blijft strikt gescheiden.",
-              },
-            ].map((row) => (
-              <li key={row.t} className="grid gap-0.5 sm:grid-cols-[11rem_1fr] sm:gap-3">
-                <span className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">
-                  {row.t}
-                </span>
-                <span className="text-[var(--ink)]">{row.d}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      </section>
-
-      <section className="mb-10 grid gap-3 sm:grid-cols-2">
-        <div className="rounded-md border border-[var(--line)] bg-[var(--surface)] px-4 py-3.5">
-          <p className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">Voor BNS</p>
-          <ul className="mt-2 space-y-1.5 text-sm text-[var(--ink)]">
-            <li>Geen softwarehuur — wel 1:1 gebruikskosten</li>
-            <li>Pas commissie bij een nieuwe organisatie via de tool</li>
-            <li>Radar als new-business motor, niet als controle op de desk</li>
-            <li>Optioneel meeverdienen als we naar andere bureaus schalen</li>
-          </ul>
-        </div>
-        <div className="rounded-md border border-[var(--line)] bg-[var(--surface)] px-4 py-3.5">
-          <p className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">Voor blablabuild</p>
-          <ul className="mt-2 space-y-1.5 text-sm text-[var(--ink)]">
-            <li>Upside gekoppeld aan echte waarde</li>
-            <li>Reden om de radar scherp te houden</li>
-            <li>Pad naar product met BNS als pilot / partner (als zij willen)</li>
-          </ul>
-        </div>
-      </section>
-
-      <p className="mb-6 text-xs text-[var(--muted)]">
-        Dit is een werkvoorstel ter bespreking — geen bindende overeenkomst. Cijfers zijn indicatief
-        en volgen het ROI-model op de kostenkant. Wat jullie wél tekenen vóór de pilot staat in de{" "}
+      <p className="mb-6 text-xs leading-relaxed text-[var(--muted)]">
+        Deze pagina vat de afspraak samen. Wat getekend wordt, staat in de{" "}
         <Link href="/pilot" className="text-[var(--ink)] underline underline-offset-2">
-          pilotovereenkomst
+          overeenkomst
         </Link>
-        .
+        ; bij verschil gaat die voor. Bedragen in de voorbeelden zijn indicatief.
       </p>
 
       <a
@@ -471,9 +361,9 @@ export default function SamenwerkingPage() {
         rel="noopener noreferrer"
         className="inline-flex items-center gap-2 text-xs text-[var(--muted)] no-underline"
       >
-        Voorstel van <BlablaLogo className="h-4 w-4" />
+        <BlablaLogo className="h-4 w-4" />
         <span className="font-semibold text-[var(--ink)]">blablabuild</span>
-        <span>voor Brand New Start</span>
+        <span>× Brand New Start</span>
       </a>
     </main>
   );

@@ -1295,6 +1295,7 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
           </div>
           {hidden ? (
             <HiddenNote
+              key={`${hidden.company}:${hidden.kind}`}
               company={hidden.company}
               kind={hidden.kind}
               onUndo={() => {

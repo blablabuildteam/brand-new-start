@@ -1,28 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 
 export type HideKind = "park" | "park-forever" | "not-client";
 
 const PARK_DAYS = 90;
-
-const OPTIONS: { kind: HideKind; title: string; body: string }[] = [
-  {
-    kind: "park",
-    title: "Niet interessant · 3 maanden",
-    body: "Wél een eindklant, nu even niet relevant. Komt op je bewaarde lijst; na 3 maanden weer zichtbaar. Sync slaat nieuwe vacatures over.",
-  },
-  {
-    kind: "park-forever",
-    title: "Niet interessant · tot je terugzet",
-    body: "Zelfde lijst, zonder einddatum. Zichtbaar houden via Instellingen → Jobboards → Terugzetten.",
-  },
-  {
-    kind: "not-client",
-    title: "Geen eindklant",
-    body: "Dit ís geen opdrachtgever (bureau/consultancy). Apart filter — nooit meer als eindklant tonen.",
-  },
-];
 
 export async function hideCompany(company: string, kind: HideKind, undo = false) {
   const res =
@@ -50,45 +32,44 @@ export function hideLabel(kind: HideKind) {
   return "3 maanden op ‘niet interessant’";
 }
 
-/** Eén knop "Verberg bedrijf" met de keuzes erachter — i.p.v. losse links. */
+const EYE_OFF = (
+  <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden>
+    <path
+      d="M2 8s2.2-4.25 6-4.25S14 8 14 8s-2.2 4.25-6 4.25S2 8 2 8Z"
+      stroke="currentColor"
+      strokeWidth="1.4"
+      strokeLinejoin="round"
+    />
+    <path d="M3 13 13 3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+  </svg>
+);
+
+const NOT_CLIENT = (
+  <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden>
+    <rect x="3" y="2.5" width="8" height="11" rx="1" stroke="currentColor" strokeWidth="1.4" />
+    <path d="M5.5 5.5h3M5.5 8h3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+    <path d="m11.5 10.5 3 3m0-3-3 3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+  </svg>
+);
+
+/** Twee losse knoppen: "Niet interessant" (eindklant, even niet) en "Geen eindklant" (bureau). */
 export function CompanyHideMenu({
   company,
   allowNotClient = true,
   onHidden,
-  align = "left",
 }: {
   company: string;
   allowNotClient?: boolean;
   onHidden: (kind: HideKind) => void;
-  align?: "left" | "right";
 }) {
-  const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState<HideKind | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    function onDown(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    }
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") setOpen(false);
-    }
-    document.addEventListener("mousedown", onDown);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDown);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
 
   async function pick(kind: HideKind) {
     setBusy(kind);
     setError(null);
     try {
       await hideCompany(company, kind);
-      setOpen(false);
       onHidden(kind);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Opslaan mislukt");
@@ -98,63 +79,38 @@ export function CompanyHideMenu({
   }
 
   return (
-    <div className="hide-menu" ref={ref}>
+    <div className="hide-actions">
       <button
         type="button"
-        className="hide-menu__btn"
-        aria-haspopup="menu"
-        aria-expanded={open}
-        data-tip={
-          open
-            ? ""
-            : "Op een bewaarde lijst zetten: ‘niet interessant’ (eindklant, even niet) of ‘geen eindklant’ (bureau — apart filter)."
-        }
-        onClick={() => setOpen((v) => !v)}
+        className="hide-btn"
+        disabled={Boolean(busy)}
+        data-tip="Wél een eindklant, nu even niet relevant. 3 maanden weg uit feed en Jobboards; staat op je bewaarde lijst in Instellingen."
+        onClick={() => void pick("park")}
       >
-        <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden>
-          <path
-            d="M2 8s2.2-4.25 6-4.25S14 8 14 8s-2.2 4.25-6 4.25S2 8 2 8Z"
-            stroke="currentColor"
-            strokeWidth="1.4"
-            strokeLinejoin="round"
-          />
-          <path d="M3 13 13 3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-        </svg>
-        Verberg bedrijf
-        <span className="hide-menu__chev" aria-hidden>
-          ▾
-        </span>
+        {EYE_OFF}
+        {busy === "park" ? "Bezig…" : "Niet interessant"}
       </button>
-      {open ? (
-        <div className={`hide-menu__pop hide-menu__pop--${align}`} role="menu" aria-label={`Verberg ${company}`}>
-          <p className="hide-menu__head">{company}</p>
-          <p className="hide-menu__intro">
-            Beide keuzes bewaren we. Verschil: even niet relevant, of géén eindklant.
-          </p>
-          {OPTIONS.filter((o) => allowNotClient || o.kind !== "not-client").map((o) => (
-            <button
-              key={o.kind}
-              type="button"
-              role="menuitem"
-              className="hide-menu__item"
-              disabled={Boolean(busy)}
-              onClick={() => void pick(o.kind)}
-            >
-              <span className="hide-menu__t">{busy === o.kind ? "Bezig…" : o.title}</span>
-              <span className="hide-menu__d">{o.body}</span>
-            </button>
-          ))}
-          {error ? <p className="hide-menu__err">{error}</p> : null}
-        </div>
+      {allowNotClient ? (
+        <button
+          type="button"
+          className="hide-btn"
+          disabled={Boolean(busy)}
+          data-tip="Dit is geen opdrachtgever maar een bureau of consultancy. Komt op de aparte lijst ‘geen eindklant’ en wordt nooit meer als eindklant getoond."
+          onClick={() => void pick("not-client")}
+        >
+          {NOT_CLIENT}
+          {busy === "not-client" ? "Bezig…" : "Geen eindklant"}
+        </button>
       ) : null}
+      {error ? <span className="hide-actions__err">{error}</span> : null}
     </div>
   );
 }
 
-/** Bevestiging na verbergen, met ongedaan maken. */
+/** Bevestiging na verbergen, met ongedaan maken (en bij "niet interessant": voorgoed). */
 export function HiddenNote({
   company,
-  kind,
+  kind: initialKind,
   onUndo,
   onClose,
 }: {
@@ -163,15 +119,32 @@ export function HiddenNote({
   onUndo: () => void;
   onClose: () => void;
 }) {
+  const [kind, setKind] = useState(initialKind);
   const [busy, setBusy] = useState(false);
   return (
     <div className="hide-note" role="status">
       <span className="min-w-0 truncate">
         <strong>{company}</strong> {hideLabel(kind)}.
       </span>
+      {kind === "park" ? (
+        <button
+          type="button"
+          className="hide-note__undo hide-note__alt"
+          disabled={busy}
+          title="Zonder einddatum op ‘niet interessant’ — terugzetten kan in Instellingen."
+          onClick={() => {
+            setBusy(true);
+            void hideCompany(company, "park-forever")
+              .then(() => setKind("park-forever"))
+              .finally(() => setBusy(false));
+          }}
+        >
+          Voorgoed
+        </button>
+      ) : null}
       <button
         type="button"
-        className="hide-note__undo"
+        className={`hide-note__undo${kind === "park" ? " hide-note__undo--next" : ""}`}
         disabled={busy}
         onClick={() => {
           setBusy(true);
