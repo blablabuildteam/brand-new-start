@@ -10,6 +10,7 @@ import { agencyLogoUrls } from "@/lib/company-logo";
 import { BtnSpinner } from "@/components/btn-spinner";
 import { ScoreChip } from "@/components/score-chip";
 import { DismissButton } from "@/components/dismiss-button";
+import { CompanyHideMenu, HiddenNote, type HideKind } from "@/components/company-hide-menu";
 import { ResearchMeter } from "@/components/research-meter";
 import { kansenHref, regieHref } from "@/lib/desk-links";
 import { cachePeek } from "@/lib/client-cache";
@@ -42,6 +43,8 @@ type Payload = {
   }[];
   live: AgencyLead[];
   demo: AgencyLead[];
+  /** Open posts die wegvallen omdat de eindklant als niet interessant is gemarkeerd. */
+  parkedHidden?: number;
   sync?: {
     lastFeed: { at: string; kept: number; fetched: number; mode: string } | null;
     last: { at: string; channel: string; label: string } | null;
@@ -94,6 +97,17 @@ function factsLine(l: AgencyLead) {
     .filter((p): p is string => Boolean(p))
     .map((p) => plainLinkedIn(p))
     .join(" · ");
+}
+
+/** "16d" / "5u" — compact voor de rij; volledige tekst staat in het detail. */
+function ageShort(l: AgencyLead) {
+  if (!l.postedAt) return null;
+  const ms = Date.now() - new Date(l.postedAt).getTime();
+  if (Number.isNaN(ms)) return null;
+  const h = ms / 3_600_000;
+  if (h < 1) return "nu";
+  if (h < 48) return `${Math.round(h)}u`;
+  return `${Math.round(h / 24)}d`;
 }
 
 function postedLabel(l: AgencyLead) {
@@ -405,6 +419,7 @@ function LeadCard({
   const quickAi = actionable && !lead.guess && !lead.aiMiss;
 
   const rowBusy = Boolean(confirming || hmBusy);
+  const meta = [lead.agency.name, lead.recruiter.name, ageShort(lead)].filter(Boolean).join(" · ");
   return (
     <article
       className={`lead-row ${active ? "lead-row--on" : ""} ${selected ? "lead-row--picked" : ""} ${rowBusy ? "lead-row--busy" : ""}`}
@@ -418,85 +433,79 @@ function LeadCard({
           aria-label={`Selecteer ${lead.title}`}
         />
       </label>
-      <div className="lead-row__head">
-        <button type="button" className="lead-row__hit" onClick={onOpen} aria-current={active ? "true" : undefined}>
-          <span className="lead-row__title truncate">{lead.title}</span>
-          <span className="lead-row__meta truncate">
-            {postedLabel(lead) ? `${postedLabel(lead)} · ` : ""}
-            {lead.agency.name}
-            {lead.recruiter.name ? ` · ${lead.recruiter.name}` : ""}
-            {factsLine(lead) ? ` · ${factsLine(lead)}` : ""}
+      <button type="button" className="lead-row__hit" onClick={onOpen} aria-current={active ? "true" : undefined}>
+        <span className="lead-row__title">{lead.title}</span>
+        <span className="lead-row__sub">
+          <span className={`lead-row__client ${client ? "" : "lead-row__client--none"}`}>
+            {client || (aiError ? "AI vond niets" : "Opdrachtgever onbekend")}
           </span>
-        </button>
-        <div className="lead-row__side">
-          {conf != null ? (
-            <ScoreChip
-              kans={conf}
-              percent
-              label={lead.status === "confirmed" ? "Bevestigd" : lead.status === "rejected" ? "Weg" : undefined}
-              hint={
-                lead.status === "rejected" || lead.status === "weak" || lead.status === "review"
-                  ? statusWhy(lead)
-                  : undefined
-              }
-              parts={(lead.guess?.evidence || []).slice(0, 6).map((e) => ({
-                label: e.origin ? `${e.label} · ${ORIGIN_NL[e.origin] || e.origin}` : e.label,
-              }))}
-            />
-          ) : (
-            <span
-              className={`ws-score shrink-0 ${lead.status === "confirmed" ? "ws-score--hot" : lead.status === "rejected" ? "ws-score--cold" : "ws-score--watch"}`}
-              data-tip={statusWhy(lead)}
-            >
-              <span className="ws-score__band">{statusShort(lead.status)}</span>
-            </span>
-          )}
-          {quickConfirm ? (
-            <button
-              type="button"
-              disabled={busy || aiBusy || client.length < 2}
-              onClick={() => onReview(lead.id, "confirmed", client)}
-              className={`lead-row__confirm ${confirming ? "is-busy" : ""}`}
-              aria-busy={confirming || undefined}
-              aria-label={`Bevestig ${client} — naar Kansen om hiring manager te zoeken`}
-              data-tip="Bevestig → Kansen · hiring manager zoeken"
-            >
-              {confirming ? (
-                <BtnSpinner />
-              ) : (
-                <span className="lead-row__confirm-check" aria-hidden>
-                  ✓
-                </span>
-              )}
-              <span className="lead-row__confirm-name truncate">{client}</span>
-            </button>
-          ) : quickAi ? (
-            <button
-              type="button"
-              disabled={busy || aiBusy || Boolean(aiQueued)}
-              onClick={() => onAiGuess(lead.id, "standard")}
-              className="btn-ghost btn-row"
-              title="AI leest de post en zoekt de opdracht online terug (~2 cent)"
-            >
-              {aiBusy ? "Zoekt…" : aiQueued ? "Wacht…" : `AI · ${eurApprox(SYNC_COST_PER_RUN.actions["ai-research"].eur)}`}
-            </button>
-          ) : null}
-          {actionable ? (
-            <DismissButton
-              disabled={busy || aiBusy}
-              title="Verwijderen — zet post weg"
-              onClick={() => onReview(lead.id, "rejected")}
-            />
-          ) : null}
-        </div>
+          <span className="lead-row__meta">{meta}</span>
+        </span>
+      </button>
+      <div className="lead-row__score">
+        {conf != null ? (
+          <ScoreChip
+            kans={conf}
+            percent
+            label={lead.status === "confirmed" ? "Bevestigd" : lead.status === "rejected" ? "Weg" : undefined}
+            hint={
+              lead.status === "rejected" || lead.status === "weak" || lead.status === "review"
+                ? statusWhy(lead)
+                : undefined
+            }
+            parts={(lead.guess?.evidence || []).slice(0, 6).map((e) => ({
+              label: e.origin ? `${e.label} · ${ORIGIN_NL[e.origin] || e.origin}` : e.label,
+            }))}
+          />
+        ) : (
+          <span
+            className={`ws-score shrink-0 ${lead.status === "confirmed" ? "ws-score--hot" : lead.status === "rejected" ? "ws-score--cold" : "ws-score--watch"}`}
+            data-tip={statusWhy(lead)}
+          >
+            <span className="ws-score__band">{statusShort(lead.status)}</span>
+          </span>
+        )}
       </div>
-      <div className="lead-row__clientline" onClick={onOpen}>
-        <span className="lead-row__arrow" aria-hidden>
-          →
-        </span>
-        <span className={`min-w-0 truncate ${client ? "text-[var(--ink)]" : "text-[var(--muted)]"}`}>
-          {client || "Opdrachtgever onbekend"}
-        </span>
+      <div className="lead-row__act">
+        {quickConfirm ? (
+          <button
+            type="button"
+            disabled={busy || aiBusy || client.length < 2}
+            onClick={() => onReview(lead.id, "confirmed", client)}
+            className={`lead-row__confirm ${confirming ? "is-busy" : ""}`}
+            aria-busy={confirming || undefined}
+            aria-label={`Bevestig ${client} — naar Kansen om hiring manager te zoeken`}
+            title={`Bevestig ${client} → Kansen`}
+          >
+            {confirming ? (
+              <BtnSpinner />
+            ) : (
+              <span className="lead-row__confirm-check" aria-hidden>
+                ✓
+              </span>
+            )}
+            Bevestig
+          </button>
+        ) : quickAi ? (
+          <button
+            type="button"
+            disabled={busy || aiBusy || Boolean(aiQueued)}
+            onClick={() => onAiGuess(lead.id, "standard")}
+            className="lead-row__ai"
+            title={`AI leest de post en zoekt de opdrachtgever · ${eurApprox(SYNC_COST_PER_RUN.actions["ai-research"].eur)}`}
+          >
+            {aiBusy ? "Zoekt…" : aiQueued ? "Wacht…" : "AI zoeken"}
+          </button>
+        ) : null}
+      </div>
+      <div className="lead-row__x">
+        {actionable ? (
+          <DismissButton
+            disabled={busy || aiBusy}
+            title="Wegzetten — geen opdracht of niet voor ons"
+            onClick={() => onReview(lead.id, "rejected")}
+          />
+        ) : null}
       </div>
     </article>
   );
@@ -540,6 +549,7 @@ function LeadDetail({
   hmBusy,
   confirming,
   onBack,
+  onCompanyHidden,
 }: {
   lead: AgencyLead;
   busy: boolean;
@@ -556,6 +566,7 @@ function LeadDetail({
   onAiGuess: (id: string, depth?: ResearchDepth) => void;
   onHmSearch?: (id: string) => void;
   onBack?: () => void;
+  onCompanyHidden?: (company: string, kind: HideKind) => void;
 }) {
   const guessed = lead.confirmedClient || lead.guess?.name || "";
   const client = (clientDraft || guessed).trim();
@@ -601,6 +612,16 @@ function LeadDetail({
             <span className="ws-score__band">{statusShort(lead.status)}</span>
           </span>
         )}
+        {client && onCompanyHidden ? (
+          <span className="ml-auto">
+            <CompanyHideMenu
+              company={client}
+              allowNotClient={false}
+              align="right"
+              onHidden={(kind) => onCompanyHidden(client, kind)}
+            />
+          </span>
+        ) : null}
       </div>
       <div className="mt-4">
         <WhyBlock lead={lead} />
@@ -689,9 +710,7 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
   const [hintBucket, setHintBucket] = useState<Bucket | null>(null);
   const [picked, setPicked] = useState<Set<string>>(() => new Set());
   const [watchAgency, setWatchAgency] = useState<string | null>(null);
-  const [openRecruiter, setOpenRecruiter] = useState<string | null>(null);
-  /** Kantoren in de sync-lijst: standaard dicht, anders vreet Vibe de hele pagina. */
-  const [openAgency, setOpenAgency] = useState<string | null>(null);
+  const [hidden, setHidden] = useState<{ company: string; kind: HideKind } | null>(null);
   const [clientDrafts, setClientDrafts] = useState<Record<string, string>>(() => {
     const drafts: Record<string, string> = {};
     if (initial) {
@@ -838,34 +857,25 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
   const feedAt = data?.sync?.lastFeed?.at || data?.sync?.checkedAt || null;
   const feedPending = data?.sync?.pending?.length ?? 0;
   const feedLocked = feedPending === 0 && syncStillLocked(data?.sync?.checkedAt || data?.sync?.lastFeed?.at);
-  const feedCost = eurRange(SYNC_COST_PER_RUN.actions["recruiter-feeds"].eur);
-
-  const feedRoster = useMemo(() => {
+  /** Per recruiter: al opgehaald? + aantal posts — getoond bij Kantoren die je volgt. */
+  const rosterByKey = useMemo(() => {
     const pending = new Set((data?.sync?.pending || []).map((p) => recruiterKey(p.agency, p.name)));
-    const posts = new Map<string, { id: string; title: string }[]>();
+    const posts = new Map<string, number>();
     for (const lead of data?.live || []) {
       const name = lead.recruiter.name?.trim();
       if (!name) continue;
       const key = recruiterKey(lead.agency.name, name);
-      const list = posts.get(key) || [];
-      list.push({ id: lead.id, title: lead.title });
-      posts.set(key, list);
+      posts.set(key, (posts.get(key) || 0) + 1);
     }
-    return (data?.watchlist || []).map((agency) => ({
-      id: agency.id,
-      name: agency.name,
-      linkedinSlug: agency.linkedinSlug,
-      recruiters: agency.recruiters.map((r) => {
+    const out = new Map<string, { checked: boolean; posts: number }>();
+    for (const agency of data?.watchlist || []) {
+      for (const r of agency.recruiters) {
         const key = recruiterKey(agency.name, r.name);
-        const found = posts.get(key) || [];
-        return {
-          key,
-          name: r.name,
-          checked: found.length > 0 || !pending.has(key),
-          posts: found,
-        };
-      }),
-    }));
+        const n = posts.get(key) || 0;
+        out.set(key, { checked: n > 0 || !pending.has(key), posts: n });
+      }
+    }
+    return out;
   }, [data]);
 
   const researchStrip = useMemo(() => {
@@ -916,6 +926,21 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
       setConfirmId(null);
       setBusy(false);
     }
+  }
+
+  function onCompanyHidden(company: string, kind: HideKind) {
+    const key = company.trim().toLowerCase();
+    setData((prev) => {
+      if (!prev) return prev;
+      const keep = (l: AgencyLead) =>
+        l.status === "confirmed" || clientNameOf(l, clientDrafts[l.id]).toLowerCase() !== key;
+      const live = prev.live.filter(keep);
+      const next = { ...prev, live, parkedHidden: (prev.parkedHidden || 0) + (prev.live.length - live.length) };
+      dataRef.current = next;
+      return next;
+    });
+    setPickedId(null);
+    setHidden({ company, kind });
   }
 
   function togglePick(id: string) {
@@ -1163,179 +1188,8 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
             </div>
           </RememberedFold>
 
-          <details className={`ws-fold shrink-0 ${mobilePane === "detail" ? "max-lg:hidden" : ""}`}>
-            <summary>
-              <span>
-                {data ? `${counts.all} posts` : "Sync"}
-                {data ? ` · ${counts.confirm} te bevestigen` : ""}
-              </span>
-              <span className="ws-fold__meta">
-                {feedLocked
-                  ? `vandaag al · ${feedAt ? timeAgoShort(feedAt) : "opgehaald"}`
-                  : feedAt
-                    ? `Feeds ${timeAgoShort(feedAt)}`
-                    : "Nog geen sync"}
-              </span>
-            </summary>
-            <div className="ws-fold__body !p-0">
-              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--line)] px-3.5 py-2">
-                <p className="text-[0.72rem] text-[var(--muted)]">
-                  {feedLocked
-                    ? "Al opgehaald vandaag. Opnieuw ophalen kan via Sync."
-                    : feedPending > 0
-                      ? `${feedPending} nieuwe recruiters nog niet opgehaald · ≈ ${feedCost} per run.`
-                      : `Ophalen en kosten staan op Sync · ≈ ${feedCost}.`}
-                </p>
-                <a
-                  href="/sync"
-                  className="text-[0.72rem] font-semibold text-[var(--ink)] underline decoration-[var(--signal)] underline-offset-2"
-                >
-                  Naar Sync →
-                </a>
-              </div>
-              {feedRoster.length ? (
-                <div className="feed-sync">
-                  {feedRoster.map((agency) => {
-                    const agencyOpen = openAgency === agency.id;
-                    const postsTotal = agency.recruiters.reduce((n, r) => n + r.posts.length, 0);
-                    const checkedN = agency.recruiters.filter((r) => r.checked).length;
-                    return (
-                      <section key={agency.id}>
-                        <button
-                          type="button"
-                          className="feed-sync__co"
-                          aria-expanded={agencyOpen}
-                          onClick={() => {
-                            setOpenAgency(agencyOpen ? null : agency.id);
-                            if (agencyOpen) setOpenRecruiter(null);
-                          }}
-                        >
-                          <span className="flex min-w-0 flex-1 items-center gap-2">
-                            <CompanyMark
-                              name={agency.name}
-                              logoUrls={agencyLogoUrls({
-                                name: agency.name,
-                                id: agency.id,
-                                linkedinSlug: agency.linkedinSlug,
-                              })}
-                              size="sm"
-                            />
-                            <span className="truncate">{agency.name}</span>
-                          </span>
-                          <span className="feed-sync__co-meta">
-                            {agency.recruiters.length} recruiters
-                            {postsTotal ? ` · ${postsTotal} posts` : ""}
-                            {checkedN < agency.recruiters.length
-                              ? ` · ${agency.recruiters.length - checkedN} nieuw`
-                              : ""}
-                          </span>
-                          <span className="feed-sync__chev" aria-hidden>
-                            {agencyOpen ? "▴" : "▾"}
-                          </span>
-                        </button>
-                        {agencyOpen ? (
-                          <ul>
-                            {agency.recruiters.map((person) => {
-                              const open = openRecruiter === person.key;
-                              return (
-                                <li key={person.key}>
-                                  <button
-                                    type="button"
-                                    className="feed-sync__row"
-                                    aria-expanded={open}
-                                    onClick={() => setOpenRecruiter(open ? null : person.key)}
-                                  >
-                                    <span
-                                      className={`feed-sync__tick${person.checked ? " feed-sync__tick--on" : ""}`}
-                                      aria-hidden
-                                    >
-                                      {person.checked ? (
-                                        <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-                                          <path
-                                            d="M2 5.2 4 7.2 8 2.8"
-                                            stroke="currentColor"
-                                            strokeWidth="1.4"
-                                            strokeLinecap="round"
-                                            strokeLinejoin="round"
-                                          />
-                                        </svg>
-                                      ) : null}
-                                    </span>
-                                    <span className="truncate">{person.name}</span>
-                                    {person.posts.length ? (
-                                      <span className="feed-sync__n">{person.posts.length}</span>
-                                    ) : null}
-                                  </button>
-                                  {open ? (
-                                    person.posts.length ? (
-                                      <ul className="feed-sync__posts">
-                                        {person.posts.map((post) => (
-                                          <li key={post.id}>
-                                            <button
-                                              type="button"
-                                              className="feed-sync__post"
-                                              onClick={() => openLead(post.id)}
-                                            >
-                                              {post.title}
-                                            </button>
-                                          </li>
-                                        ))}
-                                      </ul>
-                                    ) : (
-                                      <p className="feed-sync__empty">
-                                        {person.checked
-                                          ? "Opgehaald, geen vacature-posts."
-                                          : "Nog niet opgehaald."}
-                                      </p>
-                                    )
-                                  ) : null}
-                                </li>
-                              );
-                            })}
-                          </ul>
-                        ) : null}
-                      </section>
-                    );
-                  })}
-                </div>
-              ) : (
-                <p className="px-3.5 py-3 text-[0.78rem] text-[var(--muted)]">Nog geen recruiters op de lijst.</p>
-              )}
-            </div>
-          </details>
-
-          <div className={`lead-buckets ${mobilePane === "detail" ? "max-lg:hidden" : ""}`}>
-            <div className="lead-dayfilter" role="group" aria-label="Periode">
-              <span className="lead-dayfilter__label">Periode</span>
-              <div className="lead-dayfilter__opts">
-                {DAY_OPTIONS.map((opt) => (
-                  <button
-                    key={String(opt.id)}
-                    type="button"
-                    className={`ws-chip ${dayFilter === opt.id ? "ws-chip--on" : ""}`}
-                    onClick={() => setDayFilterPersist(opt.id)}
-                    title={
-                      opt.id === "all"
-                        ? "Alle posts, ongeacht leeftijd"
-                        : `Alleen posts van de laatste ${opt.id} dagen`
-                    }
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
-              {hiddenByDays > 0 && dayFilter !== "all" ? (
-                <button
-                  type="button"
-                  className="lead-dayfilter__more"
-                  onClick={() => setDayFilterPersist("all")}
-                  title="Toon ook oudere posts"
-                >
-                  +{hiddenByDays} ouder
-                </button>
-              ) : null}
-            </div>
-            <div className="lead-buckets__row">
+          <div className={`lead-toolbar ${mobilePane === "detail" ? "max-lg:hidden" : ""}`}>
+            <div className="lead-toolbar__row">
               <div className="lead-seg" role="tablist" aria-label="Werkbakken">
                 {WORK_BUCKETS.map((b) => (
                   <button
@@ -1359,7 +1213,7 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
                 className={`lead-donefold ${(DONE_BUCKETS as readonly string[]).includes(bucket) ? "lead-donefold--on" : ""}`}
               >
                 <summary className="lead-donefold__sum">
-                  Afgehandeld
+                  {(DONE_BUCKETS as readonly string[]).includes(bucket) ? BUCKET_NL[bucket] : "Afgehandeld"}
                   <span className="lead-seg__n">
                     {data ? counts.confirmed + counts.rejected : "…"}
                   </span>
@@ -1386,13 +1240,71 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
                   ))}
                 </div>
               </details>
+              <div className="lead-toolbar__right">
+                <label className="lead-period">
+                  <span className="lead-period__label">Geplaatst</span>
+                  <select
+                    value={String(dayFilter)}
+                    onChange={(e) =>
+                      setDayFilterPersist(e.target.value === "all" ? "all" : (Number(e.target.value) as DayFilter))
+                    }
+                    aria-label="Toon posts geplaatst in"
+                  >
+                    {DAY_OPTIONS.map((opt) => (
+                      <option key={String(opt.id)} value={String(opt.id)}>
+                        {opt.id === "all" ? "Altijd" : `Laatste ${opt.id} dagen`}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <a
+                  href="/sync"
+                  className="lead-feedstat"
+                  title={
+                    feedPending > 0
+                      ? `${feedPending} recruiters nog niet opgehaald · ophalen op Sync`
+                      : "Ophalen en kosten staan op Sync"
+                  }
+                >
+                  <span className={`lead-feedstat__dot ${feedLocked ? "lead-feedstat__dot--fresh" : ""}`} aria-hidden />
+                  {feedAt ? `Feeds ${timeAgoShort(feedAt)}` : "Nog geen sync"}
+                  {feedPending > 0 ? <span className="lead-feedstat__new">{feedPending} nieuw</span> : null}
+                </a>
+              </div>
             </div>
-            <p className="lead-buckets__hint" aria-live="polite">
-              <strong>{bucketHint.title}</strong>
-              <span aria-hidden="true"> · </span>
-              {bucketHint.body}
-            </p>
+            <div className="lead-toolbar__hint" aria-live="polite">
+              <p className="lead-buckets__hint">
+                <strong>{bucketHint.title}</strong>
+                <span aria-hidden="true"> · </span>
+                {bucketHint.body}
+              </p>
+              {hiddenByDays > 0 && dayFilter !== "all" ? (
+                <button type="button" className="lead-toolbar__more" onClick={() => setDayFilterPersist("all")}>
+                  +{hiddenByDays} ouder
+                </button>
+              ) : null}
+              {data?.parkedHidden ? (
+                <a
+                  href="/instellingen#jobboards"
+                  className="lead-toolbar__more"
+                  title="Posts van bedrijven die je als niet interessant hebt gemarkeerd"
+                >
+                  {data.parkedHidden} niet interessant
+                </a>
+              ) : null}
+            </div>
           </div>
+          {hidden ? (
+            <HiddenNote
+              company={hidden.company}
+              kind={hidden.kind}
+              onUndo={() => {
+                setHidden(null);
+                void load();
+              }}
+              onClose={() => setHidden(null)}
+            />
+          ) : null}
           {picked.size > 0 ? (
             <div className={`lead-bulkbar ${mobilePane === "detail" ? "max-lg:hidden" : ""}`} role="region" aria-label="Selectie">
               <span className="lead-bulkbar__n">{picked.size} geselecteerd</span>
@@ -1564,6 +1476,7 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
                     onAiGuess={onAiGuess}
                     onHmSearch={onHmSearch}
                     onBack={() => setMobilePane("list")}
+                    onCompanyHidden={onCompanyHidden}
                   />
                 ) : (
                   <p className="text-sm text-[var(--muted)]">Kies een post in de lijst.</p>
@@ -1665,23 +1578,50 @@ export default function LeadsDesk({ initial }: { initial?: Payload }) {
                           <div className="border-t border-[var(--line)]/70 bg-[var(--surface-2)]/50 px-3.5 py-2.5 sm:px-4">
                             {a.note ? <p className="mb-2 text-[0.72rem] text-[var(--muted)]">{a.note}</p> : null}
                             <ul className="space-y-1.5">
-                              {a.recruiters.map((r) => (
-                                <li key={r.name} className="flex items-center justify-between gap-3 text-[0.78rem]">
-                                  {r.linkedinUrl ? (
-                                    <a
-                                      href={r.linkedinUrl}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="font-medium text-[var(--ink)] no-underline hover:underline"
+                              {a.recruiters.map((r) => {
+                                const roster = rosterByKey.get(recruiterKey(a.name, r.name));
+                                const checked = roster?.checked ?? false;
+                                return (
+                                  <li key={r.name} className="flex items-center gap-2 text-[0.78rem]">
+                                    <span
+                                      className={`feed-sync__tick${checked ? " feed-sync__tick--on" : ""}`}
+                                      title={checked ? "Opgehaald" : "Nog niet opgehaald"}
+                                      aria-label={checked ? "Opgehaald" : "Nog niet opgehaald"}
                                     >
-                                      {r.name}
-                                    </a>
-                                  ) : (
-                                    <span className="font-medium text-[var(--ink)]">{r.name}</span>
-                                  )}
-                                  {r.brand ? <span className="truncate text-[var(--muted)]">{r.brand}</span> : null}
-                                </li>
-                              ))}
+                                      {checked ? (
+                                        <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden>
+                                          <path
+                                            d="M2 5.2 4 7.2 8 2.8"
+                                            stroke="currentColor"
+                                            strokeWidth="1.4"
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                          />
+                                        </svg>
+                                      ) : null}
+                                    </span>
+                                    {r.linkedinUrl ? (
+                                      <a
+                                        href={r.linkedinUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="min-w-0 truncate font-medium text-[var(--ink)] no-underline hover:underline"
+                                      >
+                                        {r.name}
+                                      </a>
+                                    ) : (
+                                      <span className="min-w-0 truncate font-medium text-[var(--ink)]">{r.name}</span>
+                                    )}
+                                    {r.brand ? <span className="truncate text-[var(--muted)]">{r.brand}</span> : null}
+                                    <span
+                                      className="ml-auto shrink-0 tabular-nums text-[0.68rem] text-[var(--muted)]"
+                                      style={{ fontFamily: "var(--mono)" }}
+                                    >
+                                      {roster?.posts ? `${roster.posts} posts` : checked ? "geen posts" : "nieuw"}
+                                    </span>
+                                  </li>
+                                );
+                              })}
                             </ul>
                           </div>
                         </details>

@@ -18,6 +18,7 @@ export type AppNavId =
   | "instellingen"
   | "sync"
   | "alerts"
+  | "kosten"
   | "ops";
 
 const PRIMARY: { href: string; id: AppNavId; label: string; icon: "radar" | "bureaus" | "kansen" | "contact" }[] = [
@@ -44,6 +45,7 @@ function SideIcon({
     | "sync"
     | "alerts"
     | "ops"
+    | "kosten"
     | "logout";
   on: boolean;
 }) {
@@ -131,6 +133,14 @@ function SideIcon({
       <svg {...common}>
         <path d="M3.5 3.5h9v9h-9z" {...s} />
         <path d="M5.5 6.5h5M5.5 8.5h3.5M5.5 10.5h4" {...s} />
+      </svg>
+    );
+  }
+  if (kind === "kosten") {
+    return (
+      <svg {...common}>
+        <path d="M11.5 4.4A4 4 0 1 0 11.5 11.6" {...s} />
+        <path d="M3.25 6.75h5.5M3.25 9.25h5.5" {...s} />
       </svg>
     );
   }
@@ -326,6 +336,15 @@ export function AppShell({
         >
           <SideIcon kind="sync" on={current === "sync"} />
           <span className="rail-label">Sync</span>
+        </Link>
+        <Link
+          href="/kosten"
+          data-rail="Kosten"
+          onClick={() => setOpen(false)}
+          className={navClass(current === "kosten")}
+        >
+          <SideIcon kind="kosten" on={current === "kosten"} />
+          <span className="rail-label">Kosten</span>
         </Link>
         <Link
           href="/alerts"

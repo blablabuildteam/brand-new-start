@@ -94,6 +94,7 @@ export default function SettingsForm() {
   const [suggestionsOpen, setSuggestionsOpen] = useState(false);
   const [dismissed, setDismissed] = useState<string[]>([]);
   const [rejected, setRejected] = useState<{ key: string; name: string; at: string }[]>([]);
+  const [parked, setParked] = useState<{ key: string; name: string; at: string; until: string | null }[]>([]);
   /** Recruiterslijst per bureau: standaard dicht, zodat Vibe niet de pagina opvreet. */
   const [openRecruiters, setOpenRecruiters] = useState<Record<string, boolean>>({});
 
@@ -115,6 +116,12 @@ export default function SettingsForm() {
       .then((r) => (r.ok ? r.json() : null))
       .then((j: { rejected?: { key: string; name: string; at: string }[] } | null) => {
         if (j?.rejected) setRejected(j.rejected);
+      })
+      .catch(() => undefined);
+    fetch("/api/companies/park")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j: { parked?: { key: string; name: string; at: string; until: string | null }[] } | null) => {
+        if (j?.parked) setParked(j.parked);
       })
       .catch(() => undefined);
   }, []);
@@ -598,11 +605,49 @@ export default function SettingsForm() {
                 Standaardfuncties terugzetten
               </button>
 
+              {parked.length ? (
+                <div>
+                  <p className="text-sm font-medium text-[var(--ink)]">Niet interessant</p>
+                  <p className="mt-0.5 text-[0.75rem] text-[var(--muted)]">
+                    Weg uit Recruiter feed en Jobboards; sync slaat nieuwe vacatures over.
+                  </p>
+                  <ul className="mt-2 space-y-1.5">
+                    {parked.map((r) => (
+                      <li key={r.key} className="flex items-center justify-between gap-2 text-sm">
+                        <span className="min-w-0 truncate font-medium text-[var(--ink)]">{r.name}</span>
+                        <span className="ml-auto shrink-0 text-[0.7rem] text-[var(--muted)]">
+                          {r.until
+                            ? `t/m ${new Date(r.until).toLocaleDateString("nl-NL", { day: "numeric", month: "short" })}`
+                            : "altijd"}
+                        </span>
+                        <button
+                          type="button"
+                          className="shrink-0 text-[0.72rem] font-semibold text-[var(--accent)] hover:underline"
+                          onClick={() => {
+                            void (async () => {
+                              const res = await fetch("/api/companies/park", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ company: r.name, undo: true }),
+                              });
+                              if (!res.ok) return;
+                              setParked((prev) => prev.filter((x) => x.key !== r.key));
+                            })();
+                          }}
+                        >
+                          Terugzetten
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+
               {rejected.length ? (
                 <div>
-                  <p className="text-sm font-medium text-[var(--ink)]">Handmatig verborgen</p>
+                  <p className="text-sm font-medium text-[var(--ink)]">Geen eindklant</p>
                   <p className="mt-0.5 text-[0.75rem] text-[var(--muted)]">
-                    Via <em>Geen eindklant — verberg</em> op Jobboards.
+                    Bureaus/consultancies die je via <em>Verberg</em> hebt gemarkeerd — nooit meer als eindklant.
                   </p>
                   <ul className="mt-2 space-y-1.5">
                     {rejected.map((r) => (

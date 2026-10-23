@@ -2,6 +2,7 @@ import { hasApifyToken, runApifyActor } from "@/lib/apify";
 import { detectRoleLabel, isExternalRole, matchesRole, notExternalReason } from "@/lib/niche";
 import { ingestSignal, isJunkCompanyName, isJunkJobTitle } from "@/lib/store";
 import { isBlockedEndClientName } from "@/lib/agency";
+import { isParkedCompany } from "@/lib/parked";
 import { recordSync, type SyncHit } from "@/lib/sync-log";
 import { INGEST_POLICY } from "@/lib/costs";
 import { extractOrgContext, orgContextToRaw } from "@/lib/org-context";
@@ -230,6 +231,18 @@ export async function ingestMarketJobs(
       });
       continue;
     }
+    if (isParkedCompany(job.company)) {
+      skipped += 1;
+      hits.push({
+        company: job.company,
+        title: job.title,
+        url: job.url,
+        kept: false,
+        isNew: false,
+        reason: "niet interessant (door jou gemarkeerd)",
+      });
+      continue;
+    }
     const blob = `${job.title} ${job.description || ""} ${job.employmentType || ""}`;
     if (!matchesRole(blob)) {
       skipped += 1;
@@ -246,18 +259,9 @@ export async function ingestMarketJobs(
 
     const emp = job.employmentType || "";
     const contractish = isExternalRole({ text: blob, employmentType: emp });
-    if (huntSettings().requireContract && !contractish) {
-      skipped += 1;
-      hits.push({
-        company: job.company,
-        title: job.title,
-        url: job.url,
-        kept: false,
-        isNew: false,
-        reason: notExternalReason({ text: blob, employmentType: emp }),
-      });
-      continue;
-    }
+    // Vaste rol: niet op de radar, wel stil bewaren — al betaald, en na ~3
+    // maanden open is het een lucky shot.
+    const permanentWatch = huntSettings().requireContract && !contractish;
 
     const org = extractOrgContext({
       text: blob,
@@ -293,9 +297,22 @@ export async function ingestMarketJobs(
         jobPosterProfileUrl: job.jobPosterProfileUrl || null,
         jobFunction: job.jobFunction || null,
         companyLinkedinUrl: job.companyLinkedinUrl || null,
+        ...(permanentWatch ? { permanentWatch: true } : {}),
         ...orgContextToRaw(org),
       },
     });
+    if (permanentWatch) {
+      skipped += 1;
+      hits.push({
+        company: job.company,
+        title: job.title,
+        url: job.url,
+        kept: false,
+        isNew: false,
+        reason: `${notExternalReason({ text: blob, employmentType: emp })} · bewaard voor lucky shot`,
+      });
+      continue;
+    }
     const ok = Boolean(result.ok);
     if (ok) kept += 1;
     else skipped += 1;

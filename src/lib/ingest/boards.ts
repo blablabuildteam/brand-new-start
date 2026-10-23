@@ -5,6 +5,7 @@
 
 import { hasApifyToken, runApifyActor } from "@/lib/apify";
 import { isBlockedEndClientName } from "@/lib/agency";
+import { isParkedCompany } from "@/lib/parked";
 import {
   detectRoleLabel,
   isExternalRole,
@@ -71,6 +72,18 @@ async function ingestBoardJobs(jobs: BoardJob[]) {
       });
       continue;
     }
+    if (isParkedCompany(job.company)) {
+      skipped += 1;
+      hits.push({
+        company: job.company,
+        title: job.title,
+        url: job.url,
+        kept: false,
+        isNew: false,
+        reason: "niet interessant (door jou gemarkeerd)",
+      });
+      continue;
+    }
     const blob = `${job.title} ${job.description || ""}`;
     if (!matchesRole(blob)) {
       skipped += 1;
@@ -86,18 +99,7 @@ async function ingestBoardJobs(jobs: BoardJob[]) {
     }
 
     const contractish = isExternalRole({ text: blob, employmentType: job.employmentType });
-    if (huntSettings().requireContract && !contractish) {
-      skipped += 1;
-      hits.push({
-        company: job.company,
-        title: job.title,
-        url: job.url,
-        kept: false,
-        isNew: false,
-        reason: notExternalReason({ text: blob, employmentType: job.employmentType }),
-      });
-      continue;
-    }
+    const permanentWatch = huntSettings().requireContract && !contractish;
 
     const org = extractOrgContext({
       text: blob,
@@ -128,9 +130,22 @@ async function ingestBoardJobs(jobs: BoardJob[]) {
         description: (job.description || "").slice(0, 2500) || null,
         jobPosterName: job.jobPosterName || null,
         jobPosterTitle: job.jobPosterTitle || null,
+        ...(permanentWatch ? { permanentWatch: true } : {}),
         ...orgContextToRaw(org),
       },
     });
+    if (permanentWatch) {
+      skipped += 1;
+      hits.push({
+        company: job.company,
+        title: job.title,
+        url: job.url,
+        kept: false,
+        isNew: false,
+        reason: `${notExternalReason({ text: blob, employmentType: job.employmentType })} · bewaard voor lucky shot`,
+      });
+      continue;
+    }
     const ok = Boolean(result.ok);
     if (ok) kept += 1;
     else skipped += 1;

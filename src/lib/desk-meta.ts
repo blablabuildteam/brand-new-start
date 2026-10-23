@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { getDb, hasDatabase } from "@/lib/db/client";
 import { workspaceSettings } from "@/lib/db/schema";
 import type { ClientGuess } from "@/lib/end-client";
+import { setParkedCompanies } from "@/lib/parked";
 
 const META_ID = "desk-meta";
 
@@ -118,6 +119,14 @@ export type RejectedCompany = {
   by?: string;
 };
 
+/** Eindklant die nu niet interessant is — verdwijnt uit feed + Jobboards tot `until` (null = altijd). */
+export type ParkedCompany = {
+  name: string;
+  at: string;
+  by?: string;
+  until: string | null;
+};
+
 /** Teller AI-research vandaag — voor dagplafond (geschatte €). */
 export type AiDaySpend = {
   /** YYYY-MM-DD (UTC) */
@@ -136,6 +145,8 @@ export type DeskMeta = {
   hmGuesses: Record<string, HmGuessRow>;
   /** keyed by genormaliseerde bedrijfsnaam */
   rejectedCompanies: Record<string, RejectedCompany>;
+  /** keyed by genormaliseerde bedrijfsnaam */
+  parkedCompanies: Record<string, ParkedCompany>;
   /** Jobboard-openingen die jij hebt weggezet (opening-id). */
   dismissedOpenings: Record<string, { at: string }>;
   alerts: DeskAlert[];
@@ -150,6 +161,7 @@ const emptyMeta = (): DeskMeta => ({
   crmStages: {},
   hmGuesses: {},
   rejectedCompanies: {},
+  parkedCompanies: {},
   dismissedOpenings: {},
   alerts: [],
   aiDaySpend: null,
@@ -177,6 +189,8 @@ export async function loadDeskMeta(): Promise<DeskMeta> {
       hmGuesses: raw?.hmGuesses && typeof raw.hmGuesses === "object" ? raw.hmGuesses : {},
       rejectedCompanies:
         raw?.rejectedCompanies && typeof raw.rejectedCompanies === "object" ? raw.rejectedCompanies : {},
+      parkedCompanies:
+        raw?.parkedCompanies && typeof raw.parkedCompanies === "object" ? raw.parkedCompanies : {},
       dismissedOpenings:
         raw?.dismissedOpenings && typeof raw.dismissedOpenings === "object" ? raw.dismissedOpenings : {},
       alerts: Array.isArray(raw?.alerts) ? raw!.alerts.slice(0, 80) : [],
@@ -190,6 +204,7 @@ export async function loadDeskMeta(): Promise<DeskMeta> {
     };
     g.__bnsDeskMeta = next;
     g.__bnsDeskMetaStale = false;
+    setParkedCompanies(next.parkedCompanies);
     return next;
   } catch {
     // Fall back to whatever we have, but remember that it may be incomplete so
@@ -222,11 +237,13 @@ export async function saveDeskMeta(patch: Partial<DeskMeta>, base?: DeskMeta): P
     crmStages: { ...prev.crmStages, ...patch.crmStages },
     hmGuesses: { ...prev.hmGuesses, ...patch.hmGuesses },
     rejectedCompanies: { ...prev.rejectedCompanies, ...patch.rejectedCompanies },
+    parkedCompanies: { ...prev.parkedCompanies, ...patch.parkedCompanies },
     dismissedOpenings: { ...prev.dismissedOpenings, ...patch.dismissedOpenings },
     alerts: patch.alerts ?? prev.alerts,
     aiDaySpend: patch.aiDaySpend !== undefined ? patch.aiDaySpend : prev.aiDaySpend,
   };
   g.__bnsDeskMeta = next;
+  setParkedCompanies(next.parkedCompanies);
   if (!hasDatabase()) return next;
   const db = getDb();
   await db

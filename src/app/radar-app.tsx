@@ -6,6 +6,8 @@ import { SourceLogo, SourceLogos, sourceChannelsFromRow } from "@/components/sou
 import { CompanyMark } from "@/components/company-mark";
 import { ScoreChip, scoreTone } from "@/components/score-chip";
 import { DismissButton } from "@/components/dismiss-button";
+import { CompanyHideMenu, HiddenNote, type HideKind } from "@/components/company-hide-menu";
+import { LuckyShotsFold } from "@/components/lucky-shots";
 import { resolveCompanyLogo } from "@/lib/company-logo";
 import { AppShell } from "@/components/app-shell";
 import { RememberedFold } from "@/components/remembered-fold";
@@ -709,6 +711,7 @@ export default function RadarApp({
   );
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [dismissBusy, setDismissBusy] = useState(false);
+  const [hidden, setHidden] = useState<{ company: string; kind: HideKind } | null>(null);
   const detailRef = useRef<HTMLElement>(null);
   const listScrollRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -1509,8 +1512,8 @@ export default function RadarApp({
             <p className="m-0 text-[0.8rem] leading-relaxed text-[var(--muted)]">
               Vacatures bij eindklanten van LinkedIn, Indeed en Freelance.nl — niet via een
               detacheerder. Bureaus, consultancies en vaste dienstverbanden worden uitgefilterd;
-              na sync zie je wat er overgeslagen is en waarom. Handmatig verbergen:{" "}
-              <em>Geen eindklant — verberg</em> (terugzetten in Instellingen). De andere bron is{" "}
+              na sync zie je wat er overgeslagen is en waarom. Handmatig: <em>Verberg bedrijf</em> →
+              niet interessant of geen eindklant (terugzetten in Instellingen). De andere bron is{" "}
               <a href={DESK.bureau.href} className="font-semibold text-[var(--ink)] underline underline-offset-2">
                 {DESK.bureau.nav}
               </a>
@@ -1712,6 +1715,7 @@ export default function RadarApp({
             </p>
           </div>
         )}
+        {!live && user ? <LuckyShotsFold className={mobilePane === "detail" ? "max-lg:hidden" : ""} /> : null}
 
         {showPanel && live ? (
           <section className={`ws-panel mb-0 shrink-0 ${mobilePane === "detail" ? "max-lg:hidden" : ""}`}>
@@ -1973,6 +1977,18 @@ export default function RadarApp({
               ) : null}
             </div>
           </section>
+        ) : null}
+
+        {hidden ? (
+          <HiddenNote
+            company={hidden.company}
+            kind={hidden.kind}
+            onUndo={() => {
+              setHidden(null);
+              void load({ keepActive: true, fresh: true });
+            }}
+            onClose={() => setHidden(null)}
+          />
         ) : null}
 
         <div className="flex min-h-0 flex-1 flex-col gap-3 pb-2 lg:grid lg:grid-cols-[minmax(0,1.15fr)_minmax(280px,0.85fr)] lg:gap-6 lg:pb-5">
@@ -2241,30 +2257,17 @@ export default function RadarApp({
                         {active.company.sector || `${active.openingsAtCompany} openingen`}
                       </p>
                     ) : null}
-                    <button
-                      type="button"
-                      className="mt-2 text-[0.72rem] font-medium text-[var(--muted)] underline underline-offset-2 hover:text-[var(--ink)]"
-                      title="Verberg dit bedrijf: geen eindklant (bureau/consultancy). Komt niet meer terug."
-                      onClick={() => {
-                        const name = active.company.name;
-                        const id = active.id;
-                        void (async () => {
-                          const res = await fetch("/api/radar/reject-company", {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ company: name }),
-                          });
-                          if (!res.ok) return;
+                    <div className="mt-2.5">
+                      <CompanyHideMenu
+                        company={active.company.name}
+                        onHidden={(kind) => {
+                          const id = active.id;
                           setRadar((rows) => rows.filter((r) => r.id !== id));
                           setActiveId((prev) => (prev === id ? null : prev));
-                          const { cacheClear } = await import("@/lib/client-cache");
-                          cacheClear("radar");
-                          cacheClear("crm");
-                        })();
-                      }}
-                    >
-                      Geen eindklant — verberg
-                    </button>
+                          setHidden({ company: active.company.name, kind });
+                        }}
+                      />
+                    </div>
                   </div>
                   {(active.openingsAtCompany || 0) <= 1 ? (
                     <ScoreChip

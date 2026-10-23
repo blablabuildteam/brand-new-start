@@ -16,7 +16,7 @@ import { enabledPlatforms } from "@/lib/platforms";
 import { ingestSignal, resetStore, stats } from "@/lib/store";
 import { INGEST_POLICY } from "@/lib/costs";
 import { loadHuntSettings } from "@/lib/hunt";
-import { pushAlert } from "@/lib/desk-meta";
+import { loadDeskMeta, pushAlert } from "@/lib/desk-meta";
 import { z } from "zod";
 import { hasAiKey } from "@/lib/ai-client";
 import { autoIdentifyOpenLeads } from "@/lib/lead-ai";
@@ -105,6 +105,7 @@ export async function GET(req: Request) {
   }
 
   await loadHuntSettings();
+  await loadDeskMeta();
   const market = await syncMarketJobsFromLinkedIn(CRON_MARKET);
   await alertNewHits({
     kind: "LinkedIn",
@@ -148,6 +149,7 @@ export async function POST(req: Request) {
   const body = await req.json().catch(() => ({}));
   const action = (body as { action?: string }).action || "market";
   await loadHuntSettings();
+  await loadDeskMeta();
 
   if (action === "reset") {
     if (!isAdmin(session)) {

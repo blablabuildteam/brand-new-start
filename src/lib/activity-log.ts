@@ -15,6 +15,8 @@ export type ActivityKind =
   | "crm.stage"
   | "radar.dismiss"
   | "radar.reject-company"
+  | "company.park"
+  | "company.unpark"
   | "sync.run"
   | "api.error"
   | "client.error"

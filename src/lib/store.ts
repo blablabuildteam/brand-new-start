@@ -23,6 +23,7 @@ import {
   watchedAgencies,
 } from "@/lib/agency";
 import { loadDeskMeta } from "@/lib/desk-meta";
+import { isParkedCompany } from "@/lib/parked";
 
 function slugify(name: string) {
   return name
@@ -126,6 +127,7 @@ type OpeningBundle = {
 function isPermanentJob(s: Signal): boolean {
   if (s.source !== "job-type") return false;
   const raw = s.raw && typeof s.raw === "object" ? (s.raw as Record<string, unknown>) : {};
+  if (raw.permanentWatch === true) return true;
   const emp = typeof raw.employmentType === "string" ? raw.employmentType : "";
   const desc = typeof raw.description === "string" ? raw.description : "";
   return !isExternalRole({ text: `${s.title} ${s.summary} ${desc}`, employmentType: emp });
@@ -259,11 +261,13 @@ function nicheOk(input: IngestInput) {
     return { ok: false as const, reason: "outside-niche" };
   }
 
-  // Contract/ZZP/interim is verplicht voor market-hits (pulse/tender/bureau-feeds uitgezonderd)
+  // Contract/ZZP/interim is verplicht voor market-hits (pulse/tender/bureau-feeds uitgezonderd).
+  // permanentWatch: vaste rol die we stil bewaren voor lucky shots — nooit op de radar.
   if (
     !isTender &&
     !isPulse &&
     !isAgencyFeed &&
+    input.raw?.permanentWatch !== true &&
     huntSettings().requireContract &&
     !isContractish(input, blob)
   ) {
@@ -616,6 +620,106 @@ export async function countPermanentJobs(): Promise<number> {
   return [...mem().signals.values()].filter(isPermanentJob).length;
 }
 
+/**
+ * Lucky shot: een vaste (interne) rol die al maanden openstaat. Na ~3 maanden
+ * staat een bedrijf vaak open voor een interim-oplossing. LinkedIn toont alleen
+ * vacatures van de laatste 30 dagen, dus "lang open" zien we via reposts:
+ * dezelfde titel bij hetzelfde bedrijf telt als één rol.
+ */
+export const LUCKY_SHOT = { luckyDays: 90, watchDays: 45, activeDays: 21 } as const;
+
+export type LuckyShot = {
+  key: string;
+  company: string;
+  companyId: string;
+  title: string;
+  url: string | null;
+  firstSeen: string;
+  lastSeen: string;
+  ageDays: number;
+  posts: number;
+  status: "lucky" | "watch";
+};
+
+function luckyTitleKey(title: string) {
+  return title
+    .toLowerCase()
+    .replace(/\([^)]*\)/g, " ")
+    .replace(/\b(m\/v\/x|m\/v|v\/m|h\/v|m\/f\/d|nl|en)\b/g, " ")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function buildLuckyShots(all: Signal[], coMap: Map<string, Company>, rejected: Set<string>, now = Date.now()) {
+  const DAY = 86_400_000;
+  type Group = Omit<LuckyShot, "ageDays" | "status" | "firstSeen" | "lastSeen"> & { first: number; last: number };
+  const groups = new Map<string, Group>();
+  let oldest = now;
+
+  for (const s of all) {
+    if (s.source !== "job-type" || !isPermanentJob(s) || isJunkJobTitle(s.title)) continue;
+    const co = coMap.get(s.companyId);
+    if (!co || isPlaceholderCompany(co.name) || isAgencyName(co.name) || looksLikeIntermediary(co.name)) continue;
+    if (rejected.has(co.id) || isParkedCompany(co.name)) continue;
+
+    const raw = s.raw && typeof s.raw === "object" ? (s.raw as Record<string, unknown>) : {};
+    const posted = typeof raw.postedAt === "string" ? new Date(raw.postedAt).getTime() : NaN;
+    const first = Math.min(s.firstSeenAt.getTime(), Number.isNaN(posted) ? Infinity : posted);
+    const last = s.seenAt.getTime();
+    oldest = Math.min(oldest, s.firstSeenAt.getTime());
+
+    const key = `${companyKey(co.name)}|${luckyTitleKey(s.title)}`;
+    const g = groups.get(key);
+    if (!g) {
+      groups.set(key, { key, company: co.name, companyId: co.id, title: s.title, url: s.evidenceUrl, posts: 1, first, last });
+      continue;
+    }
+    g.posts += 1;
+    g.first = Math.min(g.first, first);
+    if (last > g.last) {
+      g.last = last;
+      g.url = s.evidenceUrl || g.url;
+      g.title = s.title;
+    }
+  }
+
+  const shots: LuckyShot[] = [];
+  for (const g of groups.values()) {
+    if (now - g.last > LUCKY_SHOT.activeDays * DAY) continue;
+    const ageDays = Math.floor((now - g.first) / DAY);
+    if (ageDays < LUCKY_SHOT.watchDays && g.posts < 2) continue;
+    const { first, last, ...rest } = g;
+    shots.push({
+      ...rest,
+      firstSeen: new Date(first).toISOString(),
+      lastSeen: new Date(last).toISOString(),
+      ageDays,
+      status: ageDays >= LUCKY_SHOT.luckyDays ? "lucky" : "watch",
+    });
+  }
+  shots.sort((a, b) => (a.status === b.status ? b.ageDays - a.ageDays : a.status === "lucky" ? -1 : 1));
+  return {
+    shots,
+    tracked: groups.size,
+    trackingSince: groups.size ? new Date(oldest).toISOString() : null,
+  };
+}
+
+export async function listLuckyShots() {
+  const meta = await loadDeskMeta();
+  const rejected = new Set(Object.keys(meta.rejectedCompanies || {}));
+  if (hasDatabase()) {
+    const db = getDb();
+    const [all, cos] = await Promise.all([
+      db.query.signals.findMany({ where: eq(signals.source, "job-type") }),
+      db.query.companies.findMany(),
+    ]);
+    return buildLuckyShots(all, new Map(cos.map((c) => [c.id, c])), rejected);
+  }
+  const store = mem();
+  return buildLuckyShots([...store.signals.values()], store.companies, rejected);
+}
+
 export async function listRadar() {
   const meta = await loadDeskMeta();
   const rejected = meta.rejectedCompanies || {};
@@ -634,6 +738,7 @@ export async function listRadar() {
       // Bureau/recruiter-feeds horen op Bureaus, niet als directe Radar-eindklant
       if (isAgencyName(company.name) || looksLikeIntermediary(company.name)) continue;
       if (rejected[companyKey(company.name)]) continue;
+      if (isParkedCompany(company.name)) continue;
       const onlyAgencyFeed = companySignals.every(
         (s) =>
           s.source === "agency-swarm" ||

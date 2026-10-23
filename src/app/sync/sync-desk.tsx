@@ -1,11 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
 import { BlablaLogo } from "@/components/blabla-logo";
 import { SourceLogo } from "@/components/source-logo";
-import { eurApprox, eurFormat, eurMid, eurRange, INGEST_POLICY } from "@/lib/costs";
+import { eurApprox, eurFormat, eurMid, eurRange } from "@/lib/costs";
 import type { SyncDeskAction, SyncDeskRecent, SyncDeskSource } from "@/lib/sync-desk";
 
 type Range = { low: number; high: number };
@@ -124,68 +125,25 @@ export default function SyncDesk() {
   }
 
   return (
-    <AppShell current="sync" title="Sync" subtitle="Ophalen · wat het kost · wanneer weer">
+    <AppShell current="sync" title="Sync" subtitle="Wat er opgehaald wordt · en wanneer weer">
       <main className="ws-shell ws-shell--page">
         {!data ? (
           <p className="text-sm text-[var(--muted)]">Laden…</p>
         ) : (
           <>
-            <section className="mb-5 ws-panel px-4 py-4">
-              <div className="grid gap-4 sm:grid-cols-2 sm:gap-6">
-                <div>
-                  <p className="ws-label">Deze maand · schatting</p>
-                  <p
-                    className="mt-1 text-2xl tabular-nums text-[var(--ink)]"
-                    style={{ fontFamily: "var(--mono)" }}
-                  >
-                    {data.spent.count ? `ca. €${eurFormat(eurMid(data.spent.eur))}` : "€0"}
-                  </p>
-                  <p className="mt-1.5 text-[0.78rem] text-[var(--muted)]">
-                    {data.spent.count
-                      ? `${data.spent.count} betaalde runs in ${data.spent.monthLabel} · band ${eurRange(data.spent.eur)}.`
-                      : `Nog geen betaalde runs in ${data.spent.monthLabel}.`}
-                  </p>
-                </div>
-                {data.spent.count && data.spent.forecast ? (
-                  <div>
-                    <p className="ws-label">Op dit tempo · eind maand</p>
-                    <p
-                      className="mt-1 text-2xl tabular-nums text-[var(--ink)]"
-                      style={{ fontFamily: "var(--mono)" }}
-                    >
-                      ca. €{eurFormat(eurMid(data.spent.forecast.eur))}
-                    </p>
-                    <p className="mt-1.5 text-[0.78rem] text-[var(--muted)]">
-                      ≈ {eurApprox(data.spent.forecast.perDay)}/dag · dag{" "}
-                      {data.spent.forecast.dayOfMonth}/{data.spent.forecast.daysInMonth} · band{" "}
-                      {eurRange(data.spent.forecast.eur)}. Lineair; AI-posts apart (max ≈ €
-                      {INGEST_POLICY.feedAutoAiDailyEurMax}/dag).
-                    </p>
-                  </div>
+            <Link href="/kosten" className="sync-costlink mb-5">
+              <span>
+                Deze maand{" "}
+                <strong>{data.spent.count ? `ca. €${eurFormat(eurMid(data.spent.eur))}` : "€0"}</strong>
+                {data.spent.forecast ? (
+                  <span className="text-[var(--muted)]">
+                    {" "}
+                    · eind maand ca. €{eurFormat(eurMid(data.spent.forecast.eur))}
+                  </span>
                 ) : null}
-              </div>
-              {data.spent.lines.length ? (
-                <ul className="mt-3 divide-y divide-[var(--line)] border-t border-[var(--line)]">
-                  {data.spent.lines.map((line) => (
-                    <li
-                      key={line.label}
-                      className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-3 py-1.5 text-sm"
-                    >
-                      <span>
-                        {line.label}{" "}
-                        <span className="text-[var(--muted)]">× {line.count}</span>
-                      </span>
-                      <span
-                        className="tabular-nums text-[var(--muted)]"
-                        style={{ fontFamily: "var(--mono)" }}
-                      >
-                        {eurApprox(line.eur)}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              ) : null}
-            </section>
+              </span>
+              <span className="sync-costlink__go">Kosten &amp; rekensom →</span>
+            </Link>
 
             {note ? (
               <p className="mb-4 rounded-[var(--radius)] border border-[var(--line)] bg-[var(--surface)] px-3.5 py-2.5 text-sm text-[var(--ink)]">

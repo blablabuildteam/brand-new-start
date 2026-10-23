@@ -23,6 +23,7 @@ import { listAgencySignals, patchSignalRaw } from "@/lib/store";
 import { forgetLeadVerdict, loadDeskMeta, pushAlert, saveDeskMeta } from "@/lib/desk-meta";
 import { isListingPage, type FeedMemory } from "@/lib/feed-detective";
 import { plainLinkedIn } from "@/lib/plain-text";
+import { isParkedCompany, parkedMentionIn } from "@/lib/parked";
 
 export type LeadStatus = "suggest" | "review" | "weak" | "confirmed" | "rejected";
 
@@ -358,6 +359,7 @@ export async function listAgencyLeads(): Promise<{
   watchlist: WatchlistRow[];
   live: AgencyLead[];
   demo: AgencyLead[];
+  parkedHidden: number;
 }> {
   const meta = await loadDeskMeta();
   reviews().clear();
@@ -421,6 +423,18 @@ export async function listAgencyLeads(): Promise<{
       })
     );
   }
+  // "Niet interessant": open posts van die eindklant verdwijnen (ook vóór AI,
+  // als de post de naam letterlijk noemt — scheelt een AI-run).
+  let parkedHidden = 0;
+  for (let i = live.length - 1; i >= 0; i--) {
+    const l = live[i]!;
+    if (l.status === "confirmed") continue;
+    const name = l.confirmedClient || l.guess?.name || "";
+    if (isParkedCompany(name) || (!name && parkedMentionIn(`${l.title}\n${l.summary}`))) {
+      live.splice(i, 1);
+      parkedHidden += 1;
+    }
+  }
   const seenAtById = new Map(rows.map((s) => [s.id, s.seenAt.getTime()]));
   live.sort((a, b) => {
     const rank = { suggest: 0, review: 1, weak: 2, confirmed: 3, rejected: 4 };
@@ -450,6 +464,7 @@ export async function listAgencyLeads(): Promise<{
     })),
     live: live.map((l) => attachLeadHm(l, meta)),
     demo: demoLeads().map((l) => attachLeadHm(l, meta)),
+    parkedHidden,
   };
 }
 
