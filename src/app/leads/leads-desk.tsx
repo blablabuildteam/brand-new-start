@@ -612,17 +612,16 @@ function LeadDetail({
             <span className="ws-score__band">{statusShort(lead.status)}</span>
           </span>
         )}
-        {client && onCompanyHidden ? (
-          <span className="ml-auto">
-            <CompanyHideMenu
-              company={client}
-              allowNotClient={false}
-              align="right"
-              onHidden={(kind) => onCompanyHidden(client, kind)}
-            />
-          </span>
-        ) : null}
       </div>
+      {client && onCompanyHidden ? (
+        <div className="mt-2">
+          <CompanyHideMenu
+            company={client}
+            allowNotClient={false}
+            onHidden={(kind) => onCompanyHidden(client, kind)}
+          />
+        </div>
+      ) : null}
       <div className="mt-4">
         <WhyBlock lead={lead} />
       </div>
