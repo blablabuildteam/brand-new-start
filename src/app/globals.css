@@ -5694,7 +5694,7 @@ body:has(.desk-home--scout) {
 }
 .hide-menu__head {
   margin: 0;
-  padding: 0.3rem 0.55rem 0.35rem;
+  padding: 0.3rem 0.55rem 0.2rem;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -5702,6 +5702,14 @@ body:has(.desk-home--scout) {
   font-weight: 650;
   letter-spacing: 0.06em;
   text-transform: uppercase;
+  color: var(--muted);
+}
+.hide-menu__intro {
+  margin: 0 0 0.2rem;
+  padding: 0 0.55rem 0.4rem;
+  border-bottom: 1px solid var(--line);
+  font-size: 0.68rem;
+  line-height: 1.35;
   color: var(--muted);
 }
 .hide-menu__item {

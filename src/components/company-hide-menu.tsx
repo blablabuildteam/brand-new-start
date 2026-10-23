@@ -10,17 +10,17 @@ const OPTIONS: { kind: HideKind; title: string; body: string }[] = [
   {
     kind: "park",
     title: "Niet interessant · 3 maanden",
-    body: "Weg uit feed en Jobboards. Sync slaat nieuwe vacatures over. Komt daarna vanzelf terug.",
+    body: "Wél een eindklant, nu even niet relevant. Komt op je bewaarde lijst; na 3 maanden weer zichtbaar. Sync slaat nieuwe vacatures over.",
   },
   {
     kind: "park-forever",
-    title: "Niet interessant · altijd",
-    body: "Tot je het terugzet in Instellingen → Jobboards.",
+    title: "Niet interessant · tot je terugzet",
+    body: "Zelfde lijst, zonder einddatum. Zichtbaar houden via Instellingen → Jobboards → Terugzetten.",
   },
   {
     kind: "not-client",
     title: "Geen eindklant",
-    body: "Bureau of consultancy, geen opdrachtgever. Het filter leert dit.",
+    body: "Dit ís geen opdrachtgever (bureau/consultancy). Apart filter — nooit meer als eindklant tonen.",
   },
 ];
 
@@ -45,9 +45,9 @@ export async function hideCompany(company: string, kind: HideKind, undo = false)
 }
 
 export function hideLabel(kind: HideKind) {
-  if (kind === "not-client") return "als geen eindklant gemarkeerd";
-  if (kind === "park-forever") return "niet interessant (altijd)";
-  return "niet interessant (3 mnd)";
+  if (kind === "not-client") return "gemarkeerd als geen eindklant";
+  if (kind === "park-forever") return "op de lijst ‘niet interessant’";
+  return "3 maanden op ‘niet interessant’";
 }
 
 /** Eén knop "Verberg bedrijf" met de keuzes erachter — i.p.v. losse links. */
@@ -107,7 +107,7 @@ export function CompanyHideMenu({
         data-tip={
           open
             ? ""
-            : "Dit bedrijf tijdelijk of permanent uit feed en Jobboards halen — sync slaat nieuwe vacatures over. Of markeer als geen eindklant."
+            : "Op een bewaarde lijst zetten: ‘niet interessant’ (eindklant, even niet) of ‘geen eindklant’ (bureau — apart filter)."
         }
         onClick={() => setOpen((v) => !v)}
       >
@@ -128,6 +128,9 @@ export function CompanyHideMenu({
       {open ? (
         <div className={`hide-menu__pop hide-menu__pop--${align}`} role="menu" aria-label={`Verberg ${company}`}>
           <p className="hide-menu__head">{company}</p>
+          <p className="hide-menu__intro">
+            Beide keuzes bewaren we. Verschil: even niet relevant, of géén eindklant.
+          </p>
           {OPTIONS.filter((o) => allowNotClient || o.kind !== "not-client").map((o) => (
             <button
               key={o.kind}

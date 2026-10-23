@@ -609,7 +609,8 @@ export default function SettingsForm() {
                 <div>
                   <p className="text-sm font-medium text-[var(--ink)]">Niet interessant</p>
                   <p className="mt-0.5 text-[0.75rem] text-[var(--muted)]">
-                    Weg uit Recruiter feed en Jobboards; sync slaat nieuwe vacatures over.
+                    Eindklanten die je even niet wilt zien. Bewaard; sync slaat nieuwe vacatures over tot de
+                    einddatum of tot je terugzet.
                   </p>
                   <ul className="mt-2 space-y-1.5">
                     {parked.map((r) => (
@@ -647,7 +648,8 @@ export default function SettingsForm() {
                 <div>
                   <p className="text-sm font-medium text-[var(--ink)]">Geen eindklant</p>
                   <p className="mt-0.5 text-[0.75rem] text-[var(--muted)]">
-                    Bureaus/consultancies die je via <em>Verberg</em> hebt gemarkeerd — nooit meer als eindklant.
+                    Geen opdrachtgever (bureau/consultancy). Apart van “niet interessant” — filtert ze altijd
+                    uit als eindklant.
                   </p>
                   <ul className="mt-2 space-y-1.5">
                     {rejected.map((r) => (
