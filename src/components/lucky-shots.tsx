@@ -16,16 +16,14 @@ function dateNl(iso: string) {
 }
 
 /**
- * Vaste rollen die al lang openstaan. Laadt pas bij openklappen: de lijst
- * vraagt alle vacatures op en is zelden nodig.
+ * Vaste rollen die al lang openstaan — apart van de gewone Jobboards-radar.
+ * Laadt bij mount zodat de dichtgeklapte balk al de telling toont.
  */
 export function LuckyShotsFold({ className = "" }: { className?: string }) {
-  const [open, setOpen] = useState(false);
   const [data, setData] = useState<Payload | null>(null);
   const [err, setErr] = useState(false);
 
   useEffect(() => {
-    if (!open || data) return;
     let cancelled = false;
     fetch("/api/radar/lucky", { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : Promise.reject()))
@@ -34,22 +32,37 @@ export function LuckyShotsFold({ className = "" }: { className?: string }) {
     return () => {
       cancelled = true;
     };
-  }, [open, data]);
+  }, []);
 
   const lucky = data?.shots.filter((s) => s.status === "lucky") || [];
   const watch = data?.shots.filter((s) => s.status === "watch") || [];
+  const hasHit = lucky.length > 0;
+  const meta = !data
+    ? "laden…"
+    : hasHit
+      ? `${lucky.length} rol${lucky.length === 1 ? "" : "len"} 3+ mnd open`
+      : watch.length
+        ? `${watch.length} in de gaten`
+        : data.tracked
+          ? `${data.tracked} gevolgd`
+          : "nog leeg";
+
   return (
-    <details className={`ws-fold ${className}`} onToggle={(e) => setOpen((e.target as HTMLDetailsElement).open)}>
+    <details className={`ws-fold lucky-fold ${hasHit ? "lucky-fold--hit" : ""} ${className}`}>
       <summary>
-        <span>Lucky shots</span>
-        <span className="ws-fold__meta">
-          {data ? (lucky.length ? `${lucky.length} vaste rol${lucky.length === 1 ? "" : "len"} 3+ mnd open` : `${watch.length} in de gaten`) : "vaste rollen die lang openstaan"}
+        <span className="lucky-fold__title">
+          <span className="lucky-fold__mark" aria-hidden>
+            ★
+          </span>
+          Lucky shots
         </span>
+        <span className={`lucky-fold__badge${hasHit ? " lucky-fold__badge--hit" : ""}`}>{meta}</span>
       </summary>
       <div className="ws-fold__body">
-        <p className="text-[0.76rem] leading-relaxed text-[var(--muted)]">
-          Een interne vacature die al ~3 maanden openstaat, staat vaak open voor een interim-oplossing. We bewaren
-          vaste rollen uit de jobboards stil (geen extra kosten) en tellen reposts van dezelfde titel als één rol.
+        <p className="lucky-fold__lead">
+          <strong>Speciale catch:</strong> een interne vacature die al ~3 maanden openstaat, staat vaak open voor
+          een interim-oplossing. We bewaren vaste rollen stil (geen extra kosten) en tellen reposts van dezelfde
+          titel als één rol.
         </p>
         {err ? (
           <p className="mt-2 text-sm text-[var(--muted)]">Kon lucky shots niet laden.</p>

@@ -1780,7 +1780,76 @@ button.radar-opp[aria-current="true"]:hover:not(:disabled) {
   gap: 0.35rem;
   margin-left: auto;
 }
-/* Lucky shots (Jobboards) */
+/* Lucky shots (Jobboards) — apart accent t.o.v. gewone folds */
+.lucky-fold {
+  border-color: color-mix(in srgb, var(--warn) 32%, var(--line));
+  background:
+    linear-gradient(
+      105deg,
+      color-mix(in srgb, var(--signal) 38%, transparent) 0,
+      color-mix(in srgb, var(--signal) 38%, transparent) 0.28rem,
+      var(--warn-soft) 0.28rem,
+      color-mix(in srgb, var(--warn-soft) 55%, var(--surface)) 100%
+    );
+}
+.lucky-fold--hit {
+  border-color: color-mix(in srgb, var(--warn) 55%, var(--line));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--signal) 55%, transparent);
+}
+.lucky-fold > summary {
+  background: transparent;
+}
+.lucky-fold > summary:hover {
+  background: color-mix(in srgb, var(--signal) 18%, transparent);
+}
+.lucky-fold__title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.lucky-fold__mark {
+  display: inline-grid;
+  place-items: center;
+  width: 1.15rem;
+  height: 1.15rem;
+  border-radius: 999px;
+  background: var(--signal);
+  color: var(--ink);
+  font-size: 0.62rem;
+  line-height: 1;
+}
+.lucky-fold__badge {
+  margin-left: auto;
+  margin-right: 0.35rem;
+  padding: 0.12rem 0.45rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--warn) 28%, var(--line));
+  background: color-mix(in srgb, var(--surface) 70%, transparent);
+  font-size: 0.66rem;
+  font-weight: 650;
+  color: var(--warn);
+  white-space: nowrap;
+}
+.lucky-fold__badge--hit {
+  border-color: color-mix(in srgb, var(--ink) 18%, var(--signal));
+  background: var(--signal);
+  color: var(--ink);
+}
+.lucky-fold .ws-fold__meta {
+  display: none;
+}
+.lucky-fold__lead {
+  margin: 0;
+  font-size: 0.76rem;
+  line-height: 1.45;
+  color: var(--muted);
+}
+.lucky-fold__lead strong {
+  color: var(--ink);
+  font-weight: 650;
+}
 .lucky-list {
   margin-top: 0.35rem;
 }
@@ -1790,7 +1859,7 @@ button.radar-opp[aria-current="true"]:hover:not(:disabled) {
   align-items: baseline;
   gap: 0.6rem;
   padding: 0.45rem 0;
-  border-top: 1px solid var(--line);
+  border-top: 1px solid color-mix(in srgb, var(--warn) 18%, var(--line));
 }
 .lucky-list__age {
   font-family: var(--mono);
@@ -1800,7 +1869,7 @@ button.radar-opp[aria-current="true"]:hover:not(:disabled) {
   text-align: right;
 }
 .lucky-list__age[data-lucky="lucky"] {
-  color: var(--ink);
+  color: var(--warn);
   font-weight: 700;
 }
 .lucky-list__title {
@@ -5580,6 +5649,18 @@ body:has(.desk-home--scout) {
   white-space: nowrap;
   cursor: pointer;
   transition: border-color 0.12s ease, color 0.12s ease, background 0.12s ease;
+}
+/* Tip iets breder + boven de knop — menu zit eronder. */
+.hide-menu__btn[data-tip]::after {
+  left: 0;
+  right: auto;
+  bottom: calc(100% + 8px);
+  max-width: 15.5rem;
+  transform: translateX(0) translateY(2px);
+}
+.hide-menu__btn[data-tip]:hover::after,
+.hide-menu__btn[data-tip]:focus-visible::after {
+  transform: translateX(0) translateY(0);
 }
 .hide-menu__btn:hover,
 .hide-menu__btn[aria-expanded="true"] {

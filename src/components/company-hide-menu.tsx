@@ -104,6 +104,11 @@ export function CompanyHideMenu({
         className="hide-menu__btn"
         aria-haspopup="menu"
         aria-expanded={open}
+        data-tip={
+          open
+            ? ""
+            : "Dit bedrijf tijdelijk of permanent uit feed en Jobboards halen — sync slaat nieuwe vacatures over. Of markeer als geen eindklant."
+        }
         onClick={() => setOpen((v) => !v)}
       >
         <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden>
