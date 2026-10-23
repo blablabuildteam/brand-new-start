@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { getSession, isAdmin } from "@/lib/auth";
+import { getSession, isAdmin, type SessionUser } from "@/lib/auth";
+import { logFromSession } from "@/lib/activity-log";
 import { ingestFromTenderNed, ingestJobPayload } from "@/lib/ingest/tenderned";
 import {
   learnSpecialtyFromPosts,
@@ -19,6 +20,24 @@ import { pushAlert } from "@/lib/desk-meta";
 import { z } from "zod";
 import { hasAiKey } from "@/lib/ai-client";
 import { autoIdentifyOpenLeads } from "@/lib/lead-ai";
+
+function logSyncRun(
+  session: SessionUser | null | undefined,
+  action: string,
+  summary: string,
+  detail?: Record<string, unknown>,
+  level: "info" | "warn" | "error" = "info",
+  status = 200
+) {
+  logFromSession(session, {
+    level,
+    kind: level === "error" ? "api.error" : "sync.run",
+    summary,
+    path: "/api/ingest",
+    status,
+    detail: { action, ...detail },
+  });
+}
 
 /** Apify Indeed/LinkedIn kan lang duren */
 export const maxDuration = 300;
@@ -101,6 +120,11 @@ export async function GET(req: Request) {
   });
   const detective = await identifyFresh(startedAt);
 
+  logSyncRun(null, "cron", `Cron market+feeds · ${market.kept + feeds.kept} gehouden`, {
+    marketKept: market.kept,
+    feedsKept: feeds.kept,
+  });
+
   return NextResponse.json({
     ok: true,
     kind: "cron-market+feeds",
@@ -129,9 +153,11 @@ export async function POST(req: Request) {
     if (!isAdmin(session)) {
       return NextResponse.json({ error: "unauthorized", message: "Reset alleen voor admin." }, { status: 401 });
     }
+    const storeStats = await resetStore();
+    logSyncRun(session, action, "Store reset", {});
     return NextResponse.json({
       ok: true,
-      stats: await resetStore(),
+      stats: storeStats,
       specialty: getSpecialty(),
     });
   }
@@ -141,6 +167,10 @@ export async function POST(req: Request) {
     const maxJobs = Number((body as { maxJobs?: number }).maxJobs) || INGEST_POLICY.syncMarketJobs;
     const result = await syncMarketJobsFromLinkedIn({ maxUrls, maxJobs });
     await alertNewHits({ kind: "LinkedIn", kept: result.kept, hits: result.hits });
+    logSyncRun(session, "market", `Sync LinkedIn · ${result.kept} gehouden`, {
+      scanned: "scanned" in result ? result.scanned : undefined,
+      kept: result.kept,
+    });
     return NextResponse.json({ ok: true, kind: "market", ...result, stats: await stats() });
   }
 
@@ -166,6 +196,10 @@ export async function POST(req: Request) {
       kept: result.kept,
       hits: result.hits,
     });
+    logSyncRun(session, only || "boards", `Sync ${only || "boards"} · ${result.kept} gehouden`, {
+      scanned: result.scanned,
+      kept: result.kept,
+    });
     return NextResponse.json({
       ok: true,
       kind: only || "boards",
@@ -186,10 +220,18 @@ export async function POST(req: Request) {
 
     if (parsed.data.urls?.length && parsed.data.usePlatforms === false) {
       const result = await scrapeCareersWithFirecrawl(parsed.data.urls);
+      logSyncRun(session, "careers", `Sync careers · ${result.kept ?? 0} gehouden`, {
+        kept: result.kept,
+        scanned: "scanned" in result ? result.scanned : undefined,
+      });
       return NextResponse.json({ ok: true, kind: "careers", ...result, stats: await stats() });
     }
 
     const result = await syncPlatformCareers();
+    logSyncRun(session, "platforms", `Sync platforms · ${result.kept ?? 0} gehouden`, {
+      kept: result.kept,
+      scanned: "scanned" in result ? result.scanned : undefined,
+    });
     return NextResponse.json({
       ok: true,
       kind: "platforms",
@@ -205,12 +247,17 @@ export async function POST(req: Request) {
 
   if (action === "tenderned") {
     const result = await ingestFromTenderNed();
+    logSyncRun(session, action, `Sync TenderNed · ${result.kept ?? 0} gehouden`, {
+      fetched: result.fetched,
+      kept: result.kept,
+    });
     return NextResponse.json({ ok: true, ...result, stats: await stats() });
   }
 
   if (action === "linkedin" || action === "specialty") {
     const maxPosts = Number((body as { maxPosts?: number }).maxPosts) || 40;
     const specialty = await syncJeffreySpecialty(maxPosts);
+    logSyncRun(session, "specialty", "Sync specialty", { maxPosts });
     return NextResponse.json({ ok: true, kind: "specialty", ...specialty, stats: await stats() });
   }
 
@@ -232,6 +279,11 @@ export async function POST(req: Request) {
     });
     await alertNewHits({ kind: "Recruiter-feeds", kept: result.kept, hits: result.hits });
     const detective = await identifyFresh(startedAt);
+    logSyncRun(session, "recruiter-feeds", `Sync recruiter-feeds · ${result.kept} gehouden`, {
+      scanned: result.scanned,
+      kept: result.kept,
+      force: Boolean((body as { force?: boolean }).force),
+    });
     return NextResponse.json({
       ok: true,
       kind: "recruiter-feeds",
@@ -245,6 +297,7 @@ export async function POST(req: Request) {
   /** Inhaal-AI op open posts — zelfde caps als na feed-sync (N + €/dag · ≤15d). */
   if (action === "ai-catchup") {
     if (!hasAiKey()) {
+      logSyncRun(session, action, "AI-catchup · key ontbreekt", { detail: "no-anthropic-key" }, "error", 503);
       return NextResponse.json({ error: "ANTHROPIC_API_KEY ontbreekt", detail: "no-anthropic-key" }, { status: 503 });
     }
     try {
@@ -259,11 +312,15 @@ export async function POST(req: Request) {
       } catch (e) {
         storeStats = { error: e instanceof Error ? e.message : "stats-failed" };
       }
+      logSyncRun(session, action, "AI-catchup klaar", {
+        identified: (detective as { identified?: number } | null)?.identified,
+      });
       return NextResponse.json({ ok: true, kind: "ai-catchup", detective, stats: storeStats });
     } catch (e) {
       const message = e instanceof Error ? e.message : "ai-catchup-failed";
       const stack = e instanceof Error ? e.stack?.split("\n").slice(0, 6) : undefined;
       console.error("ai-catchup failed", message, stack);
+      logSyncRun(session, action, `AI-catchup mislukt · ${message.slice(0, 120)}`, { error: message, stack }, "error", 500);
       return NextResponse.json({ ok: false, error: message, stack }, { status: 500 });
     }
   }

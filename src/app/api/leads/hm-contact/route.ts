@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getSession } from "@/lib/auth";
+import { logFromSession } from "@/lib/activity-log";
 import { listAgencyLeads } from "@/lib/opportunity";
 import { patchSignalRaw } from "@/lib/store";
 import { recordSync } from "@/lib/sync-log";
@@ -76,6 +77,14 @@ export async function POST(req: Request) {
   if (pickOnly) {
     const row = promote(current, profile);
     await persist(crmId, row);
+    logFromSession(session, {
+      level: "info",
+      kind: "hm.contact",
+      summary: `HM gekozen · ${(row.hiringManager || "").slice(0, 60)}`,
+      path: "/api/leads/hm-contact",
+      status: 200,
+      detail: { crmId, pickOnly: true },
+    });
     return NextResponse.json({ ok: true, picked: true, ...publicContact(row) });
   }
 
@@ -87,6 +96,14 @@ export async function POST(req: Request) {
   }
 
   if (!hasLushaKey()) {
+    logFromSession(session, {
+      level: "error",
+      kind: "api.error",
+      summary: "Lusha · API-key ontbreekt",
+      path: "/api/leads/hm-contact",
+      status: 503,
+      detail: { crmId, detail: "no-lusha-key" },
+    });
     return NextResponse.json(
       { error: "LUSHA_API_KEY ontbreekt — naam en LinkedIn staan er wel.", detail: "no-lusha-key" },
       { status: 503 }
@@ -120,6 +137,20 @@ export async function POST(req: Request) {
         },
       ],
     });
+    logFromSession(session, {
+      level: found.status === "ok" ? "info" : "warn",
+      kind: "hm.contact",
+      summary: `Lusha · ${(existing?.name || "HM").slice(0, 40)} · ${found.status}`,
+      path: "/api/leads/hm-contact",
+      status: 200,
+      detail: {
+        crmId,
+        status: found.status,
+        creditsCharged: found.creditsCharged,
+        hasEmail: Boolean(found.email),
+        hasPhone: Boolean(found.phone),
+      },
+    });
     return NextResponse.json({
       ok: true,
       cached: false,
@@ -129,6 +160,14 @@ export async function POST(req: Request) {
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message.slice(0, 220) : "Lusha-fout";
+    logFromSession(session, {
+      level: "error",
+      kind: "hm.contact",
+      summary: `Lusha mislukt · ${msg.slice(0, 120)}`,
+      path: "/api/leads/hm-contact",
+      status: 502,
+      detail: { crmId, error: msg },
+    });
     return NextResponse.json({ error: msg }, { status: 502 });
   }
 }

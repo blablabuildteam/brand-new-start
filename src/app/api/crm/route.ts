@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getSession } from "@/lib/auth";
+import { logFromSession } from "@/lib/activity-log";
 import { listActionQueue, listCrmDesk, setCrmStage } from "@/lib/crm";
 import { loadHuntSettings } from "@/lib/hunt";
 import { hasLushaKey } from "@/lib/lusha";
@@ -45,6 +46,24 @@ export async function POST(req: Request) {
   const parsed = Body.safeParse(await req.json().catch(() => ({})));
   if (!parsed.success) return NextResponse.json({ error: "ongeldig" }, { status: 400 });
   const item = await setCrmStage(parsed.data.id, parsed.data.stage as CrmStage);
-  if (!item) return NextResponse.json({ error: "niet gevonden" }, { status: 404 });
+  if (!item) {
+    logFromSession(session, {
+      level: "warn",
+      kind: "api.error",
+      summary: `CRM stage · niet gevonden`,
+      path: "/api/crm",
+      status: 404,
+      detail: { id: parsed.data.id, stage: parsed.data.stage },
+    });
+    return NextResponse.json({ error: "niet gevonden" }, { status: 404 });
+  }
+  logFromSession(session, {
+    level: "info",
+    kind: "crm.stage",
+    summary: `Stage → ${parsed.data.stage} · ${(item.endClient || item.title || "").slice(0, 80)}`,
+    path: "/api/crm",
+    status: 200,
+    detail: { id: item.id, stage: parsed.data.stage, lane: item.lane },
+  });
   return NextResponse.json({ ok: true, item });
 }

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getSession } from "@/lib/auth";
+import { logFromSession } from "@/lib/activity-log";
 import { setLearnedIntermediaries } from "@/lib/agency";
 import { loadDeskMeta, saveDeskMeta } from "@/lib/desk-meta";
 import { companyKey } from "@/lib/score";
@@ -36,6 +37,14 @@ export async function POST(req: Request) {
     }
     const next = await saveDeskMeta({}, { ...meta, rejectedCompanies });
     setLearnedIntermediaries(Object.values(next.rejectedCompanies).map((r) => r.name));
+    logFromSession(session, {
+      level: "info",
+      kind: "radar.reject-company",
+      summary: `Bedrijf hersteld · ${name.slice(0, 80)}`,
+      path: "/api/radar/reject-company",
+      status: 200,
+      detail: { key, name, undo: true },
+    });
     return NextResponse.json({ ok: true, undone: true, key, name });
   }
 
@@ -50,6 +59,14 @@ export async function POST(req: Request) {
 
   setLearnedIntermediaries(Object.values(next.rejectedCompanies).map((r) => r.name));
 
+  logFromSession(session, {
+    level: "info",
+    kind: "radar.reject-company",
+    summary: `Geen eindklant · ${name.slice(0, 80)}`,
+    path: "/api/radar/reject-company",
+    status: 200,
+    detail: { key, name, undo: false },
+  });
   return NextResponse.json({ ok: true, key, name });
 }
 

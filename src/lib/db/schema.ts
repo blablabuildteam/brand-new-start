@@ -72,6 +72,28 @@ export const syncRuns = pgTable(
   (t) => [index("sync_runs_at_idx").on(t.at)]
 );
 
+/** Admin audittrail — desk-acties + API-fouten (blablabuild ops). */
+export const activityEvents = pgTable(
+  "activity_events",
+  {
+    id: text("id").primaryKey(),
+    at: timestamp("at", { withTimezone: true }).notNull(),
+    actorEmail: text("actor_email"),
+    actorRole: text("actor_role"),
+    level: text("level").notNull(), // info | warn | error
+    kind: text("kind").notNull(),
+    summary: text("summary").notNull(),
+    path: text("path"),
+    status: integer("status"),
+    detail: jsonb("detail").$type<Record<string, unknown>>(),
+  },
+  (t) => [
+    index("activity_events_at_idx").on(t.at),
+    index("activity_events_level_idx").on(t.level),
+    index("activity_events_kind_idx").on(t.kind),
+  ]
+);
+
 export const workspaceSettings = pgTable("workspace_settings", {
   id: text("id").primaryKey(),
   data: jsonb("data").$type<{
@@ -105,4 +127,5 @@ export type Company = typeof companies.$inferSelect;
 export type Signal = typeof signals.$inferSelect;
 export type RadarEntry = typeof radarEntries.$inferSelect;
 export type SyncRunRow = typeof syncRuns.$inferSelect;
+export type ActivityEventRow = typeof activityEvents.$inferSelect;
 export type WaitlistEntry = typeof waitlistEntries.$inferSelect;

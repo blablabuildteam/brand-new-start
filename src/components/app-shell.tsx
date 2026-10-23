@@ -8,6 +8,7 @@ import { AlertsBell } from "@/components/alerts-bell";
 import { CommandPalette } from "@/components/command-palette";
 import { cacheClear, cacheGet, cachedJson, prefetchJson } from "@/lib/client-cache";
 import { partnerForEmail } from "@/lib/partner-brand";
+import { ClientErrorReporter } from "@/components/client-error-reporter";
 
 export type AppNavId =
   | "radar"
@@ -16,7 +17,8 @@ export type AppNavId =
   | "contact"
   | "instellingen"
   | "sync"
-  | "alerts";
+  | "alerts"
+  | "ops";
 
 const PRIMARY: { href: string; id: AppNavId; label: string; icon: "radar" | "bureaus" | "kansen" | "contact" }[] = [
   { href: "/radar", id: "radar", label: "Jobboards", icon: "radar" },
@@ -32,7 +34,17 @@ function SideIcon({
   kind,
   on,
 }: {
-  kind: "radar" | "bureaus" | "kansen" | "contact" | "settings" | "help" | "sync" | "alerts" | "logout";
+  kind:
+    | "radar"
+    | "bureaus"
+    | "kansen"
+    | "contact"
+    | "settings"
+    | "help"
+    | "sync"
+    | "alerts"
+    | "ops"
+    | "logout";
   on: boolean;
 }) {
   const stroke = on ? "var(--ink)" : "currentColor";
@@ -111,6 +123,14 @@ function SideIcon({
         <path d="M3.5 8a4.5 4.5 0 0 1 7.55-3.3" {...s} />
         <path d="M12.5 8a4.5 4.5 0 0 1-7.55 3.3" {...s} />
         <path d="M11.1 2.9v2.35H8.75M4.9 13.1v-2.35h2.35" {...s} />
+      </svg>
+    );
+  }
+  if (kind === "ops") {
+    return (
+      <svg {...common}>
+        <path d="M3.5 3.5h9v9h-9z" {...s} />
+        <path d="M5.5 6.5h5M5.5 8.5h3.5M5.5 10.5h4" {...s} />
       </svg>
     );
   }
@@ -316,6 +336,17 @@ export function AppShell({
           <SideIcon kind="alerts" on={current === "alerts"} />
           <span className="rail-label">Meldingen</span>
         </Link>
+        {user?.role === "admin" ? (
+          <Link
+            href="/ops"
+            data-rail="Ops"
+            onClick={() => setOpen(false)}
+            className={navClass(current === "ops")}
+          >
+            <SideIcon kind="ops" on={current === "ops"} />
+            <span className="rail-label">Ops</span>
+          </Link>
+        ) : null}
       </nav>
 
       <div className="mt-auto border-t border-[var(--line)] pt-3">
@@ -359,6 +390,7 @@ export function AppShell({
 
   return (
     <div className="app-root flex h-dvh overflow-hidden">
+      <ClientErrorReporter />
       <aside className={`app-sidebar app-sidebar-desk hidden shrink-0 flex-col md:flex ${slim ? "app-sidebar--slim" : ""}`}>
         {nav}
         <button

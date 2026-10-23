@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getSession } from "@/lib/auth";
+import { logFromSession } from "@/lib/activity-log";
 import { loadDeskMeta, saveDeskMeta } from "@/lib/desk-meta";
 
 const Body = z.object({
@@ -30,9 +31,17 @@ export async function POST(req: Request) {
   }
 
   await saveDeskMeta({}, { ...meta, dismissedOpenings });
-  return NextResponse.json({
-    ok: true,
-    count: parsed.data.openingIds.length,
-    undo: Boolean(parsed.data.undo),
+  const undo = Boolean(parsed.data.undo);
+  const count = parsed.data.openingIds.length;
+  logFromSession(session, {
+    level: "info",
+    kind: "radar.dismiss",
+    summary: undo
+      ? `${count} opening${count === 1 ? "" : "en"} hersteld`
+      : `${count} opening${count === 1 ? "" : "en"} weggezet`,
+    path: "/api/radar/dismiss",
+    status: 200,
+    detail: { count, undo, ids: parsed.data.openingIds.slice(0, 12) },
   });
+  return NextResponse.json({ ok: true, count, undo });
 }

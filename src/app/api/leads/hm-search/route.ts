@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getSession } from "@/lib/auth";
+import { logFromSession } from "@/lib/activity-log";
 import { hasApifyToken } from "@/lib/apify";
 import { searchHiringManagers } from "@/lib/ingest/people-search";
 import { listAgencyLeads } from "@/lib/opportunity";
@@ -35,6 +36,14 @@ export async function POST(req: Request) {
   await loadHuntSettings();
 
   if (!hasApifyToken()) {
+    logFromSession(session, {
+      level: "error",
+      kind: "api.error",
+      summary: "HM-zoek · APIFY_TOKEN ontbreekt",
+      path: "/api/leads/hm-search",
+      status: 503,
+      detail: { detail: "no-apify-token" },
+    });
     return NextResponse.json(
       { error: "APIFY_TOKEN ontbreekt — LinkedIn people-search niet beschikbaar", detail: "no-apify-token" },
       { status: 503 }
@@ -102,6 +111,14 @@ export async function POST(req: Request) {
   const meta = await loadDeskMeta();
   const cached = meta.hmGuesses[crmId];
   if (!force && cached?.hits?.length) {
+    logFromSession(session, {
+      level: "info",
+      kind: "hm.search",
+      summary: `HM cache · ${company.slice(0, 60)}`,
+      path: "/api/leads/hm-search",
+      status: 200,
+      detail: { crmId, company, cached: true, hits: cached.hits.length },
+    });
     return NextResponse.json({
       ok: true,
       cached: true,
@@ -189,6 +206,22 @@ export async function POST(req: Request) {
       });
     }
 
+    logFromSession(session, {
+      level: result.people.length ? "info" : "warn",
+      kind: "hm.search",
+      summary: top
+        ? `HM gevonden · ${top.name} · ${company.slice(0, 40)}`
+        : `HM zoek · ${result.people.length} hits · ${company.slice(0, 40)}`,
+      path: "/api/leads/hm-search",
+      status: 200,
+      detail: {
+        crmId,
+        company,
+        hits: result.people.length,
+        namedMatch: result.namedMatch,
+        detail: result.detail?.slice(0, 200),
+      },
+    });
     return NextResponse.json({
       ok: true,
       cached: false,
@@ -206,6 +239,14 @@ export async function POST(req: Request) {
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message.slice(0, 220) : "HM-zoekfout";
+    logFromSession(session, {
+      level: "error",
+      kind: "hm.search",
+      summary: `HM zoek mislukt · ${msg.slice(0, 120)}`,
+      path: "/api/leads/hm-search",
+      status: 502,
+      detail: { crmId, company, error: msg },
+    });
     return NextResponse.json({ error: msg }, { status: 502 });
   }
 }
