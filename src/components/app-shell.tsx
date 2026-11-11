@@ -9,6 +9,7 @@ import { CommandPalette } from "@/components/command-palette";
 import { cacheClear, cacheGet, cachedJson, prefetchJson } from "@/lib/client-cache";
 import { partnerForEmail } from "@/lib/partner-brand";
 import { ClientErrorReporter } from "@/components/client-error-reporter";
+import { UsageBeacon } from "@/components/usage-beacon";
 
 export type AppNavId =
   | "radar"
@@ -410,6 +411,7 @@ export function AppShell({
   return (
     <div className="app-root flex h-dvh overflow-hidden">
       <ClientErrorReporter />
+      <UsageBeacon />
       <aside className={`app-sidebar app-sidebar-desk hidden shrink-0 flex-col md:flex ${slim ? "app-sidebar--slim" : ""}`}>
         {nav}
         <button
