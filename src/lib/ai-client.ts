@@ -302,7 +302,7 @@ export async function aiWebResearch(opts: {
   for (let turn = 0; turn < 3; turn++) {
     const res = await callMessages({
       model,
-      system: `${opts.system}\n\n${JSON_ONLY}`,
+      system: `${opts.system}\n\nGebruik eerst de web_search-tool (minstens 2 zoekopdrachten). Pas als je klaar bent met zoeken: ${JSON_ONLY}`,
       messages,
       maxTokens: opts.maxTokens ?? 1200,
       effort: opts.effort ?? "medium",
@@ -325,7 +325,12 @@ export async function aiWebResearch(opts: {
 
   const sources: WebSource[] = [];
   const searches: string[] = [];
+  const errors: string[] = [];
   for (const b of all) {
+    if (b.type === "web_search_tool_result" && b.content && !Array.isArray(b.content)) {
+      const code = (b.content as { error_code?: string }).error_code;
+      if (code) errors.push(code);
+    }
     if (b.type === "server_tool_use" && b.name === "web_search") {
       const q = (b.input as { query?: string } | undefined)?.query;
       if (q) searches.push(q);
@@ -339,11 +344,12 @@ export async function aiWebResearch(opts: {
     }
   }
 
+  const tag = `${model} · ${searches.length} webzoeken${errors.length ? ` · fout ${[...new Set(errors)].join(",")}` : ""}`;
   const raw = finalText(data?.content);
-  if (!raw) return { json: null, model, detail: "lege AI-respons", sources, searches };
+  if (!raw) return { json: null, model, detail: `lege AI-respons (${tag})`, sources, searches };
   try {
-    return { json: extractJsonObject(raw), model, detail: `AI + web · ${model}`, sources, searches };
+    return { json: extractJsonObject(raw), model, detail: `AI + web · ${tag}`, sources, searches };
   } catch {
-    return { json: null, model, detail: "ongeldige JSON van AI (web)", sources, searches };
+    return { json: null, model, detail: `ongeldige JSON van AI (${tag})`, sources, searches };
   }
 }

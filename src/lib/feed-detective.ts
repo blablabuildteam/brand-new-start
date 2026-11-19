@@ -604,7 +604,11 @@ ${webBlock(hits)}`;
         model = web.model;
         contacts = cleanContacts(webRaw.contacts, allHits, second?.name);
       }
-      route = `Claude zocht zelf ${web.searches.length}× · ${hits.length} bronnen`;
+      route = `Claude zocht zelf ${web.searches.length}× · ${hits.length} bronnen${
+        /fout/.test(web.detail) ? ` · ${web.detail}` : ""
+      }`;
+    } else if (!webRaw) {
+      route = `${route} · zelf zoeken mislukt: ${web.detail}`;
     } else if (!raw && webRaw) {
       return {
         kind: "not-assignment",
@@ -619,7 +623,7 @@ ${webBlock(hits)}`;
   if (!calibrated) {
     return {
       kind: "unknown",
-      detail: clip(verdict.summary || "Geen opdrachtgever te herleiden uit de post of online", 240),
+      detail: `${clip(verdict.summary || "Geen opdrachtgever te herleiden uit de post of online", 240)} (${route})`,
       check: verdict.check ? clip(verdict.check, 220) : undefined,
       model,
     };
