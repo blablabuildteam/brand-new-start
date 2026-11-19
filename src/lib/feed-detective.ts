@@ -376,7 +376,7 @@ async function readOriginalVacancy(
   evidence: Evidence[],
   hits: SearchHit[],
   role: { title: string; stack: string[]; city: string | null }
-): Promise<{ url: string; quote: string } | null> {
+): Promise<{ url: string; quote: string; contacts: ClientContact[] } | null> {
   if (!hasWeb()) return null;
   const roleWords = fold(roleCore(role.title))
     .split(" ")
@@ -398,9 +398,9 @@ async function readOriginalVacancy(
   const budget = makeBudget("standard");
   budget.maxScrapes = 2;
   for (const url of urls.slice(0, 2)) {
-    const md = await webScrape(url, budget);
+    const md = await webScrape(url, budget, 20000);
     if (!md) continue;
-    const page = { title: md.slice(0, 4000), url, description: "", tier: 1 as const };
+    const page = { title: md, url, description: "", tier: 1 as const };
     const text = fold(md);
     const stackHits = stack.filter((s) => text.includes(s)).length;
     if (
@@ -413,10 +413,34 @@ async function readOriginalVacancy(
           .split("\n")
           .map((l) => l.replace(/[#*_>\[\]]/g, "").trim())
           .find((l) => l.length > 8 && roleWords.every((w) => fold(l).includes(w))) || "";
-      return { url, quote: clip(line, 160) };
+      return { url, quote: clip(line, 160), contacts: contactsInVacancy(md, url, name) };
     }
   }
   return null;
+}
+
+const CONTACT_CUE =
+  /(rapporteer\w*\s+(?:direct\s+)?aan|reports?\s+(?:directly\s+)?to|contactpersoon|contact\s*person|neem\s+(?:dan\s+)?contact\s+op\s+met|vragen\?|hiring\s+manager|leidinggevende|je\s+manager|your\s+manager|teamleider|team\s*lead)/i;
+const PERSON =
+  /\b([A-Z][a-zà-ÿ]+(?:\s+(?:van|de|der|den|ter|ten|te|von|el|al|la|le)){0,3}(?:\s+[A-Z][a-zà-ÿ'-]+){1,2})\b/g;
+const NOT_PERSON =
+  /\b(Senior|Junior|Medior|Engineer|Manager|Infrastructure|Department|Europe|Nederland|Netherlands|Motor|Group|Team|Afdeling|Solliciteer|Vacature|Recruitment|Recruiter|Talent|Human|Resources|HR|IT|ICT|Microsoft|Windows|Citrix|Server)\b/;
+
+/** Names on the cue line or the line after it: "Je rapporteert aan Leendert Durieux". */
+function contactsInVacancy(md: string, url: string, client: string): ClientContact[] {
+  const lines = md.split("\n").map((l) => l.replace(/[#*_>\[\]()|]/g, " ").replace(/\s+/g, " ").trim());
+  const out: ClientContact[] = [];
+  lines.forEach((line, i) => {
+    if (!CONTACT_CUE.test(line)) return;
+    const scope = `${line} ${lines[i + 1] || ""}`;
+    for (const m of scope.matchAll(PERSON)) {
+      const name = m[1]!.trim();
+      if (NOT_PERSON.test(name) || isAgencyName(name) || fold(name) === fold(client) || fold(client).includes(fold(name))) continue;
+      if (out.some((c) => fold(c.name) === fold(name))) continue;
+      out.push({ name, url, why: `Genoemd in de vacature: “${clip(line, 120)}”` });
+    }
+  });
+  return out.slice(0, 2);
 }
 
 function isRealName(name: string) {
@@ -684,6 +708,7 @@ ${webBlock(hits)}`;
         origin: "web",
         url: read.url,
       });
+      contacts = [...read.contacts, ...contacts.filter((c) => !read.contacts.some((r) => fold(r.name) === fold(c.name)))].slice(0, 3);
     }
   }
 

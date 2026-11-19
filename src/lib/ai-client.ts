@@ -4,6 +4,7 @@
  */
 
 import { recordSpend } from "@/lib/spend-ledger";
+import { flagSystemProblem } from "@/lib/system-alerts";
 
 export function hasAiKey() {
   return Boolean(process.env.ANTHROPIC_API_KEY?.trim());
@@ -118,6 +119,19 @@ async function callMessages(opts: {
     });
     if (!res.ok) {
       const err = await res.text().catch(() => "");
+      const problem =
+        res.status === 401 || res.status === 403
+          ? "Anthropic API-key ongeldig of ingetrokken. Zet een nieuwe ANTHROPIC_API_KEY in Vercel."
+          : /credit|billing|balance/i.test(err)
+            ? "Anthropic-tegoed is op. Waardeer op in de Anthropic console."
+            : res.status === 404
+              ? `AI-model ${opts.model} bestaat niet (meer).`
+              : res.status === 429
+                ? "AI rate limit geraakt — te veel posts tegelijk. Probeer het over een paar minuten opnieuw."
+                : null;
+      if (problem) {
+        flagSystemProblem({ key: `ai-${res.status}`, title: "AI werkt niet", body: problem, href: "/leads" });
+      }
       return { ok: false, status: res.status, error: err.slice(0, 220) };
     }
     const data = (await res.json()) as MessagesResponse;

@@ -23,7 +23,8 @@ export async function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  if (pathname.startsWith("/api/ingest")) {
+  // Route handlers check the cron secret or session themselves.
+  if (pathname.startsWith("/api/ingest") || pathname === "/api/ops/health") {
     return NextResponse.next();
   }
 

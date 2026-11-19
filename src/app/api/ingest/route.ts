@@ -93,7 +93,7 @@ async function alertSyncError(kind: string, result: { mode?: string; detail?: st
   logSyncRun(null, "sync-error", `${kind} sync mislukt`, { detail: detail.slice(0, 300) }, "error", 500);
   await pushAlert({
     id: `sync-error-${kind}-${new Date().toISOString().slice(0, 10)}`,
-    kind: "sync",
+    kind: "error",
     title: `${kind} sync mislukt`,
     body: token
       ? "Apify-token is ongeldig of verlopen. Maak een nieuwe token in Apify en zet APIFY_TOKEN in Vercel."
@@ -174,6 +174,7 @@ export async function POST(req: Request) {
     const maxJobs = Number((body as { maxJobs?: number }).maxJobs) || INGEST_POLICY.syncMarketJobs;
     const result = await syncMarketJobsFromLinkedIn({ maxUrls, maxJobs });
     await alertNewHits({ kind: "LinkedIn", kept: result.kept, hits: result.hits });
+    await alertSyncError("LinkedIn Jobs", result);
     logSyncRun(session, "market", `Sync LinkedIn · ${result.kept} gehouden`, {
       scanned: "scanned" in result ? result.scanned : undefined,
       kept: result.kept,
@@ -203,6 +204,7 @@ export async function POST(req: Request) {
       kept: result.kept,
       hits: result.hits,
     });
+    await alertSyncError(only === "indeed" ? "Indeed" : only === "freelance-nl" ? "Freelance.nl" : "Jobboards", result);
     logSyncRun(session, only || "boards", `Sync ${only || "boards"} · ${result.kept} gehouden`, {
       scanned: result.scanned,
       kept: result.kept,
@@ -285,6 +287,7 @@ export async function POST(req: Request) {
       force: Boolean((body as { force?: boolean }).force),
     });
     await alertNewHits({ kind: "Recruiter-feeds", kept: result.kept, hits: result.hits });
+    await alertSyncError("Recruiter feed", result);
     const detective = await identifyFresh(startedAt);
     logSyncRun(session, "recruiter-feeds", `Sync recruiter-feeds · ${result.kept} gehouden`, {
       scanned: result.scanned,

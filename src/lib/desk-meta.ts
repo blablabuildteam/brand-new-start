@@ -11,7 +11,7 @@ export type CrmStage = "nieuw" | "bevestigd" | "hm" | "outreach" | "won" | "lost
 export type DeskAlert = {
   id: string;
   at: string;
-  kind: "hot" | "confirm" | "hm" | "info" | "sync" | "watchlist";
+  kind: "hot" | "confirm" | "hm" | "info" | "sync" | "watchlist" | "error";
   title: string;
   body: string;
   href?: string;

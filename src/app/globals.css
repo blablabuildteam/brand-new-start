@@ -2127,6 +2127,38 @@ button.radar-opp[aria-current="true"]:hover:not(:disabled) {
   color: var(--muted);
   white-space: nowrap;
 }
+.sync-health {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 1.2rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.76rem;
+}
+.sync-health li {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.sync-health__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #9aa1ab;
+}
+.sync-health .is-ok .sync-health__dot {
+  background: #2f9e6e;
+}
+.sync-health .is-bad .sync-health__dot {
+  background: #c0392b;
+}
+.sync-health .is-bad {
+  color: #a5281b;
+}
+.sync-health .is-warn .sync-health__dot {
+  background: #d08a2e;
+}
 .sync-error {
   margin-top: 0.35rem;
   border-radius: 6px;

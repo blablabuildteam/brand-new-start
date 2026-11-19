@@ -1,5 +1,6 @@
 import type { ResearchDepth, SearchHit, SourceTier } from "@/lib/research/types";
 import { recordSpend } from "@/lib/spend-ledger";
+import { flagSystemProblem } from "@/lib/system-alerts";
 
 /**
  * Firecrawl-backed web layer with a hard budget, junk filtering and
@@ -88,7 +89,10 @@ export async function webSearch(
         timeout: 20000,
       }),
     });
-    if (!res.ok) return [];
+    if (!res.ok) {
+      flagFirecrawl(res.status);
+      return [];
+    }
     const data = (await res.json()) as {
       data?: { title?: string; url?: string; description?: string }[];
       web?: { title?: string; url?: string; description?: string }[];
@@ -107,7 +111,20 @@ export async function webSearch(
   }
 }
 
-export async function webScrape(url: string, budget: WebBudget): Promise<string | null> {
+function flagFirecrawl(status: number) {
+  const body =
+    status === 401 || status === 403
+      ? "Firecrawl API-key ongeldig. Zet een nieuwe FIRECRAWL_API_KEY in Vercel."
+      : status === 402
+        ? "Firecrawl-tegoed is op. AI zoekt nu minder goed online."
+        : status === 429
+          ? "Firecrawl rate limit geraakt."
+          : null;
+  if (body) flagSystemProblem({ key: `firecrawl-${status}`, title: "Online zoeken werkt niet", body });
+}
+
+/** `maxChars`: 4000 keeps prompts small; reading a full vacancy needs more. */
+export async function webScrape(url: string, budget: WebBudget, maxChars = 4000): Promise<string | null> {
   const key = process.env.FIRECRAWL_API_KEY?.trim();
   if (!key) return null;
   if (budget.scrapes >= budget.maxScrapes) return null;
@@ -128,11 +145,14 @@ export async function webScrape(url: string, budget: WebBudget): Promise<string 
         timeout: 25000,
       }),
     });
-    if (!res.ok) return null;
+    if (!res.ok) {
+      flagFirecrawl(res.status);
+      return null;
+    }
     const data = (await res.json()) as { data?: { markdown?: string } };
     const md = data.data?.markdown?.trim();
     if (!md || md.length < 120) return null;
-    return md.replace(/\n{3,}/g, "\n\n").slice(0, 4000);
+    return md.replace(/\n{3,}/g, "\n\n").slice(0, maxChars);
   } catch {
     return null;
   }

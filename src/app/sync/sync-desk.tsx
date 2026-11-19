@@ -8,6 +8,7 @@ import { BlablaLogo } from "@/components/blabla-logo";
 import { SourceLogo } from "@/components/source-logo";
 import { eurApprox, eurFormat, eurMid, eurRange } from "@/lib/costs";
 import type { SyncDeskAction, SyncDeskRecent, SyncDeskSource } from "@/lib/sync-desk";
+import type { IntegrationStatus } from "@/lib/integration-health";
 
 type Range = { low: number; high: number };
 
@@ -15,6 +16,7 @@ type SyncPayload = {
   lockHours: number;
   disclaimer: string;
   sources: SyncDeskSource[];
+  health?: IntegrationStatus[];
   spent: {
     monthLabel: string;
     count: number;
@@ -144,6 +146,18 @@ export default function SyncDesk() {
               </span>
               <span className="sync-costlink__go">Kosten &amp; rekensom →</span>
             </Link>
+
+            {data.health?.length ? (
+              <ul className="sync-health mb-4">
+                {data.health.map((h) => (
+                  <li key={h.id} className={h.ok === false ? "is-bad" : h.ok ? "is-ok" : "is-warn"}>
+                    <span className="sync-health__dot" />
+                    <span className="text-[var(--ink)]">{h.label}</span>
+                    <span className="text-[var(--muted)]">{h.detail}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
 
             {note ? (
               <p className="mb-4 rounded-[var(--radius)] border border-[var(--line)] bg-[var(--surface)] px-3.5 py-2.5 text-sm text-[var(--ink)]">

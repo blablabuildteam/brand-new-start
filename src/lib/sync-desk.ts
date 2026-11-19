@@ -13,6 +13,7 @@ import {
   type SyncChannel,
   type SyncRun,
 } from "@/lib/sync-log";
+import { checkIntegrations, type IntegrationStatus } from "@/lib/integration-health";
 
 export type SyncDeskAction = "market" | "indeed" | "freelance-nl" | "recruiter-feeds";
 
@@ -70,9 +71,10 @@ function costForChannel(channel: string): { low: number; high: number } | null {
 }
 
 export async function buildSyncDeskPayload() {
-  const [byChannel, recentRuns] = await Promise.all([
+  const [byChannel, recentRuns, health] = await Promise.all([
     lastSyncByChannel(),
     listSyncRuns(120),
+    checkIntegrations().catch(() => [] as IntegrationStatus[]),
   ]);
   const spent = estimateSpendFromRuns(recentRuns);
 
@@ -120,6 +122,7 @@ export async function buildSyncDeskPayload() {
   return {
     lockHours: SYNC_LOCK_HOURS,
     disclaimer: SYNC_COST_PER_RUN.disclaimer,
+    health,
     sources,
     spent,
     recent,
