@@ -33,11 +33,8 @@ export type SyncDeskSource = {
   error: string | null;
 };
 
-/** Houd gelijk met vercel.json (UTC 06:00 / 06:30 ≈ 07:00 / 07:30 NL). */
-const AUTO_SCHEDULE: Partial<Record<SyncDeskAction, string>> = {
-  "recruiter-feeds": "Automatisch om de dag, 07:00",
-  market: "Automatisch ma + do, 07:30",
-};
+/** Houd gelijk met vercel.json — nu draait niets automatisch. */
+const AUTO_SCHEDULE: Partial<Record<SyncDeskAction, string>> = {};
 
 export type SyncDeskRecent = {
   id: string;

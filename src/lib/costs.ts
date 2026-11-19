@@ -27,7 +27,7 @@ export const SOURCE_COST_MODEL: SourceCost[] = [
     tier: "paid-hard",
     tool: "apify",
     quality: "hoog",
-    cadence: "automatisch ma + do · plus handmatig",
+    cadence: "alleen handmatig",
     /** ~10 runs/m × €0,40–2,50 */
     eurPerMonth: { low: 4, high: 25 },
     efficiency: "Alleen ingestelde rollen + optioneel contract/ZZP-filter. Dedup op URL. Losse sync.",
@@ -90,7 +90,7 @@ export const SOURCE_COST_MODEL: SourceCost[] = [
     tier: "paid-hard",
     tool: "apify",
     quality: "kritisch",
-    cadence: "automatisch om de dag · plus handmatig",
+    cadence: "alleen handmatig",
     /** ~10–15 runs/m × €0,50–3,50 */
     eurPerMonth: { low: 5, high: 40 },
     efficiency: "Alleen ingestelde bureaus/recruiters (Instellingen). Voedt Bureaus-lane.",

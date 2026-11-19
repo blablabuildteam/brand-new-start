@@ -156,8 +156,8 @@ export default function SyncDesk() {
                 Bronnen
               </h2>
               <p className="mb-3 text-[0.78rem] text-[var(--muted)]">
-                Jobboards en Recruiter feed draaien los van elkaar, elk op een eigen schema. Advies: max 1× per bron
-                per ~{data.lockHours} uur. Met “Toch ophalen” sync je alsnog opnieuw (kost weer).
+                Niets draait automatisch: elke bron haal je zelf op met een klik. Advies: max 1× per bron per ~
+                {data.lockHours} uur. Met “Toch ophalen” sync je alsnog opnieuw (kost weer).
               </p>
               <ul className="overflow-hidden rounded-[var(--radius)] border border-[var(--line)] bg-[var(--surface)]">
                 {data.sources.map((s) => (
