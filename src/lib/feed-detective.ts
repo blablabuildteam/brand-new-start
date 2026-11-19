@@ -1,7 +1,7 @@
-import { aiJsonCompletion, hasAiKey } from "@/lib/ai-client";
+import { aiJsonCompletion, aiWebResearch, hasAiKey } from "@/lib/ai-client";
 import { isAgencyName, looksLikeIntermediary } from "@/lib/agency";
-import type { ClientGuess, Evidence, EvidenceOrigin } from "@/lib/end-client";
-import { hasWeb, makeBudget, multiSearch } from "@/lib/research/web";
+import type { ClientContact, ClientGuess, Evidence, EvidenceOrigin } from "@/lib/end-client";
+import { hasWeb, makeBudget, multiSearch, tierFor } from "@/lib/research/web";
 import type { SearchHit } from "@/lib/research/types";
 
 export { plainLinkedIn } from "@/lib/plain-text";
@@ -148,7 +148,7 @@ export function fingerprintSentence(text: string): string | null {
 }
 
 const ROLE_TERMS =
-  /\b(sre|site reliability|scrum master|agile coach|product owner|business analy[sz]?[te]|informatie analist|functioneel beheerder|test(?:er| engineer| coördinator| coordinator)|pmo|project ?manager|programma ?manager|change manager|tech lead|architect|data (?:engineer|scientist|analist|analyst)|ai (?:engineer|specialist)|platform engineer|cloud (?:platform )?engineer|devops engineer|linux engineer|embedded (?:software )?engineer|security (?:engineer|officer)|iam engineer|(?:full[- ]?stack|front[- ]?end|back[- ]?end|java|\.net|c#|python|node\.js|react|typescript|outsystems|mobile|software) (?:developer|engineer)|elk stack engineer|observability|consultant)\b/gi;
+  /\b(sre|site reliability|scrum master|agile coach|product owner|business analy[sz]?[te]|informatie analist|functioneel beheerder|test(?:er| engineer| coördinator| coordinator)|pmo|project ?manager|programma ?manager|change manager|tech lead|architect|data (?:engineer|scientist|analist|analyst)|ai (?:engineer|specialist)|platform engineer|cloud (?:platform )?engineer|devops engineer|linux engineer|embedded (?:software )?engineer|security (?:engineer|officer)|iam engineer|(?:full[- ]?stack|front[- ]?end|back[- ]?end|java|\.net|c#|python|node\.js|react|typescript|outsystems|mobile|software) (?:developer|engineer)|elk stack engineer|observability|infra(?:structure|structuur)? (?:engineer|specialist|beheerder|architect)|system(?:s)? engineer|systeembeheerder|netwerk ?(?:engineer|beheerder)|network engineer|werkplek ?(?:engineer|specialist|beheerder)|citrix (?:engineer|specialist)|database (?:administrator|beheerder)|dba|consultant)\b/gi;
 
 function roleCore(title: string) {
   const clean = cleanPost(title);
@@ -156,7 +156,7 @@ function roleCore(title: string) {
   if (terms.length) return terms.slice(0, 2).join(" ");
   return clean
     .replace(/^.*?—\s*/, "")
-    .replace(/\b(freelance|zzp|gezocht|vacature|opdracht|hybride|remote|senior|medior|junior|interim)\b/gi, " ")
+    .replace(/\b(freelance|zzp|gezocht|vacature|opdracht|hybride|remote|senior|medior|junior|interim|spoed|urgent|asap|regio|omgeving)\b/gi, " ")
     .replace(/[()[\]|/,!:*]+/g, " ")
     .replace(/\s+/g, " ")
     .trim()
@@ -169,6 +169,14 @@ function roleQuery(opts: { title: string; stack: string[]; city: string | null }
   const bits = [roleCore(opts.title), ...opts.stack.slice(0, 3), opts.city || ""].filter(Boolean);
   if (bits.join(" ").length < 12) return null;
   return `${bits.join(" ")} opdracht opdrachtgever`;
+}
+
+/** Bureau-posts zijn vaak overgenomen van de werken-bij-pagina van de klant zelf. */
+function originalVacancyQuery(opts: { title: string; stack: string[]; city: string | null }) {
+  const role = roleCore(opts.title);
+  if (role.length < 4) return null;
+  const bits = [`"${role}"`, ...opts.stack.slice(0, 4), opts.city || ""].filter(Boolean);
+  return `${bits.join(" ")} vacature werken bij`;
 }
 
 const GENERIC_ROLE_WORD =
@@ -316,6 +324,49 @@ type RawVerdict = {
   check?: string;
 };
 
+const WEB_SYSTEM = `${SYSTEM}
+
+Je hebt nu een web_search-tool. Werk zoals een goede recruiter met ChatGPT:
+1. Zoek de ORIGINELE vacature. Anonieme bureau-posts zijn vaak bijna letterlijk overgenomen van de werken-bij/careers-pagina van de klant. Zoek op de functietitel + de zeldzaamste combinatie van eisen uit de post (bv. "Citrix" + "ADFS" + "VMware" + "SQL Server") + regio of plaats. Laat bureaunamen weg. Probeer ook de Engelse/Nederlandse variant van de titel.
+2. Staat er bij een echte werkgever een vacature met (bijna) dezelfde titel, eisen, uren en regio? Dan is dat de eindklant. Een vacaturesite of ander bureau dat de klant noemt telt ook.
+3. Lees die vacature: staat er een contactpersoon, "je rapporteert aan", teamleider of hiring manager? Zet die in contacts. Zoek als het past nog één keer naar de afdelingsmanager (bv. "Manager IT Infrastructure <klant>").
+Zonder resultaat: client null. Verzin geen namen.
+
+Bij clues mag source ook de exacte URL zijn van het zoekresultaat waar het citaat uit komt.
+Extra JSON-veld: "contacts":[{"name":string,"title":string|null,"url":string|null,"why":string}] — alleen echte personen die je in een bron zag, max 3. why = waar je die persoon zag ("genoemd in de vacature", "LinkedIn: Department Manager IT Infrastructure").`;
+
+type RawContact = { name?: string; title?: string | null; url?: string | null; why?: string };
+
+/** Claude cites search results by URL; calibrate() expects W-numbers. */
+function citeByUrl(raw: RawVerdict, hits: SearchHit[]) {
+  const norm = (u: string) => u.replace(/^https?:\/\/(www\.)?/, "").replace(/[#?].*$/, "").replace(/\/$/, "");
+  for (const c of raw.clues || []) {
+    const src = (c.source || "").trim();
+    if (!/^https?:\/\//i.test(src)) continue;
+    const i = hits.findIndex((h) => norm(h.url) === norm(src));
+    c.source = i >= 0 ? `W${i + 1}` : "kennis";
+  }
+}
+
+function cleanContacts(list: RawContact[] | undefined, hits: SearchHit[], client?: string): ClientContact[] {
+  const known = new Set(hits.map((h) => h.url));
+  return (list || [])
+    .map((c) => ({
+      name: (c.name || "").replace(/\s+/g, " ").trim(),
+      title: c.title ? clip(c.title, 90) : undefined,
+      url: c.url && known.has(c.url) ? c.url : undefined,
+      why: clip(c.why || "", 160),
+    }))
+    .filter(
+      (c) =>
+        /^[\p{L}'.-]+(?: [\p{L}'.-]+){1,4}$/u.test(c.name) &&
+        c.name.length <= 60 &&
+        !isAgencyName(c.name) &&
+        (!client || fold(c.name) !== fold(client))
+    )
+    .slice(0, 3);
+}
+
 function isRealName(name: string) {
   if (name.length < 2 || name.length > 70) return false;
   if (/^(onbekend|unknown|null|opdrachtgever|klant|eindklant|organisatie|bedrijf|een |de klant)/i.test(name)) return false;
@@ -455,6 +506,9 @@ export async function identifyFeedClient(opts: {
   city: string | null;
   memory: FeedMemory[];
   rulesHint?: ClientGuess | null;
+  /** Claude mag zelf zoeken als de eerste ronde niets bewijst (standaard aan). */
+  webSearch?: boolean;
+  webSearchMax?: number;
 }): Promise<FeedVerdict> {
   if (!hasAiKey()) return { kind: "unknown", detail: "ANTHROPIC_API_KEY ontbreekt", model: "" };
 
@@ -472,7 +526,9 @@ export async function identifyFeedClient(opts: {
     const queries = [
       fp ? `"${fp}"` : null,
       roleQuery({ title: opts.title, stack: opts.stack, city: opts.city }),
-      site && role.length >= 4 ? `site:${site} ${role} ${opts.city || opts.stack[0] || ""}`.trim() : null,
+      site && role.length >= 4
+        ? `site:${site} ${role} ${opts.city || opts.stack[0] || ""}`.trim()
+        : originalVacancyQuery({ title: opts.title, stack: opts.stack, city: opts.city }),
     ].filter((q): q is string => Boolean(q));
     hits = (await multiSearch(queries, budget, { perQuery: 5 }))
       .filter((h) => !NOT_USEFUL_URL.test(h.url))
@@ -484,9 +540,7 @@ export async function identifyFeedClient(opts: {
       ? `Onze catalogus herkent mogelijk ${opts.rulesHint.name} — check dat zelf, geen bewijs op zich.`
       : "";
 
-  const result = await aiJsonCompletion({
-    system: SYSTEM,
-    user: `Bureau: ${opts.agencyName}${opts.recruiterName ? ` · recruiter ${opts.recruiterName}` : ""}${hint ? `\n${hint}` : ""}
+  const user = `Bureau: ${opts.agencyName}${opts.recruiterName ? ` · recruiter ${opts.recruiterName}` : ""}${hint ? `\n${hint}` : ""}
 
 === POST ===
 ${post}
@@ -495,38 +549,82 @@ ${post}
 ${memoryBlock(opts.memory)}
 
 === [W] ZOEKRESULTATEN (zelfde opdracht elders?) ===
-${webBlock(hits)}`,
-    temperature: 0,
-    maxTokens: 700,
-  });
+${webBlock(hits)}`;
+  const roleInfo = { title: opts.title, stack: opts.stack, city: opts.city ?? null };
 
-  const raw = result.json as RawVerdict | null;
-  if (!raw) return { kind: "unknown", detail: result.detail, model: result.model };
+  const result = await aiJsonCompletion({ system: SYSTEM, user, temperature: 0, maxTokens: 700 });
+  let raw = result.json as RawVerdict | null;
+  let model = result.model;
+  let route = `${hits.length} webhits`;
+  let contacts: ClientContact[] = [];
 
-  const reason = raw.not_assignment_reason || "";
-  if (raw.is_assignment === false && !/afgebroken|onvolledig|incompleet|onvoldoende informatie|te kort/i.test(reason)) {
+  const notAssignment = (r: RawVerdict | null) =>
+    r?.is_assignment === false &&
+    !/afgebroken|onvolledig|incompleet|onvoldoende informatie|te kort/i.test(r.not_assignment_reason || "");
+
+  if (raw && notAssignment(raw)) {
     return {
       kind: "not-assignment",
       reason: clip(raw.not_assignment_reason || "Geen opdracht voor een klant", 160),
-      model: result.model,
+      model,
     };
   }
 
-  const cal = calibrate({
-    raw,
-    post,
-    hits,
-    memory: opts.memory,
-    role: { title: opts.title, stack: opts.stack, city: opts.city ?? null },
-  });
-  if (!cal) {
+  let calibrated = raw ? calibrate({ raw, post, hits, memory: opts.memory, role: roleInfo }) : null;
+
+  // Niet bewezen? Laat Claude zelf doorzoeken, zoals ChatGPT: originele vacature, dan de manager.
+  if (opts.webSearch !== false && !(calibrated && (calibrated.webProof || calibrated.confidence >= 85))) {
+    const cal = calibrated;
+    const web = await aiWebResearch({
+      system: WEB_SYSTEM,
+      user,
+      maxSearches: opts.webSearchMax ?? 5,
+      maxTokens: 1000,
+      effort: "medium",
+    });
+    const webRaw = web.json as (RawVerdict & { contacts?: RawContact[] }) | null;
+    if (webRaw && !notAssignment(webRaw)) {
+      const allHits = [
+        ...hits,
+        ...web.sources
+          .filter((s) => !hits.some((h) => h.url === s.url))
+          .map((s) => ({ title: s.title, url: s.url, description: "", tier: tierFor(s.url) })),
+      ];
+      citeByUrl(webRaw, allHits);
+      const second = calibrate({ raw: webRaw, post, hits: allHits, memory: opts.memory, role: roleInfo });
+      const better =
+        second &&
+        (!cal ||
+          (second.webProof && !cal.webProof) ||
+          (fold(second.name) === fold(cal.name) ? second.confidence >= cal.confidence : second.confidence > cal.confidence + 5));
+      if (better || (!raw && !second)) {
+        raw = webRaw;
+        calibrated = second;
+        hits = allHits;
+        model = web.model;
+        contacts = cleanContacts(webRaw.contacts, allHits, second?.name);
+      }
+      route = `Claude zocht zelf ${web.searches.length}× · ${hits.length} bronnen`;
+    } else if (!raw && webRaw) {
+      return {
+        kind: "not-assignment",
+        reason: clip(webRaw.not_assignment_reason || "Geen opdracht voor een klant", 160),
+        model: web.model,
+      };
+    }
+  }
+
+  if (!raw) return { kind: "unknown", detail: result.detail, model };
+  const verdict = raw;
+  if (!calibrated) {
     return {
       kind: "unknown",
-      detail: clip(raw.summary || "Geen opdrachtgever te herleiden uit de post of online", 240),
-      check: raw.check ? clip(raw.check, 220) : undefined,
-      model: result.model,
+      detail: clip(verdict.summary || "Geen opdrachtgever te herleiden uit de post of online", 240),
+      check: verdict.check ? clip(verdict.check, 220) : undefined,
+      model,
     };
   }
+  const cal = calibrated;
 
   // Twijfelzone: één gerichte zoek naar "kandidaat + rol". Noemt een hit die
   // klant bij hetzelfde soort rol, dan is het nagetrokken; anders blijft het staan.
@@ -556,7 +654,7 @@ ${webBlock(hits)}`,
     }
   }
 
-  const alternatives = (raw.alternatives || [])
+  const alternatives = (verdict.alternatives || [])
     .map((a) => ({
       name: (a.name || "").trim(),
       confidence: Math.round(Math.min(cal.confidence - 5, Number(a.confidence) || 0)),
@@ -566,18 +664,19 @@ ${webBlock(hits)}`,
 
   return {
     kind: "client",
-    model: result.model,
-    detail: `${cal.name} · ${cal.confidence}% · ${cal.basis} · ${hits.length} webhits`,
+    model,
+    detail: `${cal.name} · ${cal.confidence}% · ${cal.basis} · ${route}`,
     guess: {
       name: cal.name,
       confidence: cal.confidence,
       evidence: cal.evidence.length
         ? cal.evidence
-        : [{ label: raw.summary ? clip(raw.summary, 200) : "Herleid uit de post", weight: cal.confidence, origin: "knowledge" }],
+        : [{ label: verdict.summary ? clip(verdict.summary, 200) : "Herleid uit de post", weight: cal.confidence, origin: "knowledge" }],
       alternatives,
       source: "ai",
-      summary: `${clip(raw.summary || "", 320)}${raw.summary ? " " : ""}(${cal.basis})`.trim(),
-      check: raw.check?.trim() ? clip(raw.check, 220) : undefined,
+      summary: `${clip(verdict.summary || "", 320)}${verdict.summary ? " " : ""}(${cal.basis})`.trim(),
+      check: verdict.check?.trim() ? clip(verdict.check, 220) : undefined,
+      contacts: contacts.length ? contacts : undefined,
     },
   };
 }

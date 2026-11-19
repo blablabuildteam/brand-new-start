@@ -28,6 +28,15 @@ export type SyncDeskSource = {
   costEur: { low: number; high: number };
   /** Extra uitleg onder de prijs — bv. auto-AI na feeds. */
   note?: string | null;
+  /** Automatisch schema (vercel.json crons), of null = alleen handmatig. */
+  auto: string | null;
+  error: string | null;
+};
+
+/** Houd gelijk met vercel.json (UTC 06:00 / 06:30 ≈ 07:00 / 07:30 NL). */
+const AUTO_SCHEDULE: Partial<Record<SyncDeskAction, string>> = {
+  "recruiter-feeds": "Automatisch om de dag, 07:00",
+  market: "Automatisch ma + do, 07:30",
 };
 
 export type SyncDeskRecent = {
@@ -84,6 +93,13 @@ export async function buildSyncDeskPayload() {
       locked: syncStillLocked(lastAt),
       lockedUntil: lockedUntilIso(lastAt),
       costEur: cost,
+      auto: AUTO_SCHEDULE[s.id] ?? null,
+      error:
+        run?.mode === "error"
+          ? /\b401\b|token/i.test(run.detail || "")
+            ? "Laatste run mislukt: Apify-token ongeldig of verlopen. Nieuwe token nodig (APIFY_TOKEN in Vercel)."
+            : `Laatste run mislukt: ${(run.detail || "onbekende fout").slice(0, 140)}`
+          : null,
       note:
         s.id === "recruiter-feeds"
           ? `Na ophalen: AI op max ${INGEST_POLICY.feedAutoAiMax} posts ≤15 dagen zonder voorstel · plafond ca. €${INGEST_POLICY.feedAutoAiDailyEurMax}/dag.`

@@ -6,6 +6,7 @@ import { enabledPlatforms, type PlatformTarget } from "@/lib/platforms";
 import { recordSync, type SyncHit } from "@/lib/sync-log";
 import { extractOrgContext, orgContextToRaw } from "@/lib/org-context";
 import { huntSettings } from "@/lib/hunt";
+import { recordSpend } from "@/lib/spend-ledger";
 
 /**
  * Firecrawl = open web (careers pages). Not for LinkedIn.
@@ -56,6 +57,7 @@ export async function scrapeCareersWithFirecrawl(
     const platform = meta?.companyByUrl?.get(url);
     const company = platform?.company || guessCompanyFromUrl(url);
     try {
+      recordSpend({ fcScrapes: 1 });
       const res = await fetch("https://api.firecrawl.dev/v1/scrape", {
         method: "POST",
         headers: {

@@ -6,6 +6,7 @@ import {
   SYNC_COST_PER_RUN,
   estimateSpendFromRuns,
 } from "@/lib/costs";
+import { buildDailyCosts } from "@/lib/costs-daily";
 import { loadDeskMeta } from "@/lib/desk-meta";
 import { loadHuntSettings } from "@/lib/hunt";
 import { listAgencyLeads } from "@/lib/opportunity";
@@ -110,12 +111,14 @@ export async function buildCostsPayload() {
     return id ? addRange(acc, SYNC_COST_PER_RUN.actions[id].eur) : acc;
   }, { low: 0, high: 0 });
 
+  const daily = await buildDailyCosts({ runs, aiAt, days: 30 });
   const feedRun = SYNC_COST_PER_RUN.actions["recruiter-feeds"].eur;
   const perProfile = INGEST_POLICY.recruiterFeedMaxProfiles;
 
   return {
     since: firstAt,
     disclaimer: SYNC_COST_PER_RUN.disclaimer,
+    daily,
     allTime,
     month: { ...month, label: new Date(monthStart).toLocaleDateString("nl-NL", { month: "long" }), forecast },
     last30: recent,

@@ -1,4 +1,5 @@
 import type { ResearchDepth, SearchHit, SourceTier } from "@/lib/research/types";
+import { recordSpend } from "@/lib/spend-ledger";
 
 /**
  * Firecrawl-backed web layer with a hard budget, junk filtering and
@@ -69,6 +70,7 @@ export async function webSearch(
   if (budget.searches >= budget.maxSearches) return [];
   budget.searches += 1;
   budget.queries.push(query);
+  recordSpend({ fcSearches: 1 });
 
   try {
     const res = await fetch("https://api.firecrawl.dev/v1/search", {
@@ -110,6 +112,7 @@ export async function webScrape(url: string, budget: WebBudget): Promise<string 
   if (!key) return null;
   if (budget.scrapes >= budget.maxScrapes) return null;
   budget.scrapes += 1;
+  recordSpend({ fcScrapes: 1 });
 
   try {
     const res = await fetch("https://api.firecrawl.dev/v1/scrape", {

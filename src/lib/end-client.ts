@@ -26,6 +26,15 @@ export type ClientGuess = {
   summary?: string;
   /** What the recruiter should check to be sure. */
   check?: string;
+  /** People named in the client's own vacancy or found as the department head. */
+  contacts?: ClientContact[];
+};
+
+export type ClientContact = {
+  name: string;
+  title?: string;
+  url?: string;
+  why: string;
 };
 
 export type VacancyFacts = {

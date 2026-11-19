@@ -156,8 +156,8 @@ export default function SyncDesk() {
                 Bronnen
               </h2>
               <p className="mb-3 text-[0.78rem] text-[var(--muted)]">
-                Advies: max 1× per bron per ~{data.lockHours} uur. Na een run kun je met “Toch ophalen”
-                alsnog opnieuw syncen (kost weer).
+                Jobboards en Recruiter feed draaien los van elkaar, elk op een eigen schema. Advies: max 1× per bron
+                per ~{data.lockHours} uur. Met “Toch ophalen” sync je alsnog opnieuw (kost weer).
               </p>
               <ul className="overflow-hidden rounded-[var(--radius)] border border-[var(--line)] bg-[var(--surface)]">
                 {data.sources.map((s) => (
@@ -249,6 +249,7 @@ function SourceRow({
         <div className="flex items-center gap-2">
           <SourceLogo channel={source.channel} size="sm" />
           <p className="text-sm font-semibold text-[var(--ink)]">{source.label}</p>
+          <span className={`sync-auto${source.auto ? " is-on" : ""}`}>{source.auto || "Alleen handmatig"}</span>
         </div>
         <p className="mt-1 text-[0.78rem] text-[var(--muted)]">
           {source.lastAt ? (
@@ -270,6 +271,7 @@ function SourceRow({
               : null}
           </p>
         ) : null}
+        {source.error ? <p className="sync-error">{source.error}</p> : null}
         {source.note ? (
           <p className="mt-1 text-[0.72rem] leading-snug text-[var(--muted)]">{source.note}</p>
         ) : null}

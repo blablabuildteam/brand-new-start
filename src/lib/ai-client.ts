@@ -3,6 +3,8 @@
  * Quality-first: Claude Sonnet by default.
  */
 
+import { recordSpend } from "@/lib/spend-ledger";
+
 export function hasAiKey() {
   return Boolean(process.env.ANTHROPIC_API_KEY?.trim());
 }
@@ -12,12 +14,131 @@ export function hasOpenAiKey() {
   return hasAiKey();
 }
 
+const DEFAULT_MODEL = "claude-sonnet-5-5";
+/** Vangnet zolang het nog bestaat (EOL 30 nov 2026). */
+const LEGACY_MODEL = "claude-sonnet-4-5";
+
 export function aiModel() {
-  return process.env.ANTHROPIC_MODEL?.trim() || "claude-sonnet-4-5";
+  return process.env.ANTHROPIC_MODEL?.trim() || DEFAULT_MODEL;
 }
+
+/** Claude 3 / 4.0–4.6 accept `temperature` on 2023-06-01; newer models reject it. */
+function isLegacyModel(model: string) {
+  return /^claude-(3|[a-z]+-4(-[0-6])?(-\d{8})?$)/.test(model);
+}
+
+/** USD per million tokens (input, output). */
+function priceFor(model: string): [number, number] {
+  if (/haiku-5/.test(model)) return [0.1, 0.5];
+  if (/haiku/.test(model)) return [1, 5];
+  if (/fable/.test(model)) return [8, 40];
+  if (/opus-5/.test(model)) return [4, 20];
+  if (/opus/.test(model)) return [5, 25];
+  if (/sonnet-5/.test(model)) return [2, 10];
+  return [3, 15];
+}
+
+const WEB_SEARCH_USD = 0.01;
 
 function anthropicKey() {
   return process.env.ANTHROPIC_API_KEY?.trim() || "";
+}
+
+export type Effort = "low" | "medium" | "high";
+
+type ContentBlock = {
+  type?: string;
+  text?: string;
+  content?: unknown;
+  [k: string]: unknown;
+};
+
+type MessagesResponse = {
+  content?: ContentBlock[];
+  stop_reason?: string;
+  usage?: {
+    input_tokens?: number;
+    output_tokens?: number;
+    cache_read_input_tokens?: number;
+    cache_creation_input_tokens?: number;
+    server_tool_use?: { web_search_requests?: number };
+  };
+};
+
+function trackUsage(model: string, usage: MessagesResponse["usage"]) {
+  if (!usage) return;
+  const [pin, pout] = priceFor(model);
+  const inTok =
+    (usage.input_tokens || 0) + (usage.cache_creation_input_tokens || 0) + (usage.cache_read_input_tokens || 0);
+  const outTok = usage.output_tokens || 0;
+  const searches = usage.server_tool_use?.web_search_requests || 0;
+  recordSpend({
+    aiCalls: 1,
+    inTok,
+    outTok,
+    webSearches: searches,
+    aiUsd: (inTok * pin + outTok * pout) / 1_000_000 + searches * WEB_SEARCH_USD,
+  });
+}
+
+/**
+ * One Messages request. Modern models: API 2026-10-21, effort instead of temperature,
+ * thinking tokens share `max_tokens` so we add headroom. Legacy models keep the old shape.
+ */
+async function callMessages(opts: {
+  model: string;
+  system: string;
+  messages: { role: "user" | "assistant"; content: unknown }[];
+  maxTokens: number;
+  effort: Effort;
+  temperature?: number;
+  tools?: unknown[];
+}): Promise<{ ok: true; data: MessagesResponse } | { ok: false; status: number; error: string }> {
+  const legacy = isLegacyModel(opts.model);
+  const headroom = opts.effort === "low" ? 3000 : opts.effort === "medium" ? 8000 : 16000;
+  const body: Record<string, unknown> = {
+    model: opts.model,
+    system: opts.system,
+    messages: opts.messages,
+    max_tokens: legacy ? opts.maxTokens : opts.maxTokens + headroom,
+  };
+  if (legacy) body.temperature = opts.temperature ?? 0.2;
+  else body.output_config = { effort: opts.effort };
+  if (opts.tools?.length) body.tools = opts.tools;
+
+  try {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "x-api-key": anthropicKey(),
+        "anthropic-version": legacy ? "2023-06-01" : "2026-10-21",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+      const err = await res.text().catch(() => "");
+      return { ok: false, status: res.status, error: err.slice(0, 220) };
+    }
+    const data = (await res.json()) as MessagesResponse;
+    trackUsage(opts.model, data.usage);
+    return { ok: true, data };
+  } catch (e) {
+    return { ok: false, status: 0, error: e instanceof Error ? e.message : "netwerkfout" };
+  }
+}
+
+/** Final answer text: every text block after the last tool result (citations split text into blocks). */
+function finalText(content: ContentBlock[] = []) {
+  let lastTool = -1;
+  content.forEach((b, i) => {
+    if (b.type && /tool_result$/.test(b.type)) lastTool = i;
+  });
+  return content
+    .slice(lastTool + 1)
+    .filter((b) => b.type === "text" && typeof b.text === "string")
+    .map((b) => b.text)
+    .join("");
 }
 
 /**
@@ -83,6 +204,19 @@ function extractJsonObject(text: string): unknown {
   }
 }
 
+const JSON_ONLY = "Antwoord UITSLUITEND met één geldig JSON-object. Geen markdown, geen uitleg buiten JSON.";
+
+/** Try the configured model; on a request-level failure fall back to the legacy model once. */
+async function callWithFallback(
+  opts: Omit<Parameters<typeof callMessages>[0], "model">
+): Promise<{ model: string; res: Awaited<ReturnType<typeof callMessages>> }> {
+  const model = aiModel();
+  const res = await callMessages({ ...opts, model });
+  if (res.ok || model === LEGACY_MODEL || ![400, 404].includes(res.status)) return { model, res };
+  const legacy = await callMessages({ ...opts, model: LEGACY_MODEL, tools: undefined });
+  return legacy.ok ? { model: LEGACY_MODEL, res: legacy } : { model, res };
+}
+
 /**
  * Messages API call that returns parsed JSON from the model text.
  */
@@ -91,46 +225,28 @@ export async function aiJsonCompletion(opts: {
   user: string;
   temperature?: number;
   maxTokens?: number;
+  effort?: Effort;
 }): Promise<{ json: unknown; model: string; detail: string } | { json: null; model: string; detail: string }> {
-  const key = anthropicKey();
-  const model = aiModel();
-  if (!key) {
+  if (!anthropicKey()) {
     return { json: null, model: "", detail: "ANTHROPIC_API_KEY ontbreekt" };
   }
 
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "x-api-key": key,
-      "anthropic-version": "2023-06-01",
-      "content-type": "application/json",
-    },
-    body: JSON.stringify({
-      model,
-      max_tokens: opts.maxTokens ?? 1200,
-      temperature: opts.temperature ?? 0.2,
-      system: `${opts.system}\n\nAntwoord UITSLUITEND met één geldig JSON-object. Geen markdown, geen uitleg buiten JSON.`,
-      messages: [{ role: "user", content: opts.user }],
-    }),
+  const { model, res } = await callWithFallback({
+    system: `${opts.system}\n\n${JSON_ONLY}`,
+    messages: [{ role: "user", content: opts.user }],
+    maxTokens: opts.maxTokens ?? 1200,
+    effort: opts.effort ?? "low",
+    temperature: opts.temperature,
   });
 
   if (!res.ok) {
-    const err = await res.text().catch(() => "");
-    return {
-      json: null,
-      model,
-      detail: `Anthropic ${res.status}: ${err.slice(0, 180)}`,
-    };
+    return { json: null, model, detail: `Anthropic ${res.status}: ${res.error.slice(0, 180)}` };
   }
 
-  const data = (await res.json()) as {
-    content?: { type?: string; text?: string }[];
-    stop_reason?: string;
-  };
-  const raw = data.content?.find((c) => c.type === "text")?.text;
+  const raw = finalText(res.data.content);
   if (!raw) return { json: null, model, detail: "lege AI-respons" };
 
-  const truncated = data.stop_reason === "max_tokens";
+  const truncated = res.data.stop_reason === "max_tokens";
   try {
     return {
       json: extractJsonObject(raw),
@@ -145,5 +261,89 @@ export async function aiJsonCompletion(opts: {
         ? `AI-antwoord afgekapt op max_tokens (${raw.length} tekens) en niet te herstellen`
         : "ongeldige JSON van AI",
     };
+  }
+}
+
+export type WebSource = { title: string; url: string };
+
+/**
+ * Claude zoekt zelf op het web (server-side web_search), net als ChatGPT:
+ * meerdere rondes, eigen vervolgvragen, en leest de pagina's die het vindt.
+ * Geeft de gebruikte bronnen terug zodat wij bewijs kunnen wegen.
+ */
+export async function aiWebResearch(opts: {
+  system: string;
+  user: string;
+  maxSearches?: number;
+  maxTokens?: number;
+  effort?: Effort;
+}): Promise<
+  | { json: unknown; model: string; detail: string; sources: WebSource[]; searches: string[] }
+  | { json: null; model: string; detail: string; sources: WebSource[]; searches: string[] }
+> {
+  const model = aiModel();
+  if (!anthropicKey()) {
+    return { json: null, model: "", detail: "ANTHROPIC_API_KEY ontbreekt", sources: [], searches: [] };
+  }
+  const tools = [
+    {
+      type: "web_search_20250305",
+      name: "web_search",
+      max_uses: opts.maxSearches ?? 5,
+      user_location: { type: "approximate", country: "NL", timezone: "Europe/Amsterdam" },
+    },
+  ];
+  const messages: { role: "user" | "assistant"; content: unknown }[] = [
+    { role: "user", content: opts.user },
+  ];
+  const all: ContentBlock[] = [];
+  let data: MessagesResponse | null = null;
+
+  for (let turn = 0; turn < 3; turn++) {
+    const res = await callMessages({
+      model,
+      system: `${opts.system}\n\n${JSON_ONLY}`,
+      messages,
+      maxTokens: opts.maxTokens ?? 1200,
+      effort: opts.effort ?? "medium",
+      tools,
+    });
+    if (!res.ok) {
+      return {
+        json: null,
+        model,
+        detail: `Anthropic ${res.status}: ${res.error.slice(0, 180)}`,
+        sources: [],
+        searches: [],
+      };
+    }
+    data = res.data;
+    all.push(...(data.content || []));
+    if (data.stop_reason !== "pause_turn") break;
+    messages.push({ role: "assistant", content: data.content });
+  }
+
+  const sources: WebSource[] = [];
+  const searches: string[] = [];
+  for (const b of all) {
+    if (b.type === "server_tool_use" && b.name === "web_search") {
+      const q = (b.input as { query?: string } | undefined)?.query;
+      if (q) searches.push(q);
+    }
+    if (b.type === "web_search_tool_result" && Array.isArray(b.content)) {
+      for (const r of b.content as { type?: string; url?: string; title?: string }[]) {
+        if (r.type === "web_search_result" && r.url && !sources.some((s) => s.url === r.url)) {
+          sources.push({ url: r.url, title: (r.title || r.url).slice(0, 180) });
+        }
+      }
+    }
+  }
+
+  const raw = finalText(data?.content);
+  if (!raw) return { json: null, model, detail: "lege AI-respons", sources, searches };
+  try {
+    return { json: extractJsonObject(raw), model, detail: `AI + web · ${model}`, sources, searches };
+  } catch {
+    return { json: null, model, detail: "ongeldige JSON van AI (web)", sources, searches };
   }
 }

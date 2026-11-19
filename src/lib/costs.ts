@@ -27,7 +27,7 @@ export const SOURCE_COST_MODEL: SourceCost[] = [
     tier: "paid-hard",
     tool: "apify",
     quality: "hoog",
-    cadence: "handmatig · advies 1×/3 dagen",
+    cadence: "automatisch ma + do · plus handmatig",
     /** ~10 runs/m × €0,40–2,50 */
     eurPerMonth: { low: 4, high: 25 },
     efficiency: "Alleen ingestelde rollen + optioneel contract/ZZP-filter. Dedup op URL. Losse sync.",
@@ -90,7 +90,7 @@ export const SOURCE_COST_MODEL: SourceCost[] = [
     tier: "paid-hard",
     tool: "apify",
     quality: "kritisch",
-    cadence: "handmatig · advies 1×/2 dagen",
+    cadence: "automatisch om de dag · plus handmatig",
     /** ~10–15 runs/m × €0,50–3,50 */
     eurPerMonth: { low: 5, high: 40 },
     efficiency: "Alleen ingestelde bureaus/recruiters (Instellingen). Voedt Bureaus-lane.",
@@ -246,7 +246,7 @@ export const INGEST_POLICY = {
 export const SYNC_COST_PER_RUN = {
   currency: "EUR",
   disclaimer:
-    "Bedragen zijn schattingen op basis van jullie sync-caps (geen Apify-factuur in de app). Echte rekening = Apify/Firecrawl. Geen bron draait automatisch.",
+    "Apify komt waar mogelijk direct uit Apify (echte run-kosten); AI-tokens worden sinds 19 nov gemeten. De rest is een schatting op basis van de sync-caps. Echte rekening = Apify / Anthropic / Firecrawl.",
   meaning: [
     "Je betaalt providers per scrape/run — niet per ‘mooie hit’.",
     "Filteren (niche) is gratis in onze app: we gooien noise weg ná het ophalen.",
@@ -313,9 +313,9 @@ export const SYNC_COST_PER_RUN = {
     },
     "ai-research": {
       label: "AI eindklant (eerste hit)",
-      tool: "Firecrawl · Claude alleen bij twijfel",
-      eur: { low: 0.02, high: 0.1 },
-      what: "Naamlek €0 · SERP-bevestiging · Claude alleen bij twijfel",
+      tool: "Firecrawl + Claude · Claude zoekt zelf bij twijfel",
+      eur: { low: 0.02, high: 0.15 },
+      what: "Naamlek €0 · 3 Firecrawl-zoeken + Claude · niet bewezen? Claude zoekt zelf (max 5×) de originele vacature + manager",
     },
     "ai-research-deep": {
       label: "AI eindklant (Deep)",
@@ -350,6 +350,16 @@ export function eurApprox(r: { low: number; high: number }) {
 export function eurMid(r: { low: number; high: number }) {
   return Math.round(((r.low + r.high) / 2) * 100) / 100;
 }
+
+export type CostPart = "boards" | "feed" | "ai" | "hm" | "other";
+
+export const COST_PART_NL: Record<CostPart, string> = {
+  boards: "Jobboards",
+  feed: "Recruiter feed",
+  ai: "AI eindklant",
+  hm: "Managers + Lusha",
+  other: "Overig",
+};
 
 export const CHANNEL_ACTION: Record<string, keyof typeof SYNC_COST_PER_RUN.actions> = {
   "linkedin-jobs": "market",

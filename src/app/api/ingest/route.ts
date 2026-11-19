@@ -85,7 +85,24 @@ async function alertNewHits(opts: {
   });
 }
 
-/** Vercel Cron: lichte LinkedIn-market sync (~1×/3d). */
+/** A failing source must be loud: a dead token silently stopped every sync for a week. */
+async function alertSyncError(kind: string, result: { mode?: string; detail?: string }) {
+  if (result.mode !== "error") return;
+  const detail = result.detail || "";
+  const token = /\b401\b|token/i.test(detail);
+  logSyncRun(null, "sync-error", `${kind} sync mislukt`, { detail: detail.slice(0, 300) }, "error", 500);
+  await pushAlert({
+    id: `sync-error-${kind}-${new Date().toISOString().slice(0, 10)}`,
+    kind: "sync",
+    title: `${kind} sync mislukt`,
+    body: token
+      ? "Apify-token is ongeldig of verlopen. Maak een nieuwe token in Apify en zet APIFY_TOKEN in Vercel."
+      : detail.slice(0, 160) || "Onbekende fout — zie Ops.",
+    href: "/sync",
+  });
+}
+
+/** Vercel Cron, los per bron: `?job=feeds` (om de dag) en `?job=boards` (ma + do). */
 export async function GET(req: Request) {
   const startedAt = Date.now();
   const { ok, isCron } = await authorized(req);
@@ -106,34 +123,22 @@ export async function GET(req: Request) {
 
   await loadHuntSettings();
   await loadDeskMeta();
-  const market = await syncMarketJobsFromLinkedIn(CRON_MARKET);
-  await alertNewHits({
-    kind: "LinkedIn",
-    kept: market.kept,
-    hits: market.hits,
-  });
+  const job = new URL(req.url).searchParams.get("job") === "boards" ? "boards" : "feeds";
+
+  if (job === "boards") {
+    const market = await syncMarketJobsFromLinkedIn(CRON_MARKET);
+    await alertNewHits({ kind: "LinkedIn", kept: market.kept, hits: market.hits });
+    await alertSyncError("LinkedIn Jobs", market);
+    logSyncRun(null, "cron-boards", `Cron jobboards · ${market.kept} gehouden`, { kept: market.kept });
+    return NextResponse.json({ ok: true, kind: "cron-boards", market, stats: await stats() });
+  }
 
   const feeds = await syncRecruiterFeeds(CRON_FEEDS);
-  await alertNewHits({
-    kind: "Recruiter-feeds",
-    kept: feeds.kept,
-    hits: feeds.hits,
-  });
+  await alertNewHits({ kind: "Recruiter-feeds", kept: feeds.kept, hits: feeds.hits });
+  await alertSyncError("Recruiter feed", feeds);
   const detective = await identifyFresh(startedAt);
-
-  logSyncRun(null, "cron", `Cron market+feeds · ${market.kept + feeds.kept} gehouden`, {
-    marketKept: market.kept,
-    feedsKept: feeds.kept,
-  });
-
-  return NextResponse.json({
-    ok: true,
-    kind: "cron-market+feeds",
-    market,
-    feeds,
-    detective,
-    stats: await stats(),
-  });
+  logSyncRun(null, "cron-feeds", `Cron recruiter feed · ${feeds.kept} gehouden`, { kept: feeds.kept });
+  return NextResponse.json({ ok: true, kind: "cron-feeds", feeds, detective, stats: await stats() });
 }
 
 export async function POST(req: Request) {

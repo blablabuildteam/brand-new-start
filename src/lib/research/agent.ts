@@ -701,6 +701,7 @@ ${blob.slice(0, 3500)}
 """`,
     temperature: 0.12,
     maxTokens: 2800,
+    effort: "medium",
   });
 
   const model = analyze.model || extractedModel;

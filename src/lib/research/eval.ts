@@ -1,5 +1,6 @@
 import { researchEndClient } from "@/lib/research/agent";
 import type { ResearchDepth } from "@/lib/research/types";
+import type { ClientContact } from "@/lib/end-client";
 
 /**
  * Eval-set for End-client Intelligence.
@@ -33,6 +34,14 @@ export type EvalCase = {
 };
 
 export const EVAL_CASES: EvalCase[] = [
+  {
+    id: "yamaha_infra_nh",
+    title: "SPOED | Senior Infrastructure Engineer | Regio Noord-Holland",
+    text: "SPOED | Senior Infrastructure Engineer | Regio Noord-Holland. Voor een internationale organisatie in de regio Noord-Holland zoek ik per direct een Senior Infrastructure Engineer. Je bent verantwoordelijk voor het beheren en optimaliseren van de IT-infrastructuur en werkt nauw samen met het IT-team. Wat neem je mee: 6+ jaar ervaring als infrastructure engineer; Windows Server; VMware; MS SQL Server; Citrix Virtual Apps & Desktops; Active Directory & ADFS; Backup & Recovery. 40 uur per week, start zo snel mogelijk. Interesse? Stuur me een bericht.",
+    agencyName: "Bureau",
+    expected: ["Yamaha Motor Europe", "Yamaha"],
+    note: "Uit het ChatGPT-gesprek: de post is bijna letterlijk de eigen vacature van Yamaha Motor Europe (Schiphol-Rijk). Manager in de vacature: Leendert Durieux.",
+  },
   {
     id: "booking_genai",
     title: "Booking — 12785 — SE2 GenAI",
@@ -86,6 +95,8 @@ export type EvalResult = {
   /** For cases without a known answer: did it stay appropriately humble? */
   calibrated: boolean;
   detail: string;
+  contacts?: ClientContact[];
+  evidence?: { label: string; url?: string; weight: number }[];
   ms: number;
 };
 
@@ -151,6 +162,8 @@ export async function runEvalCase(c: EvalCase, depth: ResearchDepth): Promise<Ev
     forbiddenHit,
     calibrated,
     detail: res.detail,
+    contacts: res.guess?.contacts,
+    evidence: res.guess?.evidence.slice(0, 4).map((e) => ({ label: e.label, url: e.url, weight: e.weight })),
     ms: Date.now() - started,
   };
 }

@@ -228,6 +228,36 @@ function WhyBlock({ lead }: { lead: AgencyLead }) {
           </li>
         ))}
       </ul>
+      {g.contacts?.length ? (
+        <div className="lead-why__contacts">
+          <p className="lead-why__label">Mogelijke manager</p>
+          <ul>
+            {g.contacts.map((c) => (
+              <li key={c.name}>
+                <a
+                  href={`https://www.linkedin.com/search/results/people/?keywords=${encodeURIComponent(`${c.name} ${g.name}`)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  {c.name}
+                </a>
+                {c.title ? <span className="text-[var(--muted)]"> · {c.title}</span> : null}
+                <span className="lead-why__contact-why">
+                  {c.why}
+                  {c.url ? (
+                    <>
+                      {" "}
+                      <a href={c.url} target="_blank" rel="noopener noreferrer">
+                        bron
+                      </a>
+                    </>
+                  ) : null}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
       {g.check ? <p className="lead-why__check">Check: {g.check}</p> : null}
       {g.alternatives.length ? (
         <p className="lead-why__alts">
