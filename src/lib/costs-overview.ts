@@ -106,14 +106,21 @@ export async function buildCostsPayload() {
       r.mode !== "skipped" &&
       new Date(r.at).getTime() >= last30
   );
+  const daily = await buildDailyCosts({ runs, aiAt, days: 30 });
+  const src = (channel: string) => daily.perSource.find((s) => s.channel === channel);
+  const measuredOr = (channel: string, fallback: Range): Range => {
+    const s = src(channel);
+    return s?.measured && s.runs ? { low: s.avg, high: s.avg } : fallback;
+  };
+
   const boardEur30 = boardRuns30.reduce<Range>((acc, r) => {
     const id = CHANNEL_ACTION[r.channel];
-    return id ? addRange(acc, SYNC_COST_PER_RUN.actions[id].eur) : acc;
+    return id ? addRange(acc, measuredOr(r.channel, SYNC_COST_PER_RUN.actions[id].eur)) : acc;
   }, { low: 0, high: 0 });
 
-  const daily = await buildDailyCosts({ runs, aiAt, days: 30 });
-  const feedRun = SYNC_COST_PER_RUN.actions["recruiter-feeds"].eur;
+  const feedRun = measuredOr("recruiter-feed", SYNC_COST_PER_RUN.actions["recruiter-feeds"].eur);
   const perProfile = INGEST_POLICY.recruiterFeedMaxProfiles;
+  const fine = (n: number) => Math.round(n * 10_000) / 10_000;
 
   return {
     since: firstAt,
@@ -138,11 +145,17 @@ export async function buildCostsPayload() {
       boardRuns30: boardRuns30.length,
       boardEur30: { low: round(boardEur30.low), high: round(boardEur30.high) },
       unit: {
+        feedRun,
         /** Eén recruiter-profiel ophalen = run-prijs / aantal profielen per run. */
-        perRecruiterCheck: { low: round(feedRun.low / perProfile), high: round(feedRun.high / perProfile) },
+        perRecruiterCheck: { low: fine(feedRun.low / perProfile), high: fine(feedRun.high / perProfile) },
         aiPerPost: SYNC_COST_PER_RUN.actions["ai-research"].eur,
-        hmSearch: SYNC_COST_PER_RUN.actions["hm-search"].eur,
+        hmSearch: measuredOr("hm-search", SYNC_COST_PER_RUN.actions["hm-search"].eur),
         lusha: SYNC_COST_PER_RUN.actions.lusha.eur,
+      },
+      measured: {
+        feed: Boolean(src("recruiter-feed")?.measured),
+        boards: Boolean(src("linkedin-jobs")?.measured),
+        hm: Boolean(src("hm-search")?.measured),
       },
       aiDailyCap: INGEST_POLICY.feedAutoAiDailyEurMax,
       profilesPerRun: perProfile,

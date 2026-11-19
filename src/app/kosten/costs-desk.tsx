@@ -54,7 +54,7 @@ function monthly(data: CostsPayload, i: Inputs) {
   const hm = mul(add(u.hmSearch, u.lusha), i.confirmedPerMonth);
   const perBoardRun = data.model.boardRuns30
     ? mul(data.model.boardEur30, 1 / data.model.boardRuns30)
-    : { low: 1, high: 1.6 };
+    : { low: 0.01, high: 0.6 };
   const boards = mul(perBoardRun, i.boardRuns);
   const platform = data.platform.eur;
   const total = add(feed, ai, hm, boards, platform);
@@ -134,8 +134,9 @@ export default function CostsDesk() {
             <section className="mt-8">
               <h2 className="cost-h">Rekensom · meer recruiters volgen</h2>
               <p className="mt-1 max-w-2xl text-[0.8rem] leading-relaxed text-[var(--muted)]">
-                Startwaarden zijn gemeten over de laatste 30 dagen. Schuif om te zien wat het per maand kost als
-                jullie meer recruiters volgen of vaker ophalen.
+                Startwaarden en prijzen per sync zijn gemeten over de laatste 30 dagen (Apify-rekening); AI per post
+                is nog een schatting. Schuif om te zien wat het per maand kost als jullie meer recruiters volgen of
+                vaker ophalen.
               </p>
 
               <div className="cost-calc mt-4">
@@ -209,7 +210,7 @@ export default function CostsDesk() {
                   <ul className="cost-lines">
                     <Line
                       label="Recruiter-feeds ophalen"
-                      sub={`${eurRange(data.model.unit.perRecruiterCheck)} per profiel per keer`}
+                      sub={`${eurRange(data.model.unit.feedRun)} per sync (${data.model.profilesPerRun} profielen)${data.model.measured.feed ? " · gemeten" : ""}`}
                       r={calc.feed}
                     />
                     <Line
@@ -221,8 +222,16 @@ export default function CostsDesk() {
                       }
                       r={calc.ai}
                     />
-                    <Line label="Manager zoeken + mail/tel" sub="per bevestigde kans" r={calc.hm} />
-                    <Line label="Jobboards" sub="LinkedIn · Indeed · Freelance.nl" r={calc.boards} />
+                    <Line
+                      label="Manager zoeken + mail/tel"
+                      sub={`per bevestigde kans · zoeken ${eurRange(data.model.unit.hmSearch)}${data.model.measured.hm ? " gemeten" : ""}`}
+                      r={calc.hm}
+                    />
+                    <Line
+                      label="Jobboards"
+                      sub={`LinkedIn · Indeed · Freelance.nl${data.model.measured.boards ? " · LinkedIn gemeten" : ""}`}
+                      r={calc.boards}
+                    />
                     <Line label="Vaste kosten" sub="Vercel + database" r={calc.platform} />
                   </ul>
                   <div className="cost-total">

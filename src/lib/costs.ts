@@ -257,15 +257,15 @@ export const SYNC_COST_PER_RUN = {
     market: {
       label: "LinkedIn Jobs",
       tool: "Apify",
-      /** Typisch bij ~30 zoek-URL’s / ~80 jobs */
-      eur: { low: 0.9, high: 1.5 },
+      /** Gemeten via Apify (nov 2026): ca. €0,02 per run */
+      eur: { low: 0.01, high: 0.05 },
       what: `tot ${INGEST_POLICY.syncMarketUrls} zoek-URL’s · ~${INGEST_POLICY.syncMarketJobs} jobs`,
     },
     indeed: {
       label: "Indeed NL",
       tool: "Apify",
-      /** Typisch bij ~12 rollen / ~80 items */
-      eur: { low: 1.4, high: 2.4 },
+      /** Nog niet gemeten — Apify compute bij ~12 rollen / ~80 items */
+      eur: { low: 0.2, high: 0.6 },
       what: `${INGEST_POLICY.syncIndeedQueries} rollen · ~${INGEST_POLICY.syncIndeedMax} items`,
     },
     "freelance-nl": {
@@ -277,7 +277,7 @@ export const SYNC_COST_PER_RUN = {
     boards: {
       label: "Indeed + Freelance.nl (legacy bundel)",
       tool: "Apify + Firecrawl",
-      eur: { low: 1.4, high: 2.4 },
+      eur: { low: 0.2, high: 0.6 },
       what: `Liever apart syncen — Indeed of Freelance.nl los`,
     },
     platforms: {
@@ -289,7 +289,7 @@ export const SYNC_COST_PER_RUN = {
     all: {
       label: "Sync alles",
       tool: "Apify + Firecrawl",
-      eur: { low: 2.3, high: 3.9 },
+      eur: { low: 0.2, high: 0.65 },
       what: "LinkedIn + Indeed + Freelance.nl",
     },
     "hm-search": {
@@ -301,8 +301,8 @@ export const SYNC_COST_PER_RUN = {
     "recruiter-feeds": {
       label: "Recruiter-feeds",
       tool: "Apify + AI eindklant",
-      /** Alleen feed-scrape; AI apart begrensd op max €/dag */
-      eur: { low: 0.9, high: 1.8 },
+      /** Alleen feed-scrape (gemeten ca. €0,01 per run); AI apart begrensd op max €/dag */
+      eur: { low: 0.01, high: 0.05 },
       what: `tot ${INGEST_POLICY.recruiterFeedMaxProfiles} recruiters · daarna AI max ${INGEST_POLICY.feedAutoAiMax} posts (plafond ca. €${INGEST_POLICY.feedAutoAiDailyEurMax}/dag)`,
     },
     lusha: {
