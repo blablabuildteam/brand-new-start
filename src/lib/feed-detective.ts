@@ -1,7 +1,7 @@
 import { aiJsonCompletion, aiWebResearch, hasAiKey } from "@/lib/ai-client";
 import { isAgencyName, looksLikeIntermediary } from "@/lib/agency";
 import type { ClientContact, ClientGuess, Evidence, EvidenceOrigin } from "@/lib/end-client";
-import { hasWeb, makeBudget, multiSearch, tierFor } from "@/lib/research/web";
+import { hasWeb, makeBudget, multiSearch, tierFor, webScrape } from "@/lib/research/web";
 import type { SearchHit } from "@/lib/research/types";
 
 export { plainLinkedIn } from "@/lib/plain-text";
@@ -367,6 +367,58 @@ function cleanContacts(list: RawContact[] | undefined, hits: SearchHit[], client
     .slice(0, 3);
 }
 
+/**
+ * Scrape the best cited page (max 2) and accept it as proof only when the page
+ * names the client, carries every role word and shares the stack with the post.
+ */
+async function readOriginalVacancy(
+  name: string,
+  evidence: Evidence[],
+  hits: SearchHit[],
+  role: { title: string; stack: string[]; city: string | null }
+): Promise<{ url: string; quote: string } | null> {
+  if (!hasWeb()) return null;
+  const roleWords = fold(roleCore(role.title))
+    .split(" ")
+    .filter((w) => w.length >= 3 && !GENERIC_ROLE_WORD.test(w));
+  if (!roleWords.length) return null;
+  const stack = role.stack.map(fold).filter((s) => s.length >= 3);
+
+  const cited = evidence
+    .filter((e) => e.origin === "web" && e.url)
+    .sort((a, b) => b.weight - a.weight)
+    .map((e) => e.url!);
+  const titled = hits
+    .filter((h) => roleWords.every((w) => fold(h.title).includes(w)))
+    .map((h) => h.url);
+  const urls = [...new Set([...cited, ...titled])].filter(
+    (u) => !NOT_USEFUL_URL.test(u) && !isListingPage({ title: "", url: u, description: "", tier: 4 })
+  );
+
+  const budget = makeBudget("standard");
+  budget.maxScrapes = 2;
+  for (const url of urls.slice(0, 2)) {
+    const md = await webScrape(url, budget);
+    if (!md) continue;
+    const page = { title: md.slice(0, 4000), url, description: "", tier: 1 as const };
+    const text = fold(md);
+    const stackHits = stack.filter((s) => text.includes(s)).length;
+    if (
+      hitMentions(page, name) &&
+      roleWords.every((w) => text.includes(w)) &&
+      stackHits >= Math.min(2, stack.length)
+    ) {
+      const line =
+        md
+          .split("\n")
+          .map((l) => l.replace(/[#*_>\[\]]/g, "").trim())
+          .find((l) => l.length > 8 && roleWords.every((w) => fold(l).includes(w))) || "";
+      return { url, quote: clip(line, 160) };
+    }
+  }
+  return null;
+}
+
 function isRealName(name: string) {
   if (name.length < 2 || name.length > 70) return false;
   if (/^(onbekend|unknown|null|opdrachtgever|klant|eindklant|organisatie|bedrijf|een |de klant)/i.test(name)) return false;
@@ -615,6 +667,23 @@ ${webBlock(hits)}`;
         reason: clip(webRaw.not_assignment_reason || "Geen opdracht voor een klant", 160),
         model: web.model,
       };
+    }
+  }
+
+  // Search snippets rarely carry the employer name; read the cited vacancy itself.
+  if (calibrated && !calibrated.webProof) {
+    const read = await readOriginalVacancy(calibrated.name, calibrated.evidence, hits, roleInfo);
+    if (read) {
+      calibrated.webProof = true;
+      calibrated.confidence = Math.min(CAP.web, Math.max(calibrated.confidence, 86));
+      calibrated.basis = "originele vacature gelezen: zelfde titel en eisen bij deze klant";
+      calibrated.evidence.unshift({
+        label: `Originele vacature gelezen: ${calibrated.name} met dezelfde functie en eisen`,
+        quote: read.quote,
+        weight: 90,
+        origin: "web",
+        url: read.url,
+      });
     }
   }
 
