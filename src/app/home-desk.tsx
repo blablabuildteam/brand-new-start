@@ -9,10 +9,10 @@ import "./landing.css";
 
 /** Uit de pilot, stand november 2026. */
 const PILOT = [
-  { n: "301", text: "posts van recruiters gelezen, van zes bureaus" },
-  { n: "172", text: "keer een eindklant voorgesteld" },
-  { n: "60", text: "daarvan met 80% zekerheid of meer" },
-  { n: "54", text: "openingen bij 45 eindklanten op de jobboards" },
+  { n: "301", label: "Gelezen", text: "posts van recruiters, van zes bureaus" },
+  { n: "172", label: "Voorgesteld", text: "keer een eindklant uit een vage post" },
+  { n: "60", label: "Sterk", text: "daarvan met 80% zekerheid of meer" },
+  { n: "54", label: "Op jobboards", text: "openingen bij 45 eindklanten" },
 ] as const;
 
 const STEPS = [
@@ -128,12 +128,11 @@ export default function HomeDesk() {
               </span>
               <span>
                 <strong>Recruiter bij een IT-bureau</strong>
-                <em>LinkedIn, 9 nov</em>
+                <em>LinkedIn, 25 mrt</em>
               </span>
             </div>
             <p>
-              Voor <mark>een klant in Den Haag</mark> ben ik op zoek naar een Senior Rust Developer die wil bijdragen
-              aan…
+              Gezocht: Data Engineer <mark>Snowflake / Matillion</mark> (detachering). Locatie Arnhem.
             </p>
           </div>
 
@@ -142,20 +141,20 @@ export default function HomeDesk() {
               <span className="lp-shot__tag">
                 <ScoutMark className="h-4 w-4" tone="cobalt" animated={false} /> Scout
               </span>
-              <span className="lp-shot__pct">88% zeker</span>
+              <span className="lp-shot__pct">90% zeker</span>
             </div>
-            <p className="lp-shot__who">Overheids-ICT-dienst, Den Haag</p>
+            <p className="lp-shot__who">Netbeheerder in Arnhem</p>
             <p className="lp-shot__proof">
-              <span className="lp-chip">mipublic.nl</span>
-              Deze dienst zoekt in Den Haag vergelijkbare engineers
+              <span className="lp-chip">inhuurdesk.nl</span>
+              Noemt de opdrachtgever bij naam
             </p>
             <div className="lp-shot__hm">
               <span className="lp-shot__hm-avatar" aria-hidden />
               <span className="lp-shot__hm-text">
                 <span className="lp-blur" aria-hidden>
-                  Marieke van Dijk
+                  Eva Noordman
                 </span>
-                <em>Teamlead DevOps</em>
+                <em>Teamlead Data Platform</em>
               </span>
               <span className="lp-shot__btns" aria-hidden>
                 <span>Mail</span>
@@ -173,8 +172,11 @@ export default function HomeDesk() {
             <p className="lp-pilot__intro">Uit de pilot met een Nederlands IT-bureau, posts van het afgelopen jaar.</p>
             <dl className="lp-pilot__grid">
               {PILOT.map((p) => (
-                <div key={p.text}>
-                  <dt>{p.n}</dt>
+                <div key={p.label} className="lp-pilot__card">
+                  <dt>
+                    <span className="lp-pilot__label">{p.label}</span>
+                    <span className="lp-pilot__n">{p.n}</span>
+                  </dt>
                   <dd>{p.text}</dd>
                 </div>
               ))}

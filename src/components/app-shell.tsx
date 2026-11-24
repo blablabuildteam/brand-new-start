@@ -284,10 +284,10 @@ export function AppShell({
               className="partner-logo h-9 w-auto max-w-[9.5rem] object-contain"
             />
           ) : (
-            <ScoutWordmark tone="cobalt" lockup="scout" font="manrope" compact />
+            <ScoutWordmark tone="ink" lockup="scout" font="manrope" compact />
           )}
         </span>
-        <ScoutMark className="rail-brand__mark h-8 w-8" tone="cobalt" animated={false} />
+        <ScoutMark className="rail-brand__mark h-8 w-8" tone="ink" animated={false} />
       </Link>
       {partner ? (
         <p className="rail-meta mt-1.5 px-1 text-[0.68rem] text-[var(--muted)]">{brandTag}</p>

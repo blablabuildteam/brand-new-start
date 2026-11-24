@@ -5,6 +5,7 @@ import {
   type AgencyLead,
   type LeadStatus,
 } from "@/lib/opportunity";
+import { listActionQueue, type CrmOpportunity } from "@/lib/crm";
 import { PRODUCT } from "@/lib/product-brand";
 import { SYNC_COST_PER_RUN, SYNC_LOCK_HOURS } from "@/lib/costs";
 import type { SyncDeskSource } from "@/lib/sync-desk";
@@ -19,8 +20,16 @@ type DemoState = {
 
 const g = globalThis as unknown as { __scoutDemoWs?: DemoState };
 
+/** Start met een paar bevestigde posts, zodat de feed én Kansen niet leeg zijn. */
+const SEED_REVIEWS: Record<string, Review> = {
+  demo_cf_booking: { status: "confirmed", clientName: "Booking.com" },
+  demo_port_scrum: { status: "confirmed", clientName: "Havenbedrijf Rotterdam" },
+  demo_moove_hypotheken: { status: "confirmed", clientName: "ASN Bank" },
+  demo_spilberg_java: { status: "confirmed", clientName: "Adyen" },
+};
+
 function state(): DemoState {
-  if (!g.__scoutDemoWs) g.__scoutDemoWs = { reviews: {}, ai: {} };
+  if (!g.__scoutDemoWs) g.__scoutDemoWs = { reviews: { ...SEED_REVIEWS }, ai: {} };
   return g.__scoutDemoWs;
 }
 
@@ -181,55 +190,262 @@ export function getDemoSyncPayload() {
   };
 }
 
-export function getDemoCrmPayload() {
-  const leads = listDemoLeads().filter((l) => l.status === "confirmed");
-  const items = leads.map((lead) => {
-    const endClient = lead.confirmedClient || lead.guess?.name || "Onbekend";
-    return {
-      id: `crm_bureau_${lead.id}`,
-      lane: "bureau" as const,
-      stage: "bevestigd" as const,
-      title: lead.title,
-      roleLabel: lead.roleLabel,
-      company: endClient,
-      agency: lead.agency.name,
-      evidenceUrl: lead.evidenceUrl,
-      hiringManager: lead.hiringManager || null,
-      hiringManagerTitle: lead.hiringManagerTitle || null,
-      hiringManagerUrl: lead.hiringManagerUrl || null,
+function demoCrmItem(
+  partial: Pick<
+    CrmOpportunity,
+    | "id"
+    | "lane"
+    | "stage"
+    | "endClient"
+    | "roleLabel"
+    | "title"
+    | "kans"
+    | "hiringManager"
+    | "hiringManagerTitle"
+    | "hiringManagerUrl"
+    | "hiringManagerEmail"
+    | "hiringManagerPhone"
+    | "lushaStatus"
+    | "hmHits"
+    | "agencyName"
+    | "recruiterName"
+    | "evidenceUrl"
+    | "foundAt"
+    | "deal"
+  > &
+    Partial<CrmOpportunity>
+): CrmOpportunity {
+  const foundAt = partial.foundAt || daysAgo(3);
+  return {
+    stillLive: true,
+    sector: null,
+    kansFactors: [{ label: "Opdracht in post", points: 20 }, { label: "Match online", points: 35 }],
+    openingCount: 1,
+    sources: ["Recruiter feed"],
+    bronLabel: "Recruiter feed",
+    bronDetail: partial.agencyName || null,
+    lastSeenAt: foundAt,
+    freshness: "actueel",
+    freshnessLabel: "Gevonden <10 dagen",
+    confirmedAt: foundAt,
+    href: `/bericht?id=${encodeURIComponent(partial.id)}`,
+    companyId: null,
+    openingId: null,
+    extractSummary: null,
+    logoUrl: null,
+    sourceChannel: "agency-swarm",
+    demo: false,
+    ...partial,
+  };
+}
+
+/** Sample-kansen in elke stap van de flow, zodat de demo niet leeg oogt. */
+export function listDemoCrmItems(): CrmOpportunity[] {
+  return [
+    demoCrmItem({
+      id: "crm_bureau_demo_cf_booking",
+      lane: "bureau",
+      stage: "bevestigd",
+      endClient: "Booking.com",
+      roleLabel: "GenAI Developer",
+      title: "Booking — 12785 — SE2 GenAI",
+      kans: 95,
+      hiringManager: null,
+      hiringManagerTitle: null,
+      hiringManagerUrl: null,
       hiringManagerEmail: null,
       hiringManagerPhone: null,
       lushaStatus: null,
-      kans: lead.guess?.confidence ?? null,
-      kansFactors: [],
-      foundAt: lead.postedAt,
-      lastSeenAt: lead.postedAt,
-      freshness: "warm" as const,
-      leadId: lead.id,
-      demo: false,
-      source: "feed" as const,
-    };
-  });
+      hmHits: [],
+      agencyName: "SThree / Computer Futures",
+      recruiterName: "Frederik Weulen Kranenberg",
+      evidenceUrl: "https://www.computerfutures.com/",
+      foundAt: daysAgo(2),
+      deal: null,
+    }),
+    demoCrmItem({
+      id: "crm_bureau_demo_port_scrum",
+      lane: "bureau",
+      stage: "hm",
+      endClient: "Havenbedrijf Rotterdam",
+      roleLabel: "Scrum Master",
+      title: "Scrum Master · SAP ERP-transformatie",
+      kans: 86,
+      hiringManager: "Sanne de Vries",
+      hiringManagerTitle: "IT Delivery Lead",
+      hiringManagerUrl: "https://www.linkedin.com/in/example-sanne",
+      hiringManagerEmail: null,
+      hiringManagerPhone: null,
+      lushaStatus: null,
+      hmHits: [
+        {
+          name: "Sanne de Vries",
+          title: "IT Delivery Lead",
+          url: "https://www.linkedin.com/in/example-sanne",
+          score: 82,
+          why: "Leidt SAP-trajecten bij dezelfde klant",
+        },
+        {
+          name: "Tom Bakker",
+          title: "Chapter Lead Agile",
+          url: "https://www.linkedin.com/in/example-tom",
+          score: 71,
+          why: "Scrum Masters in hetzelfde domein",
+        },
+      ],
+      agencyName: "Vibe Group",
+      recruiterName: "Britt",
+      evidenceUrl: null,
+      foundAt: daysAgo(4),
+      deal: null,
+      sector: "Haven & logistiek",
+    }),
+    demoCrmItem({
+      id: "crm_bureau_demo_spilberg_java",
+      lane: "bureau",
+      stage: "hm",
+      endClient: "Adyen",
+      roleLabel: "Senior Software Engineer",
+      title: "Senior Software Engineer — Backend",
+      kans: 88,
+      hiringManager: "Lisa Hofmann",
+      hiringManagerTitle: "Engineering Manager",
+      hiringManagerUrl: "https://www.linkedin.com/in/example-lisa",
+      hiringManagerEmail: "l.hofmann@example.com",
+      hiringManagerPhone: "+31 6 12 34 56 78",
+      lushaStatus: "ok",
+      hmHits: [
+        {
+          name: "Lisa Hofmann",
+          title: "Engineering Manager",
+          url: "https://www.linkedin.com/in/example-lisa",
+          score: 90,
+          why: "Backend-teams in Amsterdam",
+          email: "l.hofmann@example.com",
+          phone: "+31 6 12 34 56 78",
+          lushaStatus: "ok",
+        },
+      ],
+      agencyName: "Spilberg",
+      recruiterName: "Nicky Klaver",
+      evidenceUrl: "https://spilberg.com/",
+      foundAt: daysAgo(5),
+      deal: null,
+      sector: "Fintech",
+    }),
+    demoCrmItem({
+      id: "crm_bureau_demo_moove_hypotheken",
+      lane: "bureau",
+      stage: "outreach",
+      endClient: "ASN Bank",
+      roleLabel: "Functioneel Tester",
+      title: "Freelance Functioneel Tester (Hypotheken)",
+      kans: 74,
+      hiringManager: "Mark Jansen",
+      hiringManagerTitle: "Test Lead Hypotheken",
+      hiringManagerUrl: "https://www.linkedin.com/in/example-mark",
+      hiringManagerEmail: "m.jansen@example.com",
+      hiringManagerPhone: null,
+      lushaStatus: "ok",
+      hmHits: [
+        {
+          name: "Mark Jansen",
+          title: "Test Lead Hypotheken",
+          url: "https://www.linkedin.com/in/example-mark",
+          score: 84,
+          email: "m.jansen@example.com",
+          lushaStatus: "ok",
+        },
+      ],
+      agencyName: "The Next Moove",
+      recruiterName: "Bo Verschuren",
+      evidenceUrl: null,
+      foundAt: daysAgo(8),
+      deal: {
+        endClient: "ASN Bank",
+        title: "Freelance Functioneel Tester (Hypotheken)",
+        roleLabel: "Functioneel Tester",
+        lane: "bureau",
+        agencyName: "The Next Moove",
+        contactedAt: daysAgo(1),
+        contactedBy: "demo@blablabuild.com",
+        updatedAt: daysAgo(1),
+      },
+      sector: "Bank",
+    }),
+    demoCrmItem({
+      id: "crm_direct_demo_alliander",
+      lane: "direct",
+      stage: "won",
+      endClient: "Alliander",
+      roleLabel: "Data Engineer",
+      title: "Senior Data Engineer Snowflake / Matillion",
+      kans: 90,
+      hiringManager: "Eva Noordman",
+      hiringManagerTitle: "Teamlead Data Platform",
+      hiringManagerUrl: "https://www.linkedin.com/in/example-eva",
+      hiringManagerEmail: "e.noordman@example.com",
+      hiringManagerPhone: "+31 6 98 76 54 32",
+      lushaStatus: "ok",
+      hmHits: [],
+      agencyName: null,
+      recruiterName: null,
+      evidenceUrl: "https://inhuurdesk.nl/",
+      foundAt: daysAgo(40),
+      sources: ["Indeed", "Inhuurdesk"],
+      bronLabel: "Jobboards",
+      bronDetail: "Indeed · Inhuurdesk",
+      sourceChannel: "indeed",
+      deal: {
+        endClient: "Alliander",
+        title: "Senior Data Engineer Snowflake / Matillion",
+        roleLabel: "Data Engineer",
+        lane: "direct",
+        contactedAt: daysAgo(30),
+        wonAt: daysAgo(12),
+        closedBy: "demo@blablabuild.com",
+        marginPerHour: 18,
+        hoursPerWeek: 36,
+        weeks: 26,
+        dealEur: 16848,
+        note: "ZZP · 6 maanden",
+        updatedAt: daysAgo(12),
+      },
+      sector: "Energie",
+    }),
+  ];
+}
+
+export function getDemoCrmPayload() {
+  const items = listDemoCrmItems();
+  const pending = listDemoLeads().filter((l) => l.status !== "confirmed" && l.status !== "rejected").length;
+  const actionQueue = listActionQueue(items);
   return {
     items,
-    actionQueue: [],
-    backlog: { feedPending: listDemoLeads().filter((l) => l.status !== "confirmed" && l.status !== "rejected").length, feedReady: 0, boardBelow: 0, boardThreshold: 55 },
-    results: { placed: 0, margin: 0 },
+    actionQueue,
+    backlog: { feedPending: pending, feedReady: pending, boardBelow: 2, boardThreshold: 55 },
+    results: {
+      contacted: items.filter((i) => i.deal?.contactedAt || i.stage === "outreach" || i.stage === "won").length,
+      won: items.filter((i) => i.stage === "won").length,
+      lost: 0,
+      wonEur: items.reduce((s, i) => s + (i.deal?.dealEur || 0), 0),
+      conversion: 50,
+    },
     counts: {
       all: items.length,
-      bureau: items.length,
-      direct: 0,
+      bureau: items.filter((i) => i.lane === "bureau").length,
+      direct: items.filter((i) => i.lane === "direct").length,
       withHm: items.filter((i) => i.hiringManager).length,
       byStage: {
-        nieuw: 0,
-        bevestigd: items.length,
-        hm: 0,
-        outreach: 0,
-        won: 0,
-        lost: 0,
+        nieuw: items.filter((i) => i.stage === "nieuw").length,
+        bevestigd: items.filter((i) => i.stage === "bevestigd").length,
+        hm: items.filter((i) => i.stage === "hm").length,
+        outreach: items.filter((i) => i.stage === "outreach").length,
+        won: items.filter((i) => i.stage === "won").length,
+        lost: items.filter((i) => i.stage === "lost").length,
       },
     },
-    lusha: false,
+    lusha: true,
     demoMode: true as const,
   };
 }

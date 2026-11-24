@@ -1,21 +1,13 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { isDemoUser } from "@/lib/demo-mode";
+import { listDemoCrmItems } from "@/lib/demo-workspace";
 import { listRadar } from "@/lib/store";
 import { buildPlacement } from "@/lib/placement";
 import type { PlacementProposal } from "@/lib/placement";
 import { listCrmOpportunities, readyToMessage } from "@/lib/crm";
 import { companyLinkedinFromSignals } from "@/lib/approach";
 import { loadHuntSettings } from "@/lib/hunt";
-
-const DEMO = {
-  company: "Politie Opleiding Centrum Zuid Nederland",
-  openingTitle: "business analist XR",
-  roleLabel: "Business Analist",
-  department: "IV / opleidingen",
-  summary:
-    "Business analist voor XR-leermiddelen. Afdeling IV. Contract / ZZP / interim. Standplaats Zuid-Nederland.",
-};
 
 export type DeskItem = {
   companyId: string;
@@ -35,25 +27,53 @@ export type DeskItem = {
   proposal: PlacementProposal;
 };
 
+function deskFromCrm(c: {
+  id: string;
+  endClient: string;
+  title: string;
+  roleLabel: string;
+  kans: number | null;
+  sector?: string | null;
+  hiringManager: string | null;
+  hiringManagerTitle: string | null;
+  hiringManagerUrl: string | null;
+  hmHits: Parameters<typeof buildPlacement>[0]["hmHits"];
+  extractSummary?: string | null;
+  lane: string;
+}): DeskItem {
+  const proposal = buildPlacement({
+    company: c.endClient,
+    openingTitle: c.title,
+    roleLabel: c.roleLabel,
+    hiringManager: c.hiringManager,
+    hiringManagerTitle: c.hiringManagerTitle || undefined,
+    contactUrl: c.hiringManagerUrl || undefined,
+    hmHits: c.hmHits,
+    summary: c.extractSummary || c.title,
+    sector: c.sector || null,
+  });
+  return {
+    companyId: c.id,
+    openingId: c.id,
+    company: c.endClient,
+    sector: c.sector || null,
+    title: c.title,
+    roleLabel: c.roleLabel,
+    kans: c.kans ?? 40,
+    hmSearched: true,
+    sampleBench: false,
+    bureauLane: c.lane === "bureau",
+    proposal,
+  };
+}
+
 export async function GET() {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
   if (isDemoUser(session)) {
-    const proposal = buildPlacement(DEMO);
-    const item: DeskItem = {
-      companyId: "demo",
-      openingId: "demo",
-      company: DEMO.company,
-      sector: "Overheid",
-      title: DEMO.openingTitle,
-      roleLabel: DEMO.roleLabel,
-      kans: 46,
-      demoOpening: true,
-      sampleBench: false,
-      proposal,
-    };
-    return NextResponse.json({ items: [item], demo: true });
+    const items = listDemoCrmItems().filter(readyToMessage).map(deskFromCrm);
+    return NextResponse.json({ items, demo: true });
   }
 
   await loadHuntSettings();
@@ -104,20 +124,31 @@ export async function GET() {
   }
 
   if (!items.length) {
-    const proposal = buildPlacement(DEMO);
-    const item: DeskItem = {
-      companyId: "demo",
-      openingId: "demo",
-      company: DEMO.company,
-      sector: "Overheid",
-      title: DEMO.openingTitle,
-      roleLabel: DEMO.roleLabel,
-      kans: 46,
-      demoOpening: true,
-      sampleBench: false,
-      proposal,
-    };
-    return NextResponse.json({ items: [item], demo: true });
+    const proposal = buildPlacement({
+      company: "Politie Opleiding Centrum Zuid Nederland",
+      openingTitle: "business analist XR",
+      roleLabel: "Business Analist",
+      department: "IV / opleidingen",
+      summary:
+        "Business analist voor XR-leermiddelen. Afdeling IV. Contract / ZZP / interim. Standplaats Zuid-Nederland.",
+    });
+    return NextResponse.json({
+      items: [
+        {
+          companyId: "demo",
+          openingId: "demo",
+          company: "Politie Opleiding Centrum Zuid Nederland",
+          sector: "Overheid",
+          title: "business analist XR",
+          roleLabel: "Business Analist",
+          kans: 46,
+          demoOpening: true,
+          sampleBench: false,
+          proposal,
+        } satisfies DeskItem,
+      ],
+      demo: true,
+    });
   }
 
   return NextResponse.json({ items, demo: false });

@@ -69,14 +69,14 @@ const DEMO_API_PASS = new Set([
   "/api/sync",
   "/api/settings",
   "/api/placement",
+  "/api/desk/index",
   "/api/ops/presence",
   "/api/ops/client-error",
 ]);
 
-/** Leeg maar geldig voor de UI — de demo ziet nooit live meldingen, lijsten of zoekindex. */
+/** Leeg maar geldig voor de UI — de demo ziet nooit live meldingen of lucky shots. */
 const DEMO_API_EMPTY: Record<string, unknown> = {
   "/api/alerts": { alerts: [], unread: 0 },
-  "/api/desk/index": { actions: [], kansen: [], radar: [], leads: [] },
   "/api/radar/lucky": {
     shots: [],
     tracked: 0,
