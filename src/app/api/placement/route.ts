@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
+import { isDemoUser } from "@/lib/demo-mode";
 import { listRadar } from "@/lib/store";
 import { buildPlacement } from "@/lib/placement";
 import type { PlacementProposal } from "@/lib/placement";
@@ -37,6 +38,23 @@ export type DeskItem = {
 export async function GET() {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+
+  if (isDemoUser(session)) {
+    const proposal = buildPlacement(DEMO);
+    const item: DeskItem = {
+      companyId: "demo",
+      openingId: "demo",
+      company: DEMO.company,
+      sector: "Overheid",
+      title: DEMO.openingTitle,
+      roleLabel: DEMO.roleLabel,
+      kans: 46,
+      demoOpening: true,
+      sampleBench: false,
+      proposal,
+    };
+    return NextResponse.json({ items: [item], demo: true });
+  }
 
   await loadHuntSettings();
 

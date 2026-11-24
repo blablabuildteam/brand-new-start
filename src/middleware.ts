@@ -9,6 +9,7 @@ export async function middleware(req: NextRequest) {
   if (
     pathname === "/" ||
     pathname.startsWith("/login") ||
+    pathname === "/demo" ||
     pathname.startsWith("/logo") ||
     pathname.startsWith("/api/auth") ||
     pathname.startsWith("/api/waitlist") ||
@@ -51,20 +52,55 @@ export async function middleware(req: NextRequest) {
   }
 
   if (isDemoUser(session)) {
-    const blocked =
-      pathname.startsWith("/kosten") ||
-      pathname.startsWith("/ops") ||
-      pathname.startsWith("/api/costs") ||
-      pathname.startsWith("/api/ops");
-    if (blocked) {
-      if (pathname.startsWith("/api/")) {
-        return NextResponse.json({ error: "Demo · niet beschikbaar" }, { status: 403 });
-      }
+    if (pathname.startsWith("/kosten") || pathname.startsWith("/ops")) {
       return NextResponse.redirect(new URL("/radar", req.url));
     }
+    if (pathname.startsWith("/api/")) return demoApi(req);
   }
 
   return NextResponse.next();
+}
+
+/** Routes die zelf een demo-antwoord geven (sample data, geen live BNS-data). */
+const DEMO_API_PASS = new Set([
+  "/api/radar",
+  "/api/leads",
+  "/api/crm",
+  "/api/sync",
+  "/api/settings",
+  "/api/placement",
+  "/api/ops/presence",
+  "/api/ops/client-error",
+]);
+
+/** Leeg maar geldig voor de UI — de demo ziet nooit live meldingen, lijsten of zoekindex. */
+const DEMO_API_EMPTY: Record<string, unknown> = {
+  "/api/alerts": { alerts: [], unread: 0 },
+  "/api/desk/index": { actions: [], kansen: [], radar: [], leads: [] },
+  "/api/radar/lucky": {
+    shots: [],
+    tracked: 0,
+    trackingSince: null,
+    rules: { luckyDays: 90, watchDays: 45, activeDays: 21 },
+    firstLuckyAt: null,
+  },
+  "/api/radar/reject-company": { rejected: [] },
+  "/api/companies/park": { parked: [] },
+};
+
+function demoApi(req: NextRequest) {
+  const { pathname } = req.nextUrl;
+  if (DEMO_API_PASS.has(pathname)) return NextResponse.next();
+  const empty = DEMO_API_EMPTY[pathname];
+  if (empty) {
+    return req.method === "GET"
+      ? NextResponse.json({ ...(empty as object), demoMode: true })
+      : NextResponse.json({ ...(empty as object), ok: true, demoMode: true });
+  }
+  return NextResponse.json(
+    { error: "Dit staat uit in de demo.", message: "Dit staat uit in de demo.", demoMode: true },
+    { status: 403 }
+  );
 }
 
 export const config = {

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getRadarDetail } from "@/lib/store";
 import { getSession } from "@/lib/auth";
+import { isDemoUser } from "@/lib/demo-mode";
 import { deskCacheHeaders, readRadarPayload } from "@/lib/desk-payloads";
 
 export async function GET(req: Request) {
@@ -12,6 +13,7 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
   if (id) {
+    if (isDemoUser(session)) return NextResponse.json({ error: "not found" }, { status: 404 });
     const detail = await getRadarDetail(id);
     if (!detail) return NextResponse.json({ error: "not found" }, { status: 404 });
     return NextResponse.json({ detail }, { headers: deskCacheHeaders() });

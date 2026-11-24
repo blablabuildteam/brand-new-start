@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { BlablaLogo } from "@/components/blabla-logo";
 import { ScoutWordmark } from "@/components/scout-mark";
-import { DEMO_EMAIL } from "@/lib/demo-mode";
 import { partnerForEmail } from "@/lib/partner-brand";
 import { PRODUCT } from "@/lib/product-brand";
 
@@ -73,11 +72,6 @@ export default function LoginForm() {
               ? `Open de ${partner.name}-workspace: Jobboards, Recruiter feed, Kansen en Bericht.`
               : `Open ${PRODUCT.name}: Jobboards, Recruiter feed, Kansen en Bericht.`}
           </p>
-          {!partner ? (
-            <p className="mb-5 rounded-[var(--radius)] border border-[var(--line)] bg-[var(--surface-2)] px-3 py-2 text-[0.72rem] leading-relaxed text-[var(--muted)]">
-              Demo-account: <span style={{ fontFamily: "var(--mono)" }}>{DEMO_EMAIL}</span>
-            </p>
-          ) : null}
           <label className="mb-3 block text-sm font-medium">
             E-mail
             <input
