@@ -9,6 +9,8 @@ import { listActionQueue, type CrmOpportunity } from "@/lib/crm";
 import { PRODUCT } from "@/lib/product-brand";
 import { SYNC_COST_PER_RUN, SYNC_LOCK_HOURS } from "@/lib/costs";
 import type { SyncDeskSource } from "@/lib/sync-desk";
+import { getDemoProspect } from "@/lib/demo-prospects";
+import { buildProspectCrmItems } from "@/lib/demo-prospect-data";
 
 type Review = { status: "confirmed" | "rejected"; clientName?: string };
 type StoredAi = { guess: ClientGuess; at: string; model?: string };
@@ -240,7 +242,10 @@ function demoCrmItem(
 }
 
 /** Sample-kansen in elke stap van de flow, zodat de demo niet leeg oogt. */
-export function listDemoCrmItems(): CrmOpportunity[] {
+export function listDemoCrmItems(demoSlug?: string | null): CrmOpportunity[] {
+  const prospect = getDemoProspect(demoSlug);
+  if (prospect) return buildProspectCrmItems(prospect);
+
   return [
     demoCrmItem({
       id: "crm_bureau_demo_cf_booking",
@@ -416,20 +421,22 @@ export function listDemoCrmItems(): CrmOpportunity[] {
   ];
 }
 
-export function getDemoCrmPayload() {
-  const items = listDemoCrmItems();
+export function getDemoCrmPayload(demoSlug?: string | null) {
+  const items = listDemoCrmItems(demoSlug);
   const pending = listDemoLeads().filter((l) => l.status !== "confirmed" && l.status !== "rejected").length;
   const actionQueue = listActionQueue(items);
+  const contacted = items.filter((i) => i.deal?.contactedAt || i.stage === "outreach" || i.stage === "won").length;
+  const won = items.filter((i) => i.stage === "won").length;
   return {
     items,
     actionQueue,
     backlog: { feedPending: pending, feedReady: pending, boardBelow: 2, boardThreshold: 55 },
     results: {
-      contacted: items.filter((i) => i.deal?.contactedAt || i.stage === "outreach" || i.stage === "won").length,
-      won: items.filter((i) => i.stage === "won").length,
+      contacted,
+      won,
       lost: 0,
       wonEur: items.reduce((s, i) => s + (i.deal?.dealEur || 0), 0),
-      conversion: 50,
+      conversion: contacted ? Math.round((won / contacted) * 100) : null,
     },
     counts: {
       all: items.length,
@@ -447,6 +454,7 @@ export function getDemoCrmPayload() {
     },
     lusha: true,
     demoMode: true as const,
+    demoSlug: demoSlug || null,
   };
 }
 

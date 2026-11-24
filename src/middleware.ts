@@ -10,12 +10,14 @@ export async function middleware(req: NextRequest) {
     pathname === "/" ||
     pathname.startsWith("/login") ||
     pathname === "/demo" ||
+    pathname.startsWith("/demo/") ||
     pathname.startsWith("/logo") ||
     pathname.startsWith("/api/auth") ||
     pathname.startsWith("/api/waitlist") ||
     pathname.startsWith("/_next") ||
     pathname.startsWith("/assets") ||
     pathname.startsWith("/brand") ||
+    pathname.startsWith("/demo-logos") ||
     pathname === "/favicon.ico" ||
     pathname === "/icon" ||
     pathname.startsWith("/apple-icon")
@@ -51,8 +53,21 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(new URL("/radar", req.url));
   }
 
+  if (pathname.startsWith("/admin") || pathname.startsWith("/api/admin")) {
+    if (session.role !== "admin") {
+      if (pathname.startsWith("/api/")) {
+        return NextResponse.json({ error: "forbidden" }, { status: 403 });
+      }
+      return NextResponse.redirect(new URL("/radar", req.url));
+    }
+  }
+
   if (isDemoUser(session)) {
-    if (pathname.startsWith("/kosten") || pathname.startsWith("/ops")) {
+    if (
+      pathname.startsWith("/kosten") ||
+      pathname.startsWith("/ops") ||
+      pathname.startsWith("/admin")
+    ) {
       return NextResponse.redirect(new URL("/radar", req.url));
     }
     if (pathname.startsWith("/api/")) return demoApi(req);
@@ -72,6 +87,7 @@ const DEMO_API_PASS = new Set([
   "/api/desk/index",
   "/api/ops/presence",
   "/api/ops/client-error",
+  "/api/demo/track",
 ]);
 
 /** Leeg maar geldig voor de UI — de demo ziet nooit live meldingen of lucky shots. */

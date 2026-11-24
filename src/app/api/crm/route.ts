@@ -12,7 +12,7 @@ import type { CrmStage } from "@/lib/desk-meta";
 export async function GET() {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  if (isDemoUser(session)) return NextResponse.json(getDemoCrmPayload());
+  if (isDemoUser(session)) return NextResponse.json(getDemoCrmPayload(session.demoSlug));
   await loadHuntSettings();
   const { items, backlog, results } = await listCrmDesk();
   const actionQueue = listActionQueue(items);

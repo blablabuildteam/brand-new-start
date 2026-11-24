@@ -1,0 +1,579 @@
+import type { CrmOpportunity, CrmStage } from "@/lib/crm";
+import type { DemoProspect } from "@/lib/demo-prospects";
+
+type SeedKans = {
+  role: string;
+  title: string;
+  client: string;
+  sector: string;
+  kans: number;
+  stage: CrmStage;
+  proofSite: string | null;
+  proof: string;
+  hmName: string | null;
+  hmTitle: string | null;
+  daysAgo: number;
+  lane?: "bureau" | "direct";
+  dealEur?: number;
+};
+
+/** Fictieve HM-namen — bewust geen echte personen. */
+const HM = {
+  a: { name: "Kim Voorbeeld", title: "Engineering Manager" },
+  b: { name: "Chris Proef", title: "Teamlead Delivery" },
+  c: { name: "Sam Demo", title: "Chapter Lead" },
+  d: { name: "Alex Sample", title: "IT Manager" },
+  e: { name: "Jordan Fixture", title: "Product Owner" },
+  f: { name: "Riley Mock", title: "Security Lead" },
+} as const;
+
+function nicheSeeds(niche: string, city: string): SeedKans[] {
+  const n = niche.toLowerCase();
+  if (n.includes("security") || n.includes("cyber")) {
+    return [
+      {
+        role: "Security Engineer",
+        title: `Security Engineer · ${city}`,
+        client: "Overheidsdienst (voorbeeld)",
+        sector: "Overheid",
+        kans: 88,
+        stage: "bevestigd",
+        proofSite: "werkenvoornederland.nl",
+        proof: "Zelfde rol en regio",
+        hmName: null,
+        hmTitle: null,
+        daysAgo: 1,
+      },
+      {
+        role: "SOC Analyst",
+        title: "Freelance SOC Analyst (24×7)",
+        client: "Fintech in de Randstad",
+        sector: "Fintech",
+        kans: 84,
+        stage: "hm",
+        proofSite: "inhuurdesk.nl",
+        proof: "Noemt opdrachtgever bij naam",
+        hmName: HM.f.name,
+        hmTitle: HM.f.title,
+        daysAgo: 2,
+      },
+      {
+        role: "IAM Specialist",
+        title: "IAM / SailPoint Specialist",
+        client: "Bank in Amsterdam",
+        sector: "Bank",
+        kans: 91,
+        stage: "hm",
+        proofSite: "freep.nl",
+        proof: "Zelfde stack en regio",
+        hmName: HM.a.name,
+        hmTitle: "IAM Lead",
+        daysAgo: 3,
+      },
+      {
+        role: "Cloud Security Architect",
+        title: "Cloud Security Architect (Azure)",
+        client: "Zorggroep (voorbeeld)",
+        sector: "Zorg",
+        kans: 79,
+        stage: "outreach",
+        proofSite: null,
+        proof: "Match op meerdere bronnen",
+        hmName: HM.d.name,
+        hmTitle: "CISO (a.i.)",
+        daysAgo: 5,
+      },
+      {
+        role: "Penetration Tester",
+        title: "Pen tester · red team",
+        client: "Retailketen NL",
+        sector: "Retail",
+        kans: 76,
+        stage: "hm",
+        proofSite: "bijoranje.nl",
+        proof: "Zelfde opdracht, andere recruiter",
+        hmName: HM.b.name,
+        hmTitle: "Security Chapter",
+        daysAgo: 4,
+      },
+      {
+        role: "GRC Consultant",
+        title: "GRC / ISO27001 Consultant",
+        client: "Verzekeraar (voorbeeld)",
+        sector: "Verzekeringen",
+        kans: 72,
+        stage: "bevestigd",
+        proofSite: null,
+        proof: "Alleen algemene woorden — jij beslist",
+        hmName: null,
+        hmTitle: null,
+        daysAgo: 6,
+      },
+      {
+        role: "DevSecOps Engineer",
+        title: "DevSecOps Engineer",
+        client: `Tech scale-up ${city}`,
+        sector: "Tech",
+        kans: 85,
+        stage: "outreach",
+        proofSite: "linkedin.com",
+        proof: "Vacature noemt eindklant",
+        hmName: HM.c.name,
+        hmTitle: "Head of Platform",
+        daysAgo: 7,
+      },
+      {
+        role: "OT Security Specialist",
+        title: "OT / ICS Security",
+        client: "Netbeheerder",
+        sector: "Energie",
+        kans: 90,
+        stage: "won",
+        proofSite: "inhuurdesk.nl",
+        proof: "Noemt opdrachtgever bij naam",
+        hmName: HM.e.name,
+        hmTitle: "OT Security Manager",
+        daysAgo: 35,
+        lane: "direct",
+        dealEur: 18720,
+      },
+      {
+        role: "Privacy Officer",
+        title: "Interim Privacy Officer",
+        client: "Gemeente (voorbeeld)",
+        sector: "Overheid",
+        kans: 68,
+        stage: "bevestigd",
+        proofSite: null,
+        proof: "Zwak bewijs — niet voorgesteld als zeker",
+        hmName: null,
+        hmTitle: null,
+        daysAgo: 8,
+      },
+      {
+        role: "AppSec Engineer",
+        title: "Application Security Engineer",
+        client: "SaaS in Utrecht",
+        sector: "SaaS",
+        kans: 82,
+        stage: "hm",
+        proofSite: "werkenbij-voorbeeld.nl",
+        proof: "Zelfde titel en stack",
+        hmName: HM.a.name,
+        hmTitle: "AppSec Lead",
+        daysAgo: 3,
+      },
+    ];
+  }
+
+  if (n.includes("zzp")) {
+    return [
+      {
+        role: "Java Developer",
+        title: `ZZP Java Developer · ${city}`,
+        client: "Publieke omroep (voorbeeld)",
+        sector: "Media",
+        kans: 87,
+        stage: "bevestigd",
+        proofSite: "freep.nl",
+        proof: "Zelfde rol en regio",
+        hmName: null,
+        hmTitle: null,
+        daysAgo: 1,
+      },
+      {
+        role: "Scrum Master",
+        title: "Freelance Scrum Master",
+        client: "Zorgverzekeraar",
+        sector: "Zorg",
+        kans: 83,
+        stage: "hm",
+        proofSite: "inhuurdesk.nl",
+        proof: "Noemt opdrachtgever",
+        hmName: HM.b.name,
+        hmTitle: HM.b.title,
+        daysAgo: 2,
+      },
+      {
+        role: "Cloud Engineer",
+        title: "Cloud Engineer AWS (ZZP)",
+        client: `Scale-up ${city}`,
+        sector: "Tech",
+        kans: 90,
+        stage: "hm",
+        proofSite: "werkenbij-voorbeeld.nl",
+        proof: "Zelfde stack",
+        hmName: HM.a.name,
+        hmTitle: HM.a.title,
+        daysAgo: 3,
+      },
+      {
+        role: "Data Engineer",
+        title: "Data Engineer Databricks",
+        client: "Retailketen NL",
+        sector: "Retail",
+        kans: 78,
+        stage: "outreach",
+        proofSite: "bijoranje.nl",
+        proof: "Match op bronnen",
+        hmName: HM.c.name,
+        hmTitle: "Data Platform Lead",
+        daysAgo: 5,
+      },
+      {
+        role: "Business Analyst",
+        title: "Freelance Business Analyst",
+        client: "Bank (voorbeeld)",
+        sector: "Bank",
+        kans: 74,
+        stage: "hm",
+        proofSite: null,
+        proof: "Meerdere hints, geen harde naamlek",
+        hmName: HM.e.name,
+        hmTitle: HM.e.title,
+        daysAgo: 4,
+      },
+      {
+        role: "Test Automation Engineer",
+        title: "Test Automation (Playwright)",
+        client: "Overheid · agentschap",
+        sector: "Overheid",
+        kans: 81,
+        stage: "bevestigd",
+        proofSite: "werkenvoornederland.nl",
+        proof: "Zelfde opdracht",
+        hmName: null,
+        hmTitle: null,
+        daysAgo: 6,
+      },
+      {
+        role: "DevOps Engineer",
+        title: "DevOps / Kubernetes",
+        client: "Logistiek concern",
+        sector: "Logistiek",
+        kans: 86,
+        stage: "outreach",
+        proofSite: "linkedin.com",
+        proof: "Vacature noemt klant",
+        hmName: HM.d.name,
+        hmTitle: "Platform Manager",
+        daysAgo: 7,
+      },
+      {
+        role: "Frontend Developer",
+        title: "React Frontend (ZZP)",
+        client: "E-commerce (voorbeeld)",
+        sector: "E-commerce",
+        kans: 77,
+        stage: "hm",
+        proofSite: "freep.nl",
+        proof: "Zelfde regio",
+        hmName: HM.a.name,
+        hmTitle: "Frontend Lead",
+        daysAgo: 3,
+      },
+      {
+        role: "SAP Consultant",
+        title: "SAP FI/CO Consultant",
+        client: "Industrie (voorbeeld)",
+        sector: "Industrie",
+        kans: 92,
+        stage: "won",
+        proofSite: "inhuurdesk.nl",
+        proof: "Noemt opdrachtgever bij naam",
+        hmName: HM.b.name,
+        hmTitle: "SAP Program Manager",
+        daysAgo: 40,
+        lane: "direct",
+        dealEur: 21060,
+      },
+      {
+        role: "Integration Specialist",
+        title: "MuleSoft Integration",
+        client: `Dienstverlener ${city}`,
+        sector: "Dienstverlening",
+        kans: 70,
+        stage: "bevestigd",
+        proofSite: null,
+        proof: "Zwak bewijs",
+        hmName: null,
+        hmTitle: null,
+        daysAgo: 8,
+      },
+      {
+        role: "Product Owner",
+        title: "Freelance Product Owner",
+        client: "Telco (voorbeeld)",
+        sector: "Telecom",
+        kans: 80,
+        stage: "hm",
+        proofSite: "bijoranje.nl",
+        proof: "Zelfde titel",
+        hmName: HM.e.name,
+        hmTitle: "Head of Digital",
+        daysAgo: 4,
+      },
+    ];
+  }
+
+  // Default: Java/cloud (and similar)
+  return [
+    {
+      role: "Java Developer",
+      title: `Senior Java Developer · ${city}`,
+      client: `Netbeheerder bij ${city}`,
+      sector: "Energie",
+      kans: 90,
+      stage: "bevestigd",
+      proofSite: "inhuurdesk.nl",
+      proof: "Noemt de opdrachtgever bij naam",
+      hmName: null,
+      hmTitle: null,
+      daysAgo: 1,
+    },
+    {
+      role: "Kotlin Developer",
+      title: "Kotlin / Spring Boot Engineer",
+      client: "Fintech Amsterdam",
+      sector: "Fintech",
+      kans: 88,
+      stage: "hm",
+      proofSite: "werkenbij-voorbeeld.nl",
+      proof: "Zelfde stack en regio",
+      hmName: HM.a.name,
+      hmTitle: HM.a.title,
+      daysAgo: 2,
+    },
+    {
+      role: "Cloud Engineer",
+      title: "Cloud Engineer (Azure)",
+      client: "Overheidsdienst (voorbeeld)",
+      sector: "Overheid",
+      kans: 85,
+      stage: "hm",
+      proofSite: "werkenvoornederland.nl",
+      proof: "Zelfde rol, regio",
+      hmName: HM.b.name,
+      hmTitle: "Cloud Chapter Lead",
+      daysAgo: 3,
+    },
+    {
+      role: "Platform Engineer",
+      title: "Platform Engineer Kubernetes",
+      client: `Tech scale-up ${city}`,
+      sector: "Tech",
+      kans: 91,
+      stage: "outreach",
+      proofSite: "linkedin.com",
+      proof: "Vacature noemt eindklant",
+      hmName: HM.c.name,
+      hmTitle: HM.c.title,
+      daysAgo: 4,
+    },
+    {
+      role: "Data Engineer",
+      title: "Data Engineer Snowflake / dbt",
+      client: "Retailketen NL",
+      sector: "Retail",
+      kans: 82,
+      stage: "hm",
+      proofSite: "freep.nl",
+      proof: "Zelfde opdracht elders",
+      hmName: HM.d.name,
+      hmTitle: "Data Platform Lead",
+      daysAgo: 5,
+    },
+    {
+      role: "Backend Engineer",
+      title: "Backend Engineer Java 21",
+      client: "Bank (voorbeeld)",
+      sector: "Bank",
+      kans: 79,
+      stage: "bevestigd",
+      proofSite: null,
+      proof: "Meerdere hints — jij bevestigt",
+      hmName: null,
+      hmTitle: null,
+      daysAgo: 6,
+    },
+    {
+      role: "Solution Architect",
+      title: "Solution Architect Cloud",
+      client: "Verzekeraar",
+      sector: "Verzekeringen",
+      kans: 86,
+      stage: "hm",
+      proofSite: "bijoranje.nl",
+      proof: "Zelfde regio en domein",
+      hmName: HM.e.name,
+      hmTitle: "Enterprise Architect",
+      daysAgo: 3,
+    },
+    {
+      role: "DevOps Engineer",
+      title: "DevOps / GitOps",
+      client: "Logistiek concern",
+      sector: "Logistiek",
+      kans: 77,
+      stage: "outreach",
+      proofSite: null,
+      proof: "Match op tech + plaats",
+      hmName: HM.a.name,
+      hmTitle: "SRE Manager",
+      daysAgo: 7,
+    },
+    {
+      role: "Full Stack Java",
+      title: "Full Stack Java / React",
+      client: "Zorggroep (voorbeeld)",
+      sector: "Zorg",
+      kans: 73,
+      stage: "bevestigd",
+      proofSite: "inhuurdesk.nl",
+      proof: "Gedeeltelijke match",
+      hmName: null,
+      hmTitle: null,
+      daysAgo: 8,
+    },
+    {
+      role: "AWS Architect",
+      title: "AWS Solutions Architect",
+      client: `SaaS bij ${city}`,
+      sector: "SaaS",
+      kans: 89,
+      stage: "won",
+      proofSite: "freep.nl",
+      proof: "Noemt opdrachtgever bij naam",
+      hmName: HM.b.name,
+      hmTitle: "Head of Engineering",
+      daysAgo: 38,
+      lane: "direct",
+      dealEur: 16848,
+    },
+    {
+      role: "Integration Developer",
+      title: "Java Integration (Kafka)",
+      client: "Telco (voorbeeld)",
+      sector: "Telecom",
+      kans: 81,
+      stage: "hm",
+      proofSite: "werkenbij-voorbeeld.nl",
+      proof: "Zelfde titel",
+      hmName: HM.c.name,
+      hmTitle: "Integration Lead",
+      daysAgo: 4,
+    },
+  ];
+}
+
+function daysAgoIso(n: number) {
+  return new Date(Date.now() - n * 86_400_000).toISOString();
+}
+
+/** 8–12 voorbeeldkansen, afgestemd op niche + stad. */
+export function buildProspectCrmItems(prospect: DemoProspect): CrmOpportunity[] {
+  const seeds = nicheSeeds(prospect.niche, prospect.city).slice(0, 11);
+  return seeds.map((s, i) => {
+    const id = `crm_demo_${prospect.slug}_${i}`;
+    const foundAt = daysAgoIso(s.daysAgo);
+    const lane = s.lane || "bureau";
+    const hasMail = s.stage === "hm" || s.stage === "outreach" || s.stage === "won";
+    const email =
+      s.hmName && hasMail && (s.stage === "outreach" || s.stage === "won" || i % 2 === 0)
+        ? `${s.hmName.split(" ")[0]!.toLowerCase()}.voorbeeld@example.com`
+        : null;
+    const deal =
+      s.stage === "won"
+        ? {
+            endClient: s.client,
+            title: s.title,
+            roleLabel: s.role,
+            lane,
+            contactedAt: daysAgoIso(s.daysAgo + 10),
+            wonAt: daysAgoIso(Math.max(5, s.daysAgo - 20)),
+            closedBy: "demo@blablabuild.com",
+            marginPerHour: 18,
+            hoursPerWeek: 36,
+            weeks: 26,
+            dealEur: s.dealEur || 16848,
+            note: "Voorbeelddeal · demo",
+            updatedAt: daysAgoIso(Math.max(5, s.daysAgo - 20)),
+          }
+        : s.stage === "outreach"
+          ? {
+              endClient: s.client,
+              title: s.title,
+              roleLabel: s.role,
+              lane,
+              agencyName: prospect.agencyName,
+              contactedAt: daysAgoIso(1),
+              contactedBy: "demo@blablabuild.com",
+              updatedAt: daysAgoIso(1),
+            }
+          : null;
+
+    return {
+      id,
+      lane,
+      stage: s.stage,
+      endClient: s.client,
+      roleLabel: s.role,
+      title: s.title,
+      kans: s.kans,
+      hiringManager: s.hmName,
+      hiringManagerTitle: s.hmTitle,
+      hiringManagerUrl: s.hmName ? "https://www.linkedin.com/in/voorbeeld-demo" : null,
+      hiringManagerEmail: email,
+      hiringManagerPhone: email && s.stage !== "hm" ? "+31 6 00 00 00 00" : null,
+      lushaStatus: email ? ("ok" as const) : null,
+      hmHits: s.hmName
+        ? [
+            {
+              name: s.hmName,
+              title: s.hmTitle || "Hiring manager",
+              url: "https://www.linkedin.com/in/voorbeeld-demo",
+              score: 80 + (i % 10),
+              why: "Voorbeeldmatch · geen echt persoon",
+              email: email || undefined,
+              lushaStatus: email ? ("ok" as const) : undefined,
+            },
+          ]
+        : [],
+      agencyName: lane === "bureau" ? "Concurrent-bureau (voorbeeld)" : null,
+      recruiterName: lane === "bureau" ? "Recruiter (voorbeeld)" : null,
+      evidenceUrl: s.proofSite ? `https://${s.proofSite}` : null,
+      foundAt,
+      stillLive: true,
+      sector: s.sector,
+      kansFactors: [
+        { label: "Opdracht in post", points: 20 },
+        { label: s.proof, points: Math.min(40, Math.round(s.kans / 3)) },
+      ],
+      openingCount: 1,
+      sources: lane === "direct" ? ["Indeed", "Inhuurdesk"] : ["Recruiter feed"],
+      bronLabel: lane === "direct" ? "Jobboards" : "Recruiter feed",
+      bronDetail: lane === "direct" ? "Indeed · Inhuurdesk" : prospect.agencyName,
+      lastSeenAt: foundAt,
+      freshness: "actueel" as const,
+      freshnessLabel: s.daysAgo < 10 ? "Gevonden <10 dagen" : "Ouder",
+      confirmedAt: foundAt,
+      href: `/bericht?id=${encodeURIComponent(id)}`,
+      companyId: null,
+      openingId: null,
+      extractSummary: `Voorbeeldkans voor ${prospect.agencyName}: “een klant van mij zoekt een ${s.role} in ${prospect.city}”.`,
+      logoUrl: null,
+      sourceChannel: lane === "direct" ? "indeed" : "agency-swarm",
+      // false zodat de desk-flow werkt; banner + extractSummary markeren voorbeelddata.
+      demo: false,
+      deal,
+    };
+  });
+}
+
+export function prospectWelcome(prospect: DemoProspect) {
+  return `Hoi ${prospect.contactFirstName}, deze werkplek staat klaar voor ${prospect.agencyName}. Klik gerust overal op, er gaat niets naar buiten.`;
+}
+
+export function prospectBanner(prospect: DemoProspect) {
+  return `Demo voor ${prospect.agencyName} · voorbeelddata · sync en kosten staan uit. Niets hiervan is live klantwerk.`;
+}

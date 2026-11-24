@@ -14,7 +14,7 @@ export async function GET() {
   if (!session) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
   if (isDemoUser(session)) {
-    const crm = getDemoCrmPayload();
+    const crm = getDemoCrmPayload(session.demoSlug);
     const leads = listDemoLeads().filter((l) => l.status !== "rejected");
     return NextResponse.json({
       actions: (crm.actionQueue || []).slice(0, 8).map((a) => ({

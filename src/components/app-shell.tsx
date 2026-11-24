@@ -11,6 +11,10 @@ import { DEMO_BANNER, isDemoEmail } from "@/lib/demo-mode";
 import { partnerForEmail } from "@/lib/partner-brand";
 import { ClientErrorReporter } from "@/components/client-error-reporter";
 import { UsageBeacon } from "@/components/usage-beacon";
+import {
+  DemoProspectChrome,
+  type DemoProspectInfo,
+} from "@/components/demo-prospect-chrome";
 
 export type AppNavId =
   | "radar"
@@ -21,7 +25,8 @@ export type AppNavId =
   | "sync"
   | "alerts"
   | "kosten"
-  | "ops";
+  | "ops"
+  | "demos";
 
 const PRIMARY: { href: string; id: AppNavId; label: string; icon: "radar" | "bureaus" | "kansen" | "contact" }[] = [
   { href: "/radar", id: "radar", label: "Jobboards", icon: "radar" },
@@ -30,7 +35,7 @@ const PRIMARY: { href: string; id: AppNavId; label: string; icon: "radar" | "bur
   { href: "/regie", id: "contact", label: "Bericht", icon: "contact" },
 ];
 
-type ShellUser = { email: string; role?: string };
+type ShellUser = { email: string; role?: string; demoSlug?: string | null };
 
 /** Één set: 16×16, stroke 1.5, round caps — zelfde gewicht als Scout-mark. */
 function SideIcon({
@@ -191,6 +196,8 @@ export function AppShell({
   const router = useRouter();
   const [name, setName] = useState("Recruitment Scout");
   const [user, setUser] = useState<ShellUser | null>(null);
+  const [demoProspect, setDemoProspect] = useState<DemoProspectInfo | null>(null);
+  const [demoBanner, setDemoBanner] = useState(DEMO_BANNER);
   const [open, setOpen] = useState(false);
   const [slim, setSlim] = useState(false);
 
@@ -207,15 +214,26 @@ export function AppShell({
   }
 
   useEffect(() => {
-    const cached = cacheGet<{ name?: string; user?: ShellUser }>("settings");
+    type SettingsPayload = {
+      name?: string;
+      user?: ShellUser;
+      demoBanner?: string;
+      demoProspect?: DemoProspectInfo | null;
+    };
+    const cached = cacheGet<SettingsPayload>("settings");
     if (cached) {
       if (cached.name) setName(cached.name);
       if (cached.user) setUser(cached.user);
+      if (cached.demoBanner) setDemoBanner(cached.demoBanner);
+      if (cached.demoProspect) setDemoProspect(cached.demoProspect);
     }
-    cachedJson<{ name?: string; user?: ShellUser }>("settings", "/api/settings", { ttlMs: 120_000 })
+    cachedJson<SettingsPayload>("settings", "/api/settings", { ttlMs: 120_000 })
       .then((j) => {
         if (j?.name) setName(j.name);
         if (j?.user) setUser(j.user);
+        if (j?.demoBanner) setDemoBanner(j.demoBanner);
+        if (j?.demoProspect) setDemoProspect(j.demoProspect);
+        else if (j && "demoProspect" in j) setDemoProspect(null);
       })
       .catch(() => null);
   }, []);
@@ -284,13 +302,28 @@ export function AppShell({
               className="partner-logo h-9 w-auto max-w-[9.5rem] object-contain"
             />
           ) : (
-            <ScoutWordmark tone="cobalt" lockup="brand" compact />
+            <span className="flex min-w-0 items-center gap-2">
+              <ScoutWordmark tone="cobalt" lockup="brand" compact />
+              {demoProspect ? (
+                <span
+                  className="hidden max-w-[6.5rem] truncate rounded-md px-1.5 py-0.5 text-[0.62rem] font-bold text-white sm:inline"
+                  style={{ background: demoProspect.brandColor || "#2340f0" }}
+                  title={`Demo voor ${demoProspect.agencyName}`}
+                >
+                  {demoProspect.agencyName}
+                </span>
+              ) : null}
+            </span>
           )}
         </span>
         <ScoutMark className="rail-brand__mark h-8 w-8" tone="cobalt" animated={false} />
       </Link>
       {partner ? (
         <p className="rail-meta mt-1.5 px-1 text-[0.68rem] text-[var(--muted)]">{brandTag}</p>
+      ) : demoProspect ? (
+        <p className="rail-meta mt-1.5 px-1 text-[0.68rem] text-[var(--muted)]">
+          Demo voor {demoProspect.agencyName}
+        </p>
       ) : null}
 
       <p className="rail-section mt-8 px-2.5 text-[0.68rem] font-semibold uppercase tracking-[0.12em] text-[var(--muted)]">
@@ -361,15 +394,26 @@ export function AppShell({
           <span className="rail-label">Meldingen</span>
         </Link>
         {user?.role === "admin" && !demo ? (
-          <Link
-            href="/ops"
-            data-rail="Ops"
-            onClick={() => setOpen(false)}
-            className={navClass(current === "ops")}
-          >
-            <SideIcon kind="ops" on={current === "ops"} />
-            <span className="rail-label">Ops</span>
-          </Link>
+          <>
+            <Link
+              href="/admin/demos"
+              data-rail="Demo's"
+              onClick={() => setOpen(false)}
+              className={navClass(current === "demos")}
+            >
+              <SideIcon kind="ops" on={current === "demos"} />
+              <span className="rail-label">Demo&apos;s</span>
+            </Link>
+            <Link
+              href="/ops"
+              data-rail="Ops"
+              onClick={() => setOpen(false)}
+              className={navClass(current === "ops")}
+            >
+              <SideIcon kind="ops" on={current === "ops"} />
+              <span className="rail-label">Ops</span>
+            </Link>
+          </>
         ) : null}
       </nav>
 
@@ -509,11 +553,7 @@ export function AppShell({
             fill ? "flex flex-col overflow-hidden md:!pb-0" : "overflow-y-auto overscroll-contain"
           }`}
         >
-          {demo ? (
-            <p className="demo-banner shrink-0 border-b border-[var(--line)] bg-[var(--surface-2)] px-4 py-2 text-center text-[0.72rem] leading-snug text-[var(--muted)] md:px-6">
-              {DEMO_BANNER}
-            </p>
-          ) : null}
+          {demo ? <DemoProspectChrome prospect={demoProspect} banner={demoBanner} /> : null}
           {children}
         </div>
 

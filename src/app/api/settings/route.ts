@@ -58,6 +58,10 @@ export async function GET() {
   if (!session) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
   if (isDemoUser(session)) {
+    const { demoProspectOf, demoBannerFor } = await import("@/lib/demo-mode");
+    const { demoLogoUrl, prospectCalendarUrl } = await import("@/lib/demo-prospects");
+    const { prospectWelcome } = await import("@/lib/demo-prospect-data");
+    const prospect = demoProspectOf(session);
     const agencies: ManagedAgency[] = demoSeedWatchlist().map((a) => ({
       id: a.id,
       name: a.name,
@@ -72,8 +76,12 @@ export async function GET() {
     }));
     return NextResponse.json({
       name: PRODUCT.name,
-      market: "NL · interim & ZZP",
-      roles: ["Scrum Master", "Java Developer", "Cloud Engineer", "Data Engineer"],
+      market: prospect ? `${prospect.city} · ${prospect.niche}` : "NL · interim & ZZP",
+      roles: prospect
+        ? prospect.niche.toLowerCase().includes("security")
+          ? ["Security Engineer", "SOC Analyst", "IAM Specialist", "Cloud Security"]
+          : ["Java Developer", "Cloud Engineer", "Data Engineer", "Platform Engineer"]
+        : ["Scrum Master", "Java Developer", "Cloud Engineer", "Data Engineer"],
       requireContract: true,
       employmentKinds: ["zzp", "interim", "contract"],
       agencies,
@@ -81,7 +89,22 @@ export async function GET() {
       bench: [],
       catalog: { employmentKinds: EMPLOYMENT_KINDS },
       demoMode: true,
-      user: { email: session.email, role: session.role },
+      demoBanner: demoBannerFor(session),
+      demoProspect: prospect
+        ? {
+            slug: prospect.slug,
+            agencyName: prospect.agencyName,
+            contactFirstName: prospect.contactFirstName,
+            website: prospect.website,
+            logoUrl: demoLogoUrl(prospect),
+            brandColor: prospect.brandColor,
+            niche: prospect.niche,
+            city: prospect.city,
+            welcome: prospectWelcome(prospect),
+            calendarUrl: prospectCalendarUrl(prospect),
+          }
+        : null,
+      user: { email: session.email, role: session.role, demoSlug: session.demoSlug || null },
     });
   }
 

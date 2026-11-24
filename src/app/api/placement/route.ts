@@ -72,7 +72,7 @@ export async function GET() {
   if (!session) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
   if (isDemoUser(session)) {
-    const items = listDemoCrmItems().filter(readyToMessage).map(deskFromCrm);
+    const items = listDemoCrmItems(session.demoSlug).filter(readyToMessage).map(deskFromCrm);
     return NextResponse.json({ items, demo: true });
   }
 

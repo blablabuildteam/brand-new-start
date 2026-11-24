@@ -5,6 +5,8 @@ export type UserRole = "admin" | "recruiter";
 export type SessionUser = {
   email: string;
   role: UserRole;
+  /** Personalized /demo/[slug] — alleen gezet voor het publieke demo-account. */
+  demoSlug?: string;
 };
 
 type Account = {
@@ -97,9 +99,13 @@ export function authenticate(
 }
 
 export async function signSession(user: SessionUser) {
-  const payload = toBase64Url(
-    new TextEncoder().encode(JSON.stringify({ email: user.email, role: user.role, t: Date.now() }))
-  );
+  const body: Record<string, unknown> = {
+    email: user.email,
+    role: user.role,
+    t: Date.now(),
+  };
+  if (user.demoSlug) body.demoSlug = user.demoSlug;
+  const payload = toBase64Url(new TextEncoder().encode(JSON.stringify(body)));
   const sig = await hmac(payload);
   return `${payload}.${sig}`;
 }
@@ -117,13 +123,18 @@ export async function verifySession(token: string | undefined): Promise<SessionU
     const data = JSON.parse(fromBase64Url(payload)) as {
       email: string;
       role?: UserRole;
+      demoSlug?: string;
       t: number;
     };
     if (Date.now() - data.t > 30 * 24 * 60 * 60 * 1000) return null;
     const email = normalizeEmail(data.email);
     const role = ACCOUNTS[email]?.role || data.role || "recruiter";
     if (!ACCOUNTS[email]) return null;
-    return { email, role };
+    const demoSlug =
+      email === "demo@blablabuild.com" && typeof data.demoSlug === "string" && data.demoSlug.trim()
+        ? data.demoSlug.trim().toLowerCase()
+        : undefined;
+    return demoSlug ? { email, role, demoSlug } : { email, role };
   } catch {
     return null;
   }

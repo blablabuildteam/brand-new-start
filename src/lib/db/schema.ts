@@ -123,7 +123,23 @@ export const waitlistEntries = pgTable(
   (t) => [uniqueIndex("waitlist_email_idx").on(t.email), index("waitlist_created_idx").on(t.createdAt)]
 );
 
+/** Per-prospect demo analytics (personalized /demo/[slug] links). */
+export const demoAnalytics = pgTable(
+  "demo_analytics",
+  {
+    slug: text("slug").primaryKey(),
+    firstVisitAt: timestamp("first_visit_at", { withTimezone: true }),
+    lastVisitAt: timestamp("last_visit_at", { withTimezone: true }),
+    visitCount: integer("visit_count").notNull().default(0),
+    totalSeconds: integer("total_seconds").notNull().default(0),
+    clickedIds: jsonb("clicked_ids").$type<Record<string, number>>().notNull().default({}),
+    notifiedAt: timestamp("notified_at", { withTimezone: true }),
+  },
+  (t) => [index("demo_analytics_last_visit_idx").on(t.lastVisitAt)]
+);
+
 export type Company = typeof companies.$inferSelect;
+export type DemoAnalyticsRow = typeof demoAnalytics.$inferSelect;
 export type Signal = typeof signals.$inferSelect;
 export type RadarEntry = typeof radarEntries.$inferSelect;
 export type SyncRunRow = typeof syncRuns.$inferSelect;

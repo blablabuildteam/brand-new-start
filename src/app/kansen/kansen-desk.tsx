@@ -789,6 +789,7 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
                     <li key={row.id} className={on ? "bg-[var(--surface-2)]" : ""}>
                       <div
                         className={`kans-row ${on ? "kans-row--on" : ""} ${rowWeak ? "kans-row--weak" : ""}`}
+                        data-demo-kans={row.id}
                         title={rowWeak ? "Zwak signaal (score < 55) — lagere prioriteit." : undefined}
                       >
                         <label
