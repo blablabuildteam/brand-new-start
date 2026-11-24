@@ -4,6 +4,7 @@ import { FormEvent, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ScoutMark } from "@/components/scout-mark";
+import "../landing.css";
 
 export default function DemoGate() {
   const router = useRouter();
@@ -31,24 +32,19 @@ export default function DemoGate() {
 
   return (
     <div className="lp lp-gate">
-      <div className="lp-grain" aria-hidden />
-      <header className="lp-gate__top">
+      <header className="lp-nav">
         <Link href="/" className="lp-brand" aria-label="Recruitment Scout home">
-          <ScoutMark className="h-7 w-7" tone="light" />
+          <ScoutMark className="h-8 w-8" tone="pine" animated={false} />
           <span>Recruitment Scout</span>
         </Link>
       </header>
 
       <main className="lp-gate__main">
-        <p className="lp-kicker">
-          <span className="lp-dot" /> Demo-desk · sample data
-        </p>
         <h1 className="lp-gate__title">
-          Kijk mee <em>achter</em> de vacature.
+          Welkom bij de <em>demo</em>.
         </h1>
         <p className="lp-gate__lede">
-          Recruiter-posts, de eindklant die erachter zit en de manager om te bellen. Alles in deze demo is
-          voorbeelddata — rondklikken mag.
+          Je kijkt rond in een werkplek met voorbeelddata. Klik gerust overal op, er gaat niets naar buiten.
         </p>
 
         <form className="lp-gate__form" onSubmit={(e) => void onSubmit(e)}>
@@ -64,10 +60,10 @@ export default function DemoGate() {
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="Uit je uitnodiging"
+              placeholder="Staat in je uitnodiging"
             />
-            <button type="submit" className="lp-btn lp-btn--signal" disabled={loading || !password}>
-              {loading ? "Openen…" : "Open demo →"}
+            <button type="submit" className="lp-btn lp-btn--primary" disabled={loading || !password}>
+              {loading ? "Openen…" : "Open de demo"}
             </button>
           </div>
           {error ? <p className="lp-gate__error">{error}</p> : null}

@@ -5,23 +5,33 @@ import Link from "next/link";
 import { BlablaLogo } from "@/components/blabla-logo";
 import { ScoutMark } from "@/components/scout-mark";
 import { WaitlistForm } from "@/components/waitlist-form";
+import "./landing.css";
 
-const WIRE = [
-  { t: "09:12", src: "Recruiter-post", role: "Scrum Master · SAP-transformatie", where: "Rotterdam", hit: "Haven & logistiek", pct: 86 },
-  { t: "09:31", src: "LinkedIn Jobs", role: "Senior Infrastructure Engineer", where: "Noord-Holland", hit: "Automotive · EU-hoofdkantoor", pct: 88 },
-  { t: "10:04", src: "Recruiter-post", role: "GenAI Developer · Java / AWS", where: "Diemen", hit: "E-commerce · internationaal", pct: 91 },
-  { t: "10:47", src: "Freelance.nl", role: "Functioneel Tester · Hypotheken", where: "Utrecht", hit: "Bank · retail", pct: 74 },
-  { t: "11:20", src: "Recruiter-post", role: "Cloud Engineer · IAM & security", where: "Hybride", hit: "Zoekt nog…", pct: null },
+const INBOX = [
+  { t: "09:12", from: "Recruiter-post, Rotterdam", role: "Scrum Master voor een SAP-transformatie", hit: "Haven en logistiek", pct: 86 },
+  { t: "09:31", from: "LinkedIn Jobs, Noord-Holland", role: "Senior Infrastructure Engineer", hit: "Automotive, Europees hoofdkantoor", pct: 88 },
+  { t: "10:04", from: "Recruiter-post, Diemen", role: "GenAI Developer (Java, AWS)", hit: "Internationale webwinkel", pct: 91 },
+  { t: "10:47", from: "Freelance.nl, Utrecht", role: "Functioneel tester hypotheken", hit: "Retailbank", pct: 74 },
 ] as const;
 
 const STEPS = [
-  { n: "1", title: "Lezen", text: "Jobboards en de posts van recruiters die je volgt. Elke ochtend, of als jij op sync drukt." },
-  { n: "2", title: "Ontmaskeren", text: "“Voor een klant van mij…” — Scout zoekt de originele vacature en noemt de eindklant, met bewijs." },
-  { n: "3", title: "Mensen", text: "De hiring manager bij die eindklant. Daarna werkmail en telefoon, alleen als jij erom vraagt." },
-  { n: "4", title: "Bericht", text: "Een opening die over hun opdracht gaat, niet over jouw bureau. Jij verstuurt." },
+  {
+    title: "Meelezen",
+    text: "Jobboards en de posts van recruiters die je volgt. Elke ochtend, of wanneer jij op sync drukt.",
+  },
+  {
+    title: "De klant vinden",
+    text: "Bij “voor een klant van mij” zoekt Scout de originele vacature op en noemt de eindklant, met het bewijs erbij.",
+  },
+  {
+    title: "De juiste persoon",
+    text: "De hiring manager bij die eindklant. Mail en telefoon haal je pas op als je ze echt nodig hebt.",
+  },
+  {
+    title: "Een goed eerste bericht",
+    text: "Over hun opdracht, niet over jouw bureau. Jij past aan en verstuurt.",
+  },
 ] as const;
-
-const SOURCES = ["LinkedIn Jobs", "Indeed", "Freelance.nl", "Recruiter-feeds", "Careers-pagina’s", "Vacature-archief"];
 
 export default function HomeDesk() {
   const [email, setEmail] = useState<string | null>(null);
@@ -37,45 +47,32 @@ export default function HomeDesk() {
 
   return (
     <div className="lp">
-      <div className="lp-grain" aria-hidden />
-
       <header className="lp-nav">
         <Link href="/" className="lp-brand" aria-label="Recruitment Scout home">
-          <ScoutMark className="h-7 w-7" tone="light" />
+          <ScoutMark className="h-8 w-8" tone="pine" animated={false} />
           <span>Recruitment Scout</span>
         </Link>
         <nav className="lp-nav__links" aria-label="Primary">
           <a href="#werk">Hoe het werkt</a>
           <Link href="/demo">Demo</Link>
-          {email ? (
-            <Link href="/radar" className="lp-btn lp-btn--ghost">
-              Naar de desk
-            </Link>
-          ) : (
-            <Link href="/login?next=%2Fradar" className="lp-btn lp-btn--ghost">
-              Inloggen
-            </Link>
-          )}
+          <Link href={email ? "/radar" : "/login?next=%2Fradar"} className="lp-btn lp-btn--quiet">
+            {email ? "Naar de desk" : "Inloggen"}
+          </Link>
         </nav>
       </header>
 
       <section className="lp-hero">
         <div className="lp-hero__copy">
-          <p className="lp-kicker lp-in">
-            <span className="lp-dot" /> Interim &amp; ZZP · Nederland
-          </p>
-          <h1 className="lp-hero__title lp-in lp-in--2">
-            De opdracht,
-            <br />
-            <em>vóór</em> de vacature.
+          <h1 className="lp-hero__title lp-in">
+            Weet wie de klant is, <em>voordat</em> je concurrent belt.
           </h1>
-          <p className="lp-hero__lede lp-in lp-in--3">
-            Bureaus posten “een klant van mij zoekt…”. Scout leest mee, vindt wie die klant is en zet de
-            hiring manager voor je klaar. Jij belt als eerste.
+          <p className="lp-hero__lede lp-in lp-in--2">
+            Bureaus posten “een klant van mij zoekt…”. Scout leest mee, zoekt uit welke organisatie erachter zit en
+            zet de hiring manager voor je klaar.
           </p>
-          <div className="lp-hero__cta lp-in lp-in--4">
-            <Link href="/demo" className="lp-btn lp-btn--signal">
-              Bekijk de demo →
+          <div className="lp-hero__cta lp-in lp-in--3">
+            <Link href="/demo" className="lp-btn lp-btn--primary">
+              Bekijk de demo
             </Link>
             <a href="#toegang" className="lp-btn lp-btn--line">
               Toegang aanvragen
@@ -83,128 +80,106 @@ export default function HomeDesk() {
           </div>
         </div>
 
-        <aside className="lp-wire lp-in lp-in--3" aria-label="Voorbeeld van binnenkomende signalen">
-          <div className="lp-wire__head">
-            <span>
-              <span className="lp-dot lp-dot--live" /> Wire
-            </span>
-            <span>vandaag · voorbeeld</span>
-          </div>
-          <ol className="lp-wire__list">
-            {WIRE.map((w, i) => (
-              <li key={w.t} className="lp-wire__row" style={{ animationDelay: `${0.5 + i * 0.35}s` }}>
-                <span className="lp-wire__t">{w.t}</span>
-                <div className="lp-wire__body">
-                  <p className="lp-wire__src">{w.src} · {w.where}</p>
-                  <p className="lp-wire__role">{w.role}</p>
-                  <p className={`lp-wire__hit ${w.pct ? "" : "is-pending"}`}>
-                    <span className="lp-wire__redact" aria-hidden style={{ animationDelay: `${1.2 + i * 0.35}s` }} />
-                    → {w.hit}
+        <aside className="lp-inbox lp-in lp-in--2" aria-label="Voorbeeld van wat Scout vanochtend vond">
+          <p className="lp-inbox__head">Vanochtend gevonden</p>
+          <ol className="lp-inbox__list">
+            {INBOX.map((w, i) => (
+              <li key={w.t} className="lp-inbox__row" style={{ animationDelay: `${0.35 + i * 0.2}s` }}>
+                <div className="lp-inbox__main">
+                  <p className="lp-inbox__role">{w.role}</p>
+                  <p className="lp-inbox__from">
+                    {w.t} — {w.from}
                   </p>
                 </div>
-                <span className={`lp-wire__pct ${w.pct ? "" : "is-pending"}`}>{w.pct ? `${w.pct}%` : "···"}</span>
+                <p className="lp-inbox__hit">
+                  {w.hit}
+                  <span>{w.pct}%</span>
+                </p>
               </li>
             ))}
           </ol>
         </aside>
       </section>
 
-      <div className="lp-marquee" aria-hidden>
-        <div className="lp-marquee__track">
-          {[...SOURCES, ...SOURCES, ...SOURCES].map((s, i) => (
-            <span key={i}>
-              {s} <i>✦</i>
-            </span>
-          ))}
-        </div>
-      </div>
-
       <main>
-        <section id="werk" className="lp-paper scroll-mt-10">
+        <section id="werk" className="lp-band scroll-mt-10">
           <div className="lp-section">
-            <div className="lp-section__head">
-              <p className="lp-label">Hoe het werkt</p>
-              <h2 className="lp-h2">
-                Van een vage post naar <em>een naam</em> en een nummer.
-              </h2>
-            </div>
+            <h2 className="lp-h2">Van een vage post naar een naam en een nummer.</h2>
             <ol className="lp-steps">
-              {STEPS.map((s) => (
-                <li key={s.n}>
-                  <span className="lp-steps__n">{s.n}</span>
+              {STEPS.map((s, i) => (
+                <li key={s.title}>
+                  <span className="lp-steps__n">{i + 1}</span>
                   <h3>{s.title}</h3>
                   <p>{s.text}</p>
                 </li>
               ))}
             </ol>
+            <p className="lp-sources">
+              Scout leest mee op LinkedIn Jobs, Indeed, Freelance.nl, careers-pagina’s en de posts van recruiters die
+              jij volgt.
+            </p>
           </div>
         </section>
 
-        <section className="lp-case">
-          <div className="lp-section lp-case__grid">
-            <div>
-              <p className="lp-label lp-label--dark">Wat er gebeurt</p>
-              <h2 className="lp-h2 lp-h2--dark">
-                Het bureau zegt <em>“een klant”</em>.<br />
-                Scout zegt wie.
-              </h2>
-              <p className="lp-case__note">
-                Bij twijfel zoekt Scout zelf de originele vacature online en leest die helemaal. Geen bewijs, geen
-                naam — dan blijft het een vraag aan jou.
+        <section className="lp-section lp-case">
+          <div>
+            <h2 className="lp-h2">
+              Het bureau zegt “een klant”.
+              <br />
+              Scout zegt wie.
+            </h2>
+            <p className="lp-case__note">
+              Bij twijfel zoekt Scout de originele vacature online op en leest die helemaal. Is er geen bewijs, dan
+              krijg je geen naam maar een vraag.
+            </p>
+          </div>
+          <figure className="lp-post">
+            <figcaption className="lp-post__by">
+              <span className="lp-post__avatar" aria-hidden />
+              <span>
+                <strong>Recruiter bij een IT-bureau</strong>
+                <br />
+                <em>2 uur geleden</em>
+              </span>
+            </figcaption>
+            <blockquote>
+              Senior Infrastructure Engineer, regio Noord-Holland. Voor{" "}
+              <mark className="lp-post__mark">een internationale organisatie</mark> zoek ik per direct iemand met
+              Windows Server, VMware, Citrix en Active Directory. 40 uur, start zo snel mogelijk.
+            </blockquote>
+            <div className="lp-post__answer">
+              <p className="lp-post__answer-v">
+                Automotive, Europees hoofdkantoor
+                <span>88% zeker</span>
+              </p>
+              <p className="lp-post__answer-s">
+                Gevonden via de originele vacature. Stack en regio komen overeen, twee managers in beeld.
               </p>
             </div>
-            <figure className="lp-post">
-              <figcaption className="lp-post__by">
-                <span className="lp-post__avatar" aria-hidden />
-                <span>
-                  <strong>Recruiter</strong> · IT-bureau
-                  <br />
-                  <em>2 uur geleden</em>
-                </span>
-              </figcaption>
-              <blockquote>
-                SPOED | Senior Infrastructure Engineer | Regio Noord-Holland. Voor{" "}
-                <mark className="lp-post__mark">een internationale organisatie</mark> zoek ik per direct iemand met
-                Windows Server, VMware, Citrix en Active Directory. 40 uur, start z.s.m.
-              </blockquote>
-              <div className="lp-post__answer">
-                <p className="lp-post__answer-l">Scout</p>
-                <p className="lp-post__answer-v">
-                  Automotive · Europees hoofdkantoor <span>88%</span>
-                </p>
-                <p className="lp-post__answer-s">Originele vacature gevonden · stack + regio matchen · 2 managers</p>
-              </div>
-            </figure>
-          </div>
+          </figure>
         </section>
 
-        <section id="toegang" className="lp-paper scroll-mt-10">
+        <section id="toegang" className="lp-band scroll-mt-10">
           <div className="lp-section lp-access">
             <div>
-              <p className="lp-label">Toegang</p>
-              <h2 className="lp-h2">
-                Voor bureaus die de opdracht <em>niet missen</em>.
-              </h2>
+              <h2 className="lp-h2">Voor bureaus die eerder bij de eindklant willen zijn.</h2>
               <p className="lp-access__text">
-                Geen marketplace en geen kandidatenbank. Een desk voor een handvol bureaus die eerder bij de
-                eindklant willen zijn dan de rest.
+                Geen marketplace en geen kandidatenbank. Een werkplek voor een klein aantal bureaus.
+                {email ? null : " Laat je gegevens achter, dan nemen we contact op."}
               </p>
-              <div className="lp-access__cta">
+              <p className="lp-access__alt">
                 {email ? (
-                  <Link href="/radar" className="lp-btn lp-btn--ink">
-                    Naar de desk →
-                  </Link>
+                  <Link href="/radar">Naar de desk</Link>
                 ) : (
-                  <Link href="/demo" className="lp-btn lp-btn--ink">
-                    Heb je een demo-wachtwoord? →
-                  </Link>
+                  <>
+                    Kreeg je een demo-wachtwoord? <Link href="/demo">Open de demo</Link>
+                  </>
                 )}
-              </div>
+              </p>
             </div>
             {!email ? (
               <div className="lp-access__form">
-                <p className="lp-label lp-label--dark">Wachtlijst</p>
-                <WaitlistForm dark />
+                <WaitlistForm />
               </div>
             ) : null}
           </div>
@@ -213,11 +188,11 @@ export default function HomeDesk() {
 
       <footer className="lp-foot">
         <span className="lp-brand lp-brand--small">
-          <ScoutMark className="h-5 w-5" tone="light" animated={false} />
+          <ScoutMark className="h-5 w-5" tone="pine" animated={false} />
           <span>Recruitment Scout</span>
         </span>
         <a href="https://blablabuild.com" target="_blank" rel="noopener noreferrer" className="lp-foot__by">
-          een product van <BlablaLogo className="h-4 w-4" /> blablabuild
+          gemaakt door <BlablaLogo className="h-4 w-4" /> blablabuild
         </a>
       </footer>
     </div>
