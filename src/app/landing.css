@@ -302,92 +302,140 @@
   color: var(--lp-soft);
 }
 
-/* Voorbeeld-post */
-.lp-case {
-  display: grid;
-  gap: 3rem;
-  align-items: center;
+/* Pilotcijfers */
+.lp-pilot {
+  background: var(--lp-pine);
+  color: #f6f2ea;
+}
+.lp-pilot__inner {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 3rem 1.25rem;
 }
 @media (min-width: 980px) {
-  .lp-case {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    gap: 5rem;
+  .lp-pilot__inner {
+    padding: 3.5rem 2rem;
+  }
+}
+.lp-pilot__intro {
+  margin: 0;
+  font-size: 0.92rem;
+  color: rgba(246, 242, 234, 0.72);
+}
+.lp-pilot__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 2rem 1.5rem;
+  margin: 1.8rem 0 0;
+}
+@media (min-width: 900px) {
+  .lp-pilot__grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+.lp-pilot__grid div {
+  border-top: 1px solid rgba(246, 242, 234, 0.22);
+  padding-top: 1rem;
+}
+.lp-pilot__grid dt {
+  font-family: var(--lp-serif);
+  font-size: clamp(2.8rem, 5vw, 4rem);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.lp-pilot__grid dd {
+  margin: 0.5rem 0 0;
+  max-width: 15rem;
+  font-size: 0.92rem;
+  line-height: 1.45;
+  color: rgba(246, 242, 234, 0.8);
+}
+
+/* Echte vondsten */
+.lp-case__head {
+  display: grid;
+  gap: 1.4rem;
+}
+@media (min-width: 980px) {
+  .lp-case__head {
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+    align-items: end;
+    gap: 4rem;
   }
 }
 .lp-case__note {
   max-width: 30rem;
-  margin: 1.4rem 0 0;
+  margin: 0;
   font-size: 1rem;
   line-height: 1.6;
   color: var(--lp-soft);
 }
-.lp-post {
-  margin: 0;
-  border-radius: 16px;
-  border: 1px solid var(--lp-line);
-  background: var(--lp-card);
-  padding: 1.4rem;
-  box-shadow: 0 24px 48px -32px rgba(29, 36, 34, 0.35);
+.lp-finds {
+  display: grid;
+  gap: 1rem;
+  margin: 3rem 0 0;
+  padding: 0;
+  list-style: none;
 }
-.lp-post__by {
+@media (min-width: 760px) {
+  .lp-finds {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.lp-find {
   display: flex;
-  align-items: center;
-  gap: 0.7rem;
-  font-size: 0.85rem;
-  line-height: 1.35;
-}
-.lp-post__by em {
-  font-style: normal;
-  color: var(--lp-mute);
-  font-size: 0.78rem;
-}
-.lp-post__avatar {
-  width: 38px;
-  height: 38px;
-  border-radius: 50%;
-  background: var(--lp-band);
+  flex-direction: column;
+  justify-content: space-between;
   border: 1px solid var(--lp-line);
+  border-radius: 16px;
+  background: var(--lp-card);
+  overflow: hidden;
 }
-.lp-post blockquote {
-  margin: 1rem 0 0;
-  font-size: 0.98rem;
-  line-height: 1.6;
+.lp-find blockquote {
+  margin: 0;
+  padding: 1.4rem 1.4rem 1.2rem;
+  font-size: 1rem;
+  line-height: 1.55;
 }
-.lp-post__mark {
-  background: var(--lp-clay-soft);
-  color: var(--lp-clay);
-  border-radius: 4px;
-  padding: 0.05em 0.25em;
+.lp-find__answer {
+  padding: 1rem 1.4rem 1.2rem;
+  border-top: 1px solid var(--lp-line);
+  background: #e7efe9;
 }
-.lp-post__answer {
-  margin: 1.3rem -1.4rem -1.4rem;
-  padding: 1.1rem 1.4rem 1.25rem;
-  border-radius: 0 0 16px 16px;
-  background: var(--lp-pine);
-  color: #f6f2ea;
-}
-.lp-post__answer-v {
+.lp-find__who {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
   gap: 1rem;
   margin: 0;
   font-family: var(--lp-serif);
-  font-size: 1.5rem;
+  font-size: 1.45rem;
   line-height: 1.15;
+  color: var(--lp-pine);
 }
-.lp-post__answer-v span {
+.lp-find__who span {
   flex-shrink: 0;
   font-family: var(--lp-sans);
-  font-size: 0.82rem;
-  font-weight: 500;
-  color: rgba(246, 242, 234, 0.75);
-}
-.lp-post__answer-s {
-  margin: 0.45rem 0 0;
   font-size: 0.85rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.lp-find__proof {
+  margin: 0.4rem 0 0;
+  font-size: 0.88rem;
   line-height: 1.5;
-  color: rgba(246, 242, 234, 0.75);
+  color: var(--lp-soft);
+}
+.lp-find--open .lp-find__answer {
+  background: var(--lp-clay-soft);
+}
+.lp-find--open .lp-find__who {
+  color: var(--lp-clay);
+}
+.lp-finds__foot {
+  margin: 1.2rem 0 0;
+  font-size: 0.8rem;
+  color: var(--lp-mute);
 }
 
 /* Toegang */

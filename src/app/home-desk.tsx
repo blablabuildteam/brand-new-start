@@ -8,10 +8,45 @@ import { WaitlistForm } from "@/components/waitlist-form";
 import "./landing.css";
 
 const INBOX = [
-  { t: "09:12", from: "Recruiter-post, Rotterdam", role: "Scrum Master voor een SAP-transformatie", hit: "Haven en logistiek", pct: 86 },
-  { t: "09:31", from: "LinkedIn Jobs, Noord-Holland", role: "Senior Infrastructure Engineer", hit: "Automotive, Europees hoofdkantoor", pct: 88 },
-  { t: "10:04", from: "Recruiter-post, Diemen", role: "GenAI Developer (Java, AWS)", hit: "Internationale webwinkel", pct: 91 },
-  { t: "10:47", from: "Freelance.nl, Utrecht", role: "Functioneel tester hypotheken", hit: "Retailbank", pct: 74 },
+  { from: "Recruiter-post, Den Haag", role: "Senior Rust Developer", hit: "Overheids-ICT-dienst", pct: 88 },
+  { from: "Recruiter-post, Utrecht", role: "Freelance Cloud Platform Engineer", hit: "Spoorvervoerder", pct: 90 },
+  { from: "Recruiter-post", role: "Full Stack Developer (.NET / Angular)", hit: "Financiële toezichthouder", pct: 90 },
+  { from: "Recruiter-post, Arnhem", role: "Data Engineer (Snowflake, Matillion)", hit: "Netbeheerder", pct: 90 },
+] as const;
+
+/** Uit de pilot, stand november 2026. */
+const PILOT = [
+  { n: "301", text: "posts van recruiters gelezen, van zes bureaus" },
+  { n: "172", text: "keer een eindklant voorgesteld" },
+  { n: "60", text: "daarvan met 80% zekerheid of meer" },
+  { n: "54", text: "openingen bij 45 eindklanten op de jobboards" },
+] as const;
+
+const FINDS = [
+  {
+    said: "Voor een directe eindklant in Arnhem zoek ik een ervaren Senior Java/Kotlin Developer.",
+    who: "Uitvoeringsorganisatie van het Rijk",
+    pct: 90,
+    proof: "Dezelfde opdracht stond op bijoranje.nl.",
+  },
+  {
+    said: "Voor een toonaangevende overheidsorganisatie ben ik op zoek naar een Solution Architect.",
+    who: "Provincie in Zuid-Nederland",
+    pct: 90,
+    proof: "Zelfde rol, stack en regio op freep.nl.",
+  },
+  {
+    said: "Gezocht: Data Engineer Snowflake / Matillion (detachering).",
+    who: "Netbeheerder in Arnhem",
+    pct: 90,
+    proof: "Inhuurdesk.nl noemt de opdrachtgever bij naam.",
+  },
+  {
+    said: "Voor een directe eindklant in Arnhem ben ik op zoek naar een freelance Platform Engineer.",
+    who: null,
+    pct: 40,
+    proof: "Alleen algemene woorden. Scout noemt geen naam en laat het aan jou.",
+  },
 ] as const;
 
 const STEPS = [
@@ -80,16 +115,14 @@ export default function HomeDesk() {
           </div>
         </div>
 
-        <aside className="lp-inbox lp-in lp-in--2" aria-label="Voorbeeld van wat Scout vanochtend vond">
-          <p className="lp-inbox__head">Vanochtend gevonden</p>
+        <aside className="lp-inbox lp-in lp-in--2" aria-label="Wat Scout recent vond">
+          <p className="lp-inbox__head">Recent gevonden</p>
           <ol className="lp-inbox__list">
             {INBOX.map((w, i) => (
-              <li key={w.t} className="lp-inbox__row" style={{ animationDelay: `${0.35 + i * 0.2}s` }}>
+              <li key={w.role} className="lp-inbox__row" style={{ animationDelay: `${0.35 + i * 0.2}s` }}>
                 <div className="lp-inbox__main">
                   <p className="lp-inbox__role">{w.role}</p>
-                  <p className="lp-inbox__from">
-                    {w.t} — {w.from}
-                  </p>
+                  <p className="lp-inbox__from">{w.from}</p>
                 </div>
                 <p className="lp-inbox__hit">
                   {w.hit}
@@ -102,6 +135,22 @@ export default function HomeDesk() {
       </section>
 
       <main>
+        <section className="lp-pilot" aria-label="Resultaten uit de pilot">
+          <div className="lp-pilot__inner">
+            <p className="lp-pilot__intro">
+              Uit de pilot met een Nederlands IT-bureau, posts van het afgelopen jaar.
+            </p>
+            <dl className="lp-pilot__grid">
+              {PILOT.map((p) => (
+                <div key={p.text}>
+                  <dt>{p.n}</dt>
+                  <dd>{p.text}</dd>
+                </div>
+              ))}
+            </dl>
+          </div>
+        </section>
+
         <section id="werk" className="lp-band scroll-mt-10">
           <div className="lp-section">
             <h2 className="lp-h2">Van een vage post naar een naam en een nummer.</h2>
@@ -121,42 +170,33 @@ export default function HomeDesk() {
           </div>
         </section>
 
-        <section className="lp-section lp-case">
-          <div>
+        <section className="lp-section">
+          <div className="lp-case__head">
             <h2 className="lp-h2">
               Het bureau zegt “een klant”.
               <br />
               Scout zegt wie.
             </h2>
             <p className="lp-case__note">
-              Bij twijfel zoekt Scout de originele vacature online op en leest die helemaal. Is er geen bewijs, dan
-              krijg je geen naam maar een vraag.
+              Echte posts uit de pilot. Scout zoekt de opdracht elders online terug en laat zien waar. Zonder bewijs
+              geen naam.
             </p>
           </div>
-          <figure className="lp-post">
-            <figcaption className="lp-post__by">
-              <span className="lp-post__avatar" aria-hidden />
-              <span>
-                <strong>Recruiter bij een IT-bureau</strong>
-                <br />
-                <em>2 uur geleden</em>
-              </span>
-            </figcaption>
-            <blockquote>
-              Senior Infrastructure Engineer, regio Noord-Holland. Voor{" "}
-              <mark className="lp-post__mark">een internationale organisatie</mark> zoek ik per direct iemand met
-              Windows Server, VMware, Citrix en Active Directory. 40 uur, start zo snel mogelijk.
-            </blockquote>
-            <div className="lp-post__answer">
-              <p className="lp-post__answer-v">
-                Automotive, Europees hoofdkantoor
-                <span>88% zeker</span>
-              </p>
-              <p className="lp-post__answer-s">
-                Gevonden via de originele vacature. Stack en regio komen overeen, twee managers in beeld.
-              </p>
-            </div>
-          </figure>
+          <ul className="lp-finds">
+            {FINDS.map((f) => (
+              <li key={f.said} className={`lp-find ${f.who ? "" : "lp-find--open"}`}>
+                <blockquote>“{f.said}”</blockquote>
+                <div className="lp-find__answer">
+                  <p className="lp-find__who">
+                    {f.who ?? "Nog geen naam"}
+                    <span>{f.pct}%</span>
+                  </p>
+                  <p className="lp-find__proof">{f.proof}</p>
+                </div>
+              </li>
+            ))}
+          </ul>
+          <p className="lp-finds__foot">Namen van eindklanten zijn hier vervangen door hun sector.</p>
         </section>
 
         <section id="toegang" className="lp-band scroll-mt-10">
