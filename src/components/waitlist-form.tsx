@@ -69,7 +69,7 @@ export function WaitlistForm({ dark = false }: { dark?: boolean }) {
           />
         </label>
         <label className="waitlist__field waitlist__field--wide">
-          <span>Bureau / bedrijf</span>
+          <span>Recruitmentbureau</span>
           <input
             value={company}
             onChange={(e) => setCompany(e.target.value)}
