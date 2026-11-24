@@ -151,6 +151,17 @@ export async function POST(req: Request) {
     );
   }
 
+  const { isDemoUser } = await import("@/lib/demo-mode");
+  if (isDemoUser(session)) {
+    return NextResponse.json(
+      {
+        error: "demo",
+        message: "Demo-omgeving: sync staat uit. Je bekijkt sample data.",
+      },
+      { status: 403 }
+    );
+  }
+
   const body = await req.json().catch(() => ({}));
   const action = (body as { action?: string }).action || "market";
   await loadHuntSettings();

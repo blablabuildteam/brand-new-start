@@ -7,6 +7,7 @@ import { ScoutMark, ScoutWordmark } from "@/components/scout-mark";
 import { AlertsBell } from "@/components/alerts-bell";
 import { CommandPalette } from "@/components/command-palette";
 import { cacheClear, cacheGet, cachedJson, prefetchJson } from "@/lib/client-cache";
+import { DEMO_BANNER, isDemoEmail } from "@/lib/demo-mode";
 import { partnerForEmail } from "@/lib/partner-brand";
 import { ClientErrorReporter } from "@/components/client-error-reporter";
 import { UsageBeacon } from "@/components/usage-beacon";
@@ -256,6 +257,7 @@ export function AppShell({
   }
 
   const partner = partnerForEmail(user?.email);
+  const demo = isDemoEmail(user?.email);
   const brandName = partner?.name ?? name;
   const brandTag = partner?.tagline ?? "Contracting";
 
@@ -338,15 +340,17 @@ export function AppShell({
           <SideIcon kind="sync" on={current === "sync"} />
           <span className="rail-label">Sync</span>
         </Link>
-        <Link
-          href="/kosten"
-          data-rail="Kosten"
-          onClick={() => setOpen(false)}
-          className={navClass(current === "kosten")}
-        >
-          <SideIcon kind="kosten" on={current === "kosten"} />
-          <span className="rail-label">Kosten</span>
-        </Link>
+        {!demo ? (
+          <Link
+            href="/kosten"
+            data-rail="Kosten"
+            onClick={() => setOpen(false)}
+            className={navClass(current === "kosten")}
+          >
+            <SideIcon kind="kosten" on={current === "kosten"} />
+            <span className="rail-label">Kosten</span>
+          </Link>
+        ) : null}
         <Link
           href="/alerts"
           data-rail="Meldingen"
@@ -356,7 +360,7 @@ export function AppShell({
           <SideIcon kind="alerts" on={current === "alerts"} />
           <span className="rail-label">Meldingen</span>
         </Link>
-        {user?.role === "admin" ? (
+        {user?.role === "admin" && !demo ? (
           <Link
             href="/ops"
             data-rail="Ops"
@@ -505,6 +509,11 @@ export function AppShell({
             fill ? "flex flex-col overflow-hidden md:!pb-0" : "overflow-y-auto overscroll-contain"
           }`}
         >
+          {demo ? (
+            <p className="demo-banner shrink-0 border-b border-[var(--line)] bg-[var(--surface-2)] px-4 py-2 text-center text-[0.72rem] leading-snug text-[var(--muted)] md:px-6">
+              {DEMO_BANNER}
+            </p>
+          ) : null}
           {children}
         </div>
 

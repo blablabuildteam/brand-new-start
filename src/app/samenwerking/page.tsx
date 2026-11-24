@@ -1,8 +1,11 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { BlablaLogo } from "@/components/blabla-logo";
 import { SignStatus } from "@/components/sign-status";
 import { ACCOUNT_LAPSE_MONTHS, SHARES, loadBnsSignature, signedCurrent } from "@/lib/agreement";
+import { getSession } from "@/lib/auth";
+import { canSeePartnerDeal } from "@/lib/demo-mode";
 
 export const metadata = {
   title: "De afspraak — Brand New Start × blablabuild",
@@ -176,6 +179,8 @@ const OPEN_POINTS: { t: string; q: string; advice: string }[] = [
 ];
 
 export default async function SamenwerkingPage() {
+  const session = await getSession();
+  if (!canSeePartnerDeal(session)) redirect("/radar");
   const bns = await loadBnsSignature();
   const current = signedCurrent(bns);
   const firstOurs = marginPerMonth * SHARE_FIRST;

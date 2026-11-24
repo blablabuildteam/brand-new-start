@@ -25,6 +25,12 @@ const ACCOUNTS: Record<string, Account> = {
     passwordEnv: "RECRUITER_PASSWORD",
     fallback: "bns-demo",
   },
+  /** Publieke demo — sample data, geen BNS-branding of live sync. */
+  "demo@blablabuild.com": {
+    role: "recruiter",
+    passwordEnv: "DEMO_PASSWORD",
+    fallback: "scout-demo",
+  },
 };
 
 function secret() {

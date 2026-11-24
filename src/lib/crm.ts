@@ -292,7 +292,9 @@ function buildCrm({ leads, radar, signals, meta }: CrmInputs): CrmOpportunity[] 
   const radarByCompany = new Map(radar.map((r) => [normName(r.company.name), r] as const));
   const out: CrmOpportunity[] = [];
 
-  for (const lead of [...leads.live, ...leads.demo]) {
+  // Demo-seeds horen niet in de live CRM van een partner (BNS).
+  for (const lead of leads.live) {
+    if (lead.demo) continue;
     if (lead.status !== "confirmed") continue;
     const endClient = lead.confirmedClient || lead.guess?.name;
     if (!endClient) continue;

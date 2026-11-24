@@ -1,5 +1,7 @@
 import { getSession, type SessionUser } from "@/lib/auth";
 import { hasDatabase } from "@/lib/db/client";
+import { isDemoUser } from "@/lib/demo-mode";
+import { getDemoLeadsPayload, getDemoRadarPayload } from "@/lib/demo-workspace";
 import { loadDeskMeta } from "@/lib/desk-meta";
 import { loadHuntSettings } from "@/lib/hunt";
 import { listAgencyLeads } from "@/lib/opportunity";
@@ -45,7 +47,10 @@ export function deskCacheHeaders() {
 }
 
 /** Same JSON the browser gets from GET /api/leads. Dates become strings. */
-export async function readLeadsPayload() {
+export async function readLeadsPayload(session?: SessionUser | null) {
+  const user = session === undefined ? await getSession() : session;
+  if (isDemoUser(user)) return getDemoLeadsPayload();
+
   await loadHuntSettings();
   const [data, runs, meta] = await Promise.all([listAgencyLeads(), listSyncRuns(40), loadDeskMeta()]);
   const feed = runs.find((r) => r.channel === "recruiter-feed") || null;
@@ -87,6 +92,8 @@ export async function readLeadsPayload() {
 }
 
 export async function readRadarPayload(session: SessionUser) {
+  if (isDemoUser(session)) return getDemoRadarPayload(session);
+
   const hunt = await loadHuntSettings();
   const radarRows = await listRadar();
   function withChannel<T extends { source: string; raw?: unknown }>(s: T) {

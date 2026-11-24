@@ -4,6 +4,8 @@ import { seedManagedAgencies } from "@/lib/agency";
 import { hasAiKey } from "@/lib/ai-client";
 import { hasApifyToken } from "@/lib/apify";
 import { hasDatabase } from "@/lib/db/client";
+import { isDemoUser } from "@/lib/demo-mode";
+import { demoSeedWatchlist } from "@/lib/opportunity";
 import { hasLushaKey } from "@/lib/lusha";
 import {
   EMPLOYMENT_KINDS,
@@ -13,6 +15,7 @@ import {
   type ManagedAgency,
 } from "@/lib/hunt";
 import { normalizeBenchPeople, type BenchPerson } from "@/lib/bench";
+import { PRODUCT } from "@/lib/product-brand";
 import { listAgencySuggestions } from "@/lib/store";
 import { z } from "zod";
 
@@ -53,6 +56,35 @@ function resolveAgencies(hunt: Awaited<ReturnType<typeof loadHuntSettings>>): Ma
 export async function GET() {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+
+  if (isDemoUser(session)) {
+    const agencies: ManagedAgency[] = demoSeedWatchlist().map((a) => ({
+      id: a.id,
+      name: a.name,
+      aliases: [a.name.toLowerCase()],
+      enabled: true,
+      recruiters: a.recruiters.map((r) => ({
+        name: r.name,
+        title: r.title,
+        linkedinUrl: r.linkedinUrl,
+        enabled: true,
+      })),
+    }));
+    return NextResponse.json({
+      name: PRODUCT.name,
+      market: "NL · interim & ZZP",
+      roles: ["Scrum Master", "Java Developer", "Cloud Engineer", "Data Engineer"],
+      requireContract: true,
+      employmentKinds: ["zzp", "interim", "contract"],
+      agencies,
+      suggestions: [],
+      bench: [],
+      catalog: { employmentKinds: EMPLOYMENT_KINDS },
+      demoMode: true,
+      user: { email: session.email, role: session.role },
+    });
+  }
+
   const hunt = await loadHuntSettings();
   const agencies = resolveAgencies(hunt);
   const isAdmin = session.role === "admin";
@@ -81,6 +113,9 @@ export async function GET() {
 export async function PUT(req: Request) {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  if (isDemoUser(session)) {
+    return NextResponse.json({ error: "Demo · instellingen zijn vast (sample)" }, { status: 403 });
+  }
   const parsed = Patch.safeParse(await req.json());
   if (!parsed.success) {
     return NextResponse.json({ error: "ongeldig" }, { status: 400 });

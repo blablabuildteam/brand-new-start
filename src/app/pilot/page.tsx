@@ -1,10 +1,12 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { BlablaLogo } from "@/components/blabla-logo";
 import { PrintPilotButton } from "@/app/pilot/print-button";
 import { BnsSignPanel } from "@/app/pilot/sign-panel";
 import { SignStatus } from "@/components/sign-status";
 import { getSession, isAdmin } from "@/lib/auth";
+import { canSeePartnerDeal } from "@/lib/demo-mode";
 import {
   ACCOUNT_LAPSE_MONTHS,
   AGREEMENT_VERSION,
@@ -40,6 +42,7 @@ function pct(n: number) {
 
 export default async function PilotPage() {
   const [session, bns] = await Promise.all([getSession(), loadBnsSignature()]);
+  if (!canSeePartnerDeal(session)) redirect("/radar");
   const viewer = !session ? "anon" : isAdmin(session) ? "admin" : "bns";
   const current = signedCurrent(bns);
   return (

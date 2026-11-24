@@ -3,6 +3,8 @@ import { z } from "zod";
 import { getSession } from "@/lib/auth";
 import { logFromSession } from "@/lib/activity-log";
 import { listActionQueue, listCrmDesk, setCrmStage } from "@/lib/crm";
+import { isDemoUser } from "@/lib/demo-mode";
+import { getDemoCrmPayload } from "@/lib/demo-workspace";
 import { loadHuntSettings } from "@/lib/hunt";
 import { hasLushaKey } from "@/lib/lusha";
 import type { CrmStage } from "@/lib/desk-meta";
@@ -10,6 +12,7 @@ import type { CrmStage } from "@/lib/desk-meta";
 export async function GET() {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  if (isDemoUser(session)) return NextResponse.json(getDemoCrmPayload());
   await loadHuntSettings();
   const { items, backlog, results } = await listCrmDesk();
   const actionQueue = listActionQueue(items);
@@ -55,6 +58,12 @@ const Body = z.object({
 export async function POST(req: Request) {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  if (isDemoUser(session)) {
+    return NextResponse.json(
+      { error: "Demo · stages worden niet opgeslagen in live data" },
+      { status: 403 }
+    );
+  }
   const parsed = Body.safeParse(await req.json().catch(() => ({})));
   if (!parsed.success) return NextResponse.json({ error: "ongeldig" }, { status: 400 });
   const item = await setCrmStage(parsed.data.id, parsed.data.stage as CrmStage, {

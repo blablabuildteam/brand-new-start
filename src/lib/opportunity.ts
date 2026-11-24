@@ -277,6 +277,44 @@ function demoLeads(): AgencyLead[] {
   );
 }
 
+/** Sample posts voor de demo-omgeving (los van live BNS-data). */
+export function listDemoSeedLeads(opts?: {
+  reviews?: Record<string, { status: "confirmed" | "rejected"; clientName?: string }>;
+  ai?: Record<string, { guess: ClientGuess; at: string; model?: string }>;
+}): AgencyLead[] {
+  const reviewsMap = opts?.reviews || {};
+  const aiMap = opts?.ai || {};
+  return demoSeeds().map((s) =>
+    buildLead({
+      id: s.id,
+      demo: true,
+      agency: s.agency,
+      recruiter: s.recruiter,
+      title: s.title,
+      text: s.text,
+      evidenceUrl: s.evidenceUrl,
+      storedReview: reviewsMap[s.id] || null,
+      storedAi: aiMap[s.id] || null,
+    })
+  );
+}
+
+export function demoSeedWatchlist(): WatchlistRow[] {
+  const byAgency = new Map<string, WatchlistRow>();
+  for (const s of demoSeeds()) {
+    const row = byAgency.get(s.agency.id) || { id: s.agency.id, name: s.agency.name, recruiters: [] };
+    if (s.recruiter.name && !row.recruiters.some((r) => r.name === s.recruiter.name)) {
+      row.recruiters.push({
+        name: s.recruiter.name,
+        title: s.recruiter.title || undefined,
+        linkedinUrl: s.recruiter.url || undefined,
+      });
+    }
+    byAgency.set(s.agency.id, row);
+  }
+  return [...byAgency.values()];
+}
+
 function reviewFromRaw(raw: Record<string, unknown> | null | undefined): Review | null {
   const v = raw?.leadReview;
   if (!v || typeof v !== "object") return null;
@@ -542,24 +580,11 @@ export async function leadSourceForAi(id: string): Promise<{
 } | null> {
   const demo = demoSeeds().find((s) => s.id === id);
   if (demo) {
-    const meta = await loadDeskMeta();
-    const stored = meta.leadReviews[demo.id];
-    const storedAi = meta.aiGuesses[demo.id];
-    if (stored) reviews().set(demo.id, { status: stored.status, clientName: stored.clientName });
-    if (storedAi) aiGuesses().set(demo.id, storedAi);
-    const lead = buildLead({
-      id: demo.id,
-      demo: true,
-      agency: demo.agency,
-      recruiter: demo.recruiter,
-      title: demo.title,
-      text: demo.text,
-      evidenceUrl: demo.evidenceUrl,
-      storedReview: stored ? { status: stored.status, clientName: stored.clientName } : null,
-      storedAi: storedAi || null,
-    });
+    const { listDemoLeads } = await import("@/lib/demo-workspace");
+    const lead = listDemoLeads().find((l) => l.id === id);
+    if (!lead) return null;
     return {
-      lead: applyStoredAi(applyReview(lead)),
+      lead,
       title: demo.title,
       text: demo.text,
       agencyName: demo.agency.name,
@@ -591,6 +616,11 @@ export async function saveAiGuess(
   guess: ClientGuess,
   meta?: { model?: string }
 ): Promise<AgencyLead | null> {
+  if (id.startsWith("demo_")) {
+    const { saveDemoAiGuess } = await import("@/lib/demo-workspace");
+    return saveDemoAiGuess(id, guess, meta?.model);
+  }
+
   const stored: StoredAi = {
     guess,
     at: new Date().toISOString(),
@@ -616,6 +646,10 @@ export async function saveAiGuess(
 }
 
 export async function reopenLead(id: string): Promise<AgencyLead | null> {
+  if (id.startsWith("demo_")) {
+    const { reviewDemoLead } = await import("@/lib/demo-workspace");
+    return reviewDemoLead(id, "reopen");
+  }
   const data = await listAgencyLeads();
   const lead = [...data.live, ...data.demo].find((l) => l.id === id);
   if (!lead) return null;
@@ -631,6 +665,10 @@ export async function reviewLead(
   action: "confirmed" | "rejected",
   clientName?: string
 ): Promise<AgencyLead | null> {
+  if (id.startsWith("demo_")) {
+    const { reviewDemoLead } = await import("@/lib/demo-workspace");
+    return reviewDemoLead(id, action, clientName);
+  }
   const data = await listAgencyLeads();
   const lead = [...data.live, ...data.demo].find((l) => l.id === id);
   if (!lead) return null;
