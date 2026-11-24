@@ -2,7 +2,7 @@
 
 /** Recruitment Scout mark — lime spark lockup (Apollo-inspired, own geometry). */
 
-export type ScoutMarkTone = "light" | "sage" | "outline" | "ink" | "pine";
+export type ScoutMarkTone = "light" | "sage" | "outline" | "ink" | "pine" | "cobalt";
 
 export type ScoutWordFont =
   | "outfit"
@@ -30,6 +30,7 @@ const TONES: Record<
   outline: { bg: "transparent", fg: "#0a0a0a", stroke: "#0a0a0a" },
   ink: { bg: "#0a0a0a", fg: "#f9ff2c" },
   pine: { bg: "#1f4a3d", fg: "#f6f2ea" },
+  cobalt: { bg: "#2340f0", fg: "#ffffff" },
 };
 
 const FONTS: Record<ScoutWordFont, string> = {

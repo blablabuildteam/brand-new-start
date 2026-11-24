@@ -7,13 +7,6 @@ import { ScoutMark } from "@/components/scout-mark";
 import { WaitlistForm } from "@/components/waitlist-form";
 import "./landing.css";
 
-const INBOX = [
-  { from: "Recruiter-post, Den Haag", role: "Senior Rust Developer", hit: "Overheids-ICT-dienst", pct: 88 },
-  { from: "Recruiter-post, Utrecht", role: "Freelance Cloud Platform Engineer", hit: "Spoorvervoerder", pct: 90 },
-  { from: "Recruiter-post", role: "Full Stack Developer (.NET / Angular)", hit: "Financiële toezichthouder", pct: 90 },
-  { from: "Recruiter-post, Arnhem", role: "Data Engineer (Snowflake, Matillion)", hit: "Netbeheerder", pct: 90 },
-] as const;
-
 /** Uit de pilot, stand november 2026. */
 const PILOT = [
   { n: "301", text: "posts van recruiters gelezen, van zes bureaus" },
@@ -22,49 +15,61 @@ const PILOT = [
   { n: "54", text: "openingen bij 45 eindklanten op de jobboards" },
 ] as const;
 
-const FINDS = [
-  {
-    said: "Voor een directe eindklant in Arnhem zoek ik een ervaren Senior Java/Kotlin Developer.",
-    who: "Uitvoeringsorganisatie van het Rijk",
-    pct: 90,
-    proof: "Dezelfde opdracht stond op bijoranje.nl.",
-  },
-  {
-    said: "Voor een toonaangevende overheidsorganisatie ben ik op zoek naar een Solution Architect.",
-    who: "Provincie in Zuid-Nederland",
-    pct: 90,
-    proof: "Zelfde rol, stack en regio op freep.nl.",
-  },
-  {
-    said: "Gezocht: Data Engineer Snowflake / Matillion (detachering).",
-    who: "Netbeheerder in Arnhem",
-    pct: 90,
-    proof: "Inhuurdesk.nl noemt de opdrachtgever bij naam.",
-  },
-  {
-    said: "Voor een directe eindklant in Arnhem ben ik op zoek naar een freelance Platform Engineer.",
-    who: null,
-    pct: 40,
-    proof: "Alleen algemene woorden. Scout noemt geen naam en laat het aan jou.",
-  },
-] as const;
-
 const STEPS = [
   {
     title: "Meelezen",
     text: "Jobboards en de posts van recruiters die je volgt. Elke ochtend, of wanneer jij op sync drukt.",
+    ui: "28 nieuwe posts",
   },
   {
     title: "De klant vinden",
     text: "Bij “voor een klant van mij” zoekt Scout de originele vacature op en noemt de eindklant, met het bewijs erbij.",
+    ui: "Netbeheerder, 90%",
   },
   {
     title: "De juiste persoon",
     text: "De hiring manager bij die eindklant. Mail en telefoon haal je pas op als je ze echt nodig hebt.",
+    ui: "Teamlead Data",
   },
   {
     title: "Een goed eerste bericht",
     text: "Over hun opdracht, niet over jouw bureau. Jij past aan en verstuurt.",
+    ui: "Bericht klaar",
+  },
+] as const;
+
+const FINDS = [
+  {
+    said: "Voor een directe eindklant in Arnhem zoek ik een ervaren Senior Java/Kotlin Developer.",
+    date: "28 sep",
+    who: "Uitvoeringsorganisatie van het Rijk",
+    pct: 90,
+    site: "bijoranje.nl",
+    proof: "Zelfde opdracht, zelfde regio",
+  },
+  {
+    said: "Voor een toonaangevende overheidsorganisatie ben ik op zoek naar een Solution Architect.",
+    date: "25 aug",
+    who: "Provincie in Zuid-Nederland",
+    pct: 90,
+    site: "freep.nl",
+    proof: "Zelfde rol, stack en regio",
+  },
+  {
+    said: "Gezocht: Data Engineer Snowflake / Matillion (detachering).",
+    date: "25 mrt",
+    who: "Netbeheerder in Arnhem",
+    pct: 90,
+    site: "inhuurdesk.nl",
+    proof: "Noemt de opdrachtgever bij naam",
+  },
+  {
+    said: "Voor een directe eindklant in Arnhem ben ik op zoek naar een freelance Platform Engineer.",
+    date: "23 sep",
+    who: null,
+    pct: 40,
+    site: null,
+    proof: "Alleen algemene woorden. Scout noemt geen naam en laat het aan jou.",
   },
 ] as const;
 
@@ -84,7 +89,7 @@ export default function HomeDesk() {
     <div className="lp">
       <header className="lp-nav">
         <Link href="/" className="lp-brand" aria-label="Recruitment Scout home">
-          <ScoutMark className="h-8 w-8" tone="pine" animated={false} />
+          <ScoutMark className="h-8 w-8" tone="cobalt" animated={false} />
           <span>Recruitment Scout</span>
         </Link>
         <nav className="lp-nav__links" aria-label="Primary">
@@ -115,31 +120,57 @@ export default function HomeDesk() {
           </div>
         </div>
 
-        <aside className="lp-inbox lp-in lp-in--2" aria-label="Wat Scout recent vond">
-          <p className="lp-inbox__head">Recent gevonden</p>
-          <ol className="lp-inbox__list">
-            {INBOX.map((w, i) => (
-              <li key={w.role} className="lp-inbox__row" style={{ animationDelay: `${0.35 + i * 0.2}s` }}>
-                <div className="lp-inbox__main">
-                  <p className="lp-inbox__role">{w.role}</p>
-                  <p className="lp-inbox__from">{w.from}</p>
-                </div>
-                <p className="lp-inbox__hit">
-                  {w.hit}
-                  <span>{w.pct}%</span>
-                </p>
-              </li>
-            ))}
-          </ol>
-        </aside>
+        <figure className="lp-shot" aria-label="Eén vondst uit de pilot, van post tot hiring manager">
+          <div className="lp-shot__post lp-in lp-in--2">
+            <div className="lp-shot__by">
+              <span className="lp-shot__avatar" aria-hidden>
+                R
+              </span>
+              <span>
+                <strong>Recruiter bij een IT-bureau</strong>
+                <em>LinkedIn, 9 nov</em>
+              </span>
+            </div>
+            <p>
+              Voor <mark>een klant in Den Haag</mark> ben ik op zoek naar een Senior Rust Developer die wil bijdragen
+              aan…
+            </p>
+          </div>
+
+          <div className="lp-shot__scout lp-in lp-in--3">
+            <div className="lp-shot__head">
+              <span className="lp-shot__tag">
+                <ScoutMark className="h-4 w-4" tone="cobalt" animated={false} /> Scout
+              </span>
+              <span className="lp-shot__pct">88% zeker</span>
+            </div>
+            <p className="lp-shot__who">Overheids-ICT-dienst, Den Haag</p>
+            <p className="lp-shot__proof">
+              <span className="lp-chip">mipublic.nl</span>
+              Zelfde team en stack: DevOps Engineer (Go, Kubernetes)
+            </p>
+            <div className="lp-shot__hm">
+              <span className="lp-shot__hm-avatar" aria-hidden />
+              <span className="lp-shot__hm-text">
+                <span className="lp-blur" aria-hidden>
+                  Marieke van Dijk
+                </span>
+                <em>Teamlead DevOps</em>
+              </span>
+              <span className="lp-shot__btns" aria-hidden>
+                <span>Mail</span>
+                <span>Bel</span>
+              </span>
+            </div>
+          </div>
+          <figcaption>Echte post uit de pilot. Klant vervangen door sector, manager onherkenbaar gemaakt.</figcaption>
+        </figure>
       </section>
 
       <main>
         <section className="lp-pilot" aria-label="Resultaten uit de pilot">
           <div className="lp-pilot__inner">
-            <p className="lp-pilot__intro">
-              Uit de pilot met een Nederlands IT-bureau, posts van het afgelopen jaar.
-            </p>
+            <p className="lp-pilot__intro">Uit de pilot met een Nederlands IT-bureau, posts van het afgelopen jaar.</p>
             <dl className="lp-pilot__grid">
               {PILOT.map((p) => (
                 <div key={p.text}>
@@ -151,6 +182,41 @@ export default function HomeDesk() {
           </div>
         </section>
 
+        <section className="lp-section">
+          <div className="lp-case__head">
+            <h2 className="lp-h2">
+              Het bureau zegt “een klant”.
+              <br />
+              Scout zegt <em>wie</em>.
+            </h2>
+            <p className="lp-case__note">
+              Echte posts uit de pilot. Scout zoekt de opdracht elders online terug en laat zien waar. Zonder bewijs
+              geen naam.
+            </p>
+          </div>
+          <ul className="lp-finds">
+            {FINDS.map((f) => (
+              <li key={f.said} className={`lp-find ${f.who ? "" : "lp-find--open"}`}>
+                <div className="lp-find__post">
+                  <p className="lp-find__meta">Recruiter-post, {f.date}</p>
+                  <blockquote>“{f.said}”</blockquote>
+                </div>
+                <div className="lp-find__answer">
+                  <p className="lp-find__who">
+                    {f.who ?? "Nog geen naam"}
+                    <span>{f.pct}%</span>
+                  </p>
+                  <p className="lp-find__proof">
+                    {f.site ? <span className="lp-chip">{f.site}</span> : null}
+                    {f.proof}
+                  </p>
+                </div>
+              </li>
+            ))}
+          </ul>
+          <p className="lp-finds__foot">Namen van eindklanten zijn hier vervangen door hun sector.</p>
+        </section>
+
         <section id="werk" className="lp-band scroll-mt-10">
           <div className="lp-section">
             <h2 className="lp-h2">Van een vage post naar een naam en een nummer.</h2>
@@ -160,6 +226,7 @@ export default function HomeDesk() {
                   <span className="lp-steps__n">{i + 1}</span>
                   <h3>{s.title}</h3>
                   <p>{s.text}</p>
+                  <span className="lp-steps__ui">{s.ui}</span>
                 </li>
               ))}
             </ol>
@@ -170,65 +237,34 @@ export default function HomeDesk() {
           </div>
         </section>
 
-        <section className="lp-section">
-          <div className="lp-case__head">
-            <h2 className="lp-h2">
-              Het bureau zegt “een klant”.
-              <br />
-              Scout zegt wie.
-            </h2>
-            <p className="lp-case__note">
-              Echte posts uit de pilot. Scout zoekt de opdracht elders online terug en laat zien waar. Zonder bewijs
-              geen naam.
+        <section id="toegang" className="lp-section lp-access scroll-mt-10">
+          <div>
+            <h2 className="lp-h2">Voor bureaus die eerder bij de eindklant willen zijn.</h2>
+            <p className="lp-access__text">
+              Geen marketplace en geen kandidatenbank. Een werkplek voor een klein aantal bureaus.
+              {email ? null : " Laat je gegevens achter, dan nemen we contact op."}
+            </p>
+            <p className="lp-access__alt">
+              {email ? (
+                <Link href="/radar">Naar de desk</Link>
+              ) : (
+                <>
+                  Kreeg je een demo-wachtwoord? <Link href="/demo">Open de demo</Link>
+                </>
+              )}
             </p>
           </div>
-          <ul className="lp-finds">
-            {FINDS.map((f) => (
-              <li key={f.said} className={`lp-find ${f.who ? "" : "lp-find--open"}`}>
-                <blockquote>“{f.said}”</blockquote>
-                <div className="lp-find__answer">
-                  <p className="lp-find__who">
-                    {f.who ?? "Nog geen naam"}
-                    <span>{f.pct}%</span>
-                  </p>
-                  <p className="lp-find__proof">{f.proof}</p>
-                </div>
-              </li>
-            ))}
-          </ul>
-          <p className="lp-finds__foot">Namen van eindklanten zijn hier vervangen door hun sector.</p>
-        </section>
-
-        <section id="toegang" className="lp-band scroll-mt-10">
-          <div className="lp-section lp-access">
-            <div>
-              <h2 className="lp-h2">Voor bureaus die eerder bij de eindklant willen zijn.</h2>
-              <p className="lp-access__text">
-                Geen marketplace en geen kandidatenbank. Een werkplek voor een klein aantal bureaus.
-                {email ? null : " Laat je gegevens achter, dan nemen we contact op."}
-              </p>
-              <p className="lp-access__alt">
-                {email ? (
-                  <Link href="/radar">Naar de desk</Link>
-                ) : (
-                  <>
-                    Kreeg je een demo-wachtwoord? <Link href="/demo">Open de demo</Link>
-                  </>
-                )}
-              </p>
+          {!email ? (
+            <div className="lp-access__form">
+              <WaitlistForm />
             </div>
-            {!email ? (
-              <div className="lp-access__form">
-                <WaitlistForm />
-              </div>
-            ) : null}
-          </div>
+          ) : null}
         </section>
       </main>
 
       <footer className="lp-foot">
         <span className="lp-brand lp-brand--small">
-          <ScoutMark className="h-5 w-5" tone="pine" animated={false} />
+          <ScoutMark className="h-5 w-5" tone="cobalt" animated={false} />
           <span>Recruitment Scout</span>
         </span>
         <a href="https://blablabuild.com" target="_blank" rel="noopener noreferrer" className="lp-foot__by">

@@ -34,7 +34,7 @@ export default function DemoGate() {
     <div className="lp lp-gate">
       <header className="lp-nav">
         <Link href="/" className="lp-brand" aria-label="Recruitment Scout home">
-          <ScoutMark className="h-8 w-8" tone="pine" animated={false} />
+          <ScoutMark className="h-8 w-8" tone="cobalt" animated={false} />
           <span>Recruitment Scout</span>
         </Link>
       </header>
