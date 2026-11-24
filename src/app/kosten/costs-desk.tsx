@@ -362,6 +362,7 @@ function DailySection({ daily }: { daily: DailyCosts }) {
               onFocus={() => setFocus(d.day)}
               onClick={() => setFocus(d.day)}
               title={`${dayLabel(d.day, true)} · ${eur(d.total)}`}
+              aria-label={`${dayLabel(d.day, true)} · ${eur(d.total)}`}
             >
               <span className="cost-chart__stack" style={{ height: `${(d.total / max) * 100}%` }}>
                 {PARTS.filter((p) => d.parts[p] > 0).map((p) => (
@@ -373,9 +374,19 @@ function DailySection({ daily }: { daily: DailyCosts }) {
                 ))}
               </span>
               {!d.measured && d.total > 0 ? <i className="cost-chart__est" /> : null}
-              <span className="cost-chart__x">{Number(d.day.slice(8))}</span>
             </button>
           ))}
+        </div>
+        <div className="cost-chart__axis" aria-hidden="true">
+          {daily.days.map((d, i) => {
+            const day = Number(d.day.slice(8));
+            const show = day === 1 || i === 0 || i === daily.days.length - 1 || day % 2 === 0;
+            return (
+              <span key={d.day} className={show ? undefined : "is-hide"}>
+                {show ? day : ""}
+              </span>
+            );
+          })}
         </div>
       </div>
       <div className="cost-legend mt-2">

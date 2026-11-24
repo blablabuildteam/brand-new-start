@@ -2263,11 +2263,13 @@ button.radar-opp[aria-current="true"]:hover:not(:disabled) {
 .cost-chart {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
-  gap: 0.5rem;
+  grid-template-rows: auto auto;
+  column-gap: 0.5rem;
+  row-gap: 0.35rem;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: var(--surface);
-  padding: 0.8rem 0.8rem 0.4rem;
+  padding: 0.8rem 0.8rem 0.55rem;
 }
 .cost-chart__y {
   display: flex;
@@ -2284,6 +2286,7 @@ button.radar-opp[aria-current="true"]:hover:not(:disabled) {
   grid-auto-flow: column;
   grid-auto-columns: minmax(0, 1fr);
   gap: 3px;
+  height: 170px;
   background: repeating-linear-gradient(
     to bottom,
     transparent 0,
@@ -2299,11 +2302,11 @@ button.radar-opp[aria-current="true"]:hover:not(:disabled) {
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
-  height: 190px;
-  padding: 0 0 20px;
+  height: 170px;
   border: 0;
   background: none;
   cursor: pointer;
+  padding: 0;
 }
 .cost-chart__col:hover,
 .cost-chart__col.is-on {
@@ -2314,6 +2317,7 @@ button.radar-opp[aria-current="true"]:hover:not(:disabled) {
   display: flex;
   flex-direction: column-reverse;
   min-height: 0;
+  width: 100%;
   border-radius: 3px 3px 0 0;
   overflow: hidden;
 }
@@ -2338,7 +2342,7 @@ button.radar-opp[aria-current="true"]:hover:not(:disabled) {
 }
 .cost-chart__est {
   position: absolute;
-  bottom: 22px;
+  bottom: 2px;
   left: 50%;
   width: 4px;
   height: 4px;
@@ -2347,15 +2351,29 @@ button.radar-opp[aria-current="true"]:hover:not(:disabled) {
   background: var(--surface);
   opacity: 0.85;
 }
-.cost-chart__x {
-  position: absolute;
-  bottom: 2px;
-  left: 0;
-  right: 0;
+.cost-chart__axis {
+  grid-column: 2;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  gap: 3px;
+  border-top: 1px solid var(--line);
+  padding-top: 0.35rem;
+}
+.cost-chart__axis span {
   font-family: var(--mono);
   font-size: 0.58rem;
   color: var(--muted);
   text-align: center;
+  line-height: 1;
+}
+.cost-chart__axis span.is-hide {
+  visibility: hidden;
+}
+@media (min-width: 720px) {
+  .cost-chart__axis span.is-hide {
+    visibility: visible;
+  }
 }
 .cost-legend {
   display: flex;
