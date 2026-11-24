@@ -3,7 +3,7 @@
 import { FormEvent, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ScoutMark } from "@/components/scout-mark";
+import { ScoutBrandText, ScoutMark } from "@/components/scout-mark";
 import "../landing.css";
 
 export default function DemoGate() {
@@ -35,7 +35,7 @@ export default function DemoGate() {
       <header className="lp-nav">
         <Link href="/" className="lp-brand" aria-label="Recruitment Scout home">
           <ScoutMark className="h-8 w-8" tone="cobalt" animated={false} />
-          <span>Recruitment Scout</span>
+          <ScoutBrandText />
         </Link>
       </header>
 

@@ -284,7 +284,7 @@ export function AppShell({
               className="partner-logo h-9 w-auto max-w-[9.5rem] object-contain"
             />
           ) : (
-            <ScoutWordmark tone="cobalt" lockup="scout" font="manrope" compact />
+            <ScoutWordmark tone="cobalt" lockup="brand" compact />
           )}
         </span>
         <ScoutMark className="rail-brand__mark h-8 w-8" tone="cobalt" animated={false} />

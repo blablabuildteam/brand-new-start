@@ -19,7 +19,8 @@ export type ScoutLockup =
   | "stack"
   | "scout"
   | "pair"
-  | "slash";
+  | "slash"
+  | "brand";
 
 const TONES: Record<
   ScoutMarkTone,
@@ -140,11 +141,20 @@ export function ScoutWordmark({
           <span>Scout</span>
         </span>
       ) : null}
+      {lockup === "brand" ? <ScoutBrandText /> : null}
       {lockup === "slash" ? (
         <span className="scout-wm__slash" style={face}>
           Recruitment <span className="scout-wm__sep">/</span> Scout
         </span>
       ) : null}
+    </span>
+  );
+}
+
+export function ScoutBrandText() {
+  return (
+    <span className="scout-wm__brand">
+      Recruitment <em>Scout</em>
     </span>
   );
 }

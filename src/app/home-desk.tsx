@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { BlablaLogo } from "@/components/blabla-logo";
-import { ScoutMark } from "@/components/scout-mark";
+import { ScoutBrandText, ScoutMark } from "@/components/scout-mark";
 import { WaitlistForm } from "@/components/waitlist-form";
 import "./landing.css";
 
@@ -90,7 +90,7 @@ export default function HomeDesk() {
       <header className="lp-nav">
         <Link href="/" className="lp-brand" aria-label="Recruitment Scout home">
           <ScoutMark className="h-8 w-8" tone="cobalt" animated={false} />
-          <span>Recruitment Scout</span>
+          <ScoutBrandText />
         </Link>
         <nav className="lp-nav__links" aria-label="Primary">
           <a href="#werk">Hoe het werkt</a>
@@ -267,7 +267,7 @@ export default function HomeDesk() {
       <footer className="lp-foot">
         <span className="lp-brand lp-brand--small">
           <ScoutMark className="h-5 w-5" tone="cobalt" animated={false} />
-          <span>Recruitment Scout</span>
+          <ScoutBrandText />
         </span>
         <a href="https://blablabuild.com" target="_blank" rel="noopener noreferrer" className="lp-foot__by">
           gemaakt door <BlablaLogo className="h-4 w-4" /> blablabuild

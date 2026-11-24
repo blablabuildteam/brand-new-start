@@ -4369,8 +4369,29 @@ body:has(.desk-home--scout) {
   width: 2.15rem;
 }
 
+.scout-wm__brand {
+  display: block;
+  font-family: "DM Sans", system-ui, sans-serif;
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  white-space: nowrap;
+  color: inherit;
+}
+.scout-wm__brand em {
+  font-family: "Instrument Serif", Georgia, serif;
+  font-style: italic;
+  font-weight: 400;
+  font-size: 1.22em;
+  letter-spacing: 0;
+  color: #2340f0;
+}
 .scout-wm--compact {
   gap: 0.45rem;
+}
+.scout-wm--compact .scout-wm__brand {
+  font-size: 1rem;
 }
 .scout-wm--compact .scout-wm__mark {
   height: 1.65rem;
