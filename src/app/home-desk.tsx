@@ -9,7 +9,7 @@ import "./landing.css";
 
 /** Uit de pilot, stand november 2026. */
 const PILOT = [
-  { n: "301", label: "Gelezen", text: "posts van recruiters, van zes bureaus" },
+  { n: "301", label: "Gelezen", text: "posts van recruiters, van zes recruitmentbureaus" },
   { n: "172", label: "Voorgesteld", text: "keer een eindklant uit een vage post" },
   { n: "60", label: "Sterk", text: "daarvan met 80% zekerheid of meer" },
   { n: "54", label: "Op jobboards", text: "openingen bij 45 eindklanten" },
@@ -33,7 +33,7 @@ const STEPS = [
   },
   {
     title: "Een goed eerste bericht",
-    text: "Over hun opdracht, niet over jouw bureau. Jij past aan en verstuurt.",
+    text: "Over hun opdracht, niet over jouw recruitmentbureau. Jij past aan en verstuurt.",
     ui: "Bericht klaar",
   },
 ] as const;
@@ -107,8 +107,8 @@ export default function HomeDesk() {
             Hun klant, <em>jouw</em> opdracht.
           </h1>
           <p className="lp-hero__lede lp-in lp-in--2">
-            Andere bureaus posten “een klant van mij zoekt…”. Scout zoekt uit wie die klant is en zet de hiring
-            manager voor je klaar. Zo bied je zelf aan, rechtstreeks bij de eindklant.
+            Andere recruitmentbureaus posten “een klant van mij zoekt…”. Scout zoekt uit wie die klant is en zet
+            de hiring manager voor je klaar. Zo bied je zelf aan, rechtstreeks bij de eindklant.
           </p>
           <div className="lp-hero__cta lp-in lp-in--3">
             <Link href="/demo" className="lp-btn lp-btn--primary">
@@ -127,7 +127,7 @@ export default function HomeDesk() {
                 R
               </span>
               <span>
-                <strong>Recruiter bij een IT-bureau</strong>
+                <strong>Recruiter bij een IT-recruitmentbureau</strong>
                 <em>LinkedIn, 25 mrt</em>
               </span>
             </div>
@@ -169,7 +169,9 @@ export default function HomeDesk() {
       <main>
         <section className="lp-pilot" aria-label="Resultaten uit de pilot">
           <div className="lp-pilot__inner">
-            <p className="lp-pilot__intro">Uit de pilot met een Nederlands IT-bureau, posts van het afgelopen jaar.</p>
+            <p className="lp-pilot__intro">
+              Uit de pilot met een Nederlands IT-recruitmentbureau, posts van het afgelopen jaar.
+            </p>
             <dl className="lp-pilot__grid">
               {PILOT.map((p) => (
                 <div key={p.label} className="lp-pilot__card">
@@ -187,7 +189,7 @@ export default function HomeDesk() {
         <section className="lp-section">
           <div className="lp-case__head">
             <h2 className="lp-h2">
-              Het bureau zegt “een klant”.
+              Het recruitmentbureau zegt “een klant”.
               <br />
               Scout zegt <em>wie</em>.
             </h2>
@@ -241,9 +243,9 @@ export default function HomeDesk() {
 
         <section id="toegang" className="lp-section lp-access scroll-mt-10">
           <div>
-            <h2 className="lp-h2">Voor bureaus die eerder bij de eindklant willen zijn.</h2>
+            <h2 className="lp-h2">Voor recruitmentbureaus die eerder bij de eindklant willen zijn.</h2>
             <p className="lp-access__text">
-              Geen marketplace en geen kandidatenbank. Een werkplek voor een klein aantal bureaus.
+              Geen marketplace en geen kandidatenbank. Een werkplek voor een klein aantal IT-recruitmentbureaus.
               {email ? null : " Laat je gegevens achter, dan nemen we contact op."}
             </p>
             <p className="lp-access__alt">
