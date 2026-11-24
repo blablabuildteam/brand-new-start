@@ -104,11 +104,11 @@ export default function HomeDesk() {
       <section className="lp-hero">
         <div className="lp-hero__copy">
           <h1 className="lp-hero__title lp-in">
-            Weet wie de klant is, <em>voordat</em> je concurrent belt.
+            Hun klant, <em>jouw</em> opdracht.
           </h1>
           <p className="lp-hero__lede lp-in lp-in--2">
-            Bureaus posten “een klant van mij zoekt…”. Scout leest mee, zoekt uit welke organisatie erachter zit en
-            zet de hiring manager voor je klaar.
+            Andere bureaus posten “een klant van mij zoekt…”. Scout zoekt uit wie die klant is en zet de hiring
+            manager voor je klaar. Zo bied je zelf aan, rechtstreeks bij de eindklant.
           </p>
           <div className="lp-hero__cta lp-in lp-in--3">
             <Link href="/demo" className="lp-btn lp-btn--primary">
@@ -147,7 +147,7 @@ export default function HomeDesk() {
             <p className="lp-shot__who">Overheids-ICT-dienst, Den Haag</p>
             <p className="lp-shot__proof">
               <span className="lp-chip">mipublic.nl</span>
-              Zelfde team en stack: DevOps Engineer (Go, Kubernetes)
+              Deze dienst zoekt in Den Haag vergelijkbare engineers
             </p>
             <div className="lp-shot__hm">
               <span className="lp-shot__hm-avatar" aria-hidden />

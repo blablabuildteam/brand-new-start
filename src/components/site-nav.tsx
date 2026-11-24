@@ -41,7 +41,7 @@ export function SiteNav({
       <header className="scout-nav pt-[env(safe-area-inset-top)]">
         <div className="scout-nav__bar">
           <Link href="/" className="scout-nav__brand" aria-label={`${name} home`} onClick={() => setOpen(false)}>
-            <ScoutWordmark name={name} tone="ink" lockup="scout" font="manrope" />
+            <ScoutWordmark name={name} tone="cobalt" lockup="scout" font="manrope" />
           </Link>
 
           <button

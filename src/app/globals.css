@@ -3,20 +3,20 @@
 
 /* Desk: rustig neutraal — geel alleen spaarzaam (signal), geen schreeuwerige UI */
 :root {
-  --bg: #f4f4f3;
-  --bg-deep: #ebebeb;
-  --ink: #171717;
-  --header: #171717;
-  --header-deep: #0a0a0a;
-  --muted: #6f6f6f;
-  --line: #e6e6e5;
+  --bg: #f7f4ee;
+  --bg-deep: #efeae1;
+  --ink: #111318;
+  --header: #111318;
+  --header-deep: #0a0b0e;
+  --muted: #6b6f78;
+  --line: #e6e0d5;
   --surface: #ffffff;
-  --surface-2: #fafafa;
-  --accent: #2a2a2a;
-  --accent-bright: #404040;
-  --accent-soft: #efefee;
-  --signal: #f9ff2c;
-  --signal-bright: #fcff66;
+  --surface-2: #fbf9f5;
+  --accent: #2340f0;
+  --accent-bright: #3a55ff;
+  --accent-soft: #e8ecff;
+  --signal: #ff7a45;
+  --signal-bright: #ff9466;
   --green: #2f6b4f;
   --green-bright: #37805c;
   --green-soft: #eef6f1;
@@ -59,7 +59,7 @@ body {
 }
 
 a {
-  color: var(--accent);
+  color: var(--ink);
   text-underline-offset: 3px;
   transition: color 0.12s ease, background-color 0.12s ease, border-color 0.12s ease;
 }
