@@ -30,10 +30,10 @@ export function demoLogoUrl(prospect: DemoProspect): string | null {
   return `/demo-logos/${prospect.logoFile}`;
 }
 
+/** CTA zonder aparte agenda-tool: mailt Kevin. Optioneel overschrijven met DEMO_CTA_URL. */
 export function defaultDemoCalendarUrl() {
   return (
     process.env.DEMO_CTA_URL?.trim() ||
-    process.env.KEVIN_CALENDAR_URL?.trim() ||
     "mailto:kevin@blablabuild.com?subject=Recruitment%20Scout%20demo"
   );
 }

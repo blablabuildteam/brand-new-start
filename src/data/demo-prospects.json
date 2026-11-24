@@ -5,31 +5,9 @@
     "contactFirstName": "Mark",
     "website": "https://mastb.nl",
     "logoFile": "mastb-k7x2.png",
-    "brandColor": "#0b3d2e",
-    "niche": "Java/cloud",
-    "city": "Utrecht",
-    "calendarUrl": null
-  },
-  {
-    "slug": "northcode-p4m9",
-    "agencyName": "Northcode",
-    "contactFirstName": "Lisa",
-    "website": "https://northcode.example",
-    "logoFile": null,
-    "brandColor": "#1a4fd6",
-    "niche": "ZZP IT",
-    "city": "Amsterdam",
-    "calendarUrl": null
-  },
-  {
-    "slug": "shieldit-r2w8",
-    "agencyName": "Shield IT",
-    "contactFirstName": "Tom",
-    "website": "https://shieldit.example",
-    "logoFile": null,
-    "brandColor": "#7a1f2b",
-    "niche": "security",
-    "city": "Den Haag",
+    "brandColor": "#c4a035",
+    "niche": "Data/cloud",
+    "city": "Arnhem",
     "calendarUrl": null
   }
 ]

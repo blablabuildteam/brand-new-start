@@ -114,7 +114,7 @@ export function DemoProspectChrome({
               <img
                 src={prospect.logoUrl}
                 alt=""
-                className="h-7 w-7 rounded-md bg-white object-contain"
+                className="h-7 w-auto max-w-[7.5rem] rounded-md bg-[#111] object-contain px-1.5 py-0.5"
                 onError={() => setLogoBroken(true)}
               />
             ) : (
