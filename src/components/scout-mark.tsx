@@ -23,14 +23,14 @@ export type ScoutLockup =
 
 const TONES: Record<
   ScoutMarkTone,
-  { bg: string; fg: string; stroke?: string }
+  { bg: string; fg: string; stroke?: string; dot?: string }
 > = {
   light: { bg: "#f9ff2c", fg: "#0a0a0a" },
   sage: { bg: "#fcff66", fg: "#0a0a0a" },
   outline: { bg: "transparent", fg: "#0a0a0a", stroke: "#0a0a0a" },
   ink: { bg: "#0a0a0a", fg: "#f9ff2c" },
   pine: { bg: "#1f4a3d", fg: "#f6f2ea" },
-  cobalt: { bg: "#2340f0", fg: "#ffffff" },
+  cobalt: { bg: "#2340f0", fg: "#ffffff", dot: "#ff5a24" },
 };
 
 const FONTS: Record<ScoutWordFont, string> = {
@@ -86,7 +86,15 @@ export function ScoutMark({
           <path d="M6.5 6.5 L2.1 1.55 L0 0 L1.55 2.1 Z" fill={t.fg} opacity="0.85" />
           <path d="M-6.5 6.5 L-2.1 1.55 L0 0 L-1.55 2.1 Z" fill={t.fg} opacity="0.85" />
           <path d="M-6.5 -6.5 L-2.1 -1.55 L0 0 L-1.55 -2.1 Z" fill={t.fg} opacity="0.85" />
-          <circle cx="0" cy="0" r="1.35" fill={t.fg} className="scout-mark__blip" />
+          <circle
+            cx="0"
+            cy="0"
+            r={t.dot ? 2 : 1.35}
+            fill={t.dot || t.fg}
+            stroke={t.dot ? t.bg : "none"}
+            strokeWidth={t.dot ? 0.8 : 0}
+            className="scout-mark__blip"
+          />
         </g>
       </g>
     </svg>
