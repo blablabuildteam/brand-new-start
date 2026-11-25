@@ -12,7 +12,7 @@ const PILOT = [
   { n: "301", label: "Gelezen", text: "posts van recruiters, van zes recruitmentbureaus" },
   { n: "172", label: "Voorgesteld", text: "keer een eindklant uit een vage post" },
   { n: "60", label: "Sterk", text: "daarvan met 80% zekerheid of meer" },
-  { n: "54", label: "Op jobboards", text: "openingen bij 45 eindklanten" },
+  { n: "€34k", label: "Marge", text: "uit 2 plaatsingen binnen 2 maanden" },
 ] as const;
 
 const STEPS = [

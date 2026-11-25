@@ -420,11 +420,11 @@
   color: var(--lp-ink);
   box-shadow: 4px 4px 0 var(--lp-ink);
 }
-.lp-pilot__card:first-child {
+.lp-pilot__card:last-child {
   background: var(--lp-hot);
   color: #fff;
 }
-.lp-pilot__card:first-child .lp-pilot__label {
+.lp-pilot__card:last-child .lp-pilot__label {
   color: rgba(255, 255, 255, 0.85);
 }
 .lp-pilot__card dt {
