@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { inkOnBrand } from "@/lib/demo-prospects";
+import { DemoTour, startDemoTour } from "@/components/demo-tour";
 
 export type DemoProspectInfo = {
   slug: string;
@@ -16,7 +17,7 @@ export type DemoProspectInfo = {
   calendarUrl: string;
 };
 
-/** Welkomstblok + tracking + zachte CTA na 2 minuten. */
+/** Welkomstblok + tracking + tour + zachte CTA. */
 export function DemoProspectChrome({
   prospect,
   banner,
@@ -106,33 +107,51 @@ export function DemoProspectChrome({
 
       {prospect ? (
         <div
-          className="demo-welcome flex flex-wrap items-center gap-3 border-b border-[var(--line)] px-4 py-3 md:px-6"
+          className="demo-welcome grid gap-3 border-b border-[var(--line)] px-4 py-3 md:grid-cols-[1fr_auto] md:items-center md:px-6"
           style={{ borderLeft: `3px solid ${accent}` }}
         >
-          <div className="demo-welcome__brand flex min-w-0 items-center gap-2">
-            {!logoBroken && prospect.logoUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={prospect.logoUrl}
-                alt=""
-                className="h-7 w-auto max-w-[7.5rem] rounded-md bg-[#111] object-contain px-1.5 py-0.5"
-                onError={() => setLogoBroken(true)}
-              />
-            ) : (
-              <span
-                className="inline-flex h-7 max-w-[8rem] items-center truncate rounded-md px-2 text-[0.68rem] font-bold"
-                style={{ background: accent, color: inkOnBrand(accent) }}
-                title={prospect.agencyName}
-              >
-                {prospect.agencyName}
-              </span>
-            )}
-            <span className="text-[0.78rem] font-semibold text-[var(--ink)]">
-              Demo voor {prospect.agencyName}
-            </span>
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2.5">
+              {!logoBroken && prospect.logoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={prospect.logoUrl}
+                  alt=""
+                  className="h-8 w-auto max-w-[8rem] rounded-md bg-[#111] object-contain px-1.5 py-0.5"
+                  onError={() => setLogoBroken(true)}
+                />
+              ) : (
+                <span
+                  className="inline-flex h-8 max-w-[9rem] items-center truncate rounded-md px-2.5 text-[0.72rem] font-bold"
+                  style={{ background: accent, color: inkOnBrand(accent) }}
+                  title={prospect.agencyName}
+                >
+                  {prospect.agencyName}
+                </span>
+              )}
+              <div className="min-w-0">
+                <p className="text-[0.82rem] font-semibold text-[var(--ink)]">
+                  Demo voor {prospect.agencyName}
+                </p>
+                <p className="text-[0.72rem] text-[var(--muted)]">
+                  {[prospect.niche, prospect.city].filter(Boolean).join(" · ") || "Voorbeelddata"}
+                </p>
+              </div>
+            </div>
+            <p className="mt-2 text-[0.82rem] leading-snug text-[var(--muted)]">{prospect.welcome}</p>
           </div>
-          <p className="min-w-0 flex-1 text-[0.8rem] leading-snug text-[var(--muted)]">{prospect.welcome}</p>
+          <button
+            type="button"
+            className="btn-ink btn-tool shrink-0 justify-self-start text-[0.75rem] md:justify-self-end"
+            onClick={() => startDemoTour()}
+          >
+            Start rondleiding
+          </button>
         </div>
+      ) : null}
+
+      {prospect ? (
+        <DemoTour slug={prospect.slug} agencyName={prospect.agencyName} accent={accent} />
       ) : null}
 
       {showCta ? (
