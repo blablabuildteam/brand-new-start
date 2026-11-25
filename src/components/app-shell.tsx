@@ -15,6 +15,7 @@ import {
   DemoProspectChrome,
   type DemoProspectInfo,
 } from "@/components/demo-prospect-chrome";
+import { inkOnBrand } from "@/lib/demo-prospects";
 
 export type AppNavId =
   | "radar"
@@ -306,8 +307,11 @@ export function AppShell({
               <ScoutWordmark tone="cobalt" lockup="brand" compact />
               {demoProspect ? (
                 <span
-                  className="hidden max-w-[6.5rem] truncate rounded-md px-1.5 py-0.5 text-[0.62rem] font-bold text-white sm:inline"
-                  style={{ background: demoProspect.brandColor || "#2340f0" }}
+                  className="hidden max-w-[6.5rem] truncate rounded-md px-1.5 py-0.5 text-[0.62rem] font-bold sm:inline"
+                  style={{
+                    background: demoProspect.brandColor || "#2340f0",
+                    color: inkOnBrand(demoProspect.brandColor),
+                  }}
                   title={`Demo voor ${demoProspect.agencyName}`}
                 >
                   {demoProspect.agencyName}

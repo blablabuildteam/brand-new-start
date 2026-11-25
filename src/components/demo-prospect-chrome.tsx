@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { inkOnBrand } from "@/lib/demo-prospects";
 
 export type DemoProspectInfo = {
   slug: string;
@@ -119,8 +120,8 @@ export function DemoProspectChrome({
               />
             ) : (
               <span
-                className="inline-flex h-7 max-w-[8rem] items-center truncate rounded-md px-2 text-[0.68rem] font-bold text-white"
-                style={{ background: accent }}
+                className="inline-flex h-7 max-w-[8rem] items-center truncate rounded-md px-2 text-[0.68rem] font-bold"
+                style={{ background: accent, color: inkOnBrand(accent) }}
                 title={prospect.agencyName}
               >
                 {prospect.agencyName}

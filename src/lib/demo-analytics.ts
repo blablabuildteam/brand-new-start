@@ -96,7 +96,7 @@ export async function notifyFirstDemoVisit(slug: string) {
 
   await postAlertWebhook({
     title: "Demo geopend",
-    body: `${prospect.contactFirstName} · ${prospect.agencyName} (${slug})\n${prospect.niche} · ${prospect.city}`,
+    body: `${[prospect.contactFirstName.trim(), prospect.agencyName].filter(Boolean).join(" · ")} (${slug})\n${[prospect.niche.trim(), prospect.city.trim()].filter(Boolean).join(" · ")}`,
     href: `/admin/demos`,
   });
 
