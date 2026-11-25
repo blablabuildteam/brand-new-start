@@ -9,10 +9,10 @@ import "./landing.css";
 
 /** Uit de pilot, stand november 2026. */
 const PILOT = [
-  { n: "301", label: "Gelezen", text: "posts van recruiters, van zes recruitmentbureaus" },
-  { n: "172", label: "Voorgesteld", text: "keer een eindklant uit een vage post" },
-  { n: "60", label: "Sterk", text: "daarvan met 80% zekerheid of meer" },
-  { n: "€34k", label: "Marge", text: "uit 2 plaatsingen binnen 2 maanden" },
+  { n: "301", label: "Gelezen", text: "posts van recruiters bij zes bureaus" },
+  { n: "172", label: "Eindklant", text: "keer wist Scout wie er achter de vage post zat" },
+  { n: "60", label: "Belbaar", text: "daarvan sterk genoeg (≥80%) om de manager te zoeken" },
+  { n: "€34k", label: "Marge", text: "2 plaatsingen die daaruit volgden, binnen 2 maanden" },
 ] as const;
 
 const STEPS = [
@@ -170,7 +170,7 @@ export default function HomeDesk() {
         <section className="lp-pilot" aria-label="Resultaten uit de pilot">
           <div className="lp-pilot__inner">
             <p className="lp-pilot__intro">
-              Uit de pilot met een Nederlands IT-recruitmentbureau, posts van het afgelopen jaar.
+              Pilot met een Nederlands IT-recruitmentbureau: van meelezen tot marge.
             </p>
             <dl className="lp-pilot__grid">
               {PILOT.map((p) => (
