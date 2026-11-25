@@ -29,14 +29,14 @@ const STEPS: Step[] = [
   {
     id: "detail",
     title: "3 · Open een rij",
-    text: "Klik hierboven een kans open. Je ziet het bewijs en rechts de volgende actie. Daarna klik je hier op Volgende.",
+    text: "Klik een kans open. In het blok “Bewijs” zie je waarom Scout deze eindklant koos (score, bron, post). De knop rechts is de volgende stap.",
     href: "/kansen",
     cta: "Volgende: Bericht",
   },
   {
     id: "bericht",
     title: "4 · Bericht",
-    text: "Als mail/tel er is, staat hier een concept aan de hiring manager. Jij past aan en verstuurt zelf.",
+    text: "Op Bericht staan conceptmails voor managers met mail/tel. Open een kans met stap “Bericht”, of ga hierheen via het menu.",
     href: "/regie",
     cta: "Afronden",
   },

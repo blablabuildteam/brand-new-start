@@ -1088,9 +1088,50 @@ export default function KansenDesk({ initial }: { initial?: InitialCrm }) {
                             <p className="mt-2 text-[0.75rem] text-[var(--warn)]">{hmError}</p>
                           ) : null}
 
+                          {row.extractSummary || row.evidenceUrl || (row.kansFactors && row.kansFactors.length) ? (
+                            <div className="kans-proof">
+                              <p className="ws-label">Bewijs · waarom deze eindklant</p>
+                              {row.extractSummary ? (
+                                <p className="kans-proof__text">{row.extractSummary}</p>
+                              ) : null}
+                              <div className="kans-proof__row">
+                                {row.kans != null ? (
+                                  <ScoreChip
+                                    kans={row.kans}
+                                    parts={(row.kansFactors || []).map((f) => ({
+                                      label: f.label,
+                                      points: f.points,
+                                    }))}
+                                  />
+                                ) : null}
+                                {(row.kansFactors || []).slice(0, 3).map((f) => (
+                                  <span key={f.label} className="kans-proof__chip">
+                                    {f.label}
+                                  </span>
+                                ))}
+                                {row.evidenceUrl ? (
+                                  <a
+                                    href={row.evidenceUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="kans-proof__chip kans-proof__chip--link"
+                                  >
+                                    {(() => {
+                                      try {
+                                        return new URL(row.evidenceUrl!).hostname.replace(/^www\./, "");
+                                      } catch {
+                                        return "Bron";
+                                      }
+                                    })()}
+                                  </a>
+                                ) : null}
+                              </div>
+                            </div>
+                          ) : null}
+
                           <div className="kans-detail__foot">
                             <div className="kans-detail__foot-main">
-                              {row.lane === "direct" && row.kans != null ? (
+                              {row.lane === "direct" && row.kans != null && !row.extractSummary ? (
                                 <div className="kans-detail__score">
                                   <p className="ws-label">Jobboard-score</p>
                                   <div className="kans-detail__score-row">

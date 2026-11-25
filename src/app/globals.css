@@ -1795,6 +1795,50 @@ button.radar-opp[aria-current="true"]:hover:not(:disabled) {
   opacity: 0.5;
   cursor: default;
 }
+.kans-proof {
+  margin-top: 0.75rem;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid color-mix(in srgb, var(--line) 85%, transparent);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--surface-2) 70%, transparent);
+}
+.kans-proof__text {
+  margin-top: 0.25rem;
+  font-size: 0.84rem;
+  line-height: 1.4;
+  color: var(--ink);
+}
+.kans-proof__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.45rem;
+}
+.kans-proof__chip {
+  display: inline-flex;
+  align-items: center;
+  max-width: 16rem;
+  padding: 0.15rem 0.45rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.kans-proof__chip--link {
+  text-decoration: none;
+  color: #2340f0;
+  border-color: color-mix(in srgb, #2340f0 35%, var(--line));
+}
+.kans-proof__chip--link:hover {
+  background: color-mix(in srgb, #2340f0 8%, var(--surface));
+}
+
 .kans-detail__foot {
   display: flex;
   flex-direction: column;
