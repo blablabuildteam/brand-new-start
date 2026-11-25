@@ -38,7 +38,8 @@ export async function GET(req: Request) {
     detail: { slug, agencyName: prospect.agencyName, first },
   });
 
-  const res = NextResponse.redirect(new URL("/kansen", req.url));
+  // Start op Recruiter feed: vage posts → daarna Kansen (Jobboards is leeg in de demo).
+  const res = NextResponse.redirect(new URL("/leads", req.url));
   res.cookies.set(
     COOKIE,
     await signSession({ email: DEMO_EMAIL, role: "recruiter", demoSlug: slug }),

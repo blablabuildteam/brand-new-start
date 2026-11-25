@@ -13,43 +13,43 @@ type Step = {
 
 const STEPS: Step[] = [
   {
+    id: "feed",
+    title: "1 · Recruiter feed",
+    text: "Hier leest Scout mee op posts van andere bureaus: “een klant van mij zoekt…”. Geen naam, wel een opdracht.",
+    href: "/leads",
+    cta: "Bekijk de feed",
+  },
+  {
     id: "kansen",
-    title: "1 · Kansen",
-    text: "Hier landt elke vage post als een rij: eindklant, bewijs en de volgende stap. Open er eentje.",
+    title: "2 · Kansen",
+    text: "Zodra de eindklant bekend is, staat de kans hier: bewijs, hiring manager en de volgende stap.",
     href: "/kansen",
     cta: "Naar Kansen",
   },
   {
     id: "detail",
-    title: "2 · Bewijs + volgende stap",
-    text: "Klik een rij open. Rechts zie je wat Scout vond online. De knop is steeds de logische volgende actie.",
+    title: "3 · Open een rij",
+    text: "Klik een kans open. Je ziet het bewijs online en rechts de logische volgende actie (manager, mail/tel, bericht).",
     href: "/kansen",
     cta: "Begrepen",
   },
   {
-    id: "feed",
-    title: "3 · Recruiter feed",
-    text: "Hier leest Scout mee op LinkedIn-posts van bureaus. Jij bevestigt de eindklant — dan komt hij op Kansen.",
-    href: "/leads",
-    cta: "Naar de feed",
-  },
-  {
     id: "bericht",
     title: "4 · Bericht",
-    text: "Als mail/tel er is, staat hier een conceptbericht aan de hiring manager. Jij past aan en verstuurt zelf.",
+    text: "Als mail/tel er is, staat hier een concept aan de hiring manager. Jij past aan en verstuurt zelf.",
     href: "/regie",
     cta: "Naar Bericht",
   },
   {
     id: "done",
     title: "Klaar om te klikken",
-    text: "Alles is voorbeelddata — er gaat niets naar buiten. Klik gerust door. Past het? Mail Kevin voor 15 minuten.",
+    text: "Jobboards toont in deze demo weinig — de feed + Kansen zijn het verhaal. Past het? Mail Kevin voor 15 minuten.",
     cta: "Tour sluiten",
   },
 ];
 
 function storageKey(slug: string) {
-  return `scout-demo-tour:${slug}`;
+  return `scout-demo-tour:v2:${slug}`;
 }
 
 export function DemoTour({
