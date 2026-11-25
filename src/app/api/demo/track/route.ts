@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { isDemoUser } from "@/lib/demo-mode";
-import { addDemoSeconds, trackDemoClick } from "@/lib/demo-analytics";
+import { addDemoSeconds, demoAnalyticsEnabled, trackDemoClick } from "@/lib/demo-analytics";
 
 export const runtime = "nodejs";
 
@@ -10,6 +10,10 @@ export async function POST(req: Request) {
   const session = await getSession();
   if (!session || !isDemoUser(session) || !session.demoSlug) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
+
+  if (session.demoPreview || !demoAnalyticsEnabled()) {
+    return NextResponse.json({ ok: true, skipped: true });
   }
 
   const body = (await req.json().catch(() => ({}))) as {

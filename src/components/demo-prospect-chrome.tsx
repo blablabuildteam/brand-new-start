@@ -18,7 +18,7 @@ export type DemoProspectInfo = {
   calendarUrl: string;
 };
 
-/** Welkomstkaart + balk + tracking + tour + zachte CTA. */
+/** Compacte demo-balk + welkomstkaart + tracking + tour + zachte CTA. */
 export function DemoProspectChrome({
   prospect,
   banner,
@@ -27,6 +27,8 @@ export function DemoProspectChrome({
   banner: string;
 }) {
   const [showCta, setShowCta] = useState(false);
+  const [ctaClosed, setCtaClosed] = useState(false);
+  const [tourOpen, setTourOpen] = useState(false);
   const [logoBroken, setLogoBroken] = useState(false);
   const started = useRef(Date.now());
   const sent = useRef(0);
@@ -92,85 +94,72 @@ export function DemoProspectChrome({
   }, [prospect]);
 
   const accent = prospect?.brandColor || "#2340f0";
+  const calendarUrl = prospect?.calendarUrl || "mailto:kevin@blablabuild.com";
+
+  // Zachte CTA niet tegelijk met de rondleiding tonen — anders stapelen twee kaarten.
+  useEffect(() => {
+    function onTour(e: Event) {
+      setTourOpen(Boolean((e as CustomEvent<boolean>).detail));
+    }
+    window.addEventListener("demo:tour-state", onTour);
+    return () => window.removeEventListener("demo:tour-state", onTour);
+  }, []);
 
   return (
     <div className="demo-chrome shrink-0">
-      <p
-        className="demo-banner border-b border-[var(--line)] px-4 py-2 text-center text-[0.72rem] leading-snug text-[var(--muted)] md:px-6"
-        style={{
-          background: prospect
-            ? `color-mix(in srgb, ${accent} 10%, var(--surface-2))`
-            : "var(--surface-2)",
-        }}
-      >
-        {banner}
-      </p>
-
       {prospect ? (
         <div
-          className="demo-welcome border-b border-[var(--line)] px-4 py-3.5 md:px-6"
+          className="demo-welcome flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-[var(--line)] px-4 py-2 md:px-6"
           style={{
             borderLeft: `4px solid ${accent}`,
-            background: `color-mix(in srgb, ${accent} 6%, var(--surface))`,
+            background: `color-mix(in srgb, ${accent} 7%, var(--surface))`,
           }}
         >
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-2.5">
-                {!logoBroken && prospect.logoUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={prospect.logoUrl}
-                    alt=""
-                    className="h-9 w-auto max-w-[8.5rem] rounded-md bg-[#111] object-contain px-1.5 py-0.5"
-                    onError={() => setLogoBroken(true)}
-                  />
-                ) : (
-                  <span
-                    className="inline-flex h-9 max-w-[9rem] items-center truncate rounded-md px-2.5 text-[0.72rem] font-bold"
-                    style={{ background: accent, color: inkOnBrand(accent) }}
-                    title={prospect.agencyName}
-                  >
-                    {prospect.agencyName}
-                  </span>
-                )}
-                <div className="min-w-0">
-                  <p className="text-[0.92rem] font-semibold text-[var(--ink)]">
-                    Demo voor {prospect.agencyName}
-                  </p>
-                  <p className="text-[0.75rem] text-[var(--muted)]">
-                    {[prospect.niche, prospect.city].filter(Boolean).join(" · ") || "Voorbeelddata"}
-                    {" · "}
-                    niets gaat naar buiten
-                  </p>
-                </div>
-              </div>
-              <p className="mt-2 max-w-2xl text-[0.88rem] leading-snug text-[var(--ink)]/80">
-                {prospect.welcome}
-              </p>
-              <p className="mt-1.5 text-[0.78rem] text-[var(--muted)]">
-                Pad: Recruiter feed → Kansen (eindklant + bewijs) → Bericht
-              </p>
-            </div>
-            <div className="flex shrink-0 flex-wrap gap-2">
-              <button
-                type="button"
-                className="btn-tool text-[0.75rem]"
-                onClick={() => reopenDemoEntry()}
-              >
-                Wat is dit?
-              </button>
-              <button
-                type="button"
-                className="btn-ink btn-tool text-[0.75rem]"
-                onClick={() => startDemoTour()}
-              >
-                Start rondleiding
-              </button>
-            </div>
+          {!logoBroken && prospect.logoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={prospect.logoUrl}
+              alt=""
+              className="h-7 w-auto max-w-[7rem] rounded-md bg-[#111] object-contain px-1.5 py-0.5"
+              onError={() => setLogoBroken(true)}
+            />
+          ) : (
+            <span
+              className="inline-flex h-7 max-w-[8rem] items-center truncate rounded-md px-2 text-[0.7rem] font-bold"
+              style={{ background: accent, color: inkOnBrand(accent) }}
+              title={prospect.agencyName}
+            >
+              {prospect.agencyName}
+            </span>
+          )}
+          <p className="min-w-0 flex-1 text-[0.8rem] leading-snug text-[var(--ink)]">
+            <strong className="font-semibold">Demo voor {prospect.agencyName}</strong>
+            <span className="text-[var(--muted)]">
+              {" · "}voorbeelddata{prospect.niche ? ` (${prospect.niche})` : ""} · alles is klikbaar, er gaat niets naar buiten
+            </span>
+          </p>
+          <div className="flex shrink-0 flex-wrap gap-1.5">
+            <button type="button" className="btn-tool text-[0.72rem]" onClick={() => reopenDemoEntry()}>
+              Wat is dit?
+            </button>
+            <button type="button" className="btn-tool text-[0.72rem]" onClick={() => startDemoTour()}>
+              Rondleiding
+            </button>
+            <a
+              href={calendarUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn-ink btn-tool no-underline text-[0.72rem]"
+            >
+              Plan 15 min
+            </a>
           </div>
         </div>
-      ) : null}
+      ) : (
+        <p className="demo-banner border-b border-[var(--line)] bg-[var(--surface-2)] px-4 py-2 text-center text-[0.72rem] leading-snug text-[var(--muted)] md:px-6">
+          {banner}
+        </p>
+      )}
 
       {prospect ? (
         <DemoEntryModal
@@ -186,29 +175,42 @@ export function DemoProspectChrome({
       ) : null}
 
       {prospect ? (
-        <DemoTour slug={prospect.slug} agencyName={prospect.agencyName} accent={accent} />
+        <DemoTour
+          slug={prospect.slug}
+          agencyName={prospect.agencyName}
+          accent={accent}
+          calendarUrl={calendarUrl}
+        />
       ) : null}
 
-      {showCta ? (
+      {showCta && !tourOpen && !ctaClosed ? (
         <div
-          className="pointer-events-none fixed inset-x-0 bottom-[3.5rem] z-30 flex justify-center px-3 md:bottom-4"
+          className="pointer-events-none fixed inset-x-0 bottom-[3.5rem] z-30 flex justify-center px-3 md:inset-x-auto md:bottom-5 md:right-5"
           aria-live="polite"
         >
           <div
-            className="pointer-events-auto flex max-w-lg flex-wrap items-center gap-2 rounded-[var(--radius)] border bg-[var(--surface)] px-3 py-2 shadow-[0_8px_24px_rgba(0,0,0,0.08)]"
+            className="pointer-events-auto flex max-w-sm items-center gap-2 rounded-[var(--radius)] border bg-[var(--surface)] py-2 pl-3 pr-1.5 shadow-[0_8px_24px_rgba(0,0,0,0.08)]"
             style={{ borderColor: accent }}
           >
             <p className="text-[0.75rem] text-[var(--ink)]">
-              Past dit bij hoe jij werkt? Plan 15 minuten met Kevin.
+              Past dit bij hoe jullie werken? Plan 15 minuten met Kevin.
             </p>
             <a
-              href={prospect?.calendarUrl || "mailto:kevin@blablabuild.com"}
+              href={calendarUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="btn-ink btn-tool no-underline text-[0.75rem]"
+              className="btn-ink btn-tool shrink-0 no-underline text-[0.75rem]"
             >
               Plan in
             </a>
+            <button
+              type="button"
+              className="shrink-0 rounded px-1.5 text-[0.9rem] leading-none text-[var(--muted)] hover:text-[var(--ink)]"
+              onClick={() => setCtaClosed(true)}
+              aria-label="Sluiten"
+            >
+              ×
+            </button>
           </div>
         </div>
       ) : null}

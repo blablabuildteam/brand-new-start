@@ -23,7 +23,7 @@
 ### 3b. Anthropic — **eindklant + vacature-extract (kwaliteit)**
 1. API key: https://console.anthropic.com/settings/keys  
 2. `ANTHROPIC_API_KEY=...` in `.env.local` én Vercel (Production + Preview)  
-3. Optioneel `ANTHROPIC_MODEL=claude-sonnet-4-5` (default; of `claude-sonnet-4-6` / `claude-opus-4-6`)  
+3. Optioneel `ANTHROPIC_MODEL=claude-sonnet-5-5` (default; of `claude-opus-5-5` voor zwaardere research, 2x duurder)  
 4. Op **Bureaus**: knop **AI eindklant**. Op Radar (admin): **AI-extract**. Jij bevestigt nog steeds vóór HM.  
 
 ### 4. TenderNed — **gratis, apart**

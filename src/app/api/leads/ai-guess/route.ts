@@ -5,6 +5,9 @@ import { logFromSession } from "@/lib/activity-log";
 import { hasAiKey } from "@/lib/ai-client";
 import { hasWeb } from "@/lib/research/web";
 import { identifyLead } from "@/lib/lead-ai";
+import { isDemoUser } from "@/lib/demo-mode";
+import { demoAiOutcome, playDemoProgress } from "@/lib/demo-ai";
+import { listDemoLeads, saveDemoAiGuess, saveDemoAiMiss } from "@/lib/demo-workspace";
 
 export const maxDuration = 300;
 export const runtime = "nodejs";
@@ -48,6 +51,41 @@ export async function POST(req: Request) {
 
   const parsed = Body.safeParse(await req.json().catch(() => ({})));
   if (!parsed.success) return NextResponse.json({ error: "ongeldig" }, { status: 400 });
+
+  // Demo: vast voorbeeldresultaat met echte voortgang — geen API-kosten, wel het echte gevoel.
+  if (isDemoUser(session)) {
+    const scope = session.demoSlug;
+    const { id } = parsed.data;
+    const current = listDemoLeads(scope).find((l) => l.id === id);
+    if (!current) return NextResponse.json({ error: "niet gevonden" }, { status: 404 });
+    return ndjsonResponse(async (send) => {
+      await playDemoProgress((p) => send({ type: "progress", ...p }));
+      const outcome = demoAiOutcome(id);
+      logFromSession(session, {
+        level: "info",
+        kind: "demo.lead.ai",
+        summary: `Demo AI · ${outcome.kind === "hit" ? outcome.guess.name : "geen opdracht"} · ${(current.title || id).slice(0, 60)}`,
+        path: "/api/leads/ai-guess",
+        status: 200,
+        detail: { id, demo: true },
+      });
+      if (outcome.kind === "hit") {
+        const lead = saveDemoAiGuess(id, outcome.guess, "demo", scope);
+        send({
+          type: "done",
+          ok: true,
+          detail: `Demo · ${outcome.queries.length} zoekopdrachten, ${outcome.sources.length} bronnen`,
+          model: "demo",
+          report: outcome.guess.report,
+          hasWeb: true,
+          lead,
+        });
+        return;
+      }
+      const lead = saveDemoAiMiss(id, outcome.detail, outcome.notAssignment, scope);
+      send({ type: "done", ok: false, detail: outcome.detail, model: "demo", hasWeb: true, lead });
+    });
+  }
 
   // Standaard mag gratis/SERP-paden zonder Anthropic. Deep heeft Claude nodig.
   if (!hasAiKey() && parsed.data.depth === "deep") {

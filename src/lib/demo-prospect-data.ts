@@ -1,5 +1,6 @@
 import type { CrmOpportunity, CrmStage } from "@/lib/crm";
 import type { DemoProspect } from "@/lib/demo-prospects";
+import { regieHref } from "@/lib/desk-links";
 
 type SeedKans = {
   role: string;
@@ -578,7 +579,7 @@ export function buildProspectCrmItems(prospect: DemoProspect): CrmOpportunity[] 
       freshness: "actueel" as const,
       freshnessLabel: s.daysAgo < 10 ? "Gevonden <10 dagen" : "Ouder",
       confirmedAt: foundAt,
-      href: `/bericht?id=${encodeURIComponent(id)}`,
+      href: regieHref({ companyId: id, openingId: id }),
       companyId: null,
       openingId: null,
       extractSummary: `Post: “een klant van mij zoekt een ${s.role}${where}”. Scout herleidde dit naar ${s.client}.`,

@@ -5,6 +5,12 @@ import { demoAnalytics, type DemoAnalyticsRow } from "@/lib/db/schema";
 import { getDemoProspect, listDemoProspects } from "@/lib/demo-prospects";
 import { postAlertWebhook } from "@/lib/alert-webhook";
 
+/** Alleen echte bezoeken op productie tellen — lokaal testen en previews niet. */
+export function demoAnalyticsEnabled() {
+  if (process.env.VERCEL_ENV) return process.env.VERCEL_ENV === "production";
+  return process.env.NODE_ENV === "production";
+}
+
 async function ensureTable() {
   const url = databaseUrl();
   if (!url) throw new Error("DATABASE_URL ontbreekt");

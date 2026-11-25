@@ -7,13 +7,24 @@ export type SessionUser = {
   role: UserRole;
   /** Personalized /demo/[slug] — alleen gezet voor het publieke demo-account. */
   demoSlug?: string;
+  /** Demo geopend door een admin (voorvertoning): niet meetellen in demo-statistieken. */
+  demoPreview?: boolean;
 };
 
 type Account = {
   role: UserRole;
   passwordEnv: string;
+  /** Alleen lokaal (next dev). In productie moet het wachtwoord in de env staan. */
   fallback: string;
 };
+
+/**
+ * Reservewachtwoorden en -sleutel staan in deze (publieke) repo en mogen dus
+ * nooit toegang geven op een gedeployde omgeving: daar is alleen de env leidend.
+ */
+function devFallbacksAllowed() {
+  return process.env.NODE_ENV !== "production";
+}
 
 /** Known logins. Email bepaalt de rechten; wachtwoord per account via env. */
 const ACCOUNTS: Record<string, Account> = {
@@ -35,8 +46,17 @@ const ACCOUNTS: Record<string, Account> = {
   },
 };
 
-function secret() {
-  return process.env.AUTH_SECRET || "bns-dev-secret-change-me";
+function secret(): string | null {
+  const fromEnv = process.env.AUTH_SECRET;
+  if (fromEnv?.trim()) return fromEnv;
+  if (devFallbacksAllowed()) return "bns-dev-secret-change-me";
+  console.error("AUTH_SECRET ontbreekt: inloggen staat uit tot hij in de env staat.");
+  return null;
+}
+
+/** Kan deze omgeving sessies tekenen? (Productie zonder AUTH_SECRET: nee.) */
+export function authReady() {
+  return Boolean(process.env.AUTH_SECRET?.trim()) || devFallbacksAllowed();
 }
 
 function toBase64Url(bytes: ArrayBuffer | Uint8Array) {
@@ -55,10 +75,12 @@ function fromBase64Url(str: string) {
   return new TextDecoder().decode(bytes);
 }
 
-async function hmac(payload: string) {
+async function hmac(payload: string): Promise<string | null> {
+  const k = secret();
+  if (!k) return null;
   const key = await crypto.subtle.importKey(
     "raw",
-    new TextEncoder().encode(secret()),
+    new TextEncoder().encode(k),
     { name: "HMAC", hash: "SHA-256" },
     false,
     ["sign"]
@@ -93,8 +115,13 @@ export function authenticate(
   const key = normalizeEmail(email);
   const account = ACCOUNTS[key];
   if (!account) return null;
-  const expected = process.env[account.passwordEnv] || account.fallback;
-  if (!secureEqual(password, expected)) return null;
+  const fromEnv = process.env[account.passwordEnv];
+  const expected = fromEnv?.trim() ? fromEnv : devFallbacksAllowed() ? account.fallback : null;
+  if (!expected) {
+    console.error(`${account.passwordEnv} ontbreekt: login voor ${key} staat uit.`);
+    return null;
+  }
+  if (!password || !secureEqual(password, expected)) return null;
   return { email: key, role: account.role };
 }
 
@@ -105,8 +132,10 @@ export async function signSession(user: SessionUser) {
     t: Date.now(),
   };
   if (user.demoSlug) body.demoSlug = user.demoSlug;
+  if (user.demoPreview) body.demoPreview = true;
   const payload = toBase64Url(new TextEncoder().encode(JSON.stringify(body)));
   const sig = await hmac(payload);
+  if (!sig) throw new Error("AUTH_SECRET ontbreekt");
   return `${payload}.${sig}`;
 }
 
@@ -115,7 +144,7 @@ export async function verifySession(token: string | undefined): Promise<SessionU
   const [payload, sig] = token.split(".");
   if (!payload || !sig) return null;
   const expected = await hmac(payload);
-  if (sig.length !== expected.length) return null;
+  if (!expected || sig.length !== expected.length) return null;
   let diff = 0;
   for (let i = 0; i < sig.length; i++) diff |= sig.charCodeAt(i) ^ expected.charCodeAt(i);
   if (diff !== 0) return null;
@@ -124,6 +153,7 @@ export async function verifySession(token: string | undefined): Promise<SessionU
       email: string;
       role?: UserRole;
       demoSlug?: string;
+      demoPreview?: boolean;
       t: number;
     };
     if (Date.now() - data.t > 30 * 24 * 60 * 60 * 1000) return null;
@@ -134,7 +164,8 @@ export async function verifySession(token: string | undefined): Promise<SessionU
       email === "demo@blablabuild.com" && typeof data.demoSlug === "string" && data.demoSlug.trim()
         ? data.demoSlug.trim().toLowerCase()
         : undefined;
-    return demoSlug ? { email, role, demoSlug } : { email, role };
+    if (!demoSlug) return { email, role };
+    return data.demoPreview ? { email, role, demoSlug, demoPreview: true } : { email, role, demoSlug };
   } catch {
     return null;
   }
@@ -148,12 +179,6 @@ export async function getSession() {
 
 export function isAdmin(session: SessionUser | null | undefined) {
   return session?.role === "admin";
-}
-
-/** @deprecated Use authenticate() — kept for callers that only check recruiter password. */
-export function checkPassword(input: string) {
-  const expected = process.env.RECRUITER_PASSWORD || "bns-demo";
-  return secureEqual(input, expected);
 }
 
 export { COOKIE, ACCOUNTS };

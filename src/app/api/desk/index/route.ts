@@ -15,7 +15,7 @@ export async function GET() {
 
   if (isDemoUser(session)) {
     const crm = getDemoCrmPayload(session.demoSlug);
-    const leads = listDemoLeads().filter((l) => l.status !== "rejected");
+    const leads = listDemoLeads(session.demoSlug).filter((l) => l.status !== "rejected");
     return NextResponse.json({
       actions: (crm.actionQueue || []).slice(0, 8).map((a) => ({
         id: a.id,

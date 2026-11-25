@@ -1,9 +1,15 @@
 import { NextResponse } from "next/server";
-import { authenticate, COOKIE, signSession } from "@/lib/auth";
+import { authenticate, authReady, COOKIE, signSession } from "@/lib/auth";
 import { logActivity } from "@/lib/activity-log";
 
 export async function POST(req: Request) {
-  const body = (await req.json()) as { email?: string; password?: string };
+  if (!authReady()) {
+    return NextResponse.json(
+      { error: "Inloggen staat tijdelijk uit: de server mist AUTH_SECRET." },
+      { status: 503 }
+    );
+  }
+  const body = (await req.json().catch(() => ({}))) as { email?: string; password?: string };
   const email = (body.email || "").trim();
   const password = body.password || "";
 

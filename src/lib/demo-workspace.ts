@@ -11,16 +11,26 @@ import { SYNC_COST_PER_RUN, SYNC_LOCK_HOURS } from "@/lib/costs";
 import type { SyncDeskSource } from "@/lib/sync-desk";
 import { getDemoProspect } from "@/lib/demo-prospects";
 import { buildProspectCrmItems } from "@/lib/demo-prospect-data";
+import { regieHref } from "@/lib/desk-links";
+import { demoAiOutcome } from "@/lib/demo-ai";
 
 type Review = { status: "confirmed" | "rejected"; clientName?: string };
 type StoredAi = { guess: ClientGuess; at: string; model?: string };
 
+type StoredMiss = { detail: string; notAssignment: boolean; at: string };
+
 type DemoState = {
   reviews: Record<string, Review>;
   ai: Record<string, StoredAi>;
+  miss: Record<string, StoredMiss>;
+  /** Wijzigingen die de bezoeker op Kansen maakte (manager, mail/tel, stage). */
+  crm: Record<string, Partial<CrmOpportunity>>;
 };
 
-const g = globalThis as unknown as { __scoutDemoWs?: DemoState };
+const g = globalThis as unknown as { __scoutDemoWs?: Map<string, DemoState> };
+
+/** Max. aantal losse demo-sandboxes in geheugen (oudste valt eruit). */
+const MAX_SCOPES = 300;
 
 /** Start met een paar bevestigde posts, zodat de feed én Kansen niet leeg zijn. */
 const SEED_REVIEWS: Record<string, Review> = {
@@ -30,27 +40,61 @@ const SEED_REVIEWS: Record<string, Review> = {
   demo_spilberg_java: { status: "confirmed", clientName: "Adyen" },
 };
 
-function state(): DemoState {
-  if (!g.__scoutDemoWs) g.__scoutDemoWs = { reviews: { ...SEED_REVIEWS }, ai: {} };
-  return g.__scoutDemoWs;
+/**
+ * Elke demo-link (slug) krijgt een eigen sandbox: wat prospect A bevestigt of laat zoeken,
+ * ziet prospect B niet. Leeft in geheugen van de serverinstantie — genoeg voor een rondleiding.
+ */
+function state(scope?: string | null): DemoState {
+  if (!(g.__scoutDemoWs instanceof Map)) g.__scoutDemoWs = new Map();
+  const key = scope?.trim().toLowerCase() || "public";
+  const map = g.__scoutDemoWs;
+  let s = map.get(key);
+  if (s) {
+    // LRU: recent gebruikt achteraan.
+    map.delete(key);
+  } else {
+    s = { reviews: { ...SEED_REVIEWS }, ai: seedAi(), miss: {}, crm: {} };
+    if (map.size >= MAX_SCOPES) {
+      const oldest = map.keys().next().value;
+      if (oldest !== undefined) map.delete(oldest);
+    }
+  }
+  // Oudere sandbox (na een deploy/hot-reload) mist soms velden.
+  s.miss ||= {};
+  s.crm ||= {};
+  map.set(key, s);
+  return s;
+}
+
+/** Eén post is al door de AI gehaald, zodat "Bevestigen" bij binnenkomst iets laat zien. */
+const SEED_AI_IDS = ["demo_cf_ai_gov"];
+
+function seedAi(): Record<string, StoredAi> {
+  const out: Record<string, StoredAi> = {};
+  for (const id of SEED_AI_IDS) {
+    const o = demoAiOutcome(id);
+    if (o.kind === "hit") out[id] = { guess: o.guess, at: daysAgo(1), model: "demo" };
+  }
+  return out;
 }
 
 function daysAgo(n: number) {
   return new Date(Date.now() - n * 86_400_000).toISOString();
 }
 
-export function listDemoLeads(): AgencyLead[] {
-  const s = state();
+export function listDemoLeads(scope?: string | null): AgencyLead[] {
+  const s = state(scope);
   return listDemoSeedLeads({ reviews: s.reviews, ai: s.ai }).map((l) => ({
     ...l,
     // In de demo-desk gedragen sample-posts zich als echte posts.
     demo: false,
     postedAt: l.postedAt || daysAgo(2 + (l.id.length % 5)),
+    aiMiss: s.miss[l.id] || l.aiMiss || null,
   }));
 }
 
-export function getDemoLeadsPayload() {
-  const live = listDemoLeads();
+export function getDemoLeadsPayload(scope?: string | null) {
+  const live = listDemoLeads(scope);
   return {
     watchlist: demoSeedWatchlist(),
     live,
@@ -230,7 +274,7 @@ function demoCrmItem(
     freshness: "actueel",
     freshnessLabel: "Gevonden <10 dagen",
     confirmedAt: foundAt,
-    href: `/bericht?id=${encodeURIComponent(partial.id)}`,
+    href: regieHref({ companyId: partial.id, openingId: partial.id }),
     companyId: null,
     openingId: null,
     extractSummary: null,
@@ -242,10 +286,161 @@ function demoCrmItem(
 }
 
 /** Sample-kansen in elke stap van de flow, zodat de demo niet leeg oogt. */
-export function listDemoCrmItems(demoSlug?: string | null): CrmOpportunity[] {
-  const prospect = getDemoProspect(demoSlug);
-  if (prospect) return buildProspectCrmItems(prospect);
+/** Posts die de bezoeker zelf in de feed bevestigt, verschijnen als nieuwe kans (stap 2: manager). */
+function confirmedFeedItems(scope?: string | null): CrmOpportunity[] {
+  const s = state(scope);
+  return listDemoLeads(scope)
+    .filter((l) => l.status === "confirmed" && !SEED_REVIEWS[l.id] && s.reviews[l.id])
+    .map((l) =>
+      demoCrmItem({
+        // Zelfde id als de echte desk, zodat "Bevestig → Kansen" direct de juiste rij opent.
+        id: `crm_bureau_${l.id}`,
+        lane: "bureau",
+        stage: "bevestigd",
+        endClient: l.confirmedClient || l.guess?.name || "Onbekend",
+        roleLabel: l.roleLabel || l.title,
+        title: l.title,
+        kans: l.guess?.confidence ?? 70,
+        hiringManager: null,
+        hiringManagerTitle: null,
+        hiringManagerUrl: null,
+        hiringManagerEmail: null,
+        hiringManagerPhone: null,
+        lushaStatus: null,
+        hmHits: [],
+        agencyName: l.agency.name,
+        recruiterName: l.recruiter.name,
+        evidenceUrl: l.evidenceUrl,
+        foundAt: new Date().toISOString(),
+        freshnessLabel: "Net bevestigd",
+        extractSummary: l.guess?.summary || null,
+        deal: null,
+      })
+    );
+}
 
+export function listDemoCrmItems(demoSlug?: string | null): CrmOpportunity[] {
+  const fromFeed = confirmedFeedItems(demoSlug);
+  const prospect = getDemoProspect(demoSlug);
+  const base = prospect ? buildProspectCrmItems(prospect) : baseDemoCrmItems();
+  const overlay = state(demoSlug).crm;
+  return [...fromFeed, ...base].map((i) => (overlay[i.id] ? { ...i, ...overlay[i.id] } : i));
+}
+
+function patchDemoCrm(id: string, patch: Partial<CrmOpportunity>, scope?: string | null) {
+  const s = state(scope);
+  s.crm[id] = { ...s.crm[id], ...patch };
+  return listDemoCrmItems(scope).find((i) => i.id === id) || null;
+}
+
+const DEMO_HM_FIRST = ["Sanne", "Mark", "Eva", "Joost", "Lotte", "Bas", "Iris", "Ruben"];
+const DEMO_HM_LAST = ["de Vries", "Jansen", "Bakker", "Visser", "Smit", "Meijer", "de Boer", "Mulder"];
+
+function hmTitleFor(role: string) {
+  const r = role.toLowerCase();
+  if (/secur|iam|soc|pen|grc|privacy/.test(r)) return "Head of Security";
+  if (/data|bi|analist|ai/.test(r)) return "Manager Data & Analytics";
+  if (/sap|erp/.test(r)) return "Lead SAP Platform";
+  if (/test|qa/.test(r)) return "Teamlead Quality Engineering";
+  if (/scrum|agile|product/.test(r)) return "Manager Agile Delivery";
+  if (/cloud|devops|platform|engineer|developer/.test(r)) return "Engineering Manager Platform";
+  return "Teamlead IT";
+}
+
+/** Demo "Zoek manager": vaste, geloofwaardige naam per kans — geen web/Lusha-kosten. */
+export function demoHmSearch(crmId: string, scope?: string | null) {
+  const item = listDemoCrmItems(scope).find((i) => i.id === crmId);
+  if (!item) return null;
+  if (item.hiringManager) return item;
+  const h = [...crmId].reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 7);
+  const name = `${DEMO_HM_FIRST[h % DEMO_HM_FIRST.length]} ${DEMO_HM_LAST[(h >>> 3) % DEMO_HM_LAST.length]}`;
+  const title = `${hmTitleFor(`${item.roleLabel} ${item.title}`)} · ${item.endClient}`;
+  const url = "https://www.linkedin.com/in/example";
+  return patchDemoCrm(
+    crmId,
+    {
+      stage: "hm",
+      hiringManager: name,
+      hiringManagerTitle: title,
+      hiringManagerUrl: url,
+      hmHits: [
+        { name, title, url, score: 86, why: "Titel + afdeling matchen de opdracht; recent actief op LinkedIn" },
+      ],
+    },
+    scope
+  );
+}
+
+/** Demo "Haal mail/tel": voorbeeldadres, niets gaat naar Lusha. */
+export function demoHmContact(crmId: string, scope?: string | null) {
+  const item = listDemoCrmItems(scope).find((i) => i.id === crmId);
+  if (!item?.hiringManager) return null;
+  const [first, ...rest] = item.hiringManager.toLowerCase().split(" ");
+  const email = `${first}.${rest.join("").replace(/[^a-z]/g, "")}@example.com`;
+  const phone = "+31 6 12 00 00 00";
+  return patchDemoCrm(
+    crmId,
+    {
+      hiringManagerEmail: email,
+      hiringManagerPhone: phone,
+      lushaStatus: "ok",
+      hmHits: item.hmHits.map((h, i) => (i === 0 ? { ...h, email, phone, lushaStatus: "ok" } : h)),
+    },
+    scope
+  );
+}
+
+/** Demo-stage (gecontacteerd, gewonnen, …) — alleen in deze sandbox. */
+export function demoSetStage(
+  id: string,
+  stage: CrmOpportunity["stage"],
+  deal: { marginPerHour?: number | null; hoursPerWeek?: number | null; weeks?: number | null; dealEur?: number | null; note?: string | null } | undefined,
+  scope?: string | null
+) {
+  const item = listDemoCrmItems(scope).find((i) => i.id === id);
+  if (!item) return null;
+  const now = new Date().toISOString();
+  const prev = item.deal;
+  const touched = stage === "outreach" || stage === "won" || stage === "lost";
+  const computed =
+    deal?.marginPerHour && deal?.hoursPerWeek && deal?.weeks
+      ? Math.round(deal.marginPerHour * deal.hoursPerWeek * deal.weeks)
+      : null;
+  return patchDemoCrm(
+    id,
+    {
+      stage,
+      deal: touched
+        ? {
+            ...prev,
+            endClient: item.endClient,
+            title: item.title,
+            roleLabel: item.roleLabel,
+            lane: item.lane,
+            agencyName: item.agencyName,
+            contactedAt: prev?.contactedAt || now,
+            contactedBy: prev?.contactedBy || "demo",
+            wonAt: stage === "won" ? prev?.wonAt || now : null,
+            lostAt: stage === "lost" ? now : null,
+            closedBy: stage === "won" ? "demo" : null,
+            ...(deal
+              ? {
+                  marginPerHour: deal.marginPerHour ?? null,
+                  hoursPerWeek: deal.hoursPerWeek ?? null,
+                  weeks: deal.weeks ?? null,
+                  dealEur: deal.dealEur ?? computed,
+                  note: deal.note?.trim() || null,
+                }
+              : {}),
+            updatedAt: now,
+          }
+        : null,
+    },
+    scope
+  );
+}
+
+function baseDemoCrmItems(): CrmOpportunity[] {
   return [
     demoCrmItem({
       id: "crm_bureau_demo_cf_booking",
@@ -423,7 +618,7 @@ export function listDemoCrmItems(demoSlug?: string | null): CrmOpportunity[] {
 
 export function getDemoCrmPayload(demoSlug?: string | null) {
   const items = listDemoCrmItems(demoSlug);
-  const pending = listDemoLeads().filter((l) => l.status !== "confirmed" && l.status !== "rejected").length;
+  const pending = listDemoLeads(demoSlug).filter((l) => l.status !== "confirmed" && l.status !== "rejected").length;
   const actionQueue = listActionQueue(items);
   const contacted = items.filter((i) => i.deal?.contactedAt || i.stage === "outreach" || i.stage === "won").length;
   const won = items.filter((i) => i.stage === "won").length;
@@ -461,23 +656,43 @@ export function getDemoCrmPayload(demoSlug?: string | null) {
 export function reviewDemoLead(
   id: string,
   action: "confirmed" | "rejected" | "reopen",
-  clientName?: string
+  clientName?: string,
+  scope?: string | null
 ): AgencyLead | null {
-  const s = state();
+  const s = state(scope);
   if (action === "reopen") {
     delete s.reviews[id];
+    delete s.miss[id];
   } else {
     s.reviews[id] = { status: action, clientName: clientName?.trim() || undefined };
   }
-  return listDemoLeads().find((l) => l.id === id) || null;
+  return listDemoLeads(scope).find((l) => l.id === id) || null;
 }
 
-export function saveDemoAiGuess(id: string, guess: ClientGuess, model?: string): AgencyLead | null {
-  const s = state();
+export function saveDemoAiGuess(
+  id: string,
+  guess: ClientGuess,
+  model?: string,
+  scope?: string | null
+): AgencyLead | null {
+  const s = state(scope);
   s.ai[id] = { guess, at: new Date().toISOString(), model };
-  return listDemoLeads().find((l) => l.id === id) || null;
+  return listDemoLeads(scope).find((l) => l.id === id) || null;
 }
 
-export function demoLeadStatus(id: string): LeadStatus | null {
-  return listDemoLeads().find((l) => l.id === id)?.status ?? null;
+/** Demo-"AI zoeken" vond geen opdracht/naam: onthouden zoals de echte desk dat doet. */
+export function saveDemoAiMiss(
+  id: string,
+  detail: string,
+  notAssignment: boolean,
+  scope?: string | null
+): AgencyLead | null {
+  const s = state(scope);
+  s.miss[id] = { detail, notAssignment, at: new Date().toISOString() };
+  if (notAssignment) s.reviews[id] = { status: "rejected" };
+  return listDemoLeads(scope).find((l) => l.id === id) || null;
+}
+
+export function demoLeadStatus(id: string, scope?: string | null): LeadStatus | null {
+  return listDemoLeads(scope).find((l) => l.id === id)?.status ?? null;
 }

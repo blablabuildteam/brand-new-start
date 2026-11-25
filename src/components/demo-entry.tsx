@@ -108,11 +108,11 @@ export function DemoEntryModal({
         <div className="space-y-4 px-5 py-5">
           <div>
             <h2 className="text-[1.25rem] font-semibold leading-snug text-[var(--ink)]">
-              {first ? `Hoi ${first}, ` : ""}dit is Scout — in 4 klikken duidelijk.
+              {first ? `Hoi ${first}, ` : ""}dit is Scout in 3 stappen.
             </h2>
             <p className="mt-1.5 text-[0.9rem] leading-snug text-[var(--muted)]">
-              Voorbeelddata voor {agencyName}
-              {focus ? ` · ${focus}` : ""}. Er gaat niets naar buiten; sync en kosten staan uit.
+              Een werkplek met voorbeelddata voor {agencyName}
+              {focus ? ` · ${focus}` : ""}. Alles is klikbaar en er gaat niets naar buiten.
             </p>
           </div>
 
@@ -125,7 +125,7 @@ export function DemoEntryModal({
                 1
               </span>
               <span>
-                <strong>Recruiter feed</strong> — vage posts van andere bureaus (“een klant van mij zoekt…”).
+                <strong>Recruiter feed</strong> — vage posts van andere bureaus (“een klant van mij zoekt…”). Scout zoekt wie de eindklant is.
               </span>
             </li>
             <li className="flex gap-2.5">
@@ -136,7 +136,7 @@ export function DemoEntryModal({
                 2
               </span>
               <span>
-                <strong>Kansen</strong> — Scout noemt de eindklant, met bewijs en de volgende stap.
+                <strong>Kansen</strong> — jij bevestigt de eindklant; Scout zoekt de hiring manager en z’n mail/tel.
               </span>
             </li>
             <li className="flex gap-2.5">

@@ -660,7 +660,12 @@ type RadarBoot = {
   };
   user?: { email: string; role?: string };
   sync: SyncInfo;
+  demoMode?: boolean;
 };
+
+const DEMO_EMPTY_NOTE =
+  "In deze demo staan geen jobboard-vacatures. In de echte desk zie je hier vacatures die eindklanten zélf plaatsen (Indeed, inhuurdesks), met een kans-score. Het verhaal van de demo zit in Recruiter feed en Kansen.";
+const EMPTY_NOTE = "Nog geen bedrijven met vacatures. Draai een sync via Sync om jobboards op te halen.";
 
 export default function RadarApp({
   initialId = null,
@@ -700,6 +705,8 @@ export default function RadarApp({
   const [focusQuery, setFocusQuery] = useState<string | null>(initialQuery);
   const [loading, setLoading] = useState(!(initial?.radar?.length));
   const [loadNote, setLoadNote] = useState<string | null>(null);
+  /** Laden lukte, maar er is (nog) niets — geen foutmelding en geen "opnieuw laden" tonen. */
+  const [emptyOk, setEmptyOk] = useState(false);
   const [busy, setBusy] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [live, setLive] = useState<LiveSync | null>(null);
@@ -802,11 +809,15 @@ export default function RadarApp({
           });
         }
         setSync(data.sync);
+        const dbDown = data.stats?.persistence === "memory";
+        setEmptyOk(data.radar.length === 0 && !dbDown);
         setLoadNote(
           data.radar.length === 0
-            ? data.stats?.persistence === "memory"
+            ? dbDown
               ? "De database was even niet bereikbaar. Er is niets gewist."
-              : "De bedrijven zijn niet geladen. Er is niets gewist."
+              : data.demoMode
+                ? DEMO_EMPTY_NOTE
+                : EMPTY_NOTE
             : null
         );
         setActiveId((prev) => {
@@ -1682,8 +1693,12 @@ export default function RadarApp({
               mobilePane === "detail" ? "max-lg:hidden" : ""
             }`}
           >
-            <p>{loading ? "Laden…" : loadNote || "De bedrijven zijn niet geladen. Er is niets gewist."}</p>
-            {loading ? null : (
+            <p className="max-w-3xl">{loading ? "Laden…" : loadNote || "De bedrijven zijn niet geladen. Er is niets gewist."}</p>
+            {loading ? null : emptyOk ? (
+              <a href="/leads" className="btn-ink btn-tool no-underline">
+                Naar Recruiter feed
+              </a>
+            ) : (
               <button type="button" className="btn-ink btn-tool" onClick={() => void load({ fresh: true })}>
                 Opnieuw laden
               </button>
@@ -2037,12 +2052,18 @@ export default function RadarApp({
               {loading && !radar.length ? (
                 <p className="px-2 py-3 text-sm text-[var(--muted)]">Laden…</p>
               ) : filtered.length === 0 ? (
-                <div className="px-2 py-3 text-sm text-[var(--muted)]">
-                  <p className="m-0">{loadNote || "De bedrijven zijn niet geladen. Er is niets gewist."}</p>
-                  <button type="button" className="btn-ink btn-tool mt-3" onClick={() => void load({ fresh: true })}>
-                    Opnieuw laden
-                  </button>
-                </div>
+                radar.length > 0 ? (
+                  <p className="px-2 py-3 text-sm text-[var(--muted)]">Geen bedrijven binnen dit filter.</p>
+                ) : emptyOk ? (
+                  <p className="px-2 py-3 text-sm text-[var(--muted)]">Nog niets hier.</p>
+                ) : (
+                  <div className="px-2 py-3 text-sm text-[var(--muted)]">
+                    <p className="m-0">{loadNote || "De bedrijven zijn niet geladen. Er is niets gewist."}</p>
+                    <button type="button" className="btn-ink btn-tool mt-3" onClick={() => void load({ fresh: true })}>
+                      Opnieuw laden
+                    </button>
+                  </div>
+                )
               ) : (
                 <ul className="space-y-1">
                   {filtered.map((r) => {
@@ -2402,7 +2423,13 @@ export default function RadarApp({
               </div>
             ) : (
               <p className="text-sm text-[var(--muted)]">
-                {loading ? "Vacatures worden geladen…" : radar.length === 0 ? loadNote || "De bedrijven zijn niet geladen." : "Kies links een bedrijf."}
+                {loading
+                  ? "Vacatures worden geladen…"
+                  : radar.length === 0
+                    ? emptyOk
+                      ? ""
+                      : loadNote || "De bedrijven zijn niet geladen."
+                    : "Kies links een bedrijf."}
               </p>
             )}
           </aside>

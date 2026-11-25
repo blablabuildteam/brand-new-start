@@ -1,6 +1,6 @@
 /**
  * Anthropic Claude client for desk AI (eindklant + extract).
- * Quality-first: Claude Sonnet by default.
+ * Quality-first: Claude Sonnet 5.5 by default (override with ANTHROPIC_MODEL, e.g. claude-opus-5-5).
  */
 
 import { recordSpend } from "@/lib/spend-ledger";
@@ -16,8 +16,8 @@ export function hasOpenAiKey() {
 }
 
 const DEFAULT_MODEL = "claude-sonnet-5-5";
-/** Vangnet zolang het nog bestaat (EOL 30 nov 2026). */
-const LEGACY_MODEL = "claude-sonnet-4-5";
+/** Vangnet als het gekozen model faalt (400/404). Sonnet 4.5 gaat 30 nov 2026 uit de lucht. */
+const LEGACY_MODEL = "claude-sonnet-5";
 
 export function aiModel() {
   return process.env.ANTHROPIC_MODEL?.trim() || DEFAULT_MODEL;
@@ -104,7 +104,11 @@ async function callMessages(opts: {
     max_tokens: legacy ? opts.maxTokens : opts.maxTokens + headroom,
   };
   if (legacy) body.temperature = opts.temperature ?? 0.2;
-  else body.output_config = { effort: opts.effort };
+  else {
+    body.output_config = { effort: opts.effort };
+    // Bij een veiligheidsweigering draait de API dezelfde vraag zelf op een fallback-model.
+    body.fallbacks = "default";
+  }
   if (opts.tools?.length) body.tools = opts.tools;
 
   try {
@@ -113,6 +117,7 @@ async function callMessages(opts: {
       headers: {
         "x-api-key": anthropicKey(),
         "anthropic-version": legacy ? "2023-06-01" : "2026-10-21",
+        ...(legacy ? {} : { "anthropic-beta": "server-side-fallback-2026-07-01" }),
         "content-type": "application/json",
       },
       body: JSON.stringify(body),
@@ -257,6 +262,7 @@ export async function aiJsonCompletion(opts: {
     return { json: null, model, detail: `Anthropic ${res.status}: ${res.error.slice(0, 180)}` };
   }
 
+  if (res.data.stop_reason === "refusal") return { json: null, model, detail: "AI weigerde deze vraag" };
   const raw = finalText(res.data.content);
   if (!raw) return { json: null, model, detail: "lege AI-respons" };
 
@@ -301,7 +307,8 @@ export async function aiWebResearch(opts: {
   }
   const tools = [
     {
-      type: "web_search_20250305",
+      // Nieuwe variant (dynamische filtering) op Sonnet/Opus 4.6+; oudere modellen houden de basisversie.
+      type: isLegacyModel(model) ? "web_search_20250305" : "web_search_20260209",
       name: "web_search",
       max_uses: opts.maxSearches ?? 5,
       user_location: { type: "approximate", country: "NL", timezone: "Europe/Amsterdam" },

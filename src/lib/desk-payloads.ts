@@ -49,7 +49,7 @@ export function deskCacheHeaders() {
 /** Same JSON the browser gets from GET /api/leads. Dates become strings. */
 export async function readLeadsPayload(session?: SessionUser | null) {
   const user = session === undefined ? await getSession() : session;
-  if (isDemoUser(user)) return getDemoLeadsPayload();
+  if (isDemoUser(user)) return getDemoLeadsPayload(user?.demoSlug);
 
   await loadHuntSettings();
   const [data, runs, meta] = await Promise.all([listAgencyLeads(), listSyncRuns(40), loadDeskMeta()]);

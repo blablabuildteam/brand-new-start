@@ -7,6 +7,8 @@ import { patchSignalRaw } from "@/lib/store";
 import { recordSync } from "@/lib/sync-log";
 import { loadDeskMeta, saveDeskMeta, type HmGuessRow, type HmHitStored } from "@/lib/desk-meta";
 import { enrichByLinkedin, hasLushaKey, normalizeLinkedinProfile } from "@/lib/lusha";
+import { isDemoUser } from "@/lib/demo-mode";
+import { demoHmContact } from "@/lib/demo-workspace";
 
 export const maxDuration = 30;
 
@@ -62,6 +64,24 @@ export async function POST(req: Request) {
   if (!parsed.success) return NextResponse.json({ error: "ongeldig" }, { status: 400 });
 
   const { crmId, pickOnly } = parsed.data;
+
+  if (isDemoUser(session)) {
+    await new Promise((r) => setTimeout(r, 900));
+    const item = demoHmContact(crmId, session.demoSlug);
+    if (!item) return NextResponse.json({ error: "Eerst een hiring manager zoeken." }, { status: 400 });
+    return NextResponse.json({
+      ok: true,
+      demoMode: true,
+      hiringManager: item.hiringManager,
+      hiringManagerTitle: item.hiringManagerTitle,
+      hiringManagerUrl: item.hiringManagerUrl,
+      hiringManagerEmail: item.hiringManagerEmail,
+      hiringManagerPhone: item.hiringManagerPhone,
+      lushaStatus: item.lushaStatus,
+      hits: item.hmHits,
+    });
+  }
+
   const meta = await loadDeskMeta();
   const current = meta.hmGuesses[crmId];
   if (!current?.hits?.length) {

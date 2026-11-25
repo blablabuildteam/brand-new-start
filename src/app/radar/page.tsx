@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import RadarApp from "../radar-app";
 
 export const metadata: Metadata = {
-  title: "Jobboards — Contracting",
+  title: "Jobboards — Recruitment Scout",
   description: "Interim- en ZZP-opdrachten, hiring manager en voorstel.",
 };
 

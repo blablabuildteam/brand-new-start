@@ -12,6 +12,8 @@ import { recordSync } from "@/lib/sync-log";
 import { kansenHref } from "@/lib/desk-links";
 import { loadHuntSettings } from "@/lib/hunt";
 import { namedManagerFromVacancy } from "@/lib/org-context";
+import { isDemoUser } from "@/lib/demo-mode";
+import { demoHmSearch } from "@/lib/demo-workspace";
 
 export const maxDuration = 120;
 export const runtime = "nodejs";
@@ -31,6 +33,23 @@ const Body = z.object({
 export async function POST(req: Request) {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+
+  if (isDemoUser(session)) {
+    const parsedDemo = Body.safeParse(await req.json().catch(() => ({})));
+    const id = parsedDemo.success ? parsedDemo.data.crmId : undefined;
+    if (!id) return NextResponse.json({ error: "Open een kans om de manager te zoeken." }, { status: 400 });
+    await new Promise((r) => setTimeout(r, 1200));
+    const item = demoHmSearch(id, session.demoSlug);
+    if (!item) return NextResponse.json({ error: "kans niet gevonden" }, { status: 404 });
+    return NextResponse.json({
+      ok: true,
+      demoMode: true,
+      hiringManager: item.hiringManager,
+      hiringManagerTitle: item.hiringManagerTitle,
+      hiringManagerUrl: item.hiringManagerUrl,
+      hits: item.hmHits,
+    });
+  }
 
   // A cold instance would otherwise gate roles/agencies on DEFAULT_HUNT.
   await loadHuntSettings();

@@ -28,7 +28,7 @@ export async function POST(req: Request) {
   if (!parsed.success) return NextResponse.json({ error: "ongeldig" }, { status: 400 });
 
   if (isDemoUser(session)) {
-    const lead = reviewDemoLead(parsed.data.id, parsed.data.action, parsed.data.clientName);
+    const lead = reviewDemoLead(parsed.data.id, parsed.data.action, parsed.data.clientName, session.demoSlug);
     if (!lead) return NextResponse.json({ error: "niet gevonden" }, { status: 404 });
     logFromSession(session, {
       level: "info",

@@ -4,7 +4,7 @@ import { getSession } from "@/lib/auth";
 import { logFromSession } from "@/lib/activity-log";
 import { listActionQueue, listCrmDesk, setCrmStage } from "@/lib/crm";
 import { isDemoUser } from "@/lib/demo-mode";
-import { getDemoCrmPayload } from "@/lib/demo-workspace";
+import { demoSetStage, getDemoCrmPayload } from "@/lib/demo-workspace";
 import { loadHuntSettings } from "@/lib/hunt";
 import { hasLushaKey } from "@/lib/lusha";
 import type { CrmStage } from "@/lib/desk-meta";
@@ -58,14 +58,14 @@ const Body = z.object({
 export async function POST(req: Request) {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  if (isDemoUser(session)) {
-    return NextResponse.json(
-      { error: "Demo · stages worden niet opgeslagen in live data" },
-      { status: 403 }
-    );
-  }
   const parsed = Body.safeParse(await req.json().catch(() => ({})));
   if (!parsed.success) return NextResponse.json({ error: "ongeldig" }, { status: 400 });
+  if (isDemoUser(session)) {
+    // Alleen in de sandbox van deze demo-link; live data blijft onaangeroerd.
+    const item = demoSetStage(parsed.data.id, parsed.data.stage as CrmStage, parsed.data.deal, session.demoSlug);
+    if (!item) return NextResponse.json({ error: "niet gevonden" }, { status: 404 });
+    return NextResponse.json({ ok: true, item, demoMode: true });
+  }
   const item = await setCrmStage(parsed.data.id, parsed.data.stage as CrmStage, {
     by: session.email,
     deal: parsed.data.deal,

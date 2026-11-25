@@ -3,7 +3,7 @@ import type { NextRequest } from "next/server";
 import { verifySession, COOKIE } from "@/lib/auth";
 import { canSeePartnerDeal, isDemoUser } from "@/lib/demo-mode";
 
-export async function middleware(req: NextRequest) {
+export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   if (
@@ -80,6 +80,9 @@ export async function middleware(req: NextRequest) {
 const DEMO_API_PASS = new Set([
   "/api/radar",
   "/api/leads",
+  "/api/leads/ai-guess",
+  "/api/leads/hm-search",
+  "/api/leads/hm-contact",
   "/api/crm",
   "/api/sync",
   "/api/settings",
