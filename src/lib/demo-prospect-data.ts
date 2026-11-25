@@ -593,14 +593,10 @@ export function buildProspectCrmItems(prospect: DemoProspect): CrmOpportunity[] 
 
 export function prospectWelcome(prospect: DemoProspect) {
   const name = prospect.contactFirstName.trim();
-  const place = prospect.city.trim();
-  const niche = prospect.niche.trim();
   const lead = name
-    ? `Hoi ${name.split(" en ")[0]!.trim()}, dit is Scout ingericht voor ${prospect.agencyName}.`
-    : `Dit is Scout ingericht voor ${prospect.agencyName}.`;
-  const focus = [niche, place].filter(Boolean).join(" · ");
-  const mid = focus ? ` Focus: ${focus}.` : "";
-  return `${lead}${mid} Start de rondleiding of klik meteen een kans open — er gaat niets naar buiten.`;
+    ? `Hoi ${name.split(" en ")[0]!.trim()}, dit is Scout voor ${prospect.agencyName}.`
+    : `Dit is Scout voor ${prospect.agencyName}.`;
+  return `${lead} Begin bij de rondleiding, of open meteen een post in de feed.`;
 }
 
 export function prospectBanner(prospect: DemoProspect) {

@@ -93,14 +93,19 @@ export function DemoTour({
   useEffect(() => {
     try {
       const done = window.localStorage.getItem(doneKey(slug));
+      const inProgress = window.sessionStorage.getItem(stepKey(slug));
       if (done) {
         setOpen(false);
-      } else {
+      } else if (inProgress != null) {
+        // Rondleiding loopt: stap bewaren over pagina's.
         setStep(readStep(slug));
         setOpen(true);
+      } else {
+        // Eerste bezoek: welkomstkaart eerst, tour start via knop.
+        setOpen(false);
       }
     } catch {
-      setOpen(true);
+      setOpen(false);
     }
     setReady(true);
   }, [slug]);

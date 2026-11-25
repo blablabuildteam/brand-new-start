@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { inkOnBrand } from "@/lib/demo-prospects";
 import { DemoTour, startDemoTour } from "@/components/demo-tour";
+import { DemoEntryModal, reopenDemoEntry } from "@/components/demo-entry";
 
 export type DemoProspectInfo = {
   slug: string;
@@ -17,7 +18,7 @@ export type DemoProspectInfo = {
   calendarUrl: string;
 };
 
-/** Welkomstblok + tracking + tour + zachte CTA. */
+/** Welkomstkaart + balk + tracking + tour + zachte CTA. */
 export function DemoProspectChrome({
   prospect,
   banner,
@@ -107,47 +108,81 @@ export function DemoProspectChrome({
 
       {prospect ? (
         <div
-          className="demo-welcome grid gap-3 border-b border-[var(--line)] px-4 py-3 md:grid-cols-[1fr_auto] md:items-center md:px-6"
-          style={{ borderLeft: `3px solid ${accent}` }}
+          className="demo-welcome border-b border-[var(--line)] px-4 py-3.5 md:px-6"
+          style={{
+            borderLeft: `4px solid ${accent}`,
+            background: `color-mix(in srgb, ${accent} 6%, var(--surface))`,
+          }}
         >
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2.5">
-              {!logoBroken && prospect.logoUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={prospect.logoUrl}
-                  alt=""
-                  className="h-8 w-auto max-w-[8rem] rounded-md bg-[#111] object-contain px-1.5 py-0.5"
-                  onError={() => setLogoBroken(true)}
-                />
-              ) : (
-                <span
-                  className="inline-flex h-8 max-w-[9rem] items-center truncate rounded-md px-2.5 text-[0.72rem] font-bold"
-                  style={{ background: accent, color: inkOnBrand(accent) }}
-                  title={prospect.agencyName}
-                >
-                  {prospect.agencyName}
-                </span>
-              )}
-              <div className="min-w-0">
-                <p className="text-[0.82rem] font-semibold text-[var(--ink)]">
-                  Demo voor {prospect.agencyName}
-                </p>
-                <p className="text-[0.72rem] text-[var(--muted)]">
-                  {[prospect.niche, prospect.city].filter(Boolean).join(" · ") || "Voorbeelddata"}
-                </p>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-2.5">
+                {!logoBroken && prospect.logoUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={prospect.logoUrl}
+                    alt=""
+                    className="h-9 w-auto max-w-[8.5rem] rounded-md bg-[#111] object-contain px-1.5 py-0.5"
+                    onError={() => setLogoBroken(true)}
+                  />
+                ) : (
+                  <span
+                    className="inline-flex h-9 max-w-[9rem] items-center truncate rounded-md px-2.5 text-[0.72rem] font-bold"
+                    style={{ background: accent, color: inkOnBrand(accent) }}
+                    title={prospect.agencyName}
+                  >
+                    {prospect.agencyName}
+                  </span>
+                )}
+                <div className="min-w-0">
+                  <p className="text-[0.92rem] font-semibold text-[var(--ink)]">
+                    Demo voor {prospect.agencyName}
+                  </p>
+                  <p className="text-[0.75rem] text-[var(--muted)]">
+                    {[prospect.niche, prospect.city].filter(Boolean).join(" · ") || "Voorbeelddata"}
+                    {" · "}
+                    niets gaat naar buiten
+                  </p>
+                </div>
               </div>
+              <p className="mt-2 max-w-2xl text-[0.88rem] leading-snug text-[var(--ink)]/80">
+                {prospect.welcome}
+              </p>
+              <p className="mt-1.5 text-[0.78rem] text-[var(--muted)]">
+                Pad: Recruiter feed → Kansen (eindklant + bewijs) → Bericht
+              </p>
             </div>
-            <p className="mt-2 text-[0.82rem] leading-snug text-[var(--muted)]">{prospect.welcome}</p>
+            <div className="flex shrink-0 flex-wrap gap-2">
+              <button
+                type="button"
+                className="btn-tool text-[0.75rem]"
+                onClick={() => reopenDemoEntry()}
+              >
+                Wat is dit?
+              </button>
+              <button
+                type="button"
+                className="btn-ink btn-tool text-[0.75rem]"
+                onClick={() => startDemoTour()}
+              >
+                Start rondleiding
+              </button>
+            </div>
           </div>
-          <button
-            type="button"
-            className="btn-ink btn-tool shrink-0 justify-self-start text-[0.75rem] md:justify-self-end"
-            onClick={() => startDemoTour()}
-          >
-            Start rondleiding
-          </button>
         </div>
+      ) : null}
+
+      {prospect ? (
+        <DemoEntryModal
+          slug={prospect.slug}
+          agencyName={prospect.agencyName}
+          contactFirstName={prospect.contactFirstName}
+          niche={prospect.niche}
+          city={prospect.city}
+          logoUrl={prospect.logoUrl}
+          brandColor={prospect.brandColor}
+          accent={accent}
+        />
       ) : null}
 
       {prospect ? (
