@@ -76,9 +76,11 @@ export async function GET() {
     }));
     return NextResponse.json({
       name: PRODUCT.name,
-      market: prospect ? `${prospect.city} · ${prospect.niche}` : "NL · interim & ZZP",
+      market: prospect
+        ? [prospect.city.trim(), prospect.niche.trim()].filter(Boolean).join(" · ") || "NL · interim & ZZP"
+        : "NL · interim & ZZP",
       roles: prospect
-        ? prospect.niche.toLowerCase().includes("security")
+        ? /security|cyber/.test(prospect.niche.toLowerCase())
           ? ["Security Engineer", "SOC Analyst", "IAM Specialist", "Cloud Security"]
           : ["Java Developer", "Cloud Engineer", "Data Engineer", "Platform Engineer"]
         : ["Scrum Master", "Java Developer", "Cloud Engineer", "Data Engineer"],

@@ -1,13 +1,211 @@
 [
   {
+    "slug": "reqruitify-p6m9",
+    "agencyName": "Reqruitify",
+    "contactFirstName": "Walter",
+    "website": "https://www.reqruitify.com",
+    "logoFile": "reqruitify-p6m9.png",
+    "brandColor": "#3b9b4b",
+    "niche": "Cyber, cloud en SAP",
+    "city": "",
+    "calendarUrl": null
+  },
+  {
+    "slug": "wodan-t4b5",
+    "agencyName": "WODAN Recruitment",
+    "contactFirstName": "Robbert",
+    "website": "https://www.wodanrecruitment.nl",
+    "logoFile": "wodan-t4b5.png",
+    "brandColor": "#335ff4",
+    "niche": "Developers, cloud en security",
+    "city": "",
+    "calendarUrl": null
+  },
+  {
+    "slug": "devscout-a9q5",
+    "agencyName": "DevScout",
+    "contactFirstName": "Tom",
+    "website": "http://www.devscout.nl",
+    "logoFile": null,
+    "brandColor": "#000066",
+    "niche": "Developers, vast en freelance",
+    "city": "Amersfoort",
+    "calendarUrl": null
+  },
+  {
+    "slug": "working-class-heroes-o5k8",
+    "agencyName": "Working Class Heroes",
+    "contactFirstName": "Erik",
+    "website": "https://www.workingclassheroes.nl",
+    "logoFile": "working-class-heroes-o5k8.png",
+    "brandColor": "#00ff00",
+    "niche": "Mobile development",
+    "city": "",
+    "calendarUrl": null
+  },
+  {
+    "slug": "chase-it-k3w6",
+    "agencyName": "Chase IT Recruitment",
+    "contactFirstName": "Chavez",
+    "website": "https://chaseitrecruitment.nl",
+    "logoFile": "chase-it-k3w6.png",
+    "brandColor": "#896bff",
+    "niche": "Software- en AI-engineers",
+    "city": "",
+    "calendarUrl": null
+  },
+  {
+    "slug": "everyday-works-s6g0",
+    "agencyName": "Everyday Works",
+    "contactFirstName": "Timo",
+    "website": "https://everydayworks.nl",
+    "logoFile": "everyday-works-s6g0.png",
+    "brandColor": "#413c58",
+    "niche": "IT-recruitment",
+    "city": "Amsterdam",
+    "calendarUrl": null
+  },
+  {
+    "slug": "latumahina-k1s5",
+    "agencyName": "Latumahina Consultancy",
+    "contactFirstName": "Sara",
+    "website": "https://www.latumahinaconsultancy.nl",
+    "logoFile": "latumahina-k1s5.png",
+    "brandColor": "#1a3cff",
+    "niche": "IT-recruitment en interim",
+    "city": "Maarssen",
+    "calendarUrl": null
+  },
+  {
+    "slug": "ignt-q5m5",
+    "agencyName": "IGNT",
+    "contactFirstName": "Ramon",
+    "website": "https://ignt.nl",
+    "logoFile": "ignt-q5m5.png",
+    "brandColor": "#7c3aed",
+    "niche": "MSP- en IT-dienstverleners",
+    "city": "Rotterdam",
+    "calendarUrl": null
+  },
+  {
+    "slug": "intech-o1k7",
+    "agencyName": "InTech Consultancy",
+    "contactFirstName": "Weis",
+    "website": "https://www.intechconsultancy.nl",
+    "logoFile": null,
+    "brandColor": "#33c4b4",
+    "niche": "Tech- en auditrecruitment",
+    "city": "Hilversum",
+    "calendarUrl": null
+  },
+  {
+    "slug": "onebridge-b3y3",
+    "agencyName": "OneBridge",
+    "contactFirstName": "Michael en Gerben",
+    "website": "https://onebridge.nl",
+    "logoFile": "onebridge-b3y3.png",
+    "brandColor": "#f47f0f",
+    "niche": "ZZP IT",
+    "city": "Zeist",
+    "calendarUrl": null
+  },
+  {
+    "slug": "bitminded-r5a3",
+    "agencyName": "BitMinded",
+    "contactFirstName": "Serge",
+    "website": "https://www.bitminded.nl",
+    "logoFile": "bitminded-r5a3.png",
+    "brandColor": "#ff7f24",
+    "niche": "JVM, cloud en data",
+    "city": "",
+    "calendarUrl": null
+  },
+  {
+    "slug": "it-hunter-z3i0",
+    "agencyName": "IT Hunter",
+    "contactFirstName": "Reinier",
+    "website": "https://www.ithunter.nl",
+    "logoFile": "it-hunter-z3i0.png",
+    "brandColor": "#0b6fb8",
+    "niche": "Breed IT, W&S en interim",
+    "city": "Soest",
+    "calendarUrl": null
+  },
+  {
+    "slug": "doesburg-w4e0",
+    "agencyName": "Doesburg.biz",
+    "contactFirstName": "Pieter",
+    "website": "https://www.doesburg.biz",
+    "logoFile": "doesburg-w4e0.png",
+    "brandColor": "#3f7a5c",
+    "niche": "IT-recruitment (NL)",
+    "city": "Las Palmas de Gran Canaria",
+    "calendarUrl": null
+  },
+  {
+    "slug": "rictv-s5a1",
+    "agencyName": "RICTV",
+    "contactFirstName": "Peter",
+    "website": "https://rictv.nl",
+    "logoFile": "rictv-s5a1.png",
+    "brandColor": "#1f274b",
+    "niche": "ICT-management search",
+    "city": "Den Haag",
+    "calendarUrl": null
+  },
+  {
     "slug": "mastb-k7x2",
     "agencyName": "MastB",
-    "contactFirstName": "Mark",
+    "contactFirstName": "Farid en Michelle",
     "website": "https://mastb.nl",
     "logoFile": "mastb-k7x2.png",
     "brandColor": "#c4a035",
     "niche": "Data/cloud",
     "city": "Arnhem",
+    "calendarUrl": null
+  },
+  {
+    "slug": "pex-g4p8",
+    "agencyName": "PEX Matching",
+    "contactFirstName": "Pim",
+    "website": "https://www.pexmatching.nl",
+    "logoFile": "pex-g4p8.png",
+    "brandColor": "#3abf7e",
+    "niche": "IT- en data, vast en freelance",
+    "city": "Schiedam",
+    "calendarUrl": null
+  },
+  {
+    "slug": "plugge-h0y5",
+    "agencyName": "Plugge Connect",
+    "contactFirstName": "Joost",
+    "website": "https://pluggeconnect.com",
+    "logoFile": "plugge-h0y5.png",
+    "brandColor": "#d3e094",
+    "niche": "Zorg, tech en ZZP",
+    "city": "Amsterdam",
+    "calendarUrl": null
+  },
+  {
+    "slug": "it-matcher-u0s5",
+    "agencyName": "IT-Matcher",
+    "contactFirstName": "Sjoerd",
+    "website": "https://www.it-matcher.nl",
+    "logoFile": "it-matcher-u0s5.png",
+    "brandColor": "#0072ff",
+    "niche": "Low-code en IT-search",
+    "city": "",
+    "calendarUrl": null
+  },
+  {
+    "slug": "fair-talent-u2t5",
+    "agencyName": "Fair Talent",
+    "contactFirstName": "",
+    "website": "https://www.fair-talent.nl",
+    "logoFile": "fair-talent-u2t5.png",
+    "brandColor": "#3bb273",
+    "niche": "Detachering: .NET, Java, cloud",
+    "city": "Zwolle",
     "calendarUrl": null
   }
 ]

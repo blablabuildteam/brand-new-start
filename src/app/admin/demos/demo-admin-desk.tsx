@@ -114,11 +114,13 @@ export function DemoAdminDesk({
               <tr key={r.slug} className="border-t border-[var(--line)]">
                 <td className="px-3 py-3 align-top">
                   <p className="font-semibold text-[var(--ink)]">
-                    {r.agencyName}{" "}
-                    <span className="font-normal text-[var(--muted)]">· {r.contactFirstName}</span>
+                    {r.agencyName}
+                    {r.contactFirstName ? (
+                      <span className="font-normal text-[var(--muted)]"> · {r.contactFirstName}</span>
+                    ) : null}
                   </p>
                   <p className="text-[0.75rem] text-[var(--muted)]">
-                    {r.niche} · {r.city}
+                    {[r.niche, r.city].filter(Boolean).join(" · ")}
                   </p>
                 </td>
                 <td className="px-3 py-3 align-top">

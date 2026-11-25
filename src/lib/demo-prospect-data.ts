@@ -17,6 +17,21 @@ type SeedKans = {
   dealEur?: number;
 };
 
+function titled(name: string, city: string) {
+  const c = city.trim();
+  return c ? `${name} · ${c}` : name;
+}
+
+function named(stem: string, city: string) {
+  const c = city.trim();
+  return c ? `${stem} ${c}` : stem;
+}
+
+function bij(stem: string, city: string) {
+  const c = city.trim();
+  return c ? `${stem} bij ${c}` : stem;
+}
+
 /** Fictieve HM-namen — bewust geen echte personen. */
 const HM = {
   a: { name: "Kim Voorbeeld", title: "Engineering Manager" },
@@ -33,7 +48,7 @@ function nicheSeeds(niche: string, city: string): SeedKans[] {
     return [
       {
         role: "Security Engineer",
-        title: `Security Engineer · ${city}`,
+        title: titled("Security Engineer", city),
         client: "Overheidsdienst (voorbeeld)",
         sector: "Overheid",
         kans: 88,
@@ -112,7 +127,7 @@ function nicheSeeds(niche: string, city: string): SeedKans[] {
       {
         role: "DevSecOps Engineer",
         title: "DevSecOps Engineer",
-        client: `Tech scale-up ${city}`,
+        client: named("Tech scale-up", city),
         sector: "Tech",
         kans: 85,
         stage: "outreach",
@@ -170,7 +185,7 @@ function nicheSeeds(niche: string, city: string): SeedKans[] {
     return [
       {
         role: "Java Developer",
-        title: `ZZP Java Developer · ${city}`,
+        title: titled("ZZP Java Developer", city),
         client: "Publieke omroep (voorbeeld)",
         sector: "Media",
         kans: 87,
@@ -197,7 +212,7 @@ function nicheSeeds(niche: string, city: string): SeedKans[] {
       {
         role: "Cloud Engineer",
         title: "Cloud Engineer AWS (ZZP)",
-        client: `Scale-up ${city}`,
+        client: named("Scale-up", city),
         sector: "Tech",
         kans: 90,
         stage: "hm",
@@ -290,7 +305,7 @@ function nicheSeeds(niche: string, city: string): SeedKans[] {
       {
         role: "Integration Specialist",
         title: "MuleSoft Integration",
-        client: `Dienstverlener ${city}`,
+        client: named("Dienstverlener", city),
         sector: "Dienstverlening",
         kans: 70,
         stage: "bevestigd",
@@ -320,8 +335,8 @@ function nicheSeeds(niche: string, city: string): SeedKans[] {
   return [
     {
       role: "Java Developer",
-      title: `Senior Java Developer · ${city}`,
-      client: `Netbeheerder bij ${city}`,
+      title: titled("Senior Java Developer", city),
+      client: bij("Netbeheerder", city),
       sector: "Energie",
       kans: 90,
       stage: "bevestigd",
@@ -360,7 +375,7 @@ function nicheSeeds(niche: string, city: string): SeedKans[] {
     {
       role: "Platform Engineer",
       title: "Platform Engineer Kubernetes",
-      client: `Tech scale-up ${city}`,
+      client: named("Tech scale-up", city),
       sector: "Tech",
       kans: 91,
       stage: "outreach",
@@ -438,7 +453,7 @@ function nicheSeeds(niche: string, city: string): SeedKans[] {
     {
       role: "AWS Architect",
       title: "AWS Solutions Architect",
-      client: `SaaS bij ${city}`,
+      client: bij("SaaS", city),
       sector: "SaaS",
       kans: 89,
       stage: "won",
@@ -477,6 +492,7 @@ export function buildProspectCrmItems(prospect: DemoProspect): CrmOpportunity[] 
     const id = `crm_demo_${prospect.slug}_${i}`;
     const foundAt = daysAgoIso(s.daysAgo);
     const lane = s.lane || "bureau";
+    const where = prospect.city.trim() ? ` in ${prospect.city.trim()}` : "";
     const hasMail = s.stage === "hm" || s.stage === "outreach" || s.stage === "won";
     const email =
       s.hmName && hasMail && (s.stage === "outreach" || s.stage === "won" || i % 2 === 0)
@@ -560,7 +576,7 @@ export function buildProspectCrmItems(prospect: DemoProspect): CrmOpportunity[] 
       href: `/bericht?id=${encodeURIComponent(id)}`,
       companyId: null,
       openingId: null,
-      extractSummary: `Voorbeeldkans voor ${prospect.agencyName}: “een klant van mij zoekt een ${s.role} in ${prospect.city}”.`,
+      extractSummary: `Voorbeeldkans voor ${prospect.agencyName}: “een klant van mij zoekt een ${s.role}${where}”.`,
       logoUrl: null,
       sourceChannel: lane === "direct" ? "indeed" : "agency-swarm",
       // false zodat de desk-flow werkt; banner + extractSummary markeren voorbeelddata.
@@ -571,7 +587,11 @@ export function buildProspectCrmItems(prospect: DemoProspect): CrmOpportunity[] 
 }
 
 export function prospectWelcome(prospect: DemoProspect) {
-  return `Hoi ${prospect.contactFirstName}, deze werkplek staat klaar voor ${prospect.agencyName}. Klik gerust overal op, er gaat niets naar buiten.`;
+  const name = prospect.contactFirstName.trim();
+  const lead = name
+    ? `Hoi ${name}, deze werkplek staat klaar voor ${prospect.agencyName}.`
+    : `Deze werkplek staat klaar voor ${prospect.agencyName}.`;
+  return `${lead} Klik gerust overal op, er gaat niets naar buiten.`;
 }
 
 export function prospectBanner(prospect: DemoProspect) {
