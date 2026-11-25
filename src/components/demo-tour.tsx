@@ -17,28 +17,28 @@ const STEPS: Step[] = [
     title: "1 · Recruiter feed",
     text: "Hier leest Scout mee op posts van andere bureaus: “een klant van mij zoekt…”. Geen naam, wel een opdracht.",
     href: "/leads",
-    cta: "Bekijk de feed",
+    cta: "Volgende: Kansen",
   },
   {
     id: "kansen",
     title: "2 · Kansen",
     text: "Zodra de eindklant bekend is, staat de kans hier: bewijs, hiring manager en de volgende stap.",
     href: "/kansen",
-    cta: "Naar Kansen",
+    cta: "Volgende",
   },
   {
     id: "detail",
     title: "3 · Open een rij",
-    text: "Klik een kans open. Je ziet het bewijs online en rechts de logische volgende actie (manager, mail/tel, bericht).",
+    text: "Klik hierboven een kans open. Je ziet het bewijs en rechts de volgende actie. Daarna klik je hier op Volgende.",
     href: "/kansen",
-    cta: "Begrepen",
+    cta: "Volgende: Bericht",
   },
   {
     id: "bericht",
     title: "4 · Bericht",
     text: "Als mail/tel er is, staat hier een concept aan de hiring manager. Jij past aan en verstuurt zelf.",
     href: "/regie",
-    cta: "Naar Bericht",
+    cta: "Afronden",
   },
   {
     id: "done",
@@ -48,8 +48,31 @@ const STEPS: Step[] = [
   },
 ];
 
-function storageKey(slug: string) {
-  return `scout-demo-tour:v2:${slug}`;
+function doneKey(slug: string) {
+  return `scout-demo-tour:v3:${slug}:done`;
+}
+
+function stepKey(slug: string) {
+  return `scout-demo-tour:v3:${slug}:step`;
+}
+
+function readStep(slug: string) {
+  try {
+    const raw = window.sessionStorage.getItem(stepKey(slug));
+    const n = raw ? Number(raw) : 0;
+    if (!Number.isFinite(n)) return 0;
+    return Math.max(0, Math.min(STEPS.length - 1, Math.floor(n)));
+  } catch {
+    return 0;
+  }
+}
+
+function writeStep(slug: string, step: number) {
+  try {
+    window.sessionStorage.setItem(stepKey(slug), String(step));
+  } catch {
+    /* ignore */
+  }
 }
 
 export function DemoTour({
@@ -69,8 +92,13 @@ export function DemoTour({
 
   useEffect(() => {
     try {
-      const done = window.localStorage.getItem(storageKey(slug));
-      setOpen(!done);
+      const done = window.localStorage.getItem(doneKey(slug));
+      if (done) {
+        setOpen(false);
+      } else {
+        setStep(readStep(slug));
+        setOpen(true);
+      }
     } catch {
       setOpen(true);
     }
@@ -79,12 +107,23 @@ export function DemoTour({
 
   useEffect(() => {
     function onStart() {
+      try {
+        window.localStorage.removeItem(doneKey(slug));
+      } catch {
+        /* ignore */
+      }
+      writeStep(slug, 0);
       setStep(0);
       setOpen(true);
     }
     window.addEventListener("demo:tour", onStart);
     return () => window.removeEventListener("demo:tour", onStart);
-  }, []);
+  }, [slug]);
+
+  useEffect(() => {
+    if (!open) return;
+    writeStep(slug, step);
+  }, [open, slug, step]);
 
   if (!ready || !open) return null;
 
@@ -93,20 +132,39 @@ export function DemoTour({
 
   function finish() {
     try {
-      window.localStorage.setItem(storageKey(slug), "1");
+      window.localStorage.setItem(doneKey(slug), "1");
+      window.sessionStorage.removeItem(stepKey(slug));
     } catch {
       /* ignore */
     }
     setOpen(false);
   }
 
+  function go(nextStep: number) {
+    const target = STEPS[nextStep];
+    if (target?.href && pathname !== target.href) {
+      router.push(target.href);
+    }
+    setStep(nextStep);
+    writeStep(slug, nextStep);
+  }
+
   function next() {
-    if (cur.href && pathname !== cur.href) router.push(cur.href);
     if (last) {
       finish();
       return;
     }
-    setStep((s) => Math.min(STEPS.length - 1, s + 1));
+    // Huidige stap heeft een href waar we nog niet zijn → eerst daarheen.
+    if (cur.href && pathname !== cur.href) {
+      router.push(cur.href);
+      return;
+    }
+    go(step + 1);
+  }
+
+  function back() {
+    if (step <= 0) return;
+    go(step - 1);
   }
 
   return (
@@ -148,12 +206,12 @@ export function DemoTour({
           </div>
           <div className="flex gap-2">
             {step > 0 ? (
-              <button type="button" className="btn-tool text-[0.75rem]" onClick={() => setStep((s) => s - 1)}>
+              <button type="button" className="btn-tool text-[0.75rem]" onClick={back}>
                 Terug
               </button>
             ) : null}
             <button type="button" className="btn-ink btn-tool text-[0.75rem]" onClick={next}>
-              {cur.cta}
+              {cur.href && pathname !== cur.href ? `Ga naar ${cur.title.replace(/^\d+ · /, "")}` : cur.cta}
             </button>
           </div>
         </div>
