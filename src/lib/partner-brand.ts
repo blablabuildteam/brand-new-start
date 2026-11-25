@@ -12,18 +12,11 @@ export type PartnerBrand = {
   match: (email: string) => boolean;
 };
 
-export const PARTNERS: PartnerBrand[] = [
-  {
-    id: "brand-new-start",
-    name: "Brand New Start",
-    tagline: "IT contracting",
-    logoSrc: "/assets/bns-logo.png",
-    match: (email) => {
-      const e = email.trim().toLowerCase();
-      return e === "recruiter@brandnewstart.nl" || e.endsWith("@brandnewstart.nl");
-    },
-  },
-];
+/**
+ * Leeg: Brand New Start is gesloten (zie `disabled` in auth.ts), dus login en
+ * sidebar tonen weer het Recruitment Scout-logo. Nieuwe partner? Voeg hem hier toe.
+ */
+export const PARTNERS: PartnerBrand[] = [];
 
 export function partnerForEmail(email: string | null | undefined): PartnerBrand | null {
   if (!email) return null;

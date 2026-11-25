@@ -16,6 +16,8 @@ type Account = {
   passwordEnv: string;
   /** Alleen lokaal (next dev). In productie moet het wachtwoord in de env staan. */
   fallback: string;
+  /** Gesloten: inloggen kan niet en bestaande sessies vervallen direct. */
+  disabled?: boolean;
 };
 
 /**
@@ -37,6 +39,7 @@ const ACCOUNTS: Record<string, Account> = {
     role: "recruiter",
     passwordEnv: "RECRUITER_PASSWORD",
     fallback: "bns-demo",
+    disabled: true,
   },
   /** Publieke demo — sample data, geen BNS-branding of live sync. */
   "demo@blablabuild.com": {
@@ -114,7 +117,7 @@ export function authenticate(
 ): SessionUser | null {
   const key = normalizeEmail(email);
   const account = ACCOUNTS[key];
-  if (!account) return null;
+  if (!account || account.disabled) return null;
   const fromEnv = process.env[account.passwordEnv];
   const expected = fromEnv?.trim() ? fromEnv : devFallbacksAllowed() ? account.fallback : null;
   if (!expected) {
@@ -159,7 +162,7 @@ export async function verifySession(token: string | undefined): Promise<SessionU
     if (Date.now() - data.t > 30 * 24 * 60 * 60 * 1000) return null;
     const email = normalizeEmail(data.email);
     const role = ACCOUNTS[email]?.role || data.role || "recruiter";
-    if (!ACCOUNTS[email]) return null;
+    if (!ACCOUNTS[email] || ACCOUNTS[email]!.disabled) return null;
     const demoSlug =
       email === "demo@blablabuild.com" && typeof data.demoSlug === "string" && data.demoSlug.trim()
         ? data.demoSlug.trim().toLowerCase()
