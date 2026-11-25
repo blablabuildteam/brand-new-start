@@ -13,7 +13,7 @@ import { kansenHref } from "@/lib/desk-links";
 import { loadHuntSettings } from "@/lib/hunt";
 import { namedManagerFromVacancy } from "@/lib/org-context";
 import { isDemoUser } from "@/lib/demo-mode";
-import { demoHmSearch } from "@/lib/demo-workspace";
+import { demoHmSearch, demoScopeOf, hydrateDemo, persistDemo } from "@/lib/demo-workspace";
 
 export const maxDuration = 120;
 export const runtime = "nodejs";
@@ -39,7 +39,10 @@ export async function POST(req: Request) {
     const id = parsedDemo.success ? parsedDemo.data.crmId : undefined;
     if (!id) return NextResponse.json({ error: "Open een kans om de manager te zoeken." }, { status: 400 });
     await new Promise((r) => setTimeout(r, 1200));
-    const item = demoHmSearch(id, session.demoSlug);
+    const scope = demoScopeOf(session);
+    await hydrateDemo(scope);
+    const item = demoHmSearch(id, scope);
+    if (item) await persistDemo(scope);
     if (!item) return NextResponse.json({ error: "kans niet gevonden" }, { status: 404 });
     return NextResponse.json({
       ok: true,

@@ -8,7 +8,7 @@ import { recordSync } from "@/lib/sync-log";
 import { loadDeskMeta, saveDeskMeta, type HmGuessRow, type HmHitStored } from "@/lib/desk-meta";
 import { enrichByLinkedin, hasLushaKey, normalizeLinkedinProfile } from "@/lib/lusha";
 import { isDemoUser } from "@/lib/demo-mode";
-import { demoHmContact } from "@/lib/demo-workspace";
+import { demoHmContact, demoScopeOf, hydrateDemo, persistDemo } from "@/lib/demo-workspace";
 
 export const maxDuration = 30;
 
@@ -67,7 +67,10 @@ export async function POST(req: Request) {
 
   if (isDemoUser(session)) {
     await new Promise((r) => setTimeout(r, 900));
-    const item = demoHmContact(crmId, session.demoSlug);
+    const scope = demoScopeOf(session);
+    await hydrateDemo(scope);
+    const item = demoHmContact(crmId, scope);
+    if (item) await persistDemo(scope);
     if (!item) return NextResponse.json({ error: "Eerst een hiring manager zoeken." }, { status: 400 });
     return NextResponse.json({
       ok: true,

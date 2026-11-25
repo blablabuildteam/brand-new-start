@@ -14,6 +14,9 @@ import { buildProspectCrmItems } from "@/lib/demo-prospect-data";
 import { kansenHref, regieHref } from "@/lib/desk-links";
 import type { DeskAlert } from "@/lib/desk-meta";
 import { demoAiOutcome } from "@/lib/demo-ai";
+import { neon } from "@neondatabase/serverless";
+import { databaseUrl } from "@/lib/db/client";
+import { demoAnalyticsEnabled } from "@/lib/demo-analytics";
 
 type Review = { status: "confirmed" | "rejected"; clientName?: string };
 type StoredAi = { guess: ClientGuess; at: string; model?: string };
@@ -43,13 +46,29 @@ const SEED_REVIEWS: Record<string, Review> = {
   demo_spilberg_java: { status: "confirmed", clientName: "Adyen" },
 };
 
+function scopeKey(scope?: string | null) {
+  return scope?.trim().toLowerCase() || "public";
+}
+
+/** Sandbox-sleutel voor een sessie. Een admin-voorvertoning krijgt een eigen, losse sandbox. */
+export function demoScopeOf(session: { demoSlug?: string | null; demoPreview?: boolean } | null | undefined) {
+  const slug = session?.demoSlug?.trim().toLowerCase() || "public";
+  return session?.demoPreview ? `preview:${slug}` : slug;
+}
+
+/** De prospect-slug achter een sandbox-sleutel (zonder "preview:"). */
+function slugOfScope(scope?: string | null) {
+  return scope ? scope.replace(/^preview:/, "") : scope;
+}
+
 /**
  * Elke demo-link (slug) krijgt een eigen sandbox: wat prospect A bevestigt of laat zoeken,
- * ziet prospect B niet. Leeft in geheugen van de serverinstantie — genoeg voor een rondleiding.
+ * ziet prospect B niet. In geheugen voor snelheid; op productie ook in de database, zodat
+ * een tweede serverinstantie of een koude start de klikken van de bezoeker niet kwijtraakt.
  */
 function state(scope?: string | null): DemoState {
   if (!(g.__scoutDemoWs instanceof Map)) g.__scoutDemoWs = new Map();
-  const key = scope?.trim().toLowerCase() || "public";
+  const key = scopeKey(scope);
   const map = g.__scoutDemoWs;
   let s = map.get(key);
   if (s) {
@@ -68,6 +87,73 @@ function state(scope?: string | null): DemoState {
   s.readAlerts ||= [];
   map.set(key, s);
   return s;
+}
+
+/* ---------- Opslag in de database (alleen productie, geen voorvertoningen) ---------- */
+
+const gTable = globalThis as unknown as { __scoutDemoTable?: Promise<void> };
+
+function persistOn(scope?: string | null) {
+  const key = scopeKey(scope);
+  return Boolean(databaseUrl()) && demoAnalyticsEnabled() && !key.startsWith("preview:");
+}
+
+function ensureSandboxTable() {
+  if (!gTable.__scoutDemoTable) {
+    const sql = neon(databaseUrl());
+    gTable.__scoutDemoTable = sql`
+      CREATE TABLE IF NOT EXISTS demo_sandbox (
+        scope TEXT PRIMARY KEY,
+        state JSONB NOT NULL,
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      )
+    `.then(() => undefined);
+    gTable.__scoutDemoTable.catch(() => {
+      gTable.__scoutDemoTable = undefined;
+    });
+  }
+  return gTable.__scoutDemoTable;
+}
+
+/** Haal de laatste stand van deze sandbox op (vóór lezen of wijzigen). Faalt stil: dan geheugen. */
+export async function hydrateDemo(scope?: string | null) {
+  if (!persistOn(scope)) return;
+  try {
+    await ensureSandboxTable();
+    const sql = neon(databaseUrl());
+    const rows = (await sql`SELECT state FROM demo_sandbox WHERE scope = ${scopeKey(scope)} LIMIT 1`) as {
+      state: Partial<DemoState>;
+    }[];
+    const saved = rows[0]?.state;
+    if (!saved || typeof saved !== "object") return;
+    if (!(g.__scoutDemoWs instanceof Map)) g.__scoutDemoWs = new Map();
+    g.__scoutDemoWs.set(scopeKey(scope), {
+      reviews: saved.reviews || { ...SEED_REVIEWS },
+      ai: saved.ai || seedAi(),
+      miss: saved.miss || {},
+      crm: saved.crm || {},
+      readAlerts: saved.readAlerts || [],
+    });
+  } catch (err) {
+    console.error("demo sandbox laden", err);
+  }
+}
+
+/** Sla de sandbox op na een wijziging. Faalt stil: de bezoeker merkt hooguit later een reset. */
+export async function persistDemo(scope?: string | null) {
+  if (!persistOn(scope)) return;
+  try {
+    await ensureSandboxTable();
+    const sql = neon(databaseUrl());
+    const json = JSON.stringify(state(scope));
+    await sql`
+      INSERT INTO demo_sandbox (scope, state, updated_at)
+      VALUES (${scopeKey(scope)}, ${json}::jsonb, now())
+      ON CONFLICT (scope) DO UPDATE SET state = EXCLUDED.state, updated_at = now()
+    `;
+  } catch (err) {
+    console.error("demo sandbox opslaan", err);
+  }
 }
 
 /** Eén post is al door de AI gehaald, zodat "Bevestigen" bij binnenkomst iets laat zien. */
@@ -325,7 +411,7 @@ function confirmedFeedItems(scope?: string | null): CrmOpportunity[] {
 
 export function listDemoCrmItems(demoSlug?: string | null): CrmOpportunity[] {
   const fromFeed = confirmedFeedItems(demoSlug);
-  const prospect = getDemoProspect(demoSlug);
+  const prospect = getDemoProspect(slugOfScope(demoSlug));
   const base = prospect ? buildProspectCrmItems(prospect) : baseDemoCrmItems();
   const overlay = state(demoSlug).crm;
   return [...fromFeed, ...base].map((i) => (overlay[i.id] ? { ...i, ...overlay[i.id] } : i));
@@ -653,7 +739,7 @@ export function getDemoCrmPayload(demoSlug?: string | null) {
     },
     lusha: true,
     demoMode: true as const,
-    demoSlug: demoSlug || null,
+    demoSlug: slugOfScope(demoSlug) || null,
   };
 }
 

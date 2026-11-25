@@ -1,7 +1,7 @@
 import { getSession, type SessionUser } from "@/lib/auth";
 import { hasDatabase } from "@/lib/db/client";
 import { isDemoUser } from "@/lib/demo-mode";
-import { getDemoLeadsPayload, getDemoRadarPayload } from "@/lib/demo-workspace";
+import { demoScopeOf, getDemoLeadsPayload, getDemoRadarPayload, hydrateDemo } from "@/lib/demo-workspace";
 import { loadDeskMeta } from "@/lib/desk-meta";
 import { loadHuntSettings } from "@/lib/hunt";
 import { listAgencyLeads } from "@/lib/opportunity";
@@ -49,7 +49,11 @@ export function deskCacheHeaders() {
 /** Same JSON the browser gets from GET /api/leads. Dates become strings. */
 export async function readLeadsPayload(session?: SessionUser | null) {
   const user = session === undefined ? await getSession() : session;
-  if (isDemoUser(user)) return getDemoLeadsPayload(user?.demoSlug);
+  if (isDemoUser(user)) {
+    const scope = demoScopeOf(user);
+    await hydrateDemo(scope);
+    return getDemoLeadsPayload(scope);
+  }
 
   await loadHuntSettings();
   const [data, runs, meta] = await Promise.all([listAgencyLeads(), listSyncRuns(40), loadDeskMeta()]);

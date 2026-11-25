@@ -4,7 +4,7 @@ import { getSession } from "@/lib/auth";
 import { logFromSession } from "@/lib/activity-log";
 import { listActionQueue, listCrmDesk, setCrmStage } from "@/lib/crm";
 import { isDemoUser } from "@/lib/demo-mode";
-import { demoSetStage, getDemoCrmPayload } from "@/lib/demo-workspace";
+import { demoScopeOf, demoSetStage, getDemoCrmPayload, hydrateDemo, persistDemo } from "@/lib/demo-workspace";
 import { loadHuntSettings } from "@/lib/hunt";
 import { hasLushaKey } from "@/lib/lusha";
 import type { CrmStage } from "@/lib/desk-meta";
@@ -12,7 +12,11 @@ import type { CrmStage } from "@/lib/desk-meta";
 export async function GET() {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  if (isDemoUser(session)) return NextResponse.json(getDemoCrmPayload(session.demoSlug));
+  if (isDemoUser(session)) {
+    const scope = demoScopeOf(session);
+    await hydrateDemo(scope);
+    return NextResponse.json(getDemoCrmPayload(scope));
+  }
   await loadHuntSettings();
   const { items, backlog, results } = await listCrmDesk();
   const actionQueue = listActionQueue(items);
@@ -62,8 +66,11 @@ export async function POST(req: Request) {
   if (!parsed.success) return NextResponse.json({ error: "ongeldig" }, { status: 400 });
   if (isDemoUser(session)) {
     // Alleen in de sandbox van deze demo-link; live data blijft onaangeroerd.
-    const item = demoSetStage(parsed.data.id, parsed.data.stage as CrmStage, parsed.data.deal, session.demoSlug);
+    const scope = demoScopeOf(session);
+    await hydrateDemo(scope);
+    const item = demoSetStage(parsed.data.id, parsed.data.stage as CrmStage, parsed.data.deal, scope);
     if (!item) return NextResponse.json({ error: "niet gevonden" }, { status: 404 });
+    await persistDemo(scope);
     return NextResponse.json({ ok: true, item, demoMode: true });
   }
   const item = await setCrmStage(parsed.data.id, parsed.data.stage as CrmStage, {

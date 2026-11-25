@@ -7,7 +7,14 @@ import { hasWeb } from "@/lib/research/web";
 import { identifyLead } from "@/lib/lead-ai";
 import { isDemoUser } from "@/lib/demo-mode";
 import { demoAiOutcome, playDemoProgress } from "@/lib/demo-ai";
-import { listDemoLeads, saveDemoAiGuess, saveDemoAiMiss } from "@/lib/demo-workspace";
+import {
+  demoScopeOf,
+  hydrateDemo,
+  listDemoLeads,
+  persistDemo,
+  saveDemoAiGuess,
+  saveDemoAiMiss,
+} from "@/lib/demo-workspace";
 
 export const maxDuration = 300;
 export const runtime = "nodejs";
@@ -54,13 +61,16 @@ export async function POST(req: Request) {
 
   // Demo: vast voorbeeldresultaat met echte voortgang — geen API-kosten, wel het echte gevoel.
   if (isDemoUser(session)) {
-    const scope = session.demoSlug;
+    const scope = demoScopeOf(session);
+    await hydrateDemo(scope);
     const { id } = parsed.data;
     const current = listDemoLeads(scope).find((l) => l.id === id);
     if (!current) return NextResponse.json({ error: "niet gevonden" }, { status: 404 });
     return ndjsonResponse(async (send) => {
       await playDemoProgress((p) => send({ type: "progress", ...p }));
       const outcome = demoAiOutcome(id);
+      // Tijdens het zoeken kan de bezoeker elders iets hebben gewijzigd: eerst verse stand.
+      await hydrateDemo(scope);
       logFromSession(session, {
         level: "info",
         kind: "demo.lead.ai",
@@ -71,6 +81,7 @@ export async function POST(req: Request) {
       });
       if (outcome.kind === "hit") {
         const lead = saveDemoAiGuess(id, outcome.guess, "demo", scope);
+        await persistDemo(scope);
         send({
           type: "done",
           ok: true,
@@ -83,6 +94,7 @@ export async function POST(req: Request) {
         return;
       }
       const lead = saveDemoAiMiss(id, outcome.detail, outcome.notAssignment, scope);
+      await persistDemo(scope);
       send({ type: "done", ok: false, detail: outcome.detail, model: "demo", hasWeb: true, lead });
     });
   }

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { isDemoUser } from "@/lib/demo-mode";
-import { listDemoCrmItems } from "@/lib/demo-workspace";
+import { demoScopeOf, hydrateDemo, listDemoCrmItems } from "@/lib/demo-workspace";
 import { listRadar } from "@/lib/store";
 import { buildPlacement } from "@/lib/placement";
 import type { PlacementProposal } from "@/lib/placement";
@@ -72,7 +72,9 @@ export async function GET() {
   if (!session) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
   if (isDemoUser(session)) {
-    const items = listDemoCrmItems(session.demoSlug).filter(readyToMessage).map(deskFromCrm);
+    const scope = demoScopeOf(session);
+    await hydrateDemo(scope);
+    const items = listDemoCrmItems(scope).filter(readyToMessage).map(deskFromCrm);
     return NextResponse.json({ items, demo: true });
   }
 

@@ -3,7 +3,7 @@ import { z } from "zod";
 import { getSession } from "@/lib/auth";
 import { logFromSession } from "@/lib/activity-log";
 import { isDemoUser } from "@/lib/demo-mode";
-import { reviewDemoLead } from "@/lib/demo-workspace";
+import { demoScopeOf, hydrateDemo, persistDemo, reviewDemoLead } from "@/lib/demo-workspace";
 import { deskCacheHeaders, readLeadsPayload } from "@/lib/desk-payloads";
 import { loadHuntSettings } from "@/lib/hunt";
 import { reopenLead, reviewLead } from "@/lib/opportunity";
@@ -28,8 +28,11 @@ export async function POST(req: Request) {
   if (!parsed.success) return NextResponse.json({ error: "ongeldig" }, { status: 400 });
 
   if (isDemoUser(session)) {
-    const lead = reviewDemoLead(parsed.data.id, parsed.data.action, parsed.data.clientName, session.demoSlug);
+    const scope = demoScopeOf(session);
+    await hydrateDemo(scope);
+    const lead = reviewDemoLead(parsed.data.id, parsed.data.action, parsed.data.clientName, scope);
     if (!lead) return NextResponse.json({ error: "niet gevonden" }, { status: 404 });
+    await persistDemo(scope);
     logFromSession(session, {
       level: "info",
       kind: `demo.lead.${parsed.data.action}`,

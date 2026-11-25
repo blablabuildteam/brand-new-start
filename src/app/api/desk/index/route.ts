@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { listActionQueue, listCrmOpportunities } from "@/lib/crm";
 import { isDemoUser } from "@/lib/demo-mode";
-import { getDemoCrmPayload, listDemoLeads } from "@/lib/demo-workspace";
+import { demoScopeOf, getDemoCrmPayload, hydrateDemo, listDemoLeads } from "@/lib/demo-workspace";
 import { listAgencyLeads } from "@/lib/opportunity";
 import { listRadar } from "@/lib/store";
 
@@ -14,8 +14,10 @@ export async function GET() {
   if (!session) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
   if (isDemoUser(session)) {
-    const crm = getDemoCrmPayload(session.demoSlug);
-    const leads = listDemoLeads(session.demoSlug).filter((l) => l.status !== "rejected");
+    const scope = demoScopeOf(session);
+    await hydrateDemo(scope);
+    const crm = getDemoCrmPayload(scope);
+    const leads = listDemoLeads(scope).filter((l) => l.status !== "rejected");
     return NextResponse.json({
       actions: (crm.actionQueue || []).slice(0, 8).map((a) => ({
         id: a.id,
