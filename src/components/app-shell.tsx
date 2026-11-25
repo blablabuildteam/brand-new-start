@@ -276,6 +276,8 @@ export function AppShell({
 
   const partner = partnerForEmail(user?.email);
   const demo = isDemoEmail(user?.email);
+  // Demo volgt het verhaal: feed → Kansen → Bericht; Jobboards (leeg in de demo) achteraan.
+  const primaryNav = demo ? [...PRIMARY.slice(1), PRIMARY[0]!] : PRIMARY;
   const brandName = partner?.name ?? name;
   const brandTag = partner?.tagline ?? "Contracting";
 
@@ -324,7 +326,7 @@ export function AppShell({
         Workspace
       </p>
       <nav className="rail-nav mt-2 flex flex-col gap-0.5">
-        {PRIMARY.map((l) => (
+        {primaryNav.map((l) => (
             <Link
               key={l.id}
               href={l.href}
@@ -555,7 +557,7 @@ export function AppShell({
           className="app-mobile-nav fixed inset-x-0 bottom-0 z-40 grid grid-cols-4 border-t border-[var(--line)] md:hidden"
           aria-label="Workspace"
         >
-          {PRIMARY.map((l) => {
+          {primaryNav.map((l) => {
             const on = current === l.id;
             return (
               <Link

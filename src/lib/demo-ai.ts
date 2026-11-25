@@ -100,7 +100,7 @@ const OUTCOMES: Record<string, DemoAiOutcome> = {
     name: "Alliander",
     confidence: 84,
     summary: "Zelfde stack (Azure/AKS, Terraform, Keycloak) en dezelfde looptijd als een eigen vacature van de netbeheerder.",
-    check: "Vraag Quinten of het team onder ‘Digital Security’ valt — dan zit je goed.",
+    check: "vraag Quinten of het team onder ‘Digital Security’ valt — dan zit je goed.",
     evidence: [
       { label: "Stack in de post", quote: "Azure, Kubernetes (AKS), Terraform, CI/CD … Keycloak", weight: 55, origin: "post" },
       { label: "Eigen vacature eindklant met dezelfde IAM-toolkit", weight: 80, origin: "web" },
@@ -118,8 +118,9 @@ const OUTCOMES: Record<string, DemoAiOutcome> = {
     name: "Booking.com",
     confidence: 88,
     summary: "Computer Futures + ‘Diemen’ + ‘large international tech company’ — hetzelfde patroon als hun andere Booking-opdrachten.",
-    check: "Check of het programma onder Data Governance of onder L&D valt; dat bepaalt de hiring manager.",
+    check: "valt het programma onder Data Governance of onder L&D? Dat bepaalt wie de hiring manager is.",
     evidence: [
+      { label: "Omschrijving van de klant", quote: "large international company in Amsterdam", weight: 35, origin: "post" },
       { label: "Locatie in de post", quote: "Location listed: Diemen", weight: 50, origin: "post" },
       { label: "Zelfde bureau plaatst Booking-rollen met codes als ‘SE2’", weight: 75, origin: "history" },
       { label: "Data & AI Literacy-programma publiek aangekondigd", weight: 70, origin: "web" },
@@ -132,9 +133,10 @@ const OUTCOMES: Record<string, DemoAiOutcome> = {
     name: "thyssenkrupp Materials Services",
     confidence: 58,
     summary: "Industrie in NRW met een lopende S/4HANA-conversie — past, maar er zijn meer kandidaten.",
-    check: "Twijfelgeval: vraag Nathan naar de branche of de start in januari voordat je de manager zoekt.",
+    check: "twijfelgeval — vraag Nathan naar de branche of de start in januari voordat je de manager zoekt.",
     evidence: [
       { label: "Regio + sector in de post", quote: "Kunden aus der Industrie … Hybrid-Einsatz in NRW", weight: 45, origin: "post" },
+      { label: "Lopend programma", quote: "S/4HANA Conversion", weight: 30, origin: "post" },
       { label: "Publieke S/4HANA-conversie bij deze klant", weight: 55, origin: "web" },
     ],
     alternatives: [

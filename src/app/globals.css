@@ -632,6 +632,12 @@ button:focus-visible {
   color: var(--muted);
   font-size: 0.72rem;
 }
+/* Op een telefoon is de titel genoeg; de bijzin rechts duwde hem over drie regels. */
+@media (max-width: 640px) {
+  .ws-fold > summary .ws-fold__meta {
+    display: none;
+  }
+}
 
 .ws-fold__body {
   border-top: 1px solid var(--line);
@@ -1158,6 +1164,7 @@ button.radar-opp[aria-current="true"]:hover:not(:disabled) {
 .kans-row__when-main {
   font-size: 0.74rem;
   font-weight: 600;
+  white-space: nowrap;
   line-height: 1.25;
   color: var(--ink);
 }
@@ -1562,6 +1569,57 @@ button.radar-opp[aria-current="true"]:hover:not(:disabled) {
   .kans-row__src,
   .kans-row__hm {
     display: none;
+  }
+}
+
+/* Telefoon: naam krijgt de volle breedte, datum eronder, volgende stap rechts. */
+@media (max-width: 640px) {
+  .kans-head {
+    display: none;
+  }
+  .kans-row {
+    grid-template-columns: 1.1rem minmax(0, 1fr) auto;
+    grid-template-areas:
+      "check who who"
+      ". when side";
+    gap: 0.35rem 0.6rem;
+    padding: 0.7rem 0.85rem;
+  }
+  .kans-row__check {
+    grid-area: check;
+  }
+  .kans-row__who {
+    grid-area: who;
+  }
+  .kans-row__when {
+    grid-area: when;
+    flex-direction: row;
+    gap: 0.4rem;
+    align-items: baseline;
+  }
+  .kans-row__side {
+    grid-area: side;
+    align-self: center;
+    justify-self: end;
+  }
+  /* "Stap 2 · Manager" staat al in de knop; op een telefoon is ruimte voor de naam belangrijker. */
+  .kans-row__step {
+    display: none;
+  }
+}
+
+/* Tabs mogen op een smal scherm horizontaal scrollen in plaats van buiten beeld te vallen. */
+@media (max-width: 640px) {
+  .lead-seg {
+    max-width: 100%;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .lead-seg::-webkit-scrollbar {
+    display: none;
+  }
+  .lead-seg__btn {
+    flex-shrink: 0;
   }
 }
 
@@ -3304,6 +3362,62 @@ button.radar-opp[aria-current="true"]:hover:not(:disabled) {
   font-size: 0.92rem;
   font-weight: 500;
   line-height: 1.45;
+  color: var(--ink);
+}
+.lead-post {
+  margin-top: 0.85rem;
+  padding: 0.6rem 0.75rem;
+  border-left: 3px solid var(--line);
+  background: var(--surface-2, var(--bg));
+  border-radius: 0 var(--radius) var(--radius) 0;
+}
+.lead-post__label {
+  margin: 0 0 0.3rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.lead-post__hint {
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  font-size: 0.7rem;
+}
+.lead-post__text {
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.55;
+  color: var(--ink);
+}
+.lead-post__text--clamp {
+  display: -webkit-box;
+  -webkit-line-clamp: 5;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.lead-post__text mark {
+  background: color-mix(in srgb, var(--signal) 70%, transparent);
+  color: inherit;
+  padding: 0 0.12em;
+  border-radius: 2px;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+.lead-post__more {
+  margin-top: 0.3rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--muted);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.lead-post__more:hover {
   color: var(--ink);
 }
 .lead-detail__links {
@@ -6452,3 +6566,48 @@ body:has(.desk-home--scout) {
   }
 }
 
+
+/*
+ * Responsief verbergen moet altijd winnen. Tailwind 4 zet utilities in een CSS-laag;
+ * onze eigen (laagloze) klassen zoals `.lead-toolbar { display: flex }` wonnen daardoor
+ * van `max-lg:hidden` — op mobiel bleven lijst en detail dan allebei staan.
+ */
+@media (max-width: 63.999rem) {
+  [class~="max-lg:hidden"] {
+    display: none !important;
+  }
+}
+@media (min-width: 64rem) {
+  [class~="lg:hidden"] {
+    display: none !important;
+  }
+}
+@media (min-width: 48rem) {
+  [class~="md:hidden"] {
+    display: none !important;
+  }
+}
+
+/*
+ * Telefoon: geen vaste schermhoogte met scrollende panelen erin (dan blijft er een
+ * strookje van ±200px over voor de lijst), maar gewoon één doorlopende pagina.
+ */
+@media (max-width: 47.999rem) {
+  .app-body {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  .app-body .ws-shell,
+  .app-body .radar-scroll-pane,
+  .app-body .radar-scroll-pane__body,
+  .app-body .ws-panel--scroll {
+    flex: none;
+    min-height: auto;
+    height: auto;
+    max-height: none;
+    overflow: visible;
+  }
+  .app-body .ws-shell > * {
+    flex-shrink: 0;
+  }
+}

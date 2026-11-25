@@ -83,6 +83,7 @@ const DEMO_API_PASS = new Set([
   "/api/leads/ai-guess",
   "/api/leads/hm-search",
   "/api/leads/hm-contact",
+  "/api/alerts",
   "/api/crm",
   "/api/sync",
   "/api/settings",
@@ -95,7 +96,6 @@ const DEMO_API_PASS = new Set([
 
 /** Leeg maar geldig voor de UI — de demo ziet nooit live meldingen of lucky shots. */
 const DEMO_API_EMPTY: Record<string, unknown> = {
-  "/api/alerts": { alerts: [], unread: 0 },
   "/api/radar/lucky": {
     shots: [],
     tracked: 0,

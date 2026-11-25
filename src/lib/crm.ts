@@ -123,9 +123,9 @@ function freshnessOf(foundAt: string | null, lastSeenAt: string | null): {
     : false;
   if (!ref) return { freshness: "onbekend", freshnessLabel: "Onbekend", stillLive };
   const ageH = (Date.now() - new Date(ref).getTime()) / 3600000;
-  if (ageH < 24) return { freshness: "vers", freshnessLabel: "Nieuw · <24u", stillLive };
-  if (ageH < 72) return { freshness: "actueel", freshnessLabel: "Gevonden <3 dagen", stillLive };
-  if (ageH < 240) return { freshness: "actueel", freshnessLabel: "Gevonden <10 dagen", stillLive };
+  if (ageH < 24) return { freshness: "vers", freshnessLabel: "Vandaag", stillLive };
+  if (ageH < 72) return { freshness: "actueel", freshnessLabel: "< 3 dagen", stillLive };
+  if (ageH < 240) return { freshness: "actueel", freshnessLabel: "< 10 dagen", stillLive };
   const days = Math.floor(ageH / 24);
   return {
     freshness: "ouder",

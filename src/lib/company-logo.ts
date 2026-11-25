@@ -45,8 +45,26 @@ export function logoFromSignals(
 }
 
 /** Guess a logo via Clearbit from a cleaned company name (.nl then .com). */
+/** Omschrijvingen i.p.v. merknamen ("Bank", "Zorggroep in Utrecht") — daar valt geen logo bij te raden. */
+const GENERIC_WORDS =
+  /^(bank|gemeente|provincie|overheid|overheidsdienst|agentschap|ministerie|verzekeraar|zorgverzekeraar|zorggroep|ziekenhuis|netbeheerder|telco|industrie|e-?commerce|retail|retailketen|logistiek|logistiek concern|scale-?up|tech scale-?up|saas|fintech|dienstverlener|publieke omroep|onderwijsinstelling|energiebedrijf|nl|nederland)$/i;
+
+function looksGeneric(name: string) {
+  const n = name.trim().replace(/\s+/g, " ");
+  if (/\s(bij|in|uit)\s/i.test(n) || n.includes("·")) return true;
+  if (n.split(" ").length > 3) return true;
+  const words = n.split(" ");
+  if (words.every((w) => GENERIC_WORDS.test(w)) || GENERIC_WORDS.test(n)) return true;
+  // "Fintech Amsterdam", "Tech scale-up Maarssen": omschrijving + plaats.
+  const head = words.slice(0, -1);
+  return head.length > 0 && (head.every((w) => GENERIC_WORDS.test(w)) || GENERIC_WORDS.test(head.join(" ")));
+}
+
 export function guessCompanyLogo(companyName: string | null | undefined): string | null {
-  if (!companyName) return null;
+  if (!companyName || looksGeneric(companyName)) return null;
+  // Naam ís al een domein ("Booking.com").
+  const domain = companyName.trim().toLowerCase().match(/^[a-z0-9-]+\.(?:com|nl|io|eu|org|net)$/)?.[0];
+  if (domain) return `https://logo.clearbit.com/${domain}`;
   const base = companyName
     .toLowerCase()
     .normalize("NFD")

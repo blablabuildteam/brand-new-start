@@ -132,24 +132,28 @@ export function DemoProspectChrome({
               {prospect.agencyName}
             </span>
           )}
-          <p className="min-w-0 flex-1 text-[0.8rem] leading-snug text-[var(--ink)]">
-            <strong className="font-semibold">Demo voor {prospect.agencyName}</strong>
-            <span className="text-[var(--muted)]">
-              {" · "}voorbeelddata{prospect.niche ? ` (${prospect.niche})` : ""} · alles is klikbaar, er gaat niets naar buiten
-            </span>
-          </p>
-          <div className="flex shrink-0 flex-wrap gap-1.5">
-            <button type="button" className="btn-tool text-[0.72rem]" onClick={() => reopenDemoEntry()}>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-[0.8rem] font-semibold leading-snug text-[var(--ink)]">
+              Demo voor {prospect.agencyName}
+            </p>
+            <p className="truncate text-[0.72rem] leading-snug text-[var(--muted)]">
+              Voorbeelddata
+              <span className="hidden lg:inline">{prospect.niche ? ` (${prospect.niche})` : ""}</span>
+              {" · "}alles is klikbaar, er gaat niets naar buiten
+            </p>
+          </div>
+          <div className="grid w-full grid-cols-3 gap-1.5 md:flex md:w-auto md:shrink-0">
+            <button type="button" className="btn-tool justify-center text-[0.72rem]" onClick={() => reopenDemoEntry()}>
               Wat is dit?
             </button>
-            <button type="button" className="btn-tool text-[0.72rem]" onClick={() => startDemoTour()}>
+            <button type="button" className="btn-tool justify-center text-[0.72rem]" onClick={() => startDemoTour()}>
               Rondleiding
             </button>
             <a
               href={calendarUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="btn-ink btn-tool no-underline text-[0.72rem]"
+              className="btn-ink btn-tool justify-center no-underline text-[0.72rem]"
             >
               Plan 15 min
             </a>
@@ -192,8 +196,8 @@ export function DemoProspectChrome({
             className="pointer-events-auto flex max-w-sm items-center gap-2 rounded-[var(--radius)] border bg-[var(--surface)] py-2 pl-3 pr-1.5 shadow-[0_8px_24px_rgba(0,0,0,0.08)]"
             style={{ borderColor: accent }}
           >
-            <p className="text-[0.75rem] text-[var(--ink)]">
-              Past dit bij hoe jullie werken? Plan 15 minuten met Kevin.
+            <p className="text-[0.75rem] leading-snug text-[var(--ink)]">
+              Past dit bij jullie?<span className="hidden sm:inline"> Plan 15 minuten met Kevin.</span>
             </p>
             <a
               href={calendarUrl}

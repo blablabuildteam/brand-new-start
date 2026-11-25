@@ -563,6 +563,72 @@ function VacancyLinks({ lead }: { lead: AgencyLead }) {
   );
 }
 
+/** Stukjes uit de post die de AI als aanwijzing gebruikte — die markeren we in de tekst. */
+function postNeedles(lead: AgencyLead) {
+  const fromEvidence = (lead.guess?.evidence || [])
+    .filter((e) => e.origin === "post" && e.quote)
+    .flatMap((e) => e.quote!.split(/…|\.\.\./))
+    .map((q) => q.replace(/[“”"]/g, "").replace(/\s+/g, " ").trim())
+    .filter((q) => q.length >= 3);
+  return [...fromEvidence, ...lead.facts.stack, ...(lead.facts.location ? [lead.facts.location] : [])];
+}
+
+function highlight(text: string, needles: string[]) {
+  const lower = text.toLowerCase();
+  const ranges: [number, number][] = [];
+  for (const n of needles) {
+    const q = n.toLowerCase();
+    let from = 0;
+    while (q && from < lower.length) {
+      const at = lower.indexOf(q, from);
+      if (at < 0) break;
+      const before = lower[at - 1] || " ";
+      const after = lower[at + q.length] || " ";
+      // Hele woorden voor korte termen ("SAP" niet in "ASAP").
+      if (q.length > 12 || (!/[a-z0-9]/.test(before) && !/[a-z0-9]/.test(after))) ranges.push([at, at + q.length]);
+      from = at + q.length;
+    }
+  }
+  ranges.sort((a, b) => a[0] - b[0]);
+  const merged: [number, number][] = [];
+  for (const r of ranges) {
+    const last = merged[merged.length - 1];
+    if (last && r[0] <= last[1]) last[1] = Math.max(last[1], r[1]);
+    else merged.push([...r]);
+  }
+  const out: React.ReactNode[] = [];
+  let pos = 0;
+  merged.forEach(([a, b], i) => {
+    if (a > pos) out.push(text.slice(pos, a));
+    out.push(<mark key={i}>{text.slice(a, b)}</mark>);
+    pos = b;
+  });
+  if (pos < text.length) out.push(text.slice(pos));
+  return { nodes: out, hits: merged.length };
+}
+
+function PostExcerpt({ lead }: { lead: AgencyLead }) {
+  const [open, setOpen] = useState(false);
+  const text = plainLinkedIn(lead.summary || "").replace(/\s+/g, " ").trim();
+  if (text.length < 40) return null;
+  const { nodes, hits } = highlight(text, postNeedles(lead));
+  const long = text.length > 320;
+  return (
+    <div className="lead-post">
+      <p className="lead-post__label">
+        De post
+        {hits ? <span className="lead-post__hint">gemarkeerd = aanwijzingen voor de eindklant</span> : null}
+      </p>
+      <p className={`lead-post__text ${long && !open ? "lead-post__text--clamp" : ""}`}>{nodes}</p>
+      {long ? (
+        <button type="button" className="lead-post__more" onClick={() => setOpen((v) => !v)}>
+          {open ? "Minder tonen" : "Hele post lezen"}
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
 function LeadDetail({
   lead,
   busy,
@@ -619,8 +685,9 @@ function LeadDetail({
       </p>
       <h2 className="lead-detail__title">{lead.title}</h2>
       <VacancyLinks lead={lead} />
+      <PostExcerpt key={lead.id} lead={lead} />
       <div className="mt-3 flex flex-wrap items-center gap-2">
-        <span className={`text-sm font-semibold ${client ? "text-[var(--ink)]" : "text-[var(--muted)]"}`}>
+        <span className={`font-semibold ${client ? "text-[1.05rem] text-[var(--ink)]" : "text-sm text-[var(--muted)]"}`}>
           {client || "Opdrachtgever onbekend"}
         </span>
         {conf != null ? (
@@ -676,8 +743,17 @@ function LeadDetail({
             {confirming ? <BtnSpinner /> : null}
             {confirming ? "Bevestigen" : "Bevestig → Kansen"}
           </button>
-          <button type="button" disabled={researchLock} onClick={() => onAiGuess(lead.id, "standard")} className="btn-ghost btn-tool">
-            {aiBusy ? "…" : `AI · ${eurRange(SYNC_COST_PER_RUN.actions["ai-research"].eur)}`}
+          <button
+            type="button"
+            disabled={researchLock}
+            onClick={() => onAiGuess(lead.id, "standard")}
+            className="btn-ghost btn-tool"
+            title={`Kost ca. ${eurRange(SYNC_COST_PER_RUN.actions["ai-research"].eur)} per zoekronde`}
+          >
+            {aiBusy ? "Zoeken…" : lead.guess ? "Opnieuw zoeken" : "AI zoeken"}
+            {aiBusy ? null : (
+              <span className="text-[var(--muted)]"> · {eurRange(SYNC_COST_PER_RUN.actions["ai-research"].eur)}</span>
+            )}
           </button>
           <DismissButton
             disabled={busy || aiBusy}

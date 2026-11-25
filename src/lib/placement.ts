@@ -224,7 +224,7 @@ export function buildPlacement(input: PlacementInput): PlacementProposal {
   const hmMessage = named
     ? `${greet},
 
-Ik zag jullie opdracht “${input.openingTitle}” bij ${input.company}. Ik heb drie ZZP’ers die hier direct op aansluiten en ${start} kunnen starten:
+Ik zag dat jullie iemand zoeken voor “${input.openingTitle}”. Ik heb drie ZZP’ers die hier direct op aansluiten en ${start} kunnen starten:
 
 ${named}
 
@@ -232,7 +232,7 @@ Zij zitten bij ons klaar — ik stuur cv’s na een kort ja. Past een belafspraa
 `
     : `${greet},
 
-Ik zag jullie opdracht “${input.openingTitle}” bij ${input.company}. Wij hebben ZZP’ers in deze hoek (${input.roleLabel}) die ${start} kunnen starten.
+Ik zag dat jullie iemand zoeken voor “${input.openingTitle}”. Wij hebben ZZP’ers in deze hoek (${input.roleLabel}) die ${start} kunnen starten.
 
 Heb je 15 minuten om te kijken of we matchen? Dan stuur ik gerichte cv’s.
 `;

@@ -315,16 +315,22 @@ export function extractVacancyFacts(text: string): VacancyFacts {
     )?.[0] ||
     t.match(/(?:standplaats|locatie|gevestigd in|kantoor in)\s*[:\-]?\s*([A-ZÁÉÍÓÚ][A-Za-zÀ-ÿ\-]{2,24}(?:\s+[A-ZÁÉÍÓÚ][A-Za-zÀ-ÿ\-]{2,24}){0,2})/)?.[1] ||
     null;
+  const labeled = t.match(/\b(?:start(?:\s*date|datum)?|ingang)\s*[:\-]?\s*([^\n.,]{3,40})/i)?.[1]?.trim();
   const start =
-    t.match(/(?:start|startdatum|ingang)\s*[:\-]?\s*([^\n.,]{3,40})/i)?.[1] ||
-    t.match(/\b(1 oktober|per direct|asap|per \d{1,2} \w+)\b/i)?.[0] ||
+    (labeled && /^[\p{L}\d]/u.test(labeled) ? labeled : null) ||
+    t.match(/\b(z\.s\.m\.?|zsm|per direct|asap|per \d{1,2} \w+|\d{1,2} (?:januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december))(?![\p{L}])/iu)?.[0] ||
     null;
   const duration =
     t.match(/(?:duur|looptijd|periode)\s*[:\-]?\s*([^\n.,]{3,40})/i)?.[1] ||
     t.match(/\b(\d{1,2}\s*(?:maanden|weken))\b/i)?.[0] ||
     null;
   const hours = t.match(/\b(\d{2}\s*uur(?:\s*p\/?w(?:eek)?)?)\b/i)?.[0] || null;
-  const stack = STACK.filter((s) => hay(t).includes(s.toLowerCase()));
+  // Hele woorden: anders wordt "ASAP" als SAP en "laws" als AWS gelezen.
+  const h = hay(t);
+  const stack = STACK.filter((s) => {
+    const term = s.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    return new RegExp(`(^|[^a-z0-9])${term}([^a-z0-9]|$)`).test(h);
+  });
   return {
     location: loc?.trim().slice(0, 48) || null,
     start: start?.trim().slice(0, 48) || null,

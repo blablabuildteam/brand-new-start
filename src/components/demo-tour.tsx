@@ -193,13 +193,13 @@ export function DemoTour({
       aria-label="Demo-rondleiding"
     >
       <div
-        className="pointer-events-auto w-full max-w-sm rounded-[var(--radius)] border bg-[var(--surface)] p-3.5 shadow-[0_12px_40px_rgba(0,0,0,0.14)]"
+        className="pointer-events-auto w-full max-w-sm rounded-[var(--radius)] border bg-[var(--surface)] p-3 shadow-[0_12px_40px_rgba(0,0,0,0.14)] md:p-3.5"
         style={{ borderColor: accent }}
       >
         <div className="mb-1.5 flex items-start justify-between gap-2">
           <div className="min-w-0">
             <p className="text-[0.65rem] font-semibold uppercase tracking-[0.1em] text-[var(--muted)]">
-              Rondleiding · {agencyName} · {step + 1}/{STEPS.length}
+              Rondleiding<span className="hidden md:inline"> · {agencyName}</span> · {step + 1}/{STEPS.length}
             </p>
             <h2 className="mt-0.5 text-[0.95rem] font-semibold text-[var(--ink)]">{cur.title}</h2>
           </div>
@@ -223,7 +223,7 @@ export function DemoTour({
             </button>
           </div>
         </div>
-        <p className="text-[0.82rem] leading-snug text-[var(--muted)]">{cur.text}</p>
+        <p className="text-[0.8rem] leading-snug text-[var(--muted)] md:text-[0.82rem]">{cur.text}</p>
         {cur.tryIt && !elsewhere ? (
           <p
             className="mt-2 rounded-md px-2.5 py-1.5 text-[0.8rem] leading-snug text-[var(--ink)]"
@@ -265,7 +265,13 @@ export function DemoTour({
               </>
             ) : (
               <button type="button" className="btn-ink btn-tool text-[0.75rem]" onClick={next}>
-                {elsewhere ? `Ga naar ${cur.title}` : `Volgende: ${STEPS[step + 1]!.title}`}
+                {elsewhere ? (
+                  `Ga naar ${cur.title}`
+                ) : (
+                  <>
+                    Volgende<span className="hidden md:inline">: {STEPS[step + 1]!.title}</span>
+                  </>
+                )}
               </button>
             )}
           </div>

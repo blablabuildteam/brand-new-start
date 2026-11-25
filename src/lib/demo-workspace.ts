@@ -11,7 +11,8 @@ import { SYNC_COST_PER_RUN, SYNC_LOCK_HOURS } from "@/lib/costs";
 import type { SyncDeskSource } from "@/lib/sync-desk";
 import { getDemoProspect } from "@/lib/demo-prospects";
 import { buildProspectCrmItems } from "@/lib/demo-prospect-data";
-import { regieHref } from "@/lib/desk-links";
+import { kansenHref, regieHref } from "@/lib/desk-links";
+import type { DeskAlert } from "@/lib/desk-meta";
 import { demoAiOutcome } from "@/lib/demo-ai";
 
 type Review = { status: "confirmed" | "rejected"; clientName?: string };
@@ -25,6 +26,8 @@ type DemoState = {
   miss: Record<string, StoredMiss>;
   /** Wijzigingen die de bezoeker op Kansen maakte (manager, mail/tel, stage). */
   crm: Record<string, Partial<CrmOpportunity>>;
+  /** Gelezen demo-meldingen. */
+  readAlerts: string[];
 };
 
 const g = globalThis as unknown as { __scoutDemoWs?: Map<string, DemoState> };
@@ -53,7 +56,7 @@ function state(scope?: string | null): DemoState {
     // LRU: recent gebruikt achteraan.
     map.delete(key);
   } else {
-    s = { reviews: { ...SEED_REVIEWS }, ai: seedAi(), miss: {}, crm: {} };
+    s = { reviews: { ...SEED_REVIEWS }, ai: seedAi(), miss: {}, crm: {}, readAlerts: [] };
     if (map.size >= MAX_SCOPES) {
       const oldest = map.keys().next().value;
       if (oldest !== undefined) map.delete(oldest);
@@ -62,6 +65,7 @@ function state(scope?: string | null): DemoState {
   // Oudere sandbox (na een deploy/hot-reload) mist soms velden.
   s.miss ||= {};
   s.crm ||= {};
+  s.readAlerts ||= [];
   map.set(key, s);
   return s;
 }
@@ -272,7 +276,7 @@ function demoCrmItem(
     bronDetail: partial.agencyName || null,
     lastSeenAt: foundAt,
     freshness: "actueel",
-    freshnessLabel: "Gevonden <10 dagen",
+    freshnessLabel: "< 10 dagen",
     confirmedAt: foundAt,
     href: regieHref({ companyId: partial.id, openingId: partial.id }),
     companyId: null,
@@ -695,4 +699,65 @@ export function saveDemoAiMiss(
 
 export function demoLeadStatus(id: string, scope?: string | null): LeadStatus | null {
   return listDemoLeads(scope).find((l) => l.id === id)?.status ?? null;
+}
+
+function hoursAgo(n: number) {
+  return new Date(Date.now() - n * 3_600_000).toISOString();
+}
+
+/** Voorbeeldmeldingen zodat de bel laat zien wat Scout op de achtergrond oppikt. */
+export function getDemoAlerts(scope?: string | null): { alerts: DeskAlert[]; unread: number } {
+  const s = state(scope);
+  const withHm = listDemoCrmItems(scope).find((i) => i.hiringManager && i.stage === "hm");
+  const base: DeskAlert[] = [
+    {
+      id: "demo_alert_ai",
+      at: hoursAgo(1),
+      kind: "confirm",
+      title: "AI vond een eindklant — bevestig je hem?",
+      body: "Data & AI Literacy Governance Specialist (SThree) → Booking.com · 88%",
+      href: "/leads",
+      read: false,
+    },
+    {
+      id: "demo_alert_post",
+      at: hoursAgo(3),
+      kind: "hot",
+      title: "Nieuwe post van een bureau dat je volgt",
+      body: "Freelance Cloud Engineer — IAM & security · Vibe Group · klant nog onbekend",
+      href: "/leads",
+      read: false,
+    },
+    ...(withHm
+      ? [
+          {
+            id: "demo_alert_hm",
+            at: hoursAgo(20),
+            kind: "hm" as const,
+            title: "Hiring manager gevonden",
+            body: `${withHm.hiringManager} · ${withHm.endClient} — haal mail/tel op`,
+            href: kansenHref(withHm.id),
+            read: false,
+          },
+        ]
+      : []),
+    {
+      id: "demo_alert_sync",
+      at: hoursAgo(26),
+      kind: "sync",
+      title: "Recruiter-feeds bijgewerkt",
+      body: "9 posts bekeken bij 4 bureaus · 2 nieuwe opdrachten",
+      href: "/leads",
+      read: true,
+    },
+  ];
+  const alerts = base.map((a) => (s.readAlerts.includes(a.id) ? { ...a, read: true } : a));
+  return { alerts, unread: alerts.filter((a) => !a.read).length };
+}
+
+export function markDemoAlertsRead(scope: string | null | undefined, ids?: string[]) {
+  const s = state(scope);
+  const all = getDemoAlerts(scope).alerts.map((a) => a.id);
+  s.readAlerts = [...new Set([...s.readAlerts, ...(ids || all)])];
+  return getDemoAlerts(scope);
 }
