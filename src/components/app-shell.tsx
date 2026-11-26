@@ -393,12 +393,12 @@ export function AppShell({
           <>
             <Link
               href="/admin/demos"
-              data-rail="Demo's"
+              data-rail="Demo-activiteit"
               onClick={() => setOpen(false)}
               className={navClass(current === "demos")}
             >
               <SideIcon kind="ops" on={current === "demos"} />
-              <span className="rail-label">Demo&apos;s</span>
+              <span className="rail-label">Demo-activiteit</span>
             </Link>
             <Link
               href="/ops"
